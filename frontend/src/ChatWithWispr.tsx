@@ -2,199 +2,314 @@
 import React, { useState, useRef } from "react";
 import type { FormEvent, KeyboardEvent } from "react";
 
-type MsgType = "user_spanish" | "translation_check" | "corrected" | "explanation" | "reply" | "reply_english" | "status";
-type ChatMessage = { id: string; type: MsgType; text: string };
+/**
+ * ChatWithWispr.tsx
+ * - Per-sentence pairs (native on top, learning on bottom)
+ * - Fluent/native language + learning language stored in component state
+ * - Toggles to hide native or learning text (bubbles still clickable to play audio)
+ * - Works with backend endpoints:
+ *    POST /api/transcript  -> returns { turn_id, user_pairs: [{ native, learning }] }
+ *    POST /api/confirm     -> returns { turn_id, corrected_pairs, reply_pairs, correction_explanation, audio_base64 per pair ... }
+ */
+
+type LangSpec = { code: string; name: string };
+
+type SentencePair = {
+  id: string; // unique per sentence
+  native: string; // fluent language text (top)
+  learning: string; // target language text (bottom)
+  audio_base64?: string | null; // optional per-sentence audio (base64)
+};
+
+type Message =
+  | { kind: "translation_check"; turnId: string; joinedEnglish: string; userPairs: SentencePair[] }
+  | { kind: "pair"; turnId: string; side: "user" | "reply"; pair: SentencePair }
+  | { kind: "explanation"; turnId?: string; text: string }
+  | { kind: "status"; text: string };
 
 const generateId = () => Math.random().toString(36).slice(2, 9);
+const VITE_MOCK_MODE = Boolean(import.meta.env.VITE_MOCK_MODE);
 
 export default function ChatWithWispr({
   apiBase = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000",
 }: { apiBase?: string }) {
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  // --- session languages (default) ---
+  const [fluentLanguage] = useState<LangSpec>({ code: "en", name: "English" }); // top
+  const [learningLanguage] = useState<LangSpec>({ code: "es", name: "Spanish" }); // bottom
+
+  const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState<string>("");
-  const [loading, setLoading] = useState<boolean>(false);
-  const [awaitingConfirm, setAwaitingConfirm] = useState<boolean>(false);
+  const [loading, setLoading] = useState(false);
+  const [awaitingConfirm, setAwaitingConfirm] = useState(false);
+
+  // toggles for hiding/showing
+  const [showNative, setShowNative] = useState(true);
+  const [showLearning, setShowLearning] = useState(true);
+  const [showExplanations, setShowExplanations] = useState(true);
+
   const sessionIdRef = useRef<string>(generateId());
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
 
-  const pushMsg = (m: Omit<ChatMessage, "id">) => {
-    setMessages((s) => [...s, { id: Date.now().toString() + Math.random().toString(36).slice(2, 6), ...m }]);
-  };
+  // --- helpers ---
+  function pushMessage(m: Message) {
+    setMessages((s) => [...s, m]);
+  }
+  function replaceMessagesWithTurn(turnId: string, newMessages: Message[]) {
+    setMessages((all) => {
+      // remove any existing messages for this turn that are translation_check or pair (pending)
+      const filtered = all.filter((m) => {
+        if ((m as any).turnId && (m as any).turnId === turnId) {
+          // drop translation_check and pair for this turn; keep explanation if present (we'll append new explanation)
+          return m.kind === "explanation";
+        }
+        return true;
+      });
+      return [...filtered, ...newMessages];
+    });
+  }
 
-  // Very simple heuristic: if it contains obvious Spanish characters or common Spanish words, assume Spanish.
-  // Otherwise treat as English. This is fast and avoids an extra API call; you can replace with a library later.
-  function isProbablySpanish(text: string) {
+  // Very simple heuristic to detect Spanish/learning language (accented letters or common words).
+  function isProbablyLearning(text: string) {
     if (!text.trim()) return false;
     const lower = text.toLowerCase();
-    const spanishLetters = /[áéíóúñ¿¡]/;
-    if (spanishLetters.test(lower)) return true;
-    const spanishWords = ["que", "por", "para", "hola", "gracias", "buen", "quiero", "reservar", "mesa", "cómo", "dónde", "mañana"];
-    for (const w of spanishWords) if (new RegExp(`\\b${w}\\b`).test(lower)) return true;
-    return false;
+    if (/[áéíóúñ¿¡]/.test(lower)) return true;
+    const words = ["que", "por", "para", "hola", "gracias", "quiero", "buen", "mañana", "cómo", "dónde"];
+    return words.some((w) => new RegExp(`\\b${w}\\b`).test(lower));
   }
 
   // convert base64 to object URL and play
-  function playBase64(base64: string, mime = "audio/wav") {
+  function playBase64(base64?: string | null) {
+    if (!base64) return;
     try {
       const binary = atob(base64);
       const len = binary.length;
       const bytes = new Uint8Array(len);
       for (let i = 0; i < len; i++) bytes[i] = binary.charCodeAt(i);
-      const blob = new Blob([bytes], { type: mime });
+      const blob = new Blob([bytes], { type: "audio/wav" });
       const url = URL.createObjectURL(blob);
       const audio = new Audio(url);
       audio.play().catch((e) => console.warn("Audio play failed:", e));
-      // free the object url after a while
       setTimeout(() => URL.revokeObjectURL(url), 30000);
     } catch (e) {
       console.error("playBase64 error", e);
     }
   }
 
-  // Submit flow when the user presses Enter (or clicks send)
+  async function playSequence(pairs: SentencePair[]) {
+    for (const p of pairs) {
+      if (p.audio_base64) {
+        await new Promise<void>((resolve) => {
+          const binary = atob(p.audio_base64 || "");
+          const arr = new Uint8Array(binary.length);
+          for (let i = 0; i < binary.length; i++) arr[i] = binary.charCodeAt(i);
+          const blob = new Blob([arr], { type: "audio/wav" });
+          const url = URL.createObjectURL(blob);
+          const audio = new Audio(url);
+          audio.onended = () => {
+            URL.revokeObjectURL(url);
+            resolve();
+          };
+          audio.onerror = () => resolve();
+          audio.play().catch(() => resolve());
+        });
+      }
+    }
+  }
+
+  // submit flow for typed/pasted text
   async function handleSubmit(e?: FormEvent) {
     e?.preventDefault();
     const trimmed = input.trim();
     if (!trimmed || loading) return;
 
-    // decide language
-    const probablySpanish = isProbablySpanish(trimmed);
+    // decide if user typed in learning language (bottom) or native (top)
+    const probablyLearning = isProbablyLearning(trimmed);
 
-    if (probablySpanish) {
-      // Spanish: first call /api/transcript to get english meaning (or just skip if you want)
-      await submitSpanish(trimmed);
-    } else {
-      // English: go straight to generating natural Spanish + reply
-      await submitEnglishFlow(trimmed);
-    }
-  }
-
-  // submit Spanish text (from Wispr or manual Spanish typing)
-  async function submitSpanish(spanishText: string) {
     setLoading(true);
-    setAwaitingConfirm(true);
-    pushMsg({ type: "user_spanish", text: spanishText });
+    const turnId = `turn_${Date.now().toString(36)}`;
 
     try {
-      const res = await fetch(`${apiBase}/api/transcript`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ session_id: sessionIdRef.current, spanish_text: spanishText, source: "wispr_desktop" }),
-      });
-      if (!res.ok) throw new Error(`transcript failed ${res.status}`);
-      const data = await res.json();
-      const english = data.english_meaning || "";
-      // show translation bubble and pre-fill text area for editing/confirmation
-      pushMsg({ type: "translation_check", text: `Is this what you meant? — ${english}` });
-      setInput(english);
-      inputRef.current?.focus();
+      if (probablyLearning) {
+        // User input is in learning language -> ask transcript endpoint to split+translate (learning->native)
+        pushMessage({
+          kind: "status",
+          text: "Translating & aligning sentences...",
+        });
+
+        const body = {
+          session_id: sessionIdRef.current,
+          fluent_language: fluentLanguage,
+          learning_language: learningLanguage,
+          input_language: learningLanguage,
+          text: trimmed,
+        };
+
+        const res = await fetch(`${apiBase}/api/transcript`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        });
+        if (!res.ok) throw new Error(`transcript failed ${res.status}`);
+
+        const data = await res.json();
+        // server returns user_pairs: [{ native, learning }]
+        const pairs: SentencePair[] = (data.user_pairs || []).map((p: any) => ({
+          id: generateId(),
+          native: p.native,
+          learning: p.learning,
+          audio_base64: p.audio_base64 ?? null,
+        }));
+
+        // push a translation_check object (user can edit the joined English meaning)
+        const joinedEnglish = pairs.map((p) => p.native).join("\n");
+        pushMessage({
+          kind: "translation_check",
+          turnId,
+          joinedEnglish,
+          userPairs: pairs,
+        });
+        setInput(joinedEnglish);
+        setAwaitingConfirm(true);
+      } else {
+        // User typed in native language -> go straight to generating learning-language sentence(s) + reply
+        pushMessage({ kind: "status", text: "Generating target-language phrasing & reply..." });
+
+        const body = {
+          session_id: sessionIdRef.current,
+          fluent_language: fluentLanguage,
+          learning_language: learningLanguage,
+          input_language: fluentLanguage,
+          text: trimmed,
+        };
+
+        const res = await fetch(`${apiBase}/api/confirm`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        });
+        if (!res.ok) throw new Error(`confirm failed ${res.status}`);
+        const data = await res.json();
+
+        // The confirm response returns corrected_pairs and reply_pairs (arrays)
+        const correctedPairs: SentencePair[] = (data.corrected_pairs || []).map((p: any) => ({
+          id: generateId(),
+          native: p.native,
+          learning: p.learning,
+          audio_base64: p.audio_base64 ?? null,
+        }));
+        const replyPairs: SentencePair[] = (data.reply_pairs || []).map((p: any) => ({
+          id: generateId(),
+          native: p.native,
+          learning: p.learning,
+          audio_base64: p.audio_base64 ?? null,
+        }));
+
+        // remove status messages
+        setMessages((m) => m.filter((x) => x.kind !== "status"));
+
+        // push corrected user pairs (left) and reply pairs (right)
+        const newMessages: Message[] = [];
+        for (const cp of correctedPairs) newMessages.push({ kind: "pair", turnId, side: "user", pair: cp });
+        if (data.correction_explanation) newMessages.push({ kind: "explanation", turnId, text: data.correction_explanation });
+        for (const rp of replyPairs) newMessages.push({ kind: "pair", turnId, side: "reply", pair: rp });
+
+        replaceMessagesWithTurn(turnId, newMessages);
+
+        // optionally auto-play first user audio then reply sequence
+        if (correctedPairs.length && correctedPairs[0].audio_base64) {
+          playBase64(correctedPairs[0].audio_base64);
+        }
+        setInput("");
+      }
     } catch (err) {
-      console.error("submitSpanish error", err);
-      //alert("Translation failed. See console.");
+      console.error("submit error", err);
+      // simple user-visible failure
+      pushMessage({ kind: "status", text: "Failed to process — see console." });
     } finally {
       setLoading(false);
     }
   }
 
-  // submit English flow (user typed/pasted English and wants a natural Spanish + reply)
-  async function submitEnglishFlow(englishText: string) {
+  // Confirm flow: after the user edits the English meaning and presses confirm
+  async function confirmEditedEnglish(editedEnglishJoined: string, originalTurn?: { userPairs: SentencePair[]; turnId: string }) {
+    // editedEnglishJoined is the joined native-language text (multi-line)
+    if (!editedEnglishJoined || loading) return;
     setLoading(true);
-    // show a little status in the chat
-    pushMsg({ type: "status", text: "Generating Spanish and reply…" });
+    const turnId = originalTurn?.turnId ?? `turn_${Date.now().toString(36)}`;
 
     try {
-      // We'll POST to the same /api/confirm endpoint — backend should accept missing original_spanish
+      pushMessage({ kind: "status", text: "Applying corrections & generating reply..." });
+
+      const body = {
+        session_id: sessionIdRef.current,
+        fluent_language: fluentLanguage,
+        learning_language: learningLanguage,
+        // when confirming, send both original learning sentences (if available) and the edited native text
+        original_pairs: originalTurn?.userPairs?.map((p) => ({ native: p.native, learning: p.learning })) ?? [],
+        confirmed_native_joined: editedEnglishJoined,
+      };
+
       const res = await fetch(`${apiBase}/api/confirm`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ session_id: sessionIdRef.current, original_spanish: "", confirmed_english: englishText }),
+        body: JSON.stringify(body),
       });
       if (!res.ok) throw new Error(`confirm failed ${res.status}`);
       const data = await res.json();
 
-      // remove status messages (naive filter)
-      setMessages((m) => m.filter((x) => x.type !== "status"));
+      // server returns corrected_pairs and reply_pairs
+      const correctedPairs: SentencePair[] = (data.corrected_pairs || []).map((p: any) => ({
+        id: generateId(),
+        native: p.native,
+        learning: p.learning,
+        audio_base64: p.audio_base64 ?? null,
+      }));
+      const replyPairs: SentencePair[] = (data.reply_pairs || []).map((p: any) => ({
+        id: generateId(),
+        native: p.native,
+        learning: p.learning,
+        audio_base64: p.audio_base64 ?? null,
+      }));
 
-      if (data.correction_explanation) pushMsg({ type: "explanation", text: data.correction_explanation });
-      if (data.corrected_spanish) pushMsg({ type: "corrected", text: data.corrected_spanish });
-      if (data.reply_english) pushMsg({ type: "reply_english", text: data.reply_english });
-      if (data.reply_spanish) pushMsg({ type: "reply", text: data.reply_spanish });
+      setMessages((m) => m.filter((x) => x.kind !== "status"));
 
-      // play audios
-      if (data.audio_corrected_base64) {
-        playBase64(data.audio_corrected_base64);
-        // approximate wait then play reply
-        const approxMs = 900 + (data.corrected_spanish ? data.corrected_spanish.split(" ").length * 120 : 0);
-        if (data.audio_reply_base64) setTimeout(() => playBase64(data.audio_reply_base64), approxMs);
-      } else if (data.audio_reply_base64) {
-        playBase64(data.audio_reply_base64);
-      }
+      // Replace any translation_check and pending pairs for this turnId with final corrected + reply
+      const newMessages: Message[] = [];
+      for (const cp of correctedPairs) newMessages.push({ kind: "pair", turnId, side: "user", pair: cp });
+      if (data.correction_explanation && showExplanations) newMessages.push({ kind: "explanation", turnId, text: data.correction_explanation });
+      for (const rp of replyPairs) newMessages.push({ kind: "pair", turnId, side: "reply", pair: rp });
 
-      // clear input
-      setInput("");
-      setAwaitingConfirm(false);
-    } catch (err) {
-      console.error("submitEnglishFlow error", err);
-      //alert("Failed to generate Spanish. See console.");
-      setMessages((m) => m.filter((x) => x.type !== "status"));
-    } finally {
-      setLoading(false);
-    }
-  }
+      replaceMessagesWithTurn(turnId, newMessages);
 
-  // When user confirms/edits the English (the confirm step after translation)
-  async function confirmEnglish(confirmedEnglish: string) {
-    if (!confirmedEnglish || loading) return;
-    setLoading(true);
-    pushMsg({ type: "status", text: "Applying corrections…" });
-
-    // get last user_spanish
-    const lastSpanish = [...messages].reverse().find((m) => m.type === "user_spanish");
-    const originalSpanish = lastSpanish ? lastSpanish.text : "";
-
-    try {
-      const res = await fetch(`${apiBase}/api/confirm`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ session_id: sessionIdRef.current, original_spanish: originalSpanish, confirmed_english: confirmedEnglish }),
-      });
-      if (!res.ok) throw new Error(`confirm failed ${res.status}`);
-      const data = await res.json();
-
-      // remove status messages
-      setMessages((m) => m.filter((x) => x.type !== "status"));
-
-      if (data.correction_explanation) pushMsg({ type: "explanation", text: data.correction_explanation });
-      if (data.corrected_spanish) pushMsg({ type: "corrected", text: data.corrected_spanish });
-      if (data.reply_english) pushMsg({ type: "reply_english", text: data.reply_english });
-      if (data.reply_spanish) pushMsg({ type: "reply", text: data.reply_spanish });
-
-      if (data.audio_corrected_base64) {
-        playBase64(data.audio_corrected_base64);
-        const approxMs = 900 + (data.corrected_spanish ? data.corrected_spanish.split(" ").length * 120 : 0);
-        if (data.audio_reply_base64) setTimeout(() => playBase64(data.audio_reply_base64), approxMs);
-      } else if (data.audio_reply_base64) {
-        playBase64(data.audio_reply_base64);
+      // optionally play first corrected audio then reply
+      if (correctedPairs.length && correctedPairs[0].audio_base64) {
+        playBase64(correctedPairs[0].audio_base64);
+        // then reply sequence after short delay
+        setTimeout(() => playSequence(replyPairs), 900 + correctedPairs[0].native.split(" ").length * 120);
       }
 
       setInput("");
       setAwaitingConfirm(false);
     } catch (err) {
-      console.error("confirmEnglish error", err);
-      //alert("Confirm failed. See console.");
-      setMessages((m) => m.filter((x) => x.type !== "status"));
+      console.error("confirm error", err);
+      setMessages((m) => m.filter((x) => x.kind !== "status"));
+      pushMessage({ kind: "status", text: "Failed to confirm — see console." });
     } finally {
       setLoading(false);
     }
   }
 
-  // decide whether to submit english confirm or a new spanish input
+  // UI handlers
   function handleFormSubmit(e: FormEvent) {
     e.preventDefault();
-    const trimmed = input.trim();
-    if (!trimmed) return;
     if (awaitingConfirm) {
-      confirmEnglish(trimmed);
+      // find last translation_check for the current turn (the most recent)
+      const lastCheck = [...messages].reverse().find((m) => m.kind === "translation_check") as
+        | (Message & { kind: "translation_check" })
+        | undefined;
+      const turnId = lastCheck?.turnId ?? `turn_${Date.now().toString(36)}`;
+      const originalPairs = lastCheck ? lastCheck.userPairs : undefined;
+      confirmEditedEnglish(input.trim(), lastCheck ? { turnId: lastCheck.turnId, userPairs: originalPairs } : undefined);
     } else {
       handleSubmit();
     }
@@ -203,38 +318,108 @@ export default function ChatWithWispr({
   function handleKeyDown(e: KeyboardEvent<HTMLTextAreaElement>) {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
-      handleFormSubmit(e as unknown as FormEvent);
+      handleFormSubmit(e as any);
     }
   }
 
-  // paste handler - useful for Wispr desktop pasting Spanish
   function handlePaste(e: React.ClipboardEvent<HTMLTextAreaElement>) {
     const pasted = (e.clipboardData || (window as any).clipboardData)?.getData("text");
     if (pasted && pasted.trim()) {
       e.preventDefault();
       setInput(pasted);
-      // assume Wispr pasted Spanish — submit as Spanish
-      //setTimeout(() => submitSpanish(pasted), 120);
-      // focus the input so user can review before pressing Send
-        setTimeout(() => inputRef.current?.focus(), 50);
+      setTimeout(() => inputRef.current?.focus(), 50);
     }
+  }
+
+  // --- Render functions ---
+  function renderPair(m: Extract<Message, { kind: "pair" }>) {
+    const { pair, side } = m;
+    const isUser = side === "user";
+    const wrapperStyle: React.CSSProperties = {
+      ...bubbleStyle(isUser ? "user" : "reply"),
+      alignSelf: isUser ? "flex-start" : "flex-end",
+      cursor: pair.audio_base64 ? "pointer" : "default",
+      display: "inline-block",
+      minWidth: 160,
+      maxWidth: "85%",
+      textAlign: isUser ? "left" : "right",
+    };
+
+    return (
+      <div
+        key={m.turnId + ":" + pair.id}
+        style={wrapperStyle}
+        role="button"
+        onClick={() => {
+          // clicking a pair plays its audio if present
+          if (pair.audio_base64) playBase64(pair.audio_base64);
+        }}
+      >
+        {showNative && <div style={{ fontSize: 12, opacity: 0.85, marginBottom: 6 }}>{pair.native}</div>}
+        {showLearning && <div style={{ fontSize: 16, fontWeight: 700 }}>{pair.learning}</div>}
+      </div>
+    );
+  }
+
+  function renderTranslationCheck(m: Extract<Message, { kind: "translation_check" }>) {
+    return (
+      <div key={m.turnId} style={bubbleStyle("translation_check")}>
+        <div style={{ marginBottom: 8, opacity: 0.9 }}>Is this what you meant? (edit the native text below and press Confirm)</div>
+        <div style={{ whiteSpace: "pre-wrap", fontSize: 13 }}>{m.joinedEnglish}</div>
+      </div>
+    );
+  }
+
+  function renderExplanation(m: Extract<Message, { kind: "explanation" }>) {
+    if (!showExplanations) return null;
+    return (
+      <div key={m.text + (m.turnId ?? "")} style={bubbleStyle("explanation")}>
+        <div style={{ whiteSpace: "pre-wrap" }}>{m.text}</div>
+      </div>
+    );
   }
 
   return (
     <div style={styles.container}>
+      <div style={styles.toolbar}>
+        <div style={{ display: "flex", gap: 12 }}>
+          <label style={styles.toggleLabel}>
+            <input type="checkbox" checked={showNative} onChange={() => setShowNative((s) => !s)} /> Show {fluentLanguage.name}
+          </label>
+          <label style={styles.toggleLabel}>
+            <input type="checkbox" checked={showLearning} onChange={() => setShowLearning((s) => !s)} /> Show {learningLanguage.name}
+          </label>
+          <label style={styles.toggleLabel}>
+            <input type="checkbox" checked={showExplanations} onChange={() => setShowExplanations((s) => !s)} /> Show explanations
+          </label>
+        </div>
+        <div style={{ fontSize: 12, color: "#94a3b8" }}>
+          Session: {sessionIdRef.current} — {fluentLanguage.name} ↔ {learningLanguage.name}
+        </div>
+      </div>
+
       <div style={styles.chatWindow}>
-        {messages.map((m) => (
-          <div key={m.id} style={bubbleStyle(m.type)}>
-            <div style={{ whiteSpace: "pre-wrap" }}>{m.text}</div>
-          </div>
-        ))}
-        {loading && <div style={{ color: "#94a3b8", fontSize: 13, padding: 6 }}>Loading...</div>}
+        {messages.map((m) => {
+          if (m.kind === "pair") return renderPair(m);
+          if (m.kind === "translation_check") return renderTranslationCheck(m);
+          if (m.kind === "explanation") return renderExplanation(m);
+          if (m.kind === "status")
+            return (
+              <div key={"status-" + m.text} style={bubbleStyle("status")}>
+                {m.text}
+              </div>
+            );
+          return null;
+        })}
+        {loading && (
+          <div style={{ color: "#94a3b8", fontSize: 13, padding: 6, alignSelf: "center" }}>Loading...</div>
+        )}
       </div>
 
       <form onSubmit={handleFormSubmit} style={styles.form}>
         <textarea
           ref={inputRef}
-          placeholder={awaitingConfirm ? "Edit the English meaning (press Enter to confirm)" : "Type or paste Spanish here (press Enter to send)"}
+          placeholder={awaitingConfirm ? `Edit the ${fluentLanguage.name} meaning and press Confirm` : `Type or paste ${learningLanguage.name} (or ${fluentLanguage.name}) here`}
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
@@ -244,32 +429,38 @@ export default function ChatWithWispr({
           disabled={loading}
         />
         <button type="submit" style={styles.button} disabled={loading}>
-          {awaitingConfirm ? "Confirm English" : "Send"}
+          {awaitingConfirm ? "Confirm" : "Send"}
         </button>
       </form>
     </div>
   );
 }
 
-// Styles
+// ---------- styles ----------
 const styles: { [k: string]: React.CSSProperties } = {
-  container: { display: "flex", flexDirection: "column", height: "100%", maxHeight: "100vh", width: "100%" },
-  chatWindow: { flex: 1, overflowY: "auto", padding: 12, display: "flex", flexDirection: "column", gap: 8, background: "#0f172a", color: "#e2e8f0" },
+  container: { display: "flex", flexDirection: "column", height: "100%", width: "100%" },
+  toolbar: { display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 12px", gap: 12 },
+  toggleLabel: { marginRight: 12, fontSize: 13, color: "#cbd5e1", userSelect: "none" },
+  chatWindow: { flex: 1, minHeight: 0, overflowY: "auto", padding: 12, display: "flex", flexDirection: "column", gap: 8, background: "#0f172a", color: "#e2e8f0" },
   form: { display: "flex", gap: 8, padding: 8, borderTop: "1px solid rgba(255,255,255,0.06)", background: "#020617" },
   textarea: { flex: 1, resize: "none", padding: 10, borderRadius: 8, border: "1px solid rgba(255,255,255,0.06)", background: "#001122", color: "#e6eef8", fontSize: 14 },
   button: { minWidth: 120, padding: "8px 12px", borderRadius: 8, border: "none", background: "#0ea5a4", color: "#041014", fontWeight: 600, cursor: "pointer" },
 };
 
-function bubbleStyle(type: MsgType): React.CSSProperties {
-  const base: React.CSSProperties = { alignSelf: "flex-start", maxWidth: "85%", padding: "10px 12px", borderRadius: 12, marginBottom: 4 };
-  switch (type) {
-    case "user_spanish": return { ...base, background: "#6e6e6eff", color: "#dff8f7" };
-    case "translation_check": return { ...base, background: "#3d3d3dff", color: "#dbeafe" };
-    case "corrected": return { ...base, background: "#11a6ebff", color: "#dfffe6" };
-    case "explanation": return { ...base, background: "#30749eff", color: "#f0e9ff" };
-    case "reply": return { ...base, background: "#23c75cff", alignSelf: "flex-end", color: "#e6eef8" };
-    case "reply_english": return { ...base, background: "#52b775ff", alignSelf: "flex-end", color: "#e6eef8" };
-    case "status": return { ...base, background: "transparent", color: "#94a3b8", alignSelf: "center" };
-    default: return { ...base, background: "#1f2937", color: "#e6eef8" };
+function bubbleStyle(kind: "user" | "reply" | "translation_check" | "explanation" | "status"): React.CSSProperties {
+  const base: React.CSSProperties = { maxWidth: "85%", padding: "10px 12px", borderRadius: 12, marginBottom: 6 };
+  switch (kind) {
+    case "user":
+      return { ...base, background: "#427ccdff", color: "#e6eef8", alignSelf: "flex-start" };
+    case "reply":
+      return { ...base, background: "#0b6b5b", color: "#e6eef8", alignSelf: "flex-end" };
+    case "translation_check":
+      return { ...base, background: "#263a66", color: "#dbeafe", alignSelf: "flex-start" };
+    case "explanation":
+      return { ...base, background: "#3f3f3fff", color: "#f0e9ff", alignSelf: "center" };
+    case "status":
+      return { ...base, background: "transparent", color: "#94a3b8", alignSelf: "center" };
+    default:
+      return base;
   }
 }
