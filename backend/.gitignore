@@ -1,0 +1,45 @@
+# Environment variables
+.env
+*.env
+
+# Python cache/compiled files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+venv/
+.env/
+.venv/
+env/
+ENV/
+
+# Distribution / packaging
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# Logs
+*.log
+logs/
+*.out
+*.err
+
+# IDE/editor stuff
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# System files
+.DS_Store
+Thumbs.db
+
+# Coverage/testing
+.coverage
+.pytest_cache/
+htmlcov/
+
+# Jupyter notebooks checkpoints (if you use notebooks)
+.ipynb_checkpoints/
