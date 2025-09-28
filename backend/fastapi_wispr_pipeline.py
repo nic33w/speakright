@@ -1,349 +1,340 @@
 # venv\Scripts\activate
 # uvicorn fastapi_wispr_pipeline:app --reload --host 127.0.0.1 --port 8000
-
-"""
-FastAPI example backend for Wispr-flow desktop integration.
-
-Features:
-- POST /api/transcript : accept Spanish transcript, call OpenAI to produce an English "meaning".
-- POST /api/confirm : accept original Spanish + confirmed English, call OpenAI to produce corrected Spanish,
-  correction explanation, and a reply; synthesize (mock) TTS audio for corrected + reply, return base64 audio.
-- Uses OpenAI python client. Azure TTS integration is provided as a commented example; by default a small
-  silent WAV is generated as mock audio so you can test without Azure credentials.
-
-Instructions:
-- Save this file and run: `uvicorn fastapi_wispr_pipeline:app --reload --port 8000`
-- Required env vars: OPENAI_API_KEY. Optional: OPENAI_MODEL, AZURE_SPEECH_KEY, AZURE_REGION.
-
-This file intentionally uses a mock TTS generator unless AZURE_SPEECH_KEY and AZURE_REGION are set and you
-uncomment the Azure call block.
-"""
-
+# fastapi_wispr_pipeline.py
 import os
 import json
 import base64
 import io
 import wave
-import struct
 import logging
-from typing import Optional
+from typing import Optional, List, Dict, Any
 
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-import openai
+# optional openai import; if MOCK_MODE you do not need to have OpenAI installed.
+try:
+    import openai
+except Exception:
+    openai = None  # used only in REAL mode
 
-# --- Logging must be set before usage ---
+# Logging early
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-MOCK_MODE = True
+# Toggle mock mode via env var; default to True for local testing
+MOCK_MODE = os.getenv("MOCK_MODE", "1") == "1"
 
 # --- Configuration ---
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini")  # change as preferred
-AZURE_SPEECH_KEY = os.getenv("AZURE_SPEECH_KEY")  # optional
-AZURE_REGION = os.getenv("AZURE_REGION")  # optional, e.g. 'eastus'
+OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
+AZURE_SPEECH_KEY = os.getenv("AZURE_SPEECH_KEY")
+AZURE_REGION = os.getenv("AZURE_REGION")
 
 if not OPENAI_API_KEY:
     if not MOCK_MODE:
-        raise RuntimeError("Please set the OPENAI_API_KEY environment variable before running this server.")
+        raise RuntimeError("Please set OPENAI_API_KEY or enable MOCK_MODE for local testing.")
     else:
-        logger.info("OPENAI_API_KEY not set, running in MOCK_MODE.")
+        logger.info("OPENAI_API_KEY not set; running in MOCK_MODE.")
 
-if OPENAI_API_KEY and not MOCK_MODE:
+if OPENAI_API_KEY and not MOCK_MODE and openai is not None:
     openai.api_key = OPENAI_API_KEY
 
-# --- FastAPI app ---
-app = FastAPI(title="Wispr Desktop -> OpenAI -> Azure TTS pipeline (example)")
+app = FastAPI(title="Wispr pipeline multi-sentence example")
 
-# Allow local dev from React (localhost:3000). Adjust origins for production.
+# CORS: add your dev origins
+allow_origins = [
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+]
 app.add_middleware(
     CORSMiddleware,
-#    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
-    allow_origins=["http://localhost:3000",
-        "http://127.0.0.1:3000",
-        "http://localhost:5173",
-        "http://127.0.0.1:5173",],
+    allow_origins=allow_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Simple in-memory cache for TTS audio (not persisted) for demo purposes
-AUDIO_CACHE = {}
+AUDIO_CACHE: Dict[str, bytes] = {}
 
 # --- Request models ---
+class LangSpec(BaseModel):
+    code: str
+    name: str
+
 class TranscriptRequest(BaseModel):
-    session_id: Optional[str]
-    spanish_text: str
+    session_id: Optional[str] = None
+    fluent_language: Optional[LangSpec] = None
+    learning_language: Optional[LangSpec] = None
+    input_language: Optional[LangSpec] = None
+    text: str
     source: Optional[str] = "wispr_desktop"
 
-
 class ConfirmRequest(BaseModel):
-    session_id: Optional[str]
-    original_spanish: str
-    confirmed_english: str
+    session_id: Optional[str] = None
+    fluent_language: Optional[LangSpec] = None
+    learning_language: Optional[LangSpec] = None
+    # Optional original pairs (from transcript) to help alignment/editing
+    original_pairs: Optional[List[Dict[str, str]]] = None
+    # joined native-language text the user confirmed/edited (multi-sentence)
+    confirmed_native_joined: Optional[str] = None
+    # alternative legacy fields for backwards compatibility:
+    original_spanish: Optional[str] = None
+    confirmed_english: Optional[str] = None
 
+# --- Simple sentence split helper (fallback for MOCK) ---
+import re
+_sentence_splitter = re.compile(r'(?<=[.!?])\s+')
 
-# --- Helper: OpenAI calls ---
-async def call_openai_translate(spanish_text: str) -> str:
-    """Translate Spanish -> short English meaning for confirmation."""
-    system = (
-        "You are a concise translator. Translate the user's Spanish sentence into a clear, literal English "
-        "meaning suitable for confirming intent. Do not add corrections or extra suggestions. Respond with only "
-        "the English text."
-    )
-    try:
-        resp = openai.ChatCompletion.create(
-            model=OPENAI_MODEL,
-            messages=[
-                {"role": "system", "content": system},
-                {"role": "user", "content": spanish_text},
-            ],
-            max_tokens=200,
-            temperature=0.0,
-        )
-        content = resp.choices[0].message["content"].strip()
-        return content
-    except Exception as e:
-        logger.exception("OpenAI translate call failed")
-        raise
+def simple_split_sentences(text: str) -> List[str]:
+    text = text.strip()
+    if not text:
+        return []
+    parts = [p.strip() for p in _sentence_splitter.split(text) if p.strip()]
+    return parts
 
+# --- Mock TTS generator (short silence WAV) ---
+def generate_silent_wav(duration_secs: float = 0.8, sample_rate: int = 22050) -> bytes:
+    n_frames = int(duration_secs * sample_rate)
+    nchannels = 1
+    sampwidth = 2
+    buf = io.BytesIO()
+    with wave.open(buf, 'wb') as wf:
+        wf.setnchannels(nchannels)
+        wf.setsampwidth(sampwidth)
+        wf.setframerate(sample_rate)
+        silence = (0).to_bytes(2, byteorder='little', signed=True)
+        wf.writeframes(silence * n_frames)
+    return buf.getvalue()
 
-async def call_openai_correction(original_spanish: str, confirmed_english: str) -> dict:
-    """Ask OpenAI to return a JSON object with corrected_spanish, correction_explanation, reply_spanish."""
-    system = (
-        "You are a helpful Spanish teacher and natural speaker. Given the original Spanish sentence and the "
-        "confirmed English meaning, return a JSON object with the following fields:\n"
-        "- corrected_spanish: a natural, native-sounding Spanish sentence (same meaning).\n"
-        "- correction_explanation: a one-sentence explanation in English about what changed and why.\n"
-        "- reply_spanish: a natural reply a native speaker would say next.\n"
-        "- reply_english: a translation of reply in English.\n"
-        "Respond with ONLY valid JSON."
-    )
-
-    user_msg = (
-        f"original_spanish: \"{original_spanish}\"\n"
-        f"confirmed_english: \"{confirmed_english}\""
-    )
-
-    try:
-        resp = openai.ChatCompletion.create(
-            model=OPENAI_MODEL,
-            messages=[
-                {"role": "system", "content": system},
-                {"role": "user", "content": user_msg},
-            ],
-            max_tokens=300,
-            temperature=0.2,
-        )
-        content = resp.choices[0].message["content"].strip()
-        # Try to parse JSON directly; if it fails, attempt to extract JSON substring.
-        try:
-            parsed = json.loads(content)
-        except Exception:
-            # attempt to find the first { ... } block
-            start = content.find('{')
-            end = content.rfind('}')
-            if start != -1 and end != -1 and end > start:
-                substring = content[start:end+1]
-                parsed = json.loads(substring)
-            else:
-                raise ValueError("Could not parse OpenAI JSON response")
-        return parsed
-    except Exception as e:
-        logger.exception("OpenAI correction call failed")
-        raise
-
-# Add this helper near your other OpenAI helpers
-async def call_openai_from_english(confirmed_english: str) -> dict:
+def azure_tts_bytes(text: str, use_mock: bool = True) -> bytes:
     """
-    Given only an English meaning, return a JSON-like dict:
-    { corrected_spanish, correction_explanation, reply_spanish }
+    Returns WAV bytes. In MOCK_MODE this returns silent WAV sized roughly to the text.
+    Replace with a real Azure call if you have AZURE_SPEECH_KEY and AZURE_REGION.
     """
+    if not use_mock and AZURE_SPEECH_KEY and AZURE_REGION:
+        # implement real Azure TTS call if desired (requests.post with SSML etc.)
+        # For example, call azure_tts_bytes_real(text, voice=...) if you implement it.
+        pass
+    words = max(1, len(text.split()))
+    duration = min(6.0, 0.25 * words)
+    return generate_silent_wav(duration_secs=duration)
+
+# --- OpenAI helpers (if using REAL mode, prefer robust split+translate prompts) ---
+def call_openai_split_and_translate(text: str, input_lang: LangSpec, out_lang: LangSpec) -> List[Dict[str, str]]:
+    """
+    Example approach for real mode: ask OpenAI to split and align into JSON array:
+    [
+      {"native": "...", "learning": "..."},
+      ...
+    ]
+    Must parse the JSON response. Temperature=0 recommended.
+    """
+    if openai is None:
+        raise RuntimeError("openai package is required for real mode")
     system = (
-        "You are a Spanish teacher and natural speaker. Given a short English meaning, "
-        "return a JSON object with fields: corrected_spanish (a native-sounding Spanish sentence), "
-        "correction_explanation (one-sentence English explanation), and reply_spanish (a natural reply). "
-        "Respond with ONLY valid JSON."
+        f"You are a translator and precise sentence aligner. Input language: {input_lang.name} ({input_lang.code}). "
+        f"Target language: {out_lang.name} ({out_lang.code}).\n"
+        "Split the input into sentences, and for each sentence return a JSON array of objects with fields "
+        "\"native\" (text in the native/fluent language) and \"learning\" (text in the learning/target language). "
+        "Return ONLY valid JSON."
     )
-    user_msg = f"confirmed_english: \"{confirmed_english}\""
+    user = f"Text: \"{text.strip()}\""
     resp = openai.ChatCompletion.create(
         model=OPENAI_MODEL,
-        messages=[
-            {"role": "system", "content": system},
-            {"role": "user", "content": user_msg}
-        ],
-        max_tokens=300,
+        messages=[{"role": "system", "content": system}, {"role": "user", "content": user}],
+        temperature=0.0,
+        max_tokens=1500,
+    )
+    content = resp.choices[0].message["content"].strip()
+    # parse JSON safely
+    try:
+        return json.loads(content)
+    except Exception:
+        start = content.find("[")
+        end = content.rfind("]")
+        if start != -1 and end != -1:
+            return json.loads(content[start:end+1])
+        raise
+
+def call_openai_confirm_from_native(confirmed_native_joined: str, fluent: LangSpec, learning: LangSpec, original_pairs=None) -> Dict[str, Any]:
+    """
+    Ask OpenAI to return 'corrected_pairs' and 'reply_pairs' arrays (aligned), plus an explanation.
+    This returns a dict with:
+      corrected_pairs: [{native, learning}, ...]
+      reply_pairs: [{native, learning}, ...]
+      correction_explanation: "...".
+    """
+    if openai is None:
+        raise RuntimeError("openai package is required for real mode")
+    system = (
+        f"You are a helpful teacher and native speaker. The session fluent/native language is {fluent.name} ({fluent.code}), "
+        f"the learning language is {learning.name} ({learning.code}).\n"
+        "Given the user's confirmed native-language text (possibly multi-sentence), return a JSON object with:"
+        "corrected_pairs (an array of {native, learning} pairs for the user's corrected phrasing), "
+        "reply_pairs (an array of {native, learning} pairs that are natural replies), "
+        "and correction_explanation (one-sentence in native language). Respond with only valid JSON."
+    )
+    # include original_pairs for context if available
+    user_msg = f"confirmed_native_joined: \"{confirmed_native_joined}\""
+    if original_pairs:
+        user_msg += f"\noriginal_pairs: {json.dumps(original_pairs)}"
+    resp = openai.ChatCompletion.create(
+        model=OPENAI_MODEL,
+        messages=[{"role": "system", "content": system}, {"role": "user", "content": user_msg}],
         temperature=0.2,
+        max_tokens=1200,
     )
     content = resp.choices[0].message["content"].strip()
     try:
         return json.loads(content)
     except Exception:
-        # fallback: try to extract JSON substring
         start = content.find("{")
         end = content.rfind("}")
         if start != -1 and end != -1:
             return json.loads(content[start:end+1])
         raise
 
-# --- Helper: Mock Azure TTS (generate a short silent WAV) ---
-def generate_silent_wav(duration_secs: float = 1.0, sample_rate: int = 22050) -> bytes:
-    """Return a WAV file bytes containing silence. Useful as a mock TTS output for testing."""
-    n_frames = int(duration_secs * sample_rate)
-    nchannels = 1
-    sampwidth = 2  # 2 bytes = 16-bit
-    buf = io.BytesIO()
-    with wave.open(buf, 'wb') as wf:
-        wf.setnchannels(nchannels)
-        wf.setsampwidth(sampwidth)
-        wf.setframerate(sample_rate)
-        # 16-bit silence -> zero samples
-        silence = (0).to_bytes(2, byteorder='little', signed=True)
-        frames = silence * n_frames
-        wf.writeframes(frames)
-    return buf.getvalue()
-
-
-# --- Helper: Azure TTS (commented example) ---
-# If you want to enable real Azure TTS, uncomment & configure the block below and install 'requests'.
-# def azure_tts_bytes_real(text: str, voice: str = "es-MX-DaliaNeural") -> bytes:
-#     import requests
-#     if not AZURE_SPEECH_KEY or not AZURE_REGION:
-#         raise RuntimeError("AZURE_SPEECH_KEY and AZURE_REGION must be set to use real Azure TTS")
-#     url = f"https://{AZURE_REGION}.tts.speech.microsoft.com/cognitiveservices/v1"
-#     ssml = f"""<speak version='1.0' xml:lang='es-MX'>
-#     <voice name='{voice}'>{text}</voice>
-#     </speak>"""
-#     headers = {
-#         'Ocp-Apim-Subscription-Key': AZURE_SPEECH_KEY,
-#         'Content-Type': 'application/ssml+xml',
-#         'X-Microsoft-OutputFormat': 'audio-16khz-32kbitrate-mono-mp3'
-#     }
-#     resp = requests.post(url, headers=headers, data=ssml)
-#     if resp.status_code != 200:
-#         raise RuntimeError(f"Azure TTS failed: {resp.status_code} {resp.text}")
-#     return resp.content
-
-
-def azure_tts_bytes(text: str, use_mock: bool = True) -> bytes:
-    """Return audio bytes. By default returns mock silent WAV. If you enable real Azure creds and code,
-    replace the implementation with a real call (see azure_tts_bytes_real example above)."""
-    if not use_mock and AZURE_SPEECH_KEY and AZURE_REGION:
-        # If you set use_mock=False and provided AZURE keys, you can implement a real call here.
-        # For safety in this example we keep returning mock audio.
-        pass
-    # Provide ~1 second silence per ~8 words (very rough), so audio length scales with text length
-    words = max(1, len(text.split()))
-    duration = min(5.0, 0.25 * words)
-    return generate_silent_wav(duration_secs=duration)
-
-
 # --- Endpoints ---
+
 @app.post("/api/transcript")
 async def receive_transcript(req: TranscriptRequest):
-    spanish = req.spanish_text.strip()
-    if not spanish:
-        raise HTTPException(status_code=400, detail="spanish_text is required")
-    # === MOCK MODE: return a canned English meaning immediately ===
+    text = (req.text or "").strip()
+    if not text:
+        raise HTTPException(status_code=400, detail="text is required")
+
+    fluent = req.fluent_language or LangSpec(code="en", name="English")
+    learning = req.learning_language or LangSpec(code="es", name="Spanish")
+    input_lang = req.input_language or learning  # assume learning by default
+
     if MOCK_MODE:
-        mock_english = f"(mock) English meaning for: {spanish}"
-        return JSONResponse({"english_meaning": mock_english})
+        # very basic split and mock translation
+        sentences = simple_split_sentences(text)
+        pairs = []
+        count = 1
+        for s in sentences:
+            native = f"(mock {fluent.code}) {s[:200]}".strip()  # fake translation
+            native = f"English sentence {count} for {s[:200]}".strip()
+            count = count + 1
+            pairs.append({"native": native, "learning": s})
+        return JSONResponse({"turn_id": f"turn_{generate_id()}", "user_pairs": pairs})
 
-    # === REAL MODE: call OpenAI ===
+    # REAL MODE: call OpenAI to split + translate + align
     try:
-        english = await call_openai_translate(spanish)
+        pairs = call_openai_split_and_translate(text, input_lang, fluent)
+        # pairs expected: [{"native": "...", "learning": "..."}, ...]
+        return JSONResponse({"turn_id": f"turn_{generate_id()}", "user_pairs": pairs})
     except Exception as e:
+        logger.exception("transcript real mode failed")
         raise HTTPException(status_code=500, detail=str(e))
-
-    return JSONResponse({"english_meaning": english})
-
 
 @app.post("/api/confirm")
 async def receive_confirm(req: ConfirmRequest):
-    original = (req.original_spanish or "").strip()
-    confirmed = req.confirmed_english.strip()
-    if not confirmed:
-        raise HTTPException(status_code=400, detail="confirmed_english is required")
-    # === MOCK MODE: short-circuit and return canned corrected/reply + silent WAV base64 ===
+    # Accept both new-style and legacy fields
+    fluent = req.fluent_language or LangSpec(code="en", name="English")
+    learning = req.learning_language or LangSpec(code="es", name="Spanish")
+
+    # Prefer confirmed_native_joined; fallback to confirmed_english legacy
+    confirmed_native_joined = req.confirmed_native_joined
+    if not confirmed_native_joined and req.confirmed_english:
+        # legacy: confirmed_english is in fluent/native language; assign to confirmed_native_joined
+        confirmed_native_joined = req.confirmed_english
+
+    original_pairs = req.original_pairs or []
+    # If MOCK_MODE: return canned corrected & reply pairs + per-sentence mock audio
     if MOCK_MODE:
-        corrected = f"(mock) Natural Spanish for: {original or confirmed}"
-        explanation = "Mock: uses a polite phrasing."
-        reply = "(mock) Reply: Claro, ¿a qué hora te gustaría venir?"
-        replyEnglish = "English translation"
+        # create simple corrected pairs (simulate corrections) by uppercasing leaning text slightly
+        # If confirmed_native_joined provided, we pretend it's the native text and generate mock learning translations
+        corrected_pairs = []
+        reply_pairs = []
+        if confirmed_native_joined:
+            native_sentences = simple_split_sentences(confirmed_native_joined)
+            for s in native_sentences:
+                learning_text = f"(mock {learning.code}) {s[:180]}".strip()
+                corrected_pairs.append({"native": s, "learning": learning_text})
+        elif original_pairs:
+            # fallback: invert original pairs
+            for p in original_pairs:
+                corrected_pairs.append({"native": p.get("native", ""), "learning": p.get("learning", "")})
+        else:
+            corrected_pairs = [{"native": "(mock) OK", "learning": "(mock) OK"}]
 
-        audio_corrected = azure_tts_bytes(corrected)  # will generate a silent wav in current code
-        audio_reply = azure_tts_bytes(reply)
+        # generate a mock reply (one or two sentences)
+        reply_sentences = ["(mock) Sure — that works.", "¿Cuántas personas?"]
+        for r in reply_sentences:
+            # decide native vs learning based on session: native is fluent language
+            native = r if fluent.code == "en" else f"(mock {fluent.code}) {r}"
+            learning_text = f"(mock {learning.code}) reply for: {r}"
+            reply_pairs.append({"native": native, "learning": learning_text})
 
-        id_corrected = f"audio_{len(AUDIO_CACHE)+1}"
-        AUDIO_CACHE[id_corrected] = audio_corrected
-        id_reply = f"audio_{len(AUDIO_CACHE)+1}"
-        AUDIO_CACHE[id_reply] = audio_reply
+        # produce per-sentence mock audio base64
+        def attach_audio(pairs):
+            out = []
+            for p in pairs:
+                wav = azure_tts_bytes(p.get("learning", p.get("native", "")), use_mock=True)
+                b64 = base64.b64encode(wav).decode("ascii")
+                out.append({**p, "audio_base64": b64})
+            return out
+
+        corrected_pairs = [{"native": "I would like to reserve a table.", "learning": "Quisiera reservar una mesa."}, {"native": "Is 8 OK?", "learning": "¿A las 8 está bien?"}]
+        reply_pairs = [{"native": "Yes, 8 is perfect.", "learning": "Sí, a las 8 está perfecto."}, {"native": "How many people will you be?", "learning": "¿Cuántas personas serán?"}]
+        corrected_with_audio = attach_audio(corrected_pairs)
+        reply_with_audio = attach_audio(reply_pairs)
 
         return JSONResponse({
-            "corrected_spanish": corrected,
-            "correction_explanation": explanation,
-            "reply_spanish": reply,
-            "reply_english": replyEnglish,
-            "audio_corrected_base64": base64.b64encode(audio_corrected).decode('ascii'),
-            "audio_reply_base64": base64.b64encode(audio_reply).decode('ascii'),
-            "audio_ids": {"corrected": id_corrected, "reply": id_reply},
+            "turn_id": f"turn_{generate_id()}",
+            "corrected_pairs": corrected_with_audio,
+            "reply_pairs": reply_with_audio,
+            "correction_explanation": "Mock: minor wording adjusted for politeness."
         })
 
-    # === REAL MODE: existing logic continues below ===
+    # REAL mode: call OpenAI to generate corrected_pairs + reply_pairs
     try:
-        if original:
-            parsed = await call_openai_correction(original, confirmed)
-        else:
-            parsed = await call_openai_from_english(confirmed)
+        result = call_openai_confirm_from_native(confirmed_native_joined or "", fluent, learning, original_pairs)
+        corrected = result.get("corrected_pairs", [])
+        reply = result.get("reply_pairs", [])
+        explanation = result.get("correction_explanation", "")
+
+        # generate TTS per sentence (you should do this async/concurrently in production)
+        corrected_with_audio = []
+        for p in corrected:
+            text_to_speak = p.get("learning") or p.get("native")
+            wav = azure_tts_bytes(text_to_speak, use_mock=True)
+            corrected_with_audio.append({**p, "audio_base64": base64.b64encode(wav).decode("ascii")})
+
+        reply_with_audio = []
+        for p in reply:
+            text_to_speak = p.get("learning") or p.get("native")
+            wav = azure_tts_bytes(text_to_speak, use_mock=True)
+            reply_with_audio.append({**p, "audio_base64": base64.b64encode(wav).decode("ascii")})
+
+        return JSONResponse({
+            "turn_id": f"turn_{generate_id()}",
+            "corrected_pairs": corrected_with_audio,
+            "reply_pairs": reply_with_audio,
+            "correction_explanation": explanation,
+        })
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"OpenAI correction failed: {e}")
-
-    corrected = parsed.get("corrected_spanish") or parsed.get("corrected") or ""
-    explanation = parsed.get("correction_explanation") or parsed.get("explanation") or ""
-    reply = parsed.get("reply_spanish") or parsed.get("reply") or ""
-    replyEnglish = parsed.get("reply_english")
-
-    # Generate (mock) audio for corrected + reply
-    try:
-        audio_corrected = azure_tts_bytes(corrected)
-        audio_reply = azure_tts_bytes(reply)
-    except Exception as e:
-        logger.exception("TTS generation failed")
-        raise HTTPException(status_code=500, detail=f"TTS generation failed: {e}")
-
-    # Cache audio and return base64 to the client for quick demo
-    id_corrected = f"audio_{len(AUDIO_CACHE)+1}"
-    AUDIO_CACHE[id_corrected] = audio_corrected
-    id_reply = f"audio_{len(AUDIO_CACHE)+1}"
-    AUDIO_CACHE[id_reply] = audio_reply
-
-    resp = {
-        "corrected_spanish": corrected,
-        "correction_explanation": explanation,
-        "reply_spanish": reply,
-        "reply_enlgish": replyEnglish,
-        "audio_corrected_base64": base64.b64encode(audio_corrected).decode('ascii'),
-        "audio_reply_base64": base64.b64encode(audio_reply).decode('ascii'),
-        "audio_ids": {"corrected": id_corrected, "reply": id_reply},
-    }
-    return JSONResponse(resp)
+        logger.exception("confirm real mode failed")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.get("/api/audio/{audio_id}")
 async def get_audio(audio_id: str):
-    """Return raw audio bytes for a cached audio blob. Useful for serving as an audio URL."""
     data = AUDIO_CACHE.get(audio_id)
     if not data:
         raise HTTPException(status_code=404, detail="audio not found")
-    return JSONResponse({"audio_base64": base64.b64encode(data).decode('ascii')})
+    return JSONResponse({"audio_base64": base64.b64encode(data).decode("ascii")})
 
 
-# --- Health check ---
 @app.get("/api/health")
 async def health():
     return {"status": "ok"}
+
+# small helper for simple IDs
+def generate_id():
+    return str(abs(hash(str(os.urandom(8)))))[0:8]
