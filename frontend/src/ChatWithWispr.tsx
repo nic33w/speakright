@@ -1,5 +1,5 @@
 // ChatWithWispr.tsx
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import type { FormEvent, KeyboardEvent } from "react";
 
 /**
@@ -49,12 +49,41 @@ export default function ChatWithWispr({
 
   const sessionIdRef = useRef<string>(generateId());
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
+  const chatWindowRef = useRef<HTMLDivElement | null>(null);
+
+  // When new messages are added, only auto-scroll if user was already near bottom.
+  // This ref is set in pushMessage / replaceMessagesWithTurn *before* changing state.
+  const shouldAutoScrollRef = useRef<boolean>(true);
+  // px threshold to consider "near bottom"
+  const NEAR_BOTTOM_PX = 500;
+
+  // showJump indicates whether to display the "Jump to newest" button
+  const [showJump, setShowJump] = useState(false);
 
   // --- helpers ---
   function pushMessage(m: Message) {
+    // compute whether user is near bottom right now
+    const el = chatWindowRef.current;
+    if (!el) {
+      shouldAutoScrollRef.current = true;
+    } else {
+      const distanceFromBottom = el.scrollHeight - (el.scrollTop + el.clientHeight);
+      shouldAutoScrollRef.current = distanceFromBottom < NEAR_BOTTOM_PX;
+    }
+
     setMessages((s) => [...s, m]);
   }
+
   function replaceMessagesWithTurn(turnId: string, newMessages: Message[]) {
+    // compute whether user is near bottom right now
+    const el = chatWindowRef.current;
+    if (!el) {
+      shouldAutoScrollRef.current = true;
+    } else {
+      const distanceFromBottom = el.scrollHeight - (el.scrollTop + el.clientHeight);
+      shouldAutoScrollRef.current = distanceFromBottom < NEAR_BOTTOM_PX;
+    }
+
     setMessages((all) => {
       // remove any existing messages for this turn that are translation_check or pair (pending)
       const filtered = all.filter((m) => {
@@ -307,9 +336,14 @@ export default function ChatWithWispr({
       const lastCheck = [...messages].reverse().find((m) => m.kind === "translation_check") as
         | (Message & { kind: "translation_check" })
         | undefined;
-      const turnId = lastCheck?.turnId ?? `turn_${Date.now().toString(36)}`;
-      const originalPairs = lastCheck ? lastCheck.userPairs : undefined;
-      confirmEditedEnglish(input.trim(), lastCheck ? { turnId: lastCheck.turnId, userPairs: originalPairs } : undefined);
+      // ensure userPairs is an array (avoid undefined)
+      confirmEditedEnglish(
+        input.trim(),
+        lastCheck
+          ? { turnId: lastCheck.turnId, userPairs: lastCheck.userPairs ?? [] }
+          : undefined
+      );
+
     } else {
       handleSubmit();
     }
@@ -379,9 +413,52 @@ export default function ChatWithWispr({
     );
   }
 
+  // ---------- layout adjustments for sticky toolbar + sticky form ----------
+  // set this to match the visible height of your form (padding + textarea height). Adjust if you style the form.
+  const FORM_HEIGHT_PX = 92;
+
+  // Auto-scroll: only when user was already near bottom before the update.
+  useEffect(() => {
+    const el = chatWindowRef.current;
+    if (!el) return;
+
+    if (shouldAutoScrollRef.current) {
+      // scroll, hide the jump button
+      el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
+      setShowJump(false);
+    } else {
+      // we did not auto-scroll; show the jump button so user can jump manually
+      setShowJump(true);
+    }
+  }, [messages]);
+
+  // Track user scrolling in the chat window so we can decide whether to show "Jump to newest".
+  useEffect(() => {
+    const el = chatWindowRef.current;
+    if (!el) return;
+    const onScroll = () => {
+      const distanceFromBottom = el.scrollHeight - (el.scrollTop + el.clientHeight);
+      setShowJump(distanceFromBottom > NEAR_BOTTOM_PX);
+    };
+    el.addEventListener("scroll", onScroll, { passive: true });
+    // run once to set initial visibility
+    onScroll();
+    return () => el.removeEventListener("scroll", onScroll);
+  }, []);
+
+  // Handler for Jump button
+  function jumpToNewest() {
+    const el = chatWindowRef.current;
+    if (!el) return;
+    shouldAutoScrollRef.current = true;
+    el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
+    setShowJump(false);
+  }
+
   return (
-    <div style={styles.container}>
-      <div style={styles.toolbar}>
+    <div style={{ ...styles.container, height: "100vh", position: "relative" }}>
+      {/* Sticky toolbar */}
+      <div style={{ ...styles.toolbar, position: "sticky", top: 0, zIndex: 40, background: "#071226" }}>
         <div style={{ display: "flex", gap: 12 }}>
           <label style={styles.toggleLabel}>
             <input type="checkbox" checked={showNative} onChange={() => setShowNative((s) => !s)} /> Show {fluentLanguage.name}
@@ -398,7 +475,8 @@ export default function ChatWithWispr({
         </div>
       </div>
 
-      <div style={styles.chatWindow}>
+      {/* Scrollable chat area — reserve space at bottom for sticky form */}
+      <div ref={chatWindowRef} style={{ ...styles.chatWindow, paddingBottom: FORM_HEIGHT_PX + 12 }}>
         {messages.map((m) => {
           if (m.kind === "pair") return renderPair(m);
           if (m.kind === "translation_check") return renderTranslationCheck(m);
@@ -416,7 +494,43 @@ export default function ChatWithWispr({
         )}
       </div>
 
-      <form onSubmit={handleFormSubmit} style={styles.form}>
+      {/* Jump-to-newest button (appears when scrolled up) */}
+      {showJump && (
+        <button
+          onClick={jumpToNewest}
+          style={{
+            position: "absolute",
+            right: 20,
+            bottom: FORM_HEIGHT_PX + 20,
+            zIndex: 60,
+            background: "#0ea5a4",
+            border: "none",
+            padding: "8px 12px",
+            borderRadius: 999,
+            color: "#021014",
+            boxShadow: "0 6px 18px rgba(2,6,23,0.6)",
+            cursor: "pointer",
+            fontWeight: 700,
+          }}
+          title="Jump to newest messages"
+        >
+          Jump to newest
+        </button>
+      )}
+
+      {/* Sticky form */}
+      <form
+        onSubmit={handleFormSubmit}
+        style={{
+          ...styles.form,
+          position: "sticky",
+          bottom: 0,
+          zIndex: 50,
+          boxShadow: "0 -8px 20px rgba(2,6,23,0.6)",
+          background: "#020617",
+          padding: 12,
+        }}
+      >
         <textarea
           ref={inputRef}
           placeholder={awaitingConfirm ? `Edit the ${fluentLanguage.name} meaning and press Confirm` : `Type or paste ${learningLanguage.name} (or ${fluentLanguage.name}) here`}
@@ -438,11 +552,11 @@ export default function ChatWithWispr({
 
 // ---------- styles ----------
 const styles: { [k: string]: React.CSSProperties } = {
-  container: { display: "flex", flexDirection: "column", height: "100%", width: "100%" },
+  container: { display: "flex", flexDirection: "column", width: "100%" },
   toolbar: { display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 12px", gap: 12 },
   toggleLabel: { marginRight: 12, fontSize: 13, color: "#cbd5e1", userSelect: "none" },
   chatWindow: { flex: 1, minHeight: 0, overflowY: "auto", padding: 12, display: "flex", flexDirection: "column", gap: 8, background: "#0f172a", color: "#e2e8f0" },
-  form: { display: "flex", gap: 8, padding: 8, borderTop: "1px solid rgba(255,255,255,0.06)", background: "#020617" },
+  form: { display: "flex", gap: 8, padding: 8, borderTop: "1px solid rgba(255,255,255,0.06)", background: "#020617", alignItems: "center" },
   textarea: { flex: 1, resize: "none", padding: 10, borderRadius: 8, border: "1px solid rgba(255,255,255,0.06)", background: "#001122", color: "#e6eef8", fontSize: 14 },
   button: { minWidth: 120, padding: "8px 12px", borderRadius: 8, border: "none", background: "#0ea5a4", color: "#041014", fontWeight: 600, cursor: "pointer" },
 };
@@ -455,7 +569,7 @@ function bubbleStyle(kind: "user" | "reply" | "translation_check" | "explanation
     case "reply":
       return { ...base, background: "#0b6b5b", color: "#e6eef8", alignSelf: "flex-end" };
     case "translation_check":
-      return { ...base, background: "#263a66", color: "#dbeafe", alignSelf: "flex-start" };
+      return { ...base, background: "#3d2666ff", color: "#dbeafe", alignSelf: "flex-start" };
     case "explanation":
       return { ...base, background: "#3f3f3fff", color: "#f0e9ff", alignSelf: "center" };
     case "status":
