@@ -43,9 +43,10 @@ export default function ChatWithWispr({
   const [awaitingConfirm, setAwaitingConfirm] = useState(false);
 
   // toggles for hiding/showing
-  const [showNative, setShowNative] = useState(true);
-  const [showLearning, setShowLearning] = useState(true);
+  const [showNative, setShowNative] = useState(true); // English
+  const [showLearning, setShowLearning] = useState(true); // Spanish
   const [showExplanations, setShowExplanations] = useState(true);
+  const [showSpaces, setShowSpaces] = useState(true) // for Spanish
 
   const sessionIdRef = useRef<string>(generateId());
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
@@ -390,7 +391,7 @@ export default function ChatWithWispr({
         }}
       >
         {showNative && <div style={{ fontSize: 12, opacity: 0.85, marginBottom: 6 }}>{pair.native}</div>}
-        {showLearning && <div style={{ fontSize: 16, fontWeight: 700 }}>{pair.learning}</div>}
+        {showLearning && <div style={{ fontSize: 16, fontWeight: 700 }}>{showSpaces ? pair.learning.replaceAll(" ", "") : pair.learning}</div>}
       </div>
     );
   }
@@ -465,6 +466,9 @@ export default function ChatWithWispr({
           </label>
           <label style={styles.toggleLabel}>
             <input type="checkbox" checked={showLearning} onChange={() => setShowLearning((s) => !s)} /> Show {learningLanguage.name}
+          </label>
+          <label style={styles.toggleLabel}>
+            <input type="checkbox" checked={showSpaces} onChange={() => setShowSpaces((s) => !s)} /> Show spaces for {learningLanguage.name}
           </label>
           <label style={styles.toggleLabel}>
             <input type="checkbox" checked={showExplanations} onChange={() => setShowExplanations((s) => !s)} /> Show explanations
