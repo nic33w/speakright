@@ -27,6 +27,12 @@ type Message =
   | { kind: "explanation"; turnId?: string; text: string }
   | { kind: "status"; text: string };
 
+const LANG_OPTIONS: LangSpec[] = [
+  { code: "en", name: "English" },
+  { code: "es", name: "Spanish" },
+  { code: "id", name: "Indonesian" },
+];
+
 const generateId = () => Math.random().toString(36).slice(2, 9);
 const VITE_MOCK_MODE = Boolean(import.meta.env.VITE_MOCK_MODE);
 
@@ -34,8 +40,8 @@ export default function ChatWithWispr({
   apiBase = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000",
 }: { apiBase?: string }) {
   // --- session languages (default) ---
-  const [fluentLanguage] = useState<LangSpec>({ code: "en", name: "English" }); // top
-  const [learningLanguage] = useState<LangSpec>({ code: "es", name: "Spanish" }); // bottom
+  const [fluentLanguage, setFluentLanguage] = useState<LangSpec>(LANG_OPTIONS[0]); // top (default English)
+  const [learningLanguage, setLearningLanguage] = useState<LangSpec>(LANG_OPTIONS[1]); // bottom (default Spanish)
 
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState<string>("");
@@ -43,10 +49,10 @@ export default function ChatWithWispr({
   const [awaitingConfirm, setAwaitingConfirm] = useState(false);
 
   // toggles for hiding/showing
-  const [showNative, setShowNative] = useState(true); // English
-  const [showLearning, setShowLearning] = useState(true); // Spanish
+  const [showNative, setShowNative] = useState(true);
+  const [showLearning, setShowLearning] = useState(true);
   const [showExplanations, setShowExplanations] = useState(true);
-  const [showSpaces, setShowSpaces] = useState(true) // for Spanish
+  const [showSpaces, setShowSpaces] = useState(true); // for languages like Spanish
 
   const sessionIdRef = useRef<string>(generateId());
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
@@ -56,7 +62,7 @@ export default function ChatWithWispr({
   // This ref is set in pushMessage / replaceMessagesWithTurn *before* changing state.
   const shouldAutoScrollRef = useRef<boolean>(true);
   // px threshold to consider "near bottom"
-  const NEAR_BOTTOM_PX = 500;
+  const NEAR_BOTTOM_PX = 160;
 
   // showJump indicates whether to display the "Jump to newest" button
   const [showJump, setShowJump] = useState(false);
@@ -98,10 +104,40 @@ export default function ChatWithWispr({
     });
   }
 
-  // Very simple heuristic to detect Spanish/learning language (accented letters or common words).
+  // swap-safe setter helpers:
+  function handleSetFluent(newCode: string) {
+    const newLang = LANG_OPTIONS.find((l) => l.code === newCode);
+    if (!newLang) return;
+    // if new selection equals current learning, swap learning to previous fluent
+    if (newLang.code === learningLanguage.code) {
+      setLearningLanguage(fluentLanguage);
+    }
+    setFluentLanguage(newLang);
+  }
+  function handleSetLearning(newCode: string) {
+    const newLang = LANG_OPTIONS.find((l) => l.code === newCode);
+    if (!newLang) return;
+    if (newLang.code === fluentLanguage.code) {
+      setFluentLanguage(learningLanguage);
+    }
+    setLearningLanguage(newLang);
+  }
+
+  // two quick preset buttons:
+  function presetEnEs() {
+    setFluentLanguage(LANG_OPTIONS[0]); // en
+    setLearningLanguage(LANG_OPTIONS[1]); // es
+  }
+  function presetEnId() {
+    setFluentLanguage(LANG_OPTIONS[0]); // en
+    setLearningLanguage(LANG_OPTIONS[2]); // id
+  }
+
+  // Very simple heuristic to detect learning language (accented letters or common words).
   function isProbablyLearning(text: string) {
     if (!text.trim()) return false;
     const lower = text.toLowerCase();
+    // basic detection: accented chars or a few common words
     if (/[áéíóúñ¿¡]/.test(lower)) return true;
     const words = ["que", "por", "para", "hola", "gracias", "quiero", "buen", "mañana", "cómo", "dónde"];
     return words.some((w) => new RegExp(`\\b${w}\\b`).test(lower));
@@ -190,15 +226,15 @@ export default function ChatWithWispr({
           audio_base64: p.audio_base64 ?? null,
         }));
 
-        // push a translation_check object (user can edit the joined English meaning)
-        const joinedEnglish = pairs.map((p) => p.native).join("\n");
+        // push a translation_check object (user can edit the joined native meaning)
+        const joinedNative = pairs.map((p) => p.native).join("\n");
         pushMessage({
           kind: "translation_check",
           turnId,
-          joinedEnglish,
+          joinedEnglish: joinedNative,
           userPairs: pairs,
         });
-        setInput(joinedEnglish);
+        setInput(joinedNative);
         setAwaitingConfirm(true);
       } else {
         // User typed in native language -> go straight to generating learning-language sentence(s) + reply
@@ -260,10 +296,10 @@ export default function ChatWithWispr({
     }
   }
 
-  // Confirm flow: after the user edits the English meaning and presses confirm
-  async function confirmEditedEnglish(editedEnglishJoined: string, originalTurn?: { userPairs: SentencePair[]; turnId: string }) {
-    // editedEnglishJoined is the joined native-language text (multi-line)
-    if (!editedEnglishJoined || loading) return;
+  // Confirm flow: after the user edits the native meaning and presses confirm
+  async function confirmEditedEnglish(editedNativeJoined: string, originalTurn?: { userPairs: SentencePair[]; turnId: string }) {
+    // editedNativeJoined is the joined native-language text (multi-line)
+    if (!editedNativeJoined || loading) return;
     setLoading(true);
     const turnId = originalTurn?.turnId ?? `turn_${Date.now().toString(36)}`;
 
@@ -276,7 +312,7 @@ export default function ChatWithWispr({
         learning_language: learningLanguage,
         // when confirming, send both original learning sentences (if available) and the edited native text
         original_pairs: originalTurn?.userPairs?.map((p) => ({ native: p.native, learning: p.learning })) ?? [],
-        confirmed_native_joined: editedEnglishJoined,
+        confirmed_native_joined: editedNativeJoined,
       };
 
       const res = await fetch(`${apiBase}/api/confirm`, {
@@ -380,6 +416,9 @@ export default function ChatWithWispr({
       textAlign: isUser ? "left" : "right",
     };
 
+    // If showSpaces is false, remove spaces (user requested)
+    const learningText = showSpaces ? pair.learning : pair.learning.replaceAll?.(" ", "") ?? pair.learning.split(" ").join("");
+
     return (
       <div
         key={m.turnId + ":" + pair.id}
@@ -391,7 +430,7 @@ export default function ChatWithWispr({
         }}
       >
         {showNative && <div style={{ fontSize: 12, opacity: 0.85, marginBottom: 6 }}>{pair.native}</div>}
-        {showLearning && <div style={{ fontSize: 16, fontWeight: 700 }}>{showSpaces ? pair.learning.replaceAll(" ", "") : pair.learning}</div>}
+        {showLearning && <div style={{ fontSize: 16, fontWeight: 700 }}>{learningText}</div>}
       </div>
     );
   }
@@ -399,7 +438,7 @@ export default function ChatWithWispr({
   function renderTranslationCheck(m: Extract<Message, { kind: "translation_check" }>) {
     return (
       <div key={m.turnId} style={bubbleStyle("translation_check")}>
-        <div style={{ marginBottom: 8, opacity: 0.9 }}>Is this what you meant? (edit the native text below and press Confirm)</div>
+        <div style={{ marginBottom: 8, opacity: 0.9 }}>Is this what you meant? (edit the {fluentLanguage.name} text below and press Confirm)</div>
         <div style={{ whiteSpace: "pre-wrap", fontSize: 13 }}>{m.joinedEnglish}</div>
       </div>
     );
@@ -460,7 +499,8 @@ export default function ChatWithWispr({
     <div style={{ ...styles.container, height: "100vh", position: "relative" }}>
       {/* Sticky toolbar */}
       <div style={{ ...styles.toolbar, position: "sticky", top: 0, zIndex: 40, background: "#071226" }}>
-        <div style={{ display: "flex", gap: 12 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          {/* toggles */}
           <label style={styles.toggleLabel}>
             <input type="checkbox" checked={showNative} onChange={() => setShowNative((s) => !s)} /> Show {fluentLanguage.name}
           </label>
@@ -473,7 +513,45 @@ export default function ChatWithWispr({
           <label style={styles.toggleLabel}>
             <input type="checkbox" checked={showExplanations} onChange={() => setShowExplanations((s) => !s)} /> Show explanations
           </label>
+
+          {/* language selects */}
+          <div style={{ display: "flex", gap: 8, alignItems: "center", marginLeft: 8 }}>
+            <div style={{ fontSize: 12, color: "#94a3b8", marginRight: 6 }}>Native:</div>
+            <select
+              value={fluentLanguage.code}
+              onChange={(e) => handleSetFluent(e.target.value)}
+              style={{ padding: "6px 8px", borderRadius: 6, background: "#0b1220", color: "#e6eef8", border: "1px solid rgba(255,255,255,0.06)" }}
+            >
+              {LANG_OPTIONS.map((l) => (
+                <option key={l.code} value={l.code}>
+                  {l.name}
+                </option>
+              ))}
+            </select>
+
+            <div style={{ fontSize: 12, color: "#94a3b8", marginLeft: 8, marginRight: 6 }}>Learning:</div>
+            <select
+              value={learningLanguage.code}
+              onChange={(e) => handleSetLearning(e.target.value)}
+              style={{ padding: "6px 8px", borderRadius: 6, background: "#0b1220", color: "#e6eef8", border: "1px solid rgba(255,255,255,0.06)" }}
+            >
+              {LANG_OPTIONS.map((l) => (
+                <option key={l.code} value={l.code}>
+                  {l.name}
+                </option>
+              ))}
+            </select>
+
+            {/* preset buttons */}
+            <button type="button" onClick={presetEnEs} style={{ marginLeft: 8, padding: "6px 10px", borderRadius: 6, background: "#ffff7aff", border: "none", color: "#021014", fontWeight: 700 }}>
+              EN ↔ ES
+            </button>
+            <button type="button" onClick={presetEnId} style={{ padding: "6px 10px", borderRadius: 6, background: "#4141ffff", border: "none", color: "#021014", fontWeight: 700 }}>
+              EN ↔ ID
+            </button>
+          </div>
         </div>
+
         <div style={{ fontSize: 12, color: "#94a3b8" }}>
           Session: {sessionIdRef.current} — {fluentLanguage.name} ↔ {learningLanguage.name}
         </div>
@@ -537,7 +615,11 @@ export default function ChatWithWispr({
       >
         <textarea
           ref={inputRef}
-          placeholder={awaitingConfirm ? `Edit the ${fluentLanguage.name} meaning and press Confirm` : `Type or paste ${learningLanguage.name} (or ${fluentLanguage.name}) here`}
+          placeholder={
+            awaitingConfirm
+              ? `Edit the ${fluentLanguage.name} text and press Confirm`
+              : `Type or paste ${learningLanguage.name} (or ${fluentLanguage.name}) here`
+          }
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
