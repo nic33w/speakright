@@ -9,7 +9,8 @@ import type { FormEvent, KeyboardEvent } from "react";
  * - Toggles to hide native or learning text (bubbles still clickable to play audio)
  * - Works with backend endpoints:
  *    POST /api/transcript  -> returns { turn_id, user_pairs: [{ native, learning }] }
- *    POST /api/confirm     -> returns { turn_id, corrected_pairs, reply_pairs, correction_explanation, audio_base64 per pair ... }
+ *    POST /api/confirm     -> returns { turn_id, corrected_pairs, reply_pairs, correction_explanation,
+ *                                       audio_base64, audio_file (URL) per pair ... }
  */
 
 type LangSpec = { code: string; name: string };
@@ -19,6 +20,8 @@ type SentencePair = {
   native: string; // fluent language text (top)
   learning: string; // target language text (bottom)
   audio_base64?: string | null; // optional per-sentence audio (base64)
+  audio_file?: string | null; // optional per-sentence URL returned by backend (e.g. "/api/audio_file/<session>/<filename>")
+  audio_filename?: string | null; // backend filename if provided
 };
 
 type Message =
@@ -34,7 +37,7 @@ const LANG_OPTIONS: LangSpec[] = [
 ];
 
 const generateId = () => Math.random().toString(36).slice(2, 9);
-const VITE_MOCK_MODE = Boolean(import.meta.env.VITE_MOCK_MODE);
+const VITE_MOCK_MODE = 0; //Boolean(import.meta.env.VITE_MOCK_MODE);
 
 export default function ChatWithWispr({
   apiBase = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000",
@@ -66,6 +69,14 @@ export default function ChatWithWispr({
 
   // showJump indicates whether to display the "Jump to newest" button
   const [showJump, setShowJump] = useState(false);
+
+  // Audio object-URL cache for fetched audio files to avoid re-fetching repeatedly.
+  // key: audio_filename (backend), value: objectURL
+  const audioUrlCacheRef = useRef<Map<string, string>>(new Map());
+
+  // Conversation sidebar state
+  const [conversations, setConversations] = useState<Array<{ session_id: string; filename: string; saved_at: number }>>([]);
+  const [selectedSession, setSelectedSession] = useState<string | null>(null);
 
   // --- helpers ---
   function pushMessage(m: Message) {
@@ -133,51 +144,136 @@ export default function ChatWithWispr({
     setLearningLanguage(LANG_OPTIONS[2]); // id
   }
 
-  // Very simple heuristic to detect learning language (accented letters or common words).
-  function isProbablyLearning(text: string) {
-    if (!text.trim()) return false;
+  // Language-aware detection for whether input is in the learning language.
+  function isProbablyLearning(text: string, langCode: string = learningLanguage.code) {
+    if (!text || !text.trim()) return false;
     const lower = text.toLowerCase();
-    // basic detection: accented chars or a few common words
-    if (/[áéíóúñ¿¡]/.test(lower)) return true;
-    const words = ["que", "por", "para", "hola", "gracias", "quiero", "buen", "mañana", "cómo", "dónde"];
-    return words.some((w) => new RegExp(`\\b${w}\\b`).test(lower));
+
+    if (langCode === "es") {
+      if (/[áéíóúñ¿¡]/.test(lower)) return true;
+      const words = ["que", "por", "para", "hola", "gracias", "quiero", "buen", "mañana", "cómo", "dónde", "está", "esta", "ser", "estar"];
+      return words.some((w) => new RegExp(`\\b${w}\\b`, "i").test(lower));
+    }
+
+    if (langCode === "id") {
+      // Indonesian heuristics
+      const words = ["dan", "saya", "kamu", "apa", "terima", "kasih", "selamat", "kabar", "ini", "itu", "sudah", "belum", "di", "ke", "dengan"];
+      if (/\w+lah\b/.test(lower)) return true;
+      return words.some((w) => new RegExp(`\\b${w}\\b`, "i").test(lower));
+    }
+
+    // fallback for English: basic keywords (rarely used)
+    if (langCode === "en") {
+      const words = ["the", "is", "and", "you", "are", "i", "want", "please", "thanks"];
+      return words.some((w) => new RegExp(`\\b${w}\\b`, "i").test(lower));
+    }
+
+    return false;
   }
 
-  // convert base64 to object URL and play
-  function playBase64(base64?: string | null) {
-    if (!base64) return;
+  // convert base64 to object URL and play — now returns a Promise that resolves on end (so sequential playback is possible)
+  function playBase64(base64?: string | null): Promise<boolean> {
+    if (!base64) return Promise.resolve(false);
+    return new Promise<boolean>((resolve) => {
+      try {
+        const binary = atob(base64);
+        const len = binary.length;
+        const bytes = new Uint8Array(len);
+        for (let i = 0; i < len; i++) bytes[i] = binary.charCodeAt(i);
+        const blob = new Blob([bytes], { type: "audio/wav" });
+        const url = URL.createObjectURL(blob);
+        const audio = new Audio(url);
+
+        const cleanup = () => {
+          URL.revokeObjectURL(url);
+        };
+
+        audio.onended = () => {
+          cleanup();
+          resolve(true);
+        };
+        audio.onerror = () => {
+          cleanup();
+          resolve(false);
+        };
+        // start playback; if it fails to start (autoplay), resolve(false)
+        audio.play().then(() => {
+          // playing started — wait for 'ended'
+        }).catch((e) => {
+          // couldn't start playback (user gesture/autoplay policy)
+          cleanup();
+          resolve(false);
+        });
+      } catch (e) {
+        console.error("playBase64 error", e);
+        resolve(false);
+      }
+    });
+  }
+
+  // fetch audio file URL (backend file endpoint) and play. caches object URL by filename.
+  // returns Promise<boolean> that resolves when playback ends (or false on failure)
+  async function fetchAndPlayAudioFile(audioFilePath: string | undefined, audioFilename?: string | null): Promise<boolean> {
+    if (!audioFilePath) return false;
     try {
-      const binary = atob(base64);
-      const len = binary.length;
-      const bytes = new Uint8Array(len);
-      for (let i = 0; i < len; i++) bytes[i] = binary.charCodeAt(i);
-      const blob = new Blob([bytes], { type: "audio/wav" });
-      const url = URL.createObjectURL(blob);
-      const audio = new Audio(url);
-      audio.play().catch((e) => console.warn("Audio play failed:", e));
-      setTimeout(() => URL.revokeObjectURL(url), 30000);
+      // If we have cached object URL for filename, reuse it
+      if (audioFilename) {
+        const cached = audioUrlCacheRef.current.get(audioFilename);
+        if (cached) {
+          return await new Promise<boolean>((resolve) => {
+            const audio = new Audio(cached);
+            audio.onended = () => resolve(true);
+            audio.onerror = () => resolve(false);
+            audio.play().catch(() => resolve(false));
+          });
+        }
+      }
+
+      // fetch the file from backend (audioFilePath is returned by backend, usually like "/api/audio_file/<session>/<filename>")
+      const fullUrl = audioFilePath.startsWith("http") ? audioFilePath : `${apiBase}${audioFilePath}`;
+      const resp = await fetch(fullUrl);
+      if (!resp.ok) throw new Error("audio fetch failed");
+      const blob = await resp.blob();
+      const objectUrl = URL.createObjectURL(blob);
+      // cache if filename available
+      if (audioFilename) audioUrlCacheRef.current.set(audioFilename, objectUrl);
+
+      return await new Promise<boolean>((resolve) => {
+        const audio = new Audio(objectUrl);
+        audio.onended = () => resolve(true);
+        audio.onerror = () => resolve(false);
+        audio.play().catch(() => resolve(false));
+      });
     } catch (e) {
-      console.error("playBase64 error", e);
+      // network failure or file not ready
+      return false;
     }
   }
 
+  // play a single pair, returns Promise<boolean> that resolves when done (true if played through)
+  async function playAudioForPair(pair: SentencePair): Promise<boolean> {
+    // prefer audio_file (backend-served file) if present and fetchable; fallback to audio_base64
+    if (pair.audio_file) {
+      const ok = await fetchAndPlayAudioFile(pair.audio_file, pair.audio_filename);
+      if (ok) return true;
+    }
+    if (pair.audio_base64) {
+      return await playBase64(pair.audio_base64);
+    }
+    return false;
+  }
+
+  // play sequence of pairs sequentially
   async function playSequence(pairs: SentencePair[]) {
     for (const p of pairs) {
+      // for sequence we try audio_file first, else base64
+      if (p.audio_file) {
+        const ok = await fetchAndPlayAudioFile(p.audio_file, p.audio_filename);
+        if (ok) continue;
+      }
       if (p.audio_base64) {
-        await new Promise<void>((resolve) => {
-          const binary = atob(p.audio_base64 || "");
-          const arr = new Uint8Array(binary.length);
-          for (let i = 0; i < binary.length; i++) arr[i] = binary.charCodeAt(i);
-          const blob = new Blob([arr], { type: "audio/wav" });
-          const url = URL.createObjectURL(blob);
-          const audio = new Audio(url);
-          audio.onended = () => {
-            URL.revokeObjectURL(url);
-            resolve();
-          };
-          audio.onerror = () => resolve();
-          audio.play().catch(() => resolve());
-        });
+        // await base64 playback
+        await playBase64(p.audio_base64);
       }
     }
   }
@@ -189,7 +285,7 @@ export default function ChatWithWispr({
     if (!trimmed || loading) return;
 
     // decide if user typed in learning language (bottom) or native (top)
-    const probablyLearning = isProbablyLearning(trimmed);
+    const probablyLearning = isProbablyLearning(trimmed, learningLanguage.code);
 
     setLoading(true);
     const turnId = `turn_${Date.now().toString(36)}`;
@@ -224,6 +320,8 @@ export default function ChatWithWispr({
           native: p.native,
           learning: p.learning,
           audio_base64: p.audio_base64 ?? null,
+          audio_file: p.audio_file ?? null,
+          audio_filename: p.audio_filename ?? null,
         }));
 
         // push a translation_check object (user can edit the joined native meaning)
@@ -262,12 +360,16 @@ export default function ChatWithWispr({
           native: p.native,
           learning: p.learning,
           audio_base64: p.audio_base64 ?? null,
+          audio_file: p.audio_file ?? null,
+          audio_filename: p.audio_filename ?? null,
         }));
         const replyPairs: SentencePair[] = (data.reply_pairs || []).map((p: any) => ({
           id: generateId(),
           native: p.native,
           learning: p.learning,
           audio_base64: p.audio_base64 ?? null,
+          audio_file: p.audio_file ?? null,
+          audio_filename: p.audio_filename ?? null,
         }));
 
         // remove status messages
@@ -281,9 +383,11 @@ export default function ChatWithWispr({
 
         replaceMessagesWithTurn(turnId, newMessages);
 
-        // optionally auto-play first user audio then reply sequence
-        if (correctedPairs.length && correctedPairs[0].audio_base64) {
-          playBase64(correctedPairs[0].audio_base64);
+        // sequential playback: await corrected first (if available) then replies
+        if (correctedPairs.length && (correctedPairs[0].audio_file || correctedPairs[0].audio_base64)) {
+          // await the first corrected audio, then play reply sequence
+          await playAudioForPair(correctedPairs[0]);
+          await playSequence(replyPairs);
         }
         setInput("");
       }
@@ -329,12 +433,16 @@ export default function ChatWithWispr({
         native: p.native,
         learning: p.learning,
         audio_base64: p.audio_base64 ?? null,
+        audio_file: p.audio_file ?? null,
+        audio_filename: p.audio_filename ?? null,
       }));
       const replyPairs: SentencePair[] = (data.reply_pairs || []).map((p: any) => ({
         id: generateId(),
         native: p.native,
         learning: p.learning,
         audio_base64: p.audio_base64 ?? null,
+        audio_file: p.audio_file ?? null,
+        audio_filename: p.audio_filename ?? null,
       }));
 
       setMessages((m) => m.filter((x) => x.kind !== "status"));
@@ -347,11 +455,10 @@ export default function ChatWithWispr({
 
       replaceMessagesWithTurn(turnId, newMessages);
 
-      // optionally play first corrected audio then reply
-      if (correctedPairs.length && correctedPairs[0].audio_base64) {
-        playBase64(correctedPairs[0].audio_base64);
-        // then reply sequence after short delay
-        setTimeout(() => playSequence(replyPairs), 900 + correctedPairs[0].native.split(" ").length * 120);
+      // sequential playback: await corrected first (if available) then replies
+      if (correctedPairs.length && (correctedPairs[0].audio_file || correctedPairs[0].audio_base64)) {
+        await playAudioForPair(correctedPairs[0]);
+        await playSequence(replyPairs);
       }
 
       setInput("");
@@ -402,55 +509,87 @@ export default function ChatWithWispr({
     }
   }
 
-  // --- Render functions ---
-  function renderPair(m: Extract<Message, { kind: "pair" }>) {
-    const { pair, side } = m;
-    const isUser = side === "user";
-    const wrapperStyle: React.CSSProperties = {
-      ...bubbleStyle(isUser ? "user" : "reply"),
-      alignSelf: isUser ? "flex-start" : "flex-end",
-      cursor: pair.audio_base64 ? "pointer" : "default",
-      display: "inline-block",
-      minWidth: 160,
-      maxWidth: "85%",
-      textAlign: isUser ? "left" : "right",
-    };
-
-    // If showSpaces is false, remove spaces (user requested)
-    const learningText = showSpaces ? pair.learning : pair.learning.replaceAll?.(" ", "") ?? pair.learning.split(" ").join("");
-
-    return (
-      <div
-        key={m.turnId + ":" + pair.id}
-        style={wrapperStyle}
-        role="button"
-        onClick={() => {
-          // clicking a pair plays its audio if present
-          if (pair.audio_base64) playBase64(pair.audio_base64);
-        }}
-      >
-        {showNative && <div style={{ fontSize: 12, opacity: 0.85, marginBottom: 6 }}>{pair.native}</div>}
-        {showLearning && <div style={{ fontSize: 16, fontWeight: 700 }}>{learningText}</div>}
-      </div>
-    );
+  // ---------- conversation sidebar functions ----------
+  async function fetchConversations() {
+    if (VITE_MOCK_MODE) {
+      setConversations([]);
+      return;
+    }
+    try {
+      const res = await fetch(`${apiBase}/api/conversations`);
+      if (!res.ok) throw new Error("failed to list conversations");
+      const arr = await res.json();
+      setConversations(arr || []);
+    } catch (e) {
+      console.warn("fetchConversations failed", e);
+    }
   }
 
-  function renderTranslationCheck(m: Extract<Message, { kind: "translation_check" }>) {
-    return (
-      <div key={m.turnId} style={bubbleStyle("translation_check")}>
-        <div style={{ marginBottom: 8, opacity: 0.9 }}>Is this what you meant? (edit the {fluentLanguage.name} text below and press Confirm)</div>
-        <div style={{ whiteSpace: "pre-wrap", fontSize: 13 }}>{m.joinedEnglish}</div>
-      </div>
-    );
+  // sanitize messages before saving: remove audio_base64 payloads to keep JSON small
+  function sanitizeMessagesForSave(msgs: Message[]) {
+    return msgs.map((m) => {
+      if (m.kind === "pair") {
+        const p = { ...m.pair } as SentencePair;
+        // remove heavy base64 if present
+        if ("audio_base64" in p) delete (p as any).audio_base64;
+        return { ...m, pair: p };
+      }
+      if (m.kind === "translation_check") {
+        const userPairs = (m.userPairs || []).map((p) => {
+          const copy = { ...p } as SentencePair;
+          if ("audio_base64" in copy) delete (copy as any).audio_base64;
+          return copy;
+        });
+        return { ...m, userPairs };
+      }
+      return m;
+    });
   }
 
-  function renderExplanation(m: Extract<Message, { kind: "explanation" }>) {
-    if (!showExplanations) return null;
-    return (
-      <div key={m.text + (m.turnId ?? "")} style={bubbleStyle("explanation")}>
-        <div style={{ whiteSpace: "pre-wrap" }}>{m.text}</div>
-      </div>
-    );
+  async function saveConversation() {
+    if (VITE_MOCK_MODE) {
+      alert("Mock mode: conversations are not saved.");
+      return;
+    }
+    try {
+      const sessionId = sessionIdRef.current;
+      const payload = {
+        messages: sanitizeMessagesForSave(messages),
+        fluent_language: fluentLanguage,
+        learning_language: learningLanguage,
+      };
+      const res = await fetch(`${apiBase}/api/conversations/${sessionId}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) throw new Error(`save failed ${res.status}`);
+      await fetchConversations();
+      alert("Saved.");
+    } catch (e) {
+      console.error("saveConversation failed", e);
+      alert("Save failed — see console.");
+    }
+  }
+
+  async function loadConversation(sessionId: string) {
+    try {
+      const res = await fetch(`${apiBase}/api/conversations/${sessionId}`);
+      if (!res.ok) throw new Error(`load failed ${res.status}`);
+      const data = await res.json();
+      // Load messages; optionally set languages if stored
+      if (Array.isArray(data.messages)) setMessages(data.messages);
+      if (data.fluent_language) setFluentLanguage(data.fluent_language);
+      if (data.learning_language) setLearningLanguage(data.learning_language);
+      sessionIdRef.current = data.session_id || sessionId;
+      setSelectedSession(sessionId);
+      // clear audio cache — object URLs might map to other sessions
+      audioUrlCacheRef.current.forEach((url) => URL.revokeObjectURL(url));
+      audioUrlCacheRef.current.clear();
+    } catch (e) {
+      console.error("loadConversation failed", e);
+      alert("Failed to load conversation — see console.");
+    }
   }
 
   // ---------- layout adjustments for sticky toolbar + sticky form ----------
@@ -486,6 +625,17 @@ export default function ChatWithWispr({
     return () => el.removeEventListener("scroll", onScroll);
   }, []);
 
+  // fetch conversations list at startup (unless mock)
+  useEffect(() => {
+    fetchConversations();
+    // cleanup audio object URLs when unmounting
+    return () => {
+      audioUrlCacheRef.current.forEach((url) => URL.revokeObjectURL(url));
+      audioUrlCacheRef.current.clear();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Handler for Jump button
   function jumpToNewest() {
     const el = chatWindowRef.current;
@@ -495,143 +645,235 @@ export default function ChatWithWispr({
     setShowJump(false);
   }
 
+  // --- Render functions ---
+  function renderPair(m: Extract<Message, { kind: "pair" }>) {
+    const { pair, side } = m;
+    const isUser = side === "user";
+    const wrapperStyle: React.CSSProperties = {
+      ...bubbleStyle(isUser ? "user" : "reply"),
+      alignSelf: isUser ? "flex-start" : "flex-end",
+      cursor: (pair.audio_file || pair.audio_base64) ? "pointer" : "default",
+      display: "inline-block",
+      minWidth: 160,
+      maxWidth: "85%",
+      textAlign: isUser ? "left" : "right",
+    };
+
+    // If showSpaces is false, remove spaces (user requested)
+    const learningText = showSpaces ? pair.learning : pair.learning.replaceAll?.(" ", "") ?? pair.learning.split(" ").join("");
+
+    return (
+      <div
+        key={m.turnId + ":" + pair.id}
+        style={wrapperStyle}
+        role="button"
+        onClick={() => {
+          // clicking a pair plays its audio if present (fire-and-forget ok for user clicks)
+          void playAudioForPair(pair);
+        }}
+      >
+        {showNative && <div style={{ fontSize: 12, opacity: 0.85, marginBottom: 6 }}>{pair.native}</div>}
+        {showLearning && <div style={{ fontSize: 16, fontWeight: 700 }}>{learningText}</div>}
+      </div>
+    );
+  }
+
+  function renderTranslationCheck(m: Extract<Message, { kind: "translation_check" }>) {
+    return (
+      <div key={m.turnId} style={bubbleStyle("translation_check")}>
+        <div style={{ marginBottom: 8, opacity: 0.9 }}>Is this what you meant? (edit the {fluentLanguage.name} text below and press Confirm)</div>
+        <div style={{ whiteSpace: "pre-wrap", fontSize: 13 }}>{m.joinedEnglish}</div>
+      </div>
+    );
+  }
+
+  function renderExplanation(m: Extract<Message, { kind: "explanation" }>) {
+    if (!showExplanations) return null;
+    return (
+      <div key={m.text + (m.turnId ?? "")} style={bubbleStyle("explanation")}>
+        <div style={{ whiteSpace: "pre-wrap" }}>{m.text}</div>
+      </div>
+    );
+  }
+
   return (
-    <div style={{ ...styles.container, height: "100vh", position: "relative" }}>
-      {/* Sticky toolbar */}
-      <div style={{ ...styles.toolbar, position: "sticky", top: 0, zIndex: 40, background: "#071226" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          {/* toggles */}
-          <label style={styles.toggleLabel}>
-            <input type="checkbox" checked={showNative} onChange={() => setShowNative((s) => !s)} /> Show {fluentLanguage.name}
-          </label>
-          <label style={styles.toggleLabel}>
-            <input type="checkbox" checked={showLearning} onChange={() => setShowLearning((s) => !s)} /> Show {learningLanguage.name}
-          </label>
-          <label style={styles.toggleLabel}>
-            <input type="checkbox" checked={showSpaces} onChange={() => setShowSpaces((s) => !s)} /> Show spaces for {learningLanguage.name}
-          </label>
-          <label style={styles.toggleLabel}>
-            <input type="checkbox" checked={showExplanations} onChange={() => setShowExplanations((s) => !s)} /> Show explanations
-          </label>
+    <div style={{ display: "flex", height: "100vh", background: "#071226" }}>
+      {/* Sidebar */}
+      <div style={{ width: 260, borderRight: "1px solid rgba(255,255,255,0.04)", padding: 12, background: "#061025", color: "#cbd5e1", boxSizing: "border-box" }}>
+        <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 8, color: "#e6eef8" }}>Conversations</div>
+        <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
+          <button onClick={() => fetchConversations()} style={{ flex: 1, padding: "6px 8px", borderRadius: 6, background: "#0ea5a4", border: "none", color: "#021014", fontWeight: 700 }}>
+            Refresh
+          </button>
+          <button onClick={() => saveConversation()} style={{ flex: 1, padding: "6px 8px", borderRadius: 6, background: VITE_MOCK_MODE ? "#555" : "#ffff7a", border: "none", color: "#021014", fontWeight: 700 }} disabled={VITE_MOCK_MODE}>
+            Save
+          </button>
+        </div>
 
-          {/* language selects */}
-          <div style={{ display: "flex", gap: 8, alignItems: "center", marginLeft: 8 }}>
-            <div style={{ fontSize: 12, color: "#94a3b8", marginRight: 6 }}>Native:</div>
-            <select
-              value={fluentLanguage.code}
-              onChange={(e) => handleSetFluent(e.target.value)}
-              style={{ padding: "6px 8px", borderRadius: 6, background: "#0b1220", color: "#e6eef8", border: "1px solid rgba(255,255,255,0.06)" }}
+        <div style={{ overflowY: "auto", maxHeight: "calc(100vh - 180px)" }}>
+          {conversations.length === 0 && <div style={{ fontSize: 13, color: "#94a3b8" }}>No saved conversations</div>}
+          {conversations.map((c) => (
+            <div
+              key={c.session_id}
+              onClick={() => loadConversation(c.session_id)}
+              style={{
+                padding: 8,
+                borderRadius: 8,
+                cursor: "pointer",
+                background: selectedSession === c.session_id ? "#0b6b5b" : "transparent",
+                marginBottom: 6,
+              }}
             >
-              {LANG_OPTIONS.map((l) => (
-                <option key={l.code} value={l.code}>
-                  {l.name}
-                </option>
-              ))}
-            </select>
+              <div style={{ fontSize: 13, fontWeight: 700 }}>{c.session_id}</div>
+              <div style={{ fontSize: 12, color: "#94a3b8" }}>{new Date(c.saved_at * 1000).toLocaleString()}</div>
+            </div>
+          ))}
+        </div>
 
-            <div style={{ fontSize: 12, color: "#94a3b8", marginLeft: 8, marginRight: 6 }}>Learning:</div>
-            <select
-              value={learningLanguage.code}
-              onChange={(e) => handleSetLearning(e.target.value)}
-              style={{ padding: "6px 8px", borderRadius: 6, background: "#0b1220", color: "#e6eef8", border: "1px solid rgba(255,255,255,0.06)" }}
-            >
-              {LANG_OPTIONS.map((l) => (
-                <option key={l.code} value={l.code}>
-                  {l.name}
-                </option>
-              ))}
-            </select>
+        <div style={{ position: "absolute", bottom: 20, left: 12, right: 12, fontSize: 12, color: "#94a3b8" }}>
+          <div>Session: <strong style={{ color: "#e6eef8" }}>{sessionIdRef.current}</strong></div>
+          <div style={{ marginTop: 6 }}>Language: <strong style={{ color: "#e6eef8" }}>{fluentLanguage.name} ↔ {learningLanguage.name}</strong></div>
+        </div>
+      </div>
 
-            {/* preset buttons */}
-            <button type="button" onClick={presetEnEs} style={{ marginLeft: 8, padding: "6px 10px", borderRadius: 6, background: "#ffff7aff", border: "none", color: "#021014", fontWeight: 700 }}>
-              EN ↔ ES
-            </button>
-            <button type="button" onClick={presetEnId} style={{ padding: "6px 10px", borderRadius: 6, background: "#4141ffff", border: "none", color: "#021014", fontWeight: 700 }}>
-              EN ↔ ID
-            </button>
+      {/* Main chat area */}
+      <div style={{ display: "flex", flexDirection: "column", flex: 1 }}>
+        {/* Sticky toolbar */}
+        <div style={{ ...styles.toolbar, position: "sticky", top: 0, zIndex: 40, background: "#071226" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            {/* toggles */}
+            <label style={styles.toggleLabel}>
+              <input type="checkbox" checked={showNative} onChange={() => setShowNative((s) => !s)} /> Show {fluentLanguage.name}
+            </label>
+            <label style={styles.toggleLabel}>
+              <input type="checkbox" checked={showLearning} onChange={() => setShowLearning((s) => !s)} /> Show {learningLanguage.name}
+            </label>
+            <label style={styles.toggleLabel}>
+              <input type="checkbox" checked={showSpaces} onChange={() => setShowSpaces((s) => !s)} /> Show spaces for {learningLanguage.name}
+            </label>
+            <label style={styles.toggleLabel}>
+              <input type="checkbox" checked={showExplanations} onChange={() => setShowExplanations((s) => !s)} /> Show explanations
+            </label>
+
+            {/* language selects */}
+            <div style={{ display: "flex", gap: 8, alignItems: "center", marginLeft: 8 }}>
+              <div style={{ fontSize: 12, color: "#94a3b8", marginRight: 6 }}>Native:</div>
+              <select
+                value={fluentLanguage.code}
+                onChange={(e) => handleSetFluent(e.target.value)}
+                style={{ padding: "6px 8px", borderRadius: 6, background: "#0b1220", color: "#e6eef8", border: "1px solid rgba(255,255,255,0.06)" }}
+              >
+                {LANG_OPTIONS.map((l) => (
+                  <option key={l.code} value={l.code}>
+                    {l.name}
+                  </option>
+                ))}
+              </select>
+
+              <div style={{ fontSize: 12, color: "#94a3b8", marginLeft: 8, marginRight: 6 }}>Learning:</div>
+              <select
+                value={learningLanguage.code}
+                onChange={(e) => handleSetLearning(e.target.value)}
+                style={{ padding: "6px 8px", borderRadius: 6, background: "#0b1220", color: "#e6eef8", border: "1px solid rgba(255,255,255,0.06)" }}
+              >
+                {LANG_OPTIONS.map((l) => (
+                  <option key={l.code} value={l.code}>
+                    {l.name}
+                  </option>
+                ))}
+              </select>
+
+              {/* preset buttons */}
+              <button type="button" onClick={presetEnEs} style={{ marginLeft: 8, padding: "6px 10px", borderRadius: 6, background: "#ffff7aff", border: "none", color: "#021014", fontWeight: 700 }}>
+                EN ↔ ES
+              </button>
+              <button type="button" onClick={presetEnId} style={{ padding: "6px 10px", borderRadius: 6, background: "#4141ffff", border: "none", color: "#021014", fontWeight: 700 }}>
+                EN ↔ ID
+              </button>
+            </div>
+          </div>
+
+          <div style={{ fontSize: 12, color: "#94a3b8" }}>
+            Session: {sessionIdRef.current} — {fluentLanguage.name} ↔ {learningLanguage.name}
           </div>
         </div>
 
-        <div style={{ fontSize: 12, color: "#94a3b8" }}>
-          Session: {sessionIdRef.current} — {fluentLanguage.name} ↔ {learningLanguage.name}
+        {/* Scrollable chat area — reserve space at bottom for sticky form */}
+        <div ref={chatWindowRef} style={{ ...styles.chatWindow, paddingBottom: FORM_HEIGHT_PX + 12 }}>
+          {messages.map((m) => {
+            if (m.kind === "pair") return renderPair(m);
+            if (m.kind === "translation_check") return renderTranslationCheck(m);
+            if (m.kind === "explanation") return renderExplanation(m);
+            if (m.kind === "status")
+              return (
+                <div key={"status-" + m.text} style={bubbleStyle("status")}>
+                  {m.text}
+                </div>
+              );
+            return null;
+          })}
+          {loading && (
+            <div style={{ color: "#94a3b8", fontSize: 13, padding: 6, alignSelf: "center" }}>Loading...</div>
+          )}
         </div>
-      </div>
 
-      {/* Scrollable chat area — reserve space at bottom for sticky form */}
-      <div ref={chatWindowRef} style={{ ...styles.chatWindow, paddingBottom: FORM_HEIGHT_PX + 12 }}>
-        {messages.map((m) => {
-          if (m.kind === "pair") return renderPair(m);
-          if (m.kind === "translation_check") return renderTranslationCheck(m);
-          if (m.kind === "explanation") return renderExplanation(m);
-          if (m.kind === "status")
-            return (
-              <div key={"status-" + m.text} style={bubbleStyle("status")}>
-                {m.text}
-              </div>
-            );
-          return null;
-        })}
-        {loading && (
-          <div style={{ color: "#94a3b8", fontSize: 13, padding: 6, alignSelf: "center" }}>Loading...</div>
+        {/* Jump-to-newest button (appears when scrolled up) */}
+        {showJump && (
+          <button
+            onClick={jumpToNewest}
+            style={{
+              position: "absolute",
+              right: 20,
+              bottom: FORM_HEIGHT_PX + 20,
+              zIndex: 60,
+              background: "#0ea5a4",
+              border: "none",
+              padding: "8px 12px",
+              borderRadius: 999,
+              color: "#021014",
+              boxShadow: "0 6px 18px rgba(2,6,23,0.6)",
+              cursor: "pointer",
+              fontWeight: 700,
+            }}
+            title="Jump to newest messages"
+          >
+            Jump to newest
+          </button>
         )}
-      </div>
 
-      {/* Jump-to-newest button (appears when scrolled up) */}
-      {showJump && (
-        <button
-          onClick={jumpToNewest}
+        {/* Sticky form */}
+        <form
+          onSubmit={handleFormSubmit}
           style={{
-            position: "absolute",
-            right: 20,
-            bottom: FORM_HEIGHT_PX + 20,
-            zIndex: 60,
-            background: "#0ea5a4",
-            border: "none",
-            padding: "8px 12px",
-            borderRadius: 999,
-            color: "#021014",
-            boxShadow: "0 6px 18px rgba(2,6,23,0.6)",
-            cursor: "pointer",
-            fontWeight: 700,
+            ...styles.form,
+            position: "sticky",
+            bottom: 0,
+            zIndex: 50,
+            boxShadow: "0 -8px 20px rgba(2,6,23,0.6)",
+            background: "#020617",
+            padding: 12,
           }}
-          title="Jump to newest messages"
         >
-          Jump to newest
-        </button>
-      )}
-
-      {/* Sticky form */}
-      <form
-        onSubmit={handleFormSubmit}
-        style={{
-          ...styles.form,
-          position: "sticky",
-          bottom: 0,
-          zIndex: 50,
-          boxShadow: "0 -8px 20px rgba(2,6,23,0.6)",
-          background: "#020617",
-          padding: 12,
-        }}
-      >
-        <textarea
-          ref={inputRef}
-          placeholder={
-            awaitingConfirm
-              ? `Edit the ${fluentLanguage.name} text and press Confirm`
-              : `Type or paste ${learningLanguage.name} (or ${fluentLanguage.name}) here`
-          }
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={handleKeyDown}
-          onPaste={handlePaste}
-          style={styles.textarea}
-          rows={2}
-          disabled={loading}
-        />
-        <button type="submit" style={styles.button} disabled={loading}>
-          {awaitingConfirm ? "Confirm" : "Send"}
-        </button>
-      </form>
+          <textarea
+            ref={inputRef}
+            placeholder={
+              awaitingConfirm
+                ? `Edit the ${fluentLanguage.name} text and press Confirm`
+                : `Type or paste ${learningLanguage.name} (or ${fluentLanguage.name}) here`
+            }
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={handleKeyDown}
+            onPaste={handlePaste}
+            style={styles.textarea}
+            rows={2}
+            disabled={loading}
+          />
+          <button type="submit" style={styles.button} disabled={loading}>
+            {awaitingConfirm ? "Confirm" : "Send"}
+          </button>
+        </form>
+      </div>
     </div>
   );
 }
