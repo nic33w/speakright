@@ -2,6 +2,9 @@
 .env
 *.env
 
+/audio_files/
+/conversations/
+
 # Python cache/compiled files
 __pycache__/
 *.py[cod]
