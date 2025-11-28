@@ -54,6 +54,8 @@ function generateId(prefix = "id") {
 }
 
 export default function StoryCardsGame({ apiBase = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000" }:{ apiBase?: string }) {
+  const [isMockMode, setIsMockMode] = useState<boolean>(false);
+
   const [fluent, setFluent] = useState<LangSpec>(LANG_OPTIONS[0]);
   const [learning, setLearning] = useState<LangSpec>(LANG_OPTIONS[1]);
 
@@ -75,6 +77,10 @@ export default function StoryCardsGame({ apiBase = import.meta.env.VITE_API_BASE
   const [history, setHistory] = useState<any[]>([]);
   const [playingIndex, setPlayingIndex] = useState<number | null>(null);
   const [hoverIndex, setHoverIndex] = useState<number | null>(null);
+
+  // New state for tracking expanded history items and button hover
+  const [expandedIndex, setExpandedIndex] = useState<number | null>(null);
+  const [hoverButton, setHoverButton] = useState<{idx: number, btn: 1|2|3} | null>(null);
 
   // hover playback control refs
   const currentAudioRef = useRef<HTMLAudioElement | null>(null);
@@ -127,6 +133,23 @@ export default function StoryCardsGame({ apiBase = import.meta.env.VITE_API_BASE
       setBusy(false);
     }
   }
+
+  // Fetch config from backend to detect mock mode
+  useEffect(() => {
+    async function fetchConfig() {
+      try {
+        const res = await fetch(`${apiBase}/api/config`);
+        if (res.ok) {
+          const data = await res.json();
+          setIsMockMode(data.mock_mode === true);
+        }
+      } catch (e) {
+        console.error("Failed to fetch config:", e);
+        // Default to false if config fetch fails
+      }
+    }
+    void fetchConfig();
+  }, [apiBase]);
 
   // auto-send logic (debounced)
   useEffect(() => {
@@ -353,7 +376,7 @@ export default function StoryCardsGame({ apiBase = import.meta.env.VITE_API_BASE
     });
   }
 
-  async function startHoverPlayForHistory(h: any, idx: number) {
+  async function startHoverPlayForHistory(h: any, idx: number, mode: 'both' | 'learning' = 'both') {
     if (!h) return;
     const audioList: Array<{ audio_file?: string, lang?: string, purpose?: string }> = [];
 
@@ -368,10 +391,16 @@ export default function StoryCardsGame({ apiBase = import.meta.env.VITE_API_BASE
 
     const native = audioList.find(a => a.purpose === "native_translation" || (a.lang && a.lang.startsWith("en")));
     const corrected = audioList.find(a => a.purpose === "corrected_sentence" || (a.lang && a.lang.startsWith(learning.code === "es" ? "es" : (learning.code === "id" ? "id" : "en"))));
+
+    // Build play order based on mode
     const playOrder: Array<{ audio_file?: string }> = [];
-    if (native) playOrder.push(native);
-    if (corrected && corrected !== native) playOrder.push(corrected);
-    for (const a of audioList) if (!playOrder.includes(a)) playOrder.push(a);
+    if (mode === 'both') {
+      if (native) playOrder.push(native);
+      if (corrected && corrected !== native) playOrder.push(corrected);
+      for (const a of audioList) if (!playOrder.includes(a)) playOrder.push(a);
+    } else if (mode === 'learning') {
+      if (corrected) playOrder.push(corrected);
+    }
 
     isHoveringRef.current = true;
     setHoverIndex(idx);
@@ -436,6 +465,52 @@ export default function StoryCardsGame({ apiBase = import.meta.env.VITE_API_BASE
     }
   }
 
+  async function playLearningAudioOnly(h: any, idx: number) {
+    if (!h) return;
+    // Clear timers and stop current audio
+    if (hoverTimerRef.current) {
+      window.clearTimeout(hoverTimerRef.current);
+      hoverTimerRef.current = null;
+    }
+    stopCurrentAudio();
+
+    // Extract audio list (reuse existing logic from playHistoryItem)
+    const audioList: Array<{ purpose?: string; audio_file?: string; lang?: string }> = [];
+    if (Array.isArray(h.audio_files) && h.audio_files.length) {
+      for (const a of h.audio_files) audioList.push({ purpose: a.purpose, audio_file: a.audio_file, lang: a.lang });
+    } else if (h.audio_file_learning) {
+      audioList.push({
+        purpose: "corrected_sentence",
+        audio_file: h.audio_file_learning,
+        lang: learning.code === "es" ? "es-MX" : (learning.code === "id" ? "id-ID" : "en-US")
+      });
+    } else if (Array.isArray(h.audio_chunks) && h.audio_chunks.length) {
+      for (const c of h.audio_chunks) {
+        audioList.push({ purpose: c.purpose, audio_file: c.audio_file ?? c.file ?? c.src, lang: c.lang });
+      }
+    }
+
+    // Find ONLY the learning/corrected audio
+    const corrected = audioList.find(a =>
+      a.purpose === "corrected_sentence" ||
+      (a.lang && a.lang.startsWith(learning.code === "es" ? "es" : (learning.code === "id" ? "id" : "en")))
+    );
+
+    setPlayingIndex(idx);
+    try {
+      if (corrected && corrected.audio_file) {
+        const url = corrected.audio_file.startsWith("http")
+          ? corrected.audio_file
+          : `${apiBase}${corrected.audio_file}`;
+        await playAudioUrl(url);
+      }
+    } catch (e) {
+      console.error("Error during learning audio playback", e);
+    } finally {
+      setPlayingIndex(null);
+    }
+  }
+
   // swap card locally (unused replacement will not duplicate existing visible cards)
   function swapCard(index: number) {
     const remaining = CARD_DECK.filter(c => !visibleCards.some(vc => vc.id === c.id));
@@ -449,8 +524,29 @@ export default function StoryCardsGame({ apiBase = import.meta.env.VITE_API_BASE
   // UI
   if (phase === "setup") {
     return (
-      <div style={{ padding: 18 }}>
-        <h2>Story Cards — Setup</h2>
+      <>
+        {isMockMode && (
+          <div style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            zIndex: 9999,
+            background: 'linear-gradient(135deg, #ff6b6b 0%, #ff8e53 100%)',
+            color: 'white',
+            padding: '8px 16px',
+            textAlign: 'center',
+            fontWeight: 800,
+            fontSize: 14,
+            letterSpacing: '1px',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
+            borderBottom: '3px solid rgba(0,0,0,0.1)'
+          }}>
+            ⚠️ MOCK MODE ⚠️
+          </div>
+        )}
+        <div style={{ padding: 18, paddingTop: isMockMode ? 48 : 18 }}>
+          <h2>Story Cards — Setup</h2>
         <div style={{ display: 'flex', gap: 12 }}>
           <div>
             <label>Fluent language</label>
@@ -468,14 +564,36 @@ export default function StoryCardsGame({ apiBase = import.meta.env.VITE_API_BASE
         <div style={{ marginTop: 16 }}>
           <button onClick={()=> setPhase('chooseTitle') } disabled={busy}>Choose Title & Start</button>
         </div>
-      </div>
+        </div>
+      </>
     );
   }
 
   if (phase === "chooseTitle") {
     return (
-      <div style={{ padding: 18 }}>
-        <h2>Pick a title</h2>
+      <>
+        {isMockMode && (
+          <div style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            zIndex: 9999,
+            background: 'linear-gradient(135deg, #ff6b6b 0%, #ff8e53 100%)',
+            color: 'white',
+            padding: '8px 16px',
+            textAlign: 'center',
+            fontWeight: 800,
+            fontSize: 14,
+            letterSpacing: '1px',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
+            borderBottom: '3px solid rgba(0,0,0,0.1)'
+          }}>
+            ⚠️ MOCK MODE ⚠️
+          </div>
+        )}
+        <div style={{ padding: 18, paddingTop: isMockMode ? 48 : 18 }}>
+          <h2>Pick a title</h2>
         <div style={{ display:'flex', gap:12, alignItems:'center' }}>
           <div>
             <label>Character</label>
@@ -499,14 +617,36 @@ export default function StoryCardsGame({ apiBase = import.meta.env.VITE_API_BASE
           <button style={{ marginLeft: 8 }} onClick={()=> setStoryTitle(randomTitle())}>Randomize title</button>
           <button style={{ marginLeft: 8 }} onClick={()=> setPhase('setup')}>Back</button>
         </div>
-      </div>
+        </div>
+      </>
     );
   }
 
   // playing phase
   return (
-    <div style={{ padding: 18 , display: 'flex', flexDirection: 'row'}}>
-      {/* CSS for highlight + floating points */}
+    <>
+      {isMockMode && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          zIndex: 9999,
+          background: 'linear-gradient(135deg, #ff6b6b 0%, #ff8e53 100%)',
+          color: 'white',
+          padding: '8px 16px',
+          textAlign: 'center',
+          fontWeight: 800,
+          fontSize: 14,
+          letterSpacing: '1px',
+          boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
+          borderBottom: '3px solid rgba(0,0,0,0.1)'
+        }}>
+          ⚠️ MOCK MODE ⚠️
+        </div>
+      )}
+      <div style={{ padding: 18, paddingTop: isMockMode ? 48 : 18, display: 'flex', flexDirection: 'row'}}>
+        {/* CSS for highlight + floating points */}
       <style>{`
         @keyframes cardPulse {
           0% { box-shadow: 0 0 0 0 rgba(34,197,94,0.0); transform: scale(1); }
@@ -612,7 +752,8 @@ export default function StoryCardsGame({ apiBase = import.meta.env.VITE_API_BASE
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {history.map((h, idx) => {
             const isPlaying = playingIndex === idx;
-            const isHovering = hoverIndex === idx;
+            const isExpanded = expandedIndex === idx;
+
             return (
               <div
                 key={idx}
@@ -621,21 +762,14 @@ export default function StoryCardsGame({ apiBase = import.meta.env.VITE_API_BASE
                   border: '1px solid #ddd',
                   borderRadius: 6,
                   display: 'flex',
-                  gap: 12,
-                  alignItems: 'center',
-                  background: isPlaying ? '#eef6ff' : (isHovering ? '#f7fff2' : undefined),
-                  cursor: 'pointer'
-                }}
-                onClick={() => void playHistoryItem(h, idx)}
-                onMouseLeave={() => {
-                  if (hoverTimerRef.current) {
-                    window.clearTimeout(hoverTimerRef.current);
-                    hoverTimerRef.current = null;
-                  }
-                  stopCurrentAudio();
+                  flexDirection: 'column',
+                  gap: 8,
+                  background: isPlaying ? '#eef6ff' : undefined,
                 }}
               >
-                <div style={{ width: 56, textAlign: 'center' }}>
+                {/* ROW 1: Three Buttons */}
+                <div style={{ display: 'flex', gap: 8 }}>
+                  {/* Button 1: Both Audio (Native → Learning) */}
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
@@ -643,41 +777,133 @@ export default function StoryCardsGame({ apiBase = import.meta.env.VITE_API_BASE
                     }}
                     onMouseEnter={(e) => {
                       e.stopPropagation();
+                      setHoverButton({idx, btn: 1});
                       if (hoverTimerRef.current) {
                         window.clearTimeout(hoverTimerRef.current);
                         hoverTimerRef.current = null;
                       }
                       hoverTimerRef.current = window.setTimeout(() => {
-                        setHoverIndex(idx);
-                        void startHoverPlayForHistory(h, idx);
-                      }, 200);
+                        void startHoverPlayForHistory(h, idx, 'both');
+                      }, 1);
                     }}
                     onMouseLeave={(e) => {
                       e.stopPropagation();
+                      setHoverButton(null);
                       if (hoverTimerRef.current) {
                         window.clearTimeout(hoverTimerRef.current);
                         hoverTimerRef.current = null;
                       }
                       stopCurrentAudio();
                     }}
-                    style={{ padding: '6px 8px' }}
+                    style={{
+                      padding: '6px 12px',
+                      flex: 1,
+                      fontSize: 12,
+                      background: hoverButton?.idx === idx && hoverButton.btn === 1 ? '#f7fff2' : undefined
+                    }}
                   >
-                    {isPlaying ? 'Playing…' : (isHovering ? 'Preview…' : 'Play')}
+                    {fluent.name} Audio
+                  </button>
+
+                  {/* Button 2: Learning Audio Only */}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      void playLearningAudioOnly(h, idx);
+                    }}
+                    onMouseEnter={(e) => {
+                      e.stopPropagation();
+                      setHoverButton({idx, btn: 2});
+                      if (hoverTimerRef.current) {
+                        window.clearTimeout(hoverTimerRef.current);
+                        hoverTimerRef.current = null;
+                      }
+                      hoverTimerRef.current = window.setTimeout(() => {
+                        void startHoverPlayForHistory(h, idx, 'learning');
+                      }, 1);
+                    }}
+                    onMouseLeave={(e) => {
+                      e.stopPropagation();
+                      setHoverButton(null);
+                      if (hoverTimerRef.current) {
+                        window.clearTimeout(hoverTimerRef.current);
+                        hoverTimerRef.current = null;
+                      }
+                      stopCurrentAudio();
+                    }}
+                    style={{
+                      padding: '6px 12px',
+                      flex: 1,
+                      fontSize: 12,
+                      background: hoverButton?.idx === idx && hoverButton.btn === 2 ? '#f7fff2' : undefined
+                    }}
+                  >
+                    {learning.name} Audio
+                  </button>
+
+                  {/* Button 3: Show More */}
+                  <button
+                    onMouseEnter={(e) => {
+                      e.stopPropagation();
+                      setHoverButton({idx, btn: 3});
+                      setExpandedIndex(idx);
+                    }}
+                    onMouseLeave={(e) => {
+                      e.stopPropagation();
+                      setHoverButton(null);
+                      setExpandedIndex(null);
+                    }}
+                    style={{
+                      padding: '6px 12px',
+                      flex: 1,
+                      fontSize: 12,
+                      background: hoverButton?.idx === idx && hoverButton.btn === 3 ? '#fffae6' : undefined
+                    }}
+                  >
+                    Show More {isExpanded ? '▲' : '▼'}
                   </button>
                 </div>
 
-                <div style={{ flex: 1 }}>
-                  <div><strong>Corrected ({learning.name}):</strong> {h.corrected_sentence}</div>
-                  <div style={{ marginTop: 6 }}><strong>Translation ({fluent.name}):</strong> {h.native_translation ?? h.translation ?? ''}</div>
-                  <div style={{ marginTop: 6 }}><strong>Used cards:</strong> {(h.used_cards || []).join(', ')}</div>
-                  <div style={{ marginTop: 6 }}><strong>ASR fixes:</strong> {(h.asr_fixes || []).map((f:any)=> `${f.original}->${f.guess}`).join(', ')}</div>
-                  {h.brief_explanation_native && <div style={{ marginTop:6, fontStyle:'italic' }}>{h.brief_explanation_native}</div>}
+                {/* ROW 2: Native Translation (Always Visible) */}
+                <div style={{ padding: '4px 0' }}>
+                  <strong>{fluent.name}:</strong> {h.native_translation ?? h.translation ?? ''}
                 </div>
+
+                {/* Hidden Details (Shown on Button 3 Hover) */}
+                {isExpanded && (
+                  <div style={{
+                    padding: 8,
+                    background: '#f9f9f9',
+                    borderRadius: 4,
+                    border: '1px solid #e0e0e0',
+                    color: 'red'
+                  }}>
+                    <div style={{ marginBottom: 6 }}>
+                      <strong>Corrected ({learning.name}):</strong> {h.corrected_sentence}
+                    </div>
+                    <div style={{ marginBottom: 6 }}>
+                      <strong>Used cards:</strong> {(h.used_cards || h.used_card_ids || []).join(', ') || 'None'}
+                    </div>
+                    <div style={{ marginBottom: 6 }}>
+                      <strong>ASR fixes:</strong> {
+                        (h.asr_fixes || [])
+                          .map((f: any) => `${f.original}→${f.guess}`)
+                          .join(', ') || 'None'
+                      }
+                    </div>
+                    {h.brief_explanation_native && (
+                      <div style={{ fontStyle: 'italic', color: '#666' }}>
+                        {h.brief_explanation_native}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             );
           })}
         </div>
       </div>
-    </div>
+      </div>
+    </>
   );
 }

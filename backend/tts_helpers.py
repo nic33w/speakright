@@ -11,6 +11,8 @@ from typing import Optional
 
 AZURE_SPEECH_KEY = os.getenv("AZURE_SPEECH_KEY")
 AZURE_REGION = os.getenv("AZURE_REGION")
+MOCK_MODE = os.getenv("MOCK_MODE", "0") == "1"
+TEST_AUDIO_PATH = Path(__file__).resolve().parent / "test_audio.wav"
 
 def generate_silent_wav(duration_secs: float = 0.6, sample_rate: int = 22050) -> bytes:
     n_frames = int(duration_secs * sample_rate)
@@ -66,14 +68,31 @@ def azure_tts_bytes_real(text: str, locale: str = "es-MX", voice: Optional[str] 
 
 def tts_bytes_for_chunk(text: str, lang_tag: str) -> bytes:
     """
-    Convenience wrapper: tries Azure TTS if configured, else returns a short silent wav as mock.
+    Convenience wrapper: tries Azure TTS if configured, else returns test audio in mock mode,
+    or falls back to silent wav.
+
+    In MOCK_MODE: Never uses Azure TTS (saves money, works offline)
     """
+    # If mock mode, try test audio first, then fall back to silence (NEVER use Azure in mock mode)
+    if MOCK_MODE:
+        if TEST_AUDIO_PATH.exists():
+            try:
+                with open(TEST_AUDIO_PATH, "rb") as f:
+                    return f.read()
+            except Exception as e:
+                print(f"Failed to read test audio file: {e}")
+        # Fallback to silence in mock mode
+        words = max(1, len(str(text).split()))
+        duration = min(4.0, 0.25 * words)
+        return generate_silent_wav(duration_secs=duration)
+
+    # Not in mock mode - use real Azure TTS
     try:
         if AZURE_SPEECH_KEY and AZURE_REGION:
             return azure_tts_bytes_real(text, locale=lang_tag)
     except Exception as e:
         print("Azure TTS failed:", e)
-    # fallback
+    # fallback to silence if Azure fails
     words = max(1, len(str(text).split()))
     duration = min(4.0, 0.25 * words)
     return generate_silent_wav(duration_secs=duration)

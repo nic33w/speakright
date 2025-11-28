@@ -261,3 +261,11 @@ def serve_audio(session: str, filename: str):
     if not path.exists():
         raise HTTPException(status_code=404, detail="audio not found")
     return FileResponse(path, media_type="audio/wav", filename=filename)
+
+@app.get("/api/config")
+def get_config():
+    """Return configuration info including mock mode status"""
+    return {
+        "mock_mode": MOCK_MODE,
+        "has_azure_tts": bool(AZURE_SPEECH_KEY and AZURE_REGION)
+    }
