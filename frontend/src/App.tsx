@@ -4,14 +4,15 @@
 //import './App.css'
 //import ChatUI from "./ChatUI";
 import ChatWithWispr from "./ChatWithWispr";
+import StoryCardsGame from "./StoryCardsGame";
 
 function App() {
   //const [count, setCount] = useState(0)
 
   return (
     <>
-      <ChatWithWispr />
-      
+
+      <StoryCardsGame />
     </>
   )
 }
