@@ -82,6 +82,9 @@ export default function StoryCardsGame({ apiBase = import.meta.env.VITE_API_BASE
   const [expandedIndex, setExpandedIndex] = useState<number | null>(null);
   const [hoverButton, setHoverButton] = useState<{idx: number, btn: 1|2|3} | null>(null);
 
+  // State for remove spaces checkbox
+  const [removeSpaces, setRemoveSpaces] = useState<boolean>(false);
+
   // hover playback control refs
   const currentAudioRef = useRef<HTMLAudioElement | null>(null);
   const hoverTimerRef = useRef<number | null>(null);
@@ -645,7 +648,15 @@ export default function StoryCardsGame({ apiBase = import.meta.env.VITE_API_BASE
           ⚠️ MOCK MODE ⚠️
         </div>
       )}
-      <div style={{ padding: 18, paddingTop: isMockMode ? 48 : 18, display: 'flex', flexDirection: 'row'}}>
+
+      <div style={{
+        height: '100vh',
+        paddingTop: isMockMode ? 40 : 0,
+        display: 'flex',
+        flexDirection: 'column',
+        overflow: 'hidden',
+        boxSizing: 'border-box'
+      }}>
         {/* CSS for highlight + floating points */}
       <style>{`
         @keyframes cardPulse {
@@ -679,8 +690,13 @@ export default function StoryCardsGame({ apiBase = import.meta.env.VITE_API_BASE
         }
       `}</style>
 
-      <div style={{ flex: 1 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        {/* Main content area: cards + history */}
+        <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
+          {/* Left: Cards section + fixed input at bottom */}
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+            {/* Scrollable cards area */}
+            <div style={{ flex: 1, overflowY: 'auto', padding: 18 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
             <h3>{storyTitle}</h3>
             <div>Session: {sessionId}</div>
@@ -730,29 +746,82 @@ export default function StoryCardsGame({ apiBase = import.meta.env.VITE_API_BASE
             })}
           </div>
         </div>
+            </div>
 
-        <div style={{ marginTop: 18 }}>
-          <div style={{ marginBottom: 6, color: '#666' }}>Speak (Wispr will fill or paste transcript below). Autosend after you stop speaking.</div>
-          <textarea
-            value={transcript}
-            onChange={(e)=> setTranscript(e.target.value)}
-            placeholder={`Speak now in ${learning.name} (Wispr -> this box) or type a sentence`}
-            rows={3}
-            style={{ width: '97%', padding: 8 }}
-          />
-          <div style={{ marginTop: 8 }}>
-            <button onClick={()=> void submitTurn()} disabled={busy}>Send now</button>
-            <button style={{ marginLeft: 8 }} onClick={()=> setTranscript('')}>Clear</button>
+            {/* Fixed bottom input - only for left column */}
+            <div style={{
+              borderTop: '2px solid #ccc',
+              padding: 16,
+              background: '#fafafa',
+              boxShadow: '0 -2px 8px rgba(0,0,0,0.1)'
+            }}>
+              <div style={{ marginBottom: 6, color: '#666', fontSize: 13 }}>
+                Speak (Wispr will fill or paste transcript below). Auto-send after pause.
+              </div>
+              <textarea
+                value={transcript}
+                onChange={(e) => setTranscript(e.target.value)}
+                onMouseEnter={(e) => e.currentTarget.focus()}
+                placeholder={`Speak now in ${learning.name} (Wispr → this box) or type a sentence`}
+                rows={6}
+                style={{
+                  width: '98%',
+                  padding: 8,
+                  fontSize: 14,
+                  resize: 'vertical'
+                }}
+              />
+              <div style={{ marginTop: 8, display: 'flex', gap: 8 }}>
+                <button
+                  onClick={() => void submitTurn()}
+                  disabled={busy}
+                  style={{ padding: '8px 16px' }}
+                >
+                  Send now
+                </button>
+                <button
+                  onClick={() => setTranscript('')}
+                  style={{ padding: '8px 16px' }}
+                >
+                  Clear
+                </button>
+              </div>
+            </div>
+          </div>
+
+      {/* Right: History section */}
+      <div style={{ width: 420, display: 'flex', flexDirection: 'column', height: '100%', borderLeft: '1px solid #ddd' }}>
+        {/* Fixed header with checkbox */}
+        <div style={{ padding: '12px', borderBottom: '2px solid #ddd', background: '#6c6c6cff' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <h4 style={{ margin: 0, fontSize: 16 }}>History</h4>
+            <label style={{ fontSize: 13, display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' }}>
+              <input
+                type="checkbox"
+                checked={removeSpaces}
+                onChange={(e) => setRemoveSpaces(e.target.checked)}
+              />
+              Remove spaces
+            </label>
           </div>
         </div>
-      </div>
 
-      <div style={{ width: 420, marginLeft: 24 }}>
-        <h4>History</h4>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {/* Scrollable history list */}
+        <div style={{
+          flex: 1,
+          overflowY: 'auto',
+          padding: '8px 12px',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 8
+        }}>
           {history.map((h, idx) => {
             const isPlaying = playingIndex === idx;
             const isExpanded = expandedIndex === idx;
+
+            // Helper function to remove spaces when checkbox is enabled
+            const displayText = (text: string) =>
+              removeSpaces ? text.replace(/\s+/g, '') : text;
 
             return (
               <div
@@ -879,7 +948,7 @@ export default function StoryCardsGame({ apiBase = import.meta.env.VITE_API_BASE
                     color: 'red'
                   }}>
                     <div style={{ marginBottom: 6 }}>
-                      <strong>Corrected ({learning.name}):</strong> {h.corrected_sentence}
+                      <strong>Corrected ({learning.name}):</strong> {displayText(h.corrected_sentence || '')}
                     </div>
                     <div style={{ marginBottom: 6 }}>
                       <strong>Used cards:</strong> {(h.used_cards || h.used_card_ids || []).join(', ') || 'None'}
@@ -902,6 +971,7 @@ export default function StoryCardsGame({ apiBase = import.meta.env.VITE_API_BASE
             );
           })}
         </div>
+      </div>
       </div>
       </div>
     </>
