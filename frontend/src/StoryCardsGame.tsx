@@ -89,6 +89,7 @@ export default function StoryCardsGame({ apiBase = import.meta.env.VITE_API_BASE
   const currentAudioRef = useRef<HTMLAudioElement | null>(null);
   const hoverTimerRef = useRef<number | null>(null);
   const isHoveringRef = useRef<boolean>(false);
+  const historyScrollRef = useRef<HTMLDivElement | null>(null);
 
   // highlight animation state: map cardId -> { ts, points }
   const [replacedHighlights, setReplacedHighlights] = useState<Record<string, { ts: number; points: number }>>({});
@@ -193,6 +194,21 @@ export default function StoryCardsGame({ apiBase = import.meta.env.VITE_API_BASE
     }, 200);
     return () => clearInterval(interval);
   }, []);
+
+  // Auto-scroll history to bottom when new items are added (if already near bottom)
+  useEffect(() => {
+    const scrollContainer = historyScrollRef.current;
+    if (!scrollContainer || history.length === 0) return;
+
+    const isNearBottom =
+      scrollContainer.scrollHeight - scrollContainer.scrollTop - scrollContainer.clientHeight < 300;
+
+    if (isNearBottom) {
+      setTimeout(() => {
+        scrollContainer.scrollTo({ top: scrollContainer.scrollHeight, behavior: 'smooth' });
+      }, 100);
+    }
+  }, [history]);
 
   // Replace used visible cards with fresh draws from CARD_DECK (no duplicates)
   function replaceUsedCards(usedCards: string[] | undefined) {
@@ -807,14 +823,18 @@ export default function StoryCardsGame({ apiBase = import.meta.env.VITE_API_BASE
         </div>
 
         {/* Scrollable history list */}
-        <div style={{
-          flex: 1,
-          overflowY: 'auto',
-          padding: '8px 12px',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 8
-        }}>
+        <div
+          ref={historyScrollRef}
+          style={{
+            flex: 1,
+            overflowY: 'auto',
+            padding: '8px 12px',
+            paddingBottom: '200px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 8
+          }}
+        >
           {history.map((h, idx) => {
             const isPlaying = playingIndex === idx;
             const isExpanded = expandedIndex === idx;
