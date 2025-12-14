@@ -1,0 +1,973 @@
+{
+  "sentences": [
+    {
+      "id": 1,
+      "indonesian": "Saya di sini.",
+      "english": "I'm here.",
+      "hints": [
+        { "english": "I'm", "indonesian": "Saya" },
+        { "english": "here", "indonesian": "di sini" }
+      ]
+    },
+    {
+      "id": 2,
+      "indonesian": "Itu untuk kamu.",
+      "english": "That's for you.",
+      "hints": [
+        { "english": "That's", "indonesian": "Itu" },
+        { "english": "for you", "indonesian": "untuk kamu" }
+      ]
+    },
+    {
+      "id": 3,
+      "indonesian": "Teman saya lagi di rumah.",
+      "english": "My friend is at home right now.",
+      "hints": [
+        { "english": "My friend", "indonesian": "Teman saya" },
+        { "english": "is right now", "indonesian": "lagi" },
+        { "english": "at home", "indonesian": "di rumah" }
+      ]
+    },
+    {
+      "id": 4,
+      "indonesian": "Dia nggak ada di sini hari ini.",
+      "english": "She's not here today.",
+      "hints": [
+        { "english": "She", "indonesian": "Dia" },
+        { "english": "not here", "indonesian": "nggak ada di sini" },
+        { "english": "today", "indonesian": "hari ini" }
+      ]
+    },
+    {
+      "id": 5,
+      "indonesian": "Kenapa kamu nggak ikut sama saya?",
+      "english": "Why don't you come with me?",
+      "hints": [
+        { "english": "Why", "indonesian": "Kenapa" },
+        { "english": "you don't come", "indonesian": "kamu nggak ikut" },
+        { "english": "with me?", "indonesian": "sama saya?" }
+      ]
+    },
+    {
+      "id": 6,
+      "indonesian": "Gue perlu ngomong sama dia.",
+      "english": "I need to talk to her.",
+      "hints": [
+        { "english": "I need", "indonesian": "Gue perlu" },
+        { "english": "to talk", "indonesian": "ngomong" },
+        { "english": "to her", "indonesian": "sama dia" }
+      ]
+    },
+    {
+      "id": 7,
+      "indonesian": "Bukunya ada di atas meja.",
+      "english": "The book is on the table.",
+      "hints": [
+        { "english": "The book", "indonesian": "Bukunya" },
+        { "english": "is on", "indonesian": "ada di atas" },
+        { "english": "the table", "indonesian": "meja" }
+      ]
+    },
+    {
+      "id": 8,
+      "indonesian": "Dulu saya anak yang bahagia.",
+      "english": "I used to be a happy kid.",
+      "hints": [
+        { "english": "I used to be", "indonesian": "Dulu saya" },
+        { "english": "a happy kid", "indonesian": "anak yang bahagia" }
+      ]
+    },
+    {
+      "id": 9,
+      "indonesian": "Kuncinya di mana?",
+      "english": "Where are the keys?",
+      "hints": [
+        { "english": "The keys", "indonesian": "Kuncinya" },
+        { "english": "where?", "indonesian": "di mana?" }
+      ]
+    },
+    {
+      "id": 10,
+      "indonesian": "Mau kopi satu, dong.",
+      "english": "I'd like a coffee, please.",
+      "hints": [
+        { "english": "I'd like", "indonesian": "Mau" },
+        { "english": "one coffee", "indonesian": "kopi satu" },
+        { "english": "please", "indonesian": "dong" }
+      ]
+    },
+    {
+      "id": 11,
+      "indonesian": "Besok gue harus masuk kerja.",
+      "english": "Tomorrow I have to go to work.",
+      "hints": [
+        { "english": "Tomorrow", "indonesian": "Besok" },
+        { "english": "I have to", "indonesian": "gue harus" },
+        { "english": "go to work", "indonesian": "masuk kerja" }
+      ]
+    },
+    {
+      "id": 12,
+      "indonesian": "Dia bilang yang beneran ke gue.",
+      "english": "She told me the truth.",
+      "hints": [
+        { "english": "She said", "indonesian": "Dia bilang" },
+        { "english": "the truth", "indonesian": "yang beneran" },
+        { "english": "to me", "indonesian": "ke gue" }
+      ]
+    },
+    {
+      "id": 13,
+      "indonesian": "Anak-anak lagi main di taman.",
+      "english": "The kids are playing in the park.",
+      "hints": [
+        { "english": "The kids", "indonesian": "Anak-anak" },
+        { "english": "are playing", "indonesian": "lagi main" },
+        { "english": "in the park", "indonesian": "di taman" }
+      ]
+    },
+    {
+      "id": 14,
+      "indonesian": "Gue nggak tau harus gimana.",
+      "english": "I don't know what to do.",
+      "hints": [
+        { "english": "I don't know", "indonesian": "Gue nggak tau" },
+        { "english": "what to do", "indonesian": "harus gimana" }
+      ]
+    },
+    {
+      "id": 15,
+      "indonesian": "Keluarga gue tinggal deket sini.",
+      "english": "My family lives near here.",
+      "hints": [
+        { "english": "My family", "indonesian": "Keluarga gue" },
+        { "english": "lives", "indonesian": "tinggal" },
+        { "english": "near here", "indonesian": "deket sini" }
+      ]
+    },
+    {
+      "id": 16,
+      "indonesian": "Ini berapa harganya?",
+      "english": "How much is this?",
+      "hints": [
+        { "english": "This", "indonesian": "Ini" },
+        { "english": "how much", "indonesian": "berapa" },
+        { "english": "the price?", "indonesian": "harganya?" }
+      ]
+    },
+    {
+      "id": 17,
+      "indonesian": "Nanti abis makan siang gue mau ke toko.",
+      "english": "After lunch I'm going to the store.",
+      "hints": [
+        { "english": "Later after lunch", "indonesian": "Nanti abis makan siang" },
+        { "english": "I'm going", "indonesian": "gue mau" },
+        { "english": "to the store", "indonesian": "ke toko" }
+      ]
+    },
+    {
+      "id": 18,
+      "indonesian": "Dia tuh nggak pernah dateng tepat waktu.",
+      "english": "He never arrives on time.",
+      "hints": [
+        { "english": "He", "indonesian": "Dia tuh" },
+        { "english": "never arrives", "indonesian": "nggak pernah dateng" },
+        { "english": "on time", "indonesian": "tepat waktu" }
+      ]
+    },
+    {
+      "id": 19,
+      "indonesian": "Gue suka banget musik.",
+      "english": "I really love music.",
+      "hints": [
+        { "english": "I", "indonesian": "Gue" },
+        { "english": "really love", "indonesian": "suka banget" },
+        { "english": "music", "indonesian": "musik" }
+      ]
+    },
+    {
+      "id": 20,
+      "indonesian": "Bisa tolong bantu gue nggak?",
+      "english": "Can you help me?",
+      "hints": [
+        { "english": "Can", "indonesian": "Bisa" },
+        { "english": "help me", "indonesian": "tolong bantu gue" },
+        { "english": "or not?", "indonesian": "nggak?" }
+      ]
+    },
+    {
+      "id": 21,
+      "indonesian": "Waktu sampe rumah, gue udah capek banget.",
+      "english": "When I got home, I was really tired.",
+      "hints": [
+        { "english": "When I got home", "indonesian": "Waktu sampe rumah" },
+        { "english": "I was already", "indonesian": "gue udah" },
+        { "english": "really tired", "indonesian": "capek banget" }
+      ]
+    },
+    {
+      "id": 22,
+      "indonesian": "Mereka selalu makan bareng.",
+      "english": "They always eat together.",
+      "hints": [
+        { "english": "They", "indonesian": "Mereka" },
+        { "english": "always eat", "indonesian": "selalu makan" },
+        { "english": "together", "indonesian": "bareng" }
+      ]
+    },
+    {
+      "id": 23,
+      "indonesian": "Kemarin gue kasih dia hadiah.",
+      "english": "Yesterday I gave him a gift.",
+      "hints": [
+        { "english": "Yesterday", "indonesian": "Kemarin" },
+        { "english": "I gave him", "indonesian": "gue kasih dia" },
+        { "english": "a gift", "indonesian": "hadiah" }
+      ]
+    },
+    {
+      "id": 24,
+      "indonesian": "Hari ini panas banget, ya.",
+      "english": "It's really hot today, isn't it?",
+      "hints": [
+        { "english": "Today", "indonesian": "Hari ini" },
+        { "english": "really hot", "indonesian": "panas banget" },
+        { "english": "right?", "indonesian": "ya" }
+      ]
+    },
+    {
+      "id": 25,
+      "indonesian": "Gue lagi nggak ada waktu buat itu.",
+      "english": "I don't have time for that right now.",
+      "hints": [
+        { "english": "I right now", "indonesian": "Gue lagi" },
+        { "english": "don't have time", "indonesian": "nggak ada waktu" },
+        { "english": "for that", "indonesian": "buat itu" }
+      ]
+    },
+    {
+      "id": 26,
+      "indonesian": "Minggu depan ortu gue dateng kesini.",
+      "english": "Next week my parents are coming here.",
+      "hints": [
+        { "english": "Next week", "indonesian": "Minggu depan" },
+        { "english": "my parents", "indonesian": "ortu gue" },
+        { "english": "are coming here", "indonesian": "dateng kesini" }
+      ]
+    },
+    {
+      "id": 27,
+      "indonesian": "Udah liat HP gue belum?",
+      "english": "Have you seen my phone?",
+      "hints": [
+        { "english": "Already seen", "indonesian": "Udah liat" },
+        { "english": "my phone", "indonesian": "HP gue" },
+        { "english": "or not yet?", "indonesian": "belum?" }
+      ]
+    },
+    {
+      "id": 28,
+      "indonesian": "Kita semua lagi nungguin di luar tadi.",
+      "english": "We were all waiting outside earlier.",
+      "hints": [
+        { "english": "We all", "indonesian": "Kita semua" },
+        { "english": "were waiting", "indonesian": "lagi nungguin" },
+        { "english": "outside earlier", "indonesian": "di luar tadi" }
+      ]
+    },
+    {
+      "id": 29,
+      "indonesian": "Penting buat belajar setiap hari.",
+      "english": "It's important to study every day.",
+      "hints": [
+        { "english": "Important", "indonesian": "Penting" },
+        { "english": "to study", "indonesian": "buat belajar" },
+        { "english": "every day", "indonesian": "setiap hari" }
+      ]
+    },
+    {
+      "id": 30,
+      "indonesian": "Dia tanya gue mau pergi apa nggak.",
+      "english": "He asked me if I wanted to go.",
+      "hints": [
+        { "english": "He asked me", "indonesian": "Dia tanya gue" },
+        { "english": "wanted to go", "indonesian": "mau pergi" },
+        { "english": "or not", "indonesian": "apa nggak" }
+      ]
+    },
+    {
+      "id": 31,
+      "indonesian": "Jendelanya kebuka soalnya panas.",
+      "english": "The window's open because it's hot.",
+      "hints": [
+        { "english": "The window", "indonesian": "Jendelanya" },
+        { "english": "is open", "indonesian": "kebuka" },
+        { "english": "because it's hot", "indonesian": "soalnya panas" }
+      ]
+    },
+    {
+      "id": 32,
+      "indonesian": "Malem ini kita mau jalan-jalan.",
+      "english": "Tonight we're going out.",
+      "hints": [
+        { "english": "Tonight", "indonesian": "Malem ini" },
+        { "english": "we're going", "indonesian": "kita mau" },
+        { "english": "to go out", "indonesian": "jalan-jalan" }
+      ]
+    },
+    {
+      "id": 33,
+      "indonesian": "Gue minta dia buat bantuin gue.",
+      "english": "I asked him to help me.",
+      "hints": [
+        { "english": "I asked him", "indonesian": "Gue minta dia" },
+        { "english": "to help me", "indonesian": "buat bantuin gue" }
+      ]
+    },
+    {
+      "id": 34,
+      "indonesian": "Di pusat kota rame banget orangnya.",
+      "english": "Downtown is really crowded with people.",
+      "hints": [
+        { "english": "Downtown", "indonesian": "Di pusat kota" },
+        { "english": "really crowded", "indonesian": "rame banget" },
+        { "english": "with people", "indonesian": "orangnya" }
+      ]
+    },
+    {
+      "id": 35,
+      "indonesian": "Gue nggak suka kalo lagi ujan.",
+      "english": "I don't like it when it's raining.",
+      "hints": [
+        { "english": "I don't like", "indonesian": "Gue nggak suka" },
+        { "english": "when", "indonesian": "kalo" },
+        { "english": "it's raining", "indonesian": "lagi ujan" }
+      ]
+    },
+    {
+      "id": 36,
+      "indonesian": "Dia kerja dari jam 8 sampe jam 5.",
+      "english": "She works from 8 until 5.",
+      "hints": [
+        { "english": "She works", "indonesian": "Dia kerja" },
+        { "english": "from 8", "indonesian": "dari jam 8" },
+        { "english": "until 5", "indonesian": "sampe jam 5" }
+      ]
+    },
+    {
+      "id": 37,
+      "indonesian": "Gue pengen belajar main gitar.",
+      "english": "I want to learn to play guitar.",
+      "hints": [
+        { "english": "I want", "indonesian": "Gue pengen" },
+        { "english": "to learn to play", "indonesian": "belajar main" },
+        { "english": "guitar", "indonesian": "gitar" }
+      ]
+    },
+    {
+      "id": 38,
+      "indonesian": "Nggak ada yang tau apa yang kejadian.",
+      "english": "Nobody knows what happened.",
+      "hints": [
+        { "english": "Nobody knows", "indonesian": "Nggak ada yang tau" },
+        { "english": "what happened", "indonesian": "apa yang kejadian" }
+      ]
+    },
+    {
+      "id": 39,
+      "indonesian": "Kemarin gue nelpon lo tiga kali.",
+      "english": "Yesterday I called you three times.",
+      "hints": [
+        { "english": "Yesterday", "indonesian": "Kemarin" },
+        { "english": "I called you", "indonesian": "gue nelpon lo" },
+        { "english": "three times", "indonesian": "tiga kali" }
+      ]
+    },
+    {
+      "id": 40,
+      "indonesian": "Lo harus sampe sebelum jam 7.",
+      "english": "You have to arrive before 7.",
+      "hints": [
+        { "english": "You have to arrive", "indonesian": "Lo harus sampe" },
+        { "english": "before 7", "indonesian": "sebelum jam 7" }
+      ]
+    },
+    {
+      "id": 41,
+      "indonesian": "Gue mau banget keliling dunia.",
+      "english": "I really want to travel the world.",
+      "hints": [
+        { "english": "I really want", "indonesian": "Gue mau banget" },
+        { "english": "to travel the world", "indonesian": "keliling dunia" }
+      ]
+    },
+    {
+      "id": 42,
+      "indonesian": "Gue selalu kepikiran lo.",
+      "english": "I always think about you.",
+      "hints": [
+        { "english": "I always", "indonesian": "Gue selalu" },
+        { "english": "think about you", "indonesian": "kepikiran lo" }
+      ]
+    },
+    {
+      "id": 43,
+      "indonesian": "Gue nggak bisa nemuin kunci gue kemana-mana.",
+      "english": "I can't find my keys anywhere.",
+      "hints": [
+        { "english": "I can't find", "indonesian": "Gue nggak bisa nemuin" },
+        { "english": "my keys", "indonesian": "kunci gue" },
+        { "english": "anywhere", "indonesian": "kemana-mana" }
+      ]
+    },
+    {
+      "id": 44,
+      "indonesian": "Makanannya enak banget!",
+      "english": "The food was so delicious!",
+      "hints": [
+        { "english": "The food", "indonesian": "Makanannya" },
+        { "english": "was so delicious", "indonesian": "enak banget" }
+      ]
+    },
+    {
+      "id": 45,
+      "indonesian": "Semoga lo baik-baik aja.",
+      "english": "I hope you're doing well.",
+      "hints": [
+        { "english": "I hope", "indonesian": "Semoga" },
+        { "english": "you're", "indonesian": "lo" },
+        { "english": "doing well", "indonesian": "baik-baik aja" }
+      ]
+    },
+    {
+      "id": 46,
+      "indonesian": "Udah lama banget nggak ketemu lo.",
+      "english": "It's been so long since I've seen you.",
+      "hints": [
+        { "english": "It's been so long", "indonesian": "Udah lama banget" },
+        { "english": "haven't met", "indonesian": "nggak ketemu" },
+        { "english": "you", "indonesian": "lo" }
+      ]
+    },
+    {
+      "id": 47,
+      "indonesian": "Kepala gue sakit nih.",
+      "english": "My head hurts.",
+      "hints": [
+        { "english": "My head", "indonesian": "Kepala gue" },
+        { "english": "hurts", "indonesian": "sakit nih" }
+      ]
+    },
+    {
+      "id": 48,
+      "indonesian": "Tau nggak kamar mandinya dimana?",
+      "english": "Do you know where the bathroom is?",
+      "hints": [
+        { "english": "Know or not", "indonesian": "Tau nggak" },
+        { "english": "the bathroom", "indonesian": "kamar mandinya" },
+        { "english": "where?", "indonesian": "dimana?" }
+      ]
+    },
+    {
+      "id": 49,
+      "indonesian": "Gue mau beli roti di toko roti dulu.",
+      "english": "I'm going to buy bread at the bakery first.",
+      "hints": [
+        { "english": "I'm going to buy", "indonesian": "Gue mau beli" },
+        { "english": "bread at the bakery", "indonesian": "roti di toko roti" },
+        { "english": "first", "indonesian": "dulu" }
+      ]
+    },
+    {
+      "id": 50,
+      "indonesian": "Seharian gue belum makan apa-apa.",
+      "english": "I haven't eaten anything all day.",
+      "hints": [
+        { "english": "All day", "indonesian": "Seharian" },
+        { "english": "I haven't eaten", "indonesian": "gue belum makan" },
+        { "english": "anything", "indonesian": "apa-apa" }
+      ]
+    },
+    {
+      "id": 51,
+      "indonesian": "Dia lebih tinggi dari kakaknya.",
+      "english": "She's taller than her older sister.",
+      "hints": [
+        { "english": "She's", "indonesian": "Dia" },
+        { "english": "taller than", "indonesian": "lebih tinggi dari" },
+        { "english": "her older sister", "indonesian": "kakaknya" }
+      ]
+    },
+    {
+      "id": 52,
+      "indonesian": "Gue lupa bawa duitnya.",
+      "english": "I forgot to bring the money.",
+      "hints": [
+        { "english": "I forgot", "indonesian": "Gue lupa" },
+        { "english": "to bring", "indonesian": "bawa" },
+        { "english": "the money", "indonesian": "duitnya" }
+      ]
+    },
+    {
+      "id": 53,
+      "indonesian": "Kita harus selesin ini sebelum hari Jumat.",
+      "english": "We have to finish this before Friday.",
+      "hints": [
+        { "english": "We have to finish", "indonesian": "Kita harus selesin" },
+        { "english": "this", "indonesian": "ini" },
+        { "english": "before Friday", "indonesian": "sebelum hari Jumat" }
+      ]
+    },
+    {
+      "id": 54,
+      "indonesian": "Umur lo berapa sih?",
+      "english": "How old are you?",
+      "hints": [
+        { "english": "Your age", "indonesian": "Umur lo" },
+        { "english": "how much", "indonesian": "berapa" },
+        { "english": "anyway?", "indonesian": "sih?" }
+      ]
+    },
+    {
+      "id": 55,
+      "indonesian": "Baju baru lo keren banget!",
+      "english": "Your new shirt is so cool!",
+      "hints": [
+        { "english": "Your new shirt", "indonesian": "Baju baru lo" },
+        { "english": "is so cool", "indonesian": "keren banget" }
+      ]
+    },
+    {
+      "id": 56,
+      "indonesian": "Udah dua tahun gue belajar bahasa Indonesia.",
+      "english": "I've been learning Indonesian for two years.",
+      "hints": [
+        { "english": "Already two years", "indonesian": "Udah dua tahun" },
+        { "english": "I've been learning", "indonesian": "gue belajar" },
+        { "english": "Indonesian", "indonesian": "bahasa Indonesia" }
+      ]
+    },
+    {
+      "id": 57,
+      "indonesian": "Gue nggak ngerti kenapa dia marah.",
+      "english": "I don't understand why he's angry.",
+      "hints": [
+        { "english": "I don't understand", "indonesian": "Gue nggak ngerti" },
+        { "english": "why", "indonesian": "kenapa" },
+        { "english": "he's angry", "indonesian": "dia marah" }
+      ]
+    },
+    {
+      "id": 58,
+      "indonesian": "Harusnya mereka sebentar lagi sampe.",
+      "english": "They should be arriving soon.",
+      "hints": [
+        { "english": "They should", "indonesian": "Harusnya mereka" },
+        { "english": "soon", "indonesian": "sebentar lagi" },
+        { "english": "arrive", "indonesian": "sampe" }
+      ]
+    },
+    {
+      "id": 59,
+      "indonesian": "Keretanya berangkat jam setengah tiga.",
+      "english": "The train leaves at two thirty.",
+      "hints": [
+        { "english": "The train", "indonesian": "Keretanya" },
+        { "english": "leaves", "indonesian": "berangkat" },
+        { "english": "at half past two", "indonesian": "jam setengah tiga" }
+      ]
+    },
+    {
+      "id": 60,
+      "indonesian": "Mau minum sesuatu nggak?",
+      "english": "Would you like something to drink?",
+      "hints": [
+        { "english": "Would you like", "indonesian": "Mau" },
+        { "english": "to drink something", "indonesian": "minum sesuatu" },
+        { "english": "or not?", "indonesian": "nggak?" }
+      ]
+    },
+    {
+      "id": 61,
+      "indonesian": "Kita kenal lima tahun yang lalu.",
+      "english": "We met five years ago.",
+      "hints": [
+        { "english": "We met", "indonesian": "Kita kenal" },
+        { "english": "five years ago", "indonesian": "lima tahun yang lalu" }
+      ]
+    },
+    {
+      "id": 62,
+      "indonesian": "Gue lebih suka di rumah aja malem ini.",
+      "english": "I prefer to just stay home tonight.",
+      "hints": [
+        { "english": "I prefer", "indonesian": "Gue lebih suka" },
+        { "english": "at home only", "indonesian": "di rumah aja" },
+        { "english": "tonight", "indonesian": "malem ini" }
+      ]
+    },
+    {
+      "id": 63,
+      "indonesian": "Dia pergi tanpa ngomong apa-apa.",
+      "english": "He left without saying anything.",
+      "hints": [
+        { "english": "He left", "indonesian": "Dia pergi" },
+        { "english": "without saying", "indonesian": "tanpa ngomong" },
+        { "english": "anything", "indonesian": "apa-apa" }
+      ]
+    },
+    {
+      "id": 64,
+      "indonesian": "Gue masih belum tau jawabannya.",
+      "english": "I still don't know the answer.",
+      "hints": [
+        { "english": "I still", "indonesian": "Gue masih" },
+        { "english": "don't know yet", "indonesian": "belum tau" },
+        { "english": "the answer", "indonesian": "jawabannya" }
+      ]
+    },
+    {
+      "id": 65,
+      "indonesian": "Penting banget lo dateng lebih awal.",
+      "english": "It's really important that you come early.",
+      "hints": [
+        { "english": "Really important", "indonesian": "Penting banget" },
+        { "english": "you come", "indonesian": "lo dateng" },
+        { "english": "earlier", "indonesian": "lebih awal" }
+      ]
+    },
+    {
+      "id": 66,
+      "indonesian": "Gue kaget banget ngeliat dia disana.",
+      "english": "I was so surprised to see him there.",
+      "hints": [
+        { "english": "I was so surprised", "indonesian": "Gue kaget banget" },
+        { "english": "seeing him", "indonesian": "ngeliat dia" },
+        { "english": "there", "indonesian": "disana" }
+      ]
+    },
+    {
+      "id": 67,
+      "indonesian": "Lo pernah ke Bali nggak?",
+      "english": "Have you ever been to Bali?",
+      "hints": [
+        { "english": "You ever", "indonesian": "Lo pernah" },
+        { "english": "to Bali", "indonesian": "ke Bali" },
+        { "english": "or not?", "indonesian": "nggak?" }
+      ]
+    },
+    {
+      "id": 68,
+      "indonesian": "Gue janji sama dia bakal balik secepatnya.",
+      "english": "I promised him I'd return as soon as possible.",
+      "hints": [
+        { "english": "I promised him", "indonesian": "Gue janji sama dia" },
+        { "english": "will return", "indonesian": "bakal balik" },
+        { "english": "as soon as possible", "indonesian": "secepatnya" }
+      ]
+    },
+    {
+      "id": 69,
+      "indonesian": "Gue yakin lo pasti bisa.",
+      "english": "I'm sure you can do it.",
+      "hints": [
+        { "english": "I'm sure", "indonesian": "Gue yakin" },
+        { "english": "you definitely can", "indonesian": "lo pasti bisa" }
+      ]
+    },
+    {
+      "id": 70,
+      "indonesian": "Gue nggak mau mereka khawatirin gue.",
+      "english": "I don't want them to worry about me.",
+      "hints": [
+        { "english": "I don't want", "indonesian": "Gue nggak mau" },
+        { "english": "them to worry about", "indonesian": "mereka khawatirin" },
+        { "english": "me", "indonesian": "gue" }
+      ]
+    },
+    {
+      "id": 71,
+      "indonesian": "Kita udah tinggal disini dari tahun lalu.",
+      "english": "We've been living here since last year.",
+      "hints": [
+        { "english": "We've been living", "indonesian": "Kita udah tinggal" },
+        { "english": "here", "indonesian": "disini" },
+        { "english": "since last year", "indonesian": "dari tahun lalu" }
+      ]
+    },
+    {
+      "id": 72,
+      "indonesian": "Gue maunya lo ikut sama gue.",
+      "english": "I want you to come with me.",
+      "hints": [
+        { "english": "What I want is", "indonesian": "Gue maunya" },
+        { "english": "you come", "indonesian": "lo ikut" },
+        { "english": "with me", "indonesian": "sama gue" }
+      ]
+    },
+    {
+      "id": 73,
+      "indonesian": "Walaupun ujan, kita tetep jalan.",
+      "english": "Even if it rains, we're still going.",
+      "hints": [
+        { "english": "Even if it rains", "indonesian": "Walaupun ujan" },
+        { "english": "we're still going", "indonesian": "kita tetep jalan" }
+      ]
+    },
+    {
+      "id": 74,
+      "indonesian": "Gue udah kelar waktu lo dateng.",
+      "english": "I had already finished when you arrived.",
+      "hints": [
+        { "english": "I already finished", "indonesian": "Gue udah kelar" },
+        { "english": "when you arrived", "indonesian": "waktu lo dateng" }
+      ]
+    },
+    {
+      "id": 75,
+      "indonesian": "Makin gue pikirin, makin gue nggak ngerti.",
+      "english": "The more I think about it, the less I understand.",
+      "hints": [
+        { "english": "The more I think about it", "indonesian": "Makin gue pikirin" },
+        { "english": "the more I don't understand", "indonesian": "makin gue nggak ngerti" }
+      ]
+    },
+    {
+      "id": 76,
+      "indonesian": "Kalo gue punya duit, gue bakal keliling dunia.",
+      "english": "If I had money, I would travel the world.",
+      "hints": [
+        { "english": "If I had", "indonesian": "Kalo gue punya" },
+        { "english": "money", "indonesian": "duit" },
+        { "english": "I would travel the world", "indonesian": "gue bakal keliling dunia" }
+      ]
+    },
+    {
+      "id": 77,
+      "indonesian": "Kayaknya mereka bakal telat deh.",
+      "english": "It looks like they're going to be late.",
+      "hints": [
+        { "english": "It looks like", "indonesian": "Kayaknya" },
+        { "english": "they're going to be late", "indonesian": "mereka bakal telat" },
+        { "english": "I think", "indonesian": "deh" }
+      ]
+    },
+    {
+      "id": 78,
+      "indonesian": "Gue udah lakuin itu kalo gue sempet.",
+      "english": "I would have done it if I'd had time.",
+      "hints": [
+        { "english": "I already would have done", "indonesian": "Gue udah lakuin" },
+        { "english": "that", "indonesian": "itu" },
+        { "english": "if I had time", "indonesian": "kalo gue sempet" }
+      ]
+    },
+    {
+      "id": 79,
+      "indonesian": "Semoga hari lo menyenangkan ya.",
+      "english": "I hope you have a great day.",
+      "hints": [
+        { "english": "I hope", "indonesian": "Semoga" },
+        { "english": "your day", "indonesian": "hari lo" },
+        { "english": "is pleasant", "indonesian": "menyenangkan ya" }
+      ]
+    },
+    {
+      "id": 80,
+      "indonesian": "Nggak masalah orang lain ngomong apa.",
+      "english": "It doesn't matter what other people say.",
+      "hints": [
+        { "english": "Doesn't matter", "indonesian": "Nggak masalah" },
+        { "english": "other people", "indonesian": "orang lain" },
+        { "english": "say what", "indonesian": "ngomong apa" }
+      ]
+    },
+    {
+      "id": 81,
+      "indonesian": "Susah banget buat gue bangun pagi.",
+      "english": "It's really hard for me to wake up early.",
+      "hints": [
+        { "english": "Really hard", "indonesian": "Susah banget" },
+        { "english": "for me", "indonesian": "buat gue" },
+        { "english": "to wake up early", "indonesian": "bangun pagi" }
+      ]
+    },
+    {
+      "id": 82,
+      "indonesian": "Kita perlu lebih hati-hati nih.",
+      "english": "We need to be more careful.",
+      "hints": [
+        { "english": "We need", "indonesian": "Kita perlu" },
+        { "english": "more careful", "indonesian": "lebih hati-hati" },
+        { "english": "you know", "indonesian": "nih" }
+      ]
+    },
+    {
+      "id": 83,
+      "indonesian": "Meskipun gitu, kita tetep lanjut.",
+      "english": "Despite that, we keep going.",
+      "hints": [
+        { "english": "Despite that", "indonesian": "Meskipun gitu" },
+        { "english": "we still continue", "indonesian": "kita tetep lanjut" }
+      ]
+    },
+    {
+      "id": 84,
+      "indonesian": "Santai aja, semuanya bakal oke kok.",
+      "english": "Don't worry, everything will be okay.",
+      "hints": [
+        { "english": "Relax", "indonesian": "Santai aja" },
+        { "english": "everything will be okay", "indonesian": "semuanya bakal oke" },
+        { "english": "you know", "indonesian": "kok" }
+      ]
+    },
+    {
+      "id": 85,
+      "indonesian": "Seneng banget lo bisa dateng.",
+      "english": "I'm so glad you could come.",
+      "hints": [
+        { "english": "Really happy", "indonesian": "Seneng banget" },
+        { "english": "you could come", "indonesian": "lo bisa dateng" }
+      ]
+    },
+    {
+      "id": 86,
+      "indonesian": "Layak dicoba sekali lagi.",
+      "english": "It's worth trying one more time.",
+      "hints": [
+        { "english": "Worth trying", "indonesian": "Layak dicoba" },
+        { "english": "one more time", "indonesian": "sekali lagi" }
+      ]
+    },
+    {
+      "id": 87,
+      "indonesian": "Gue mau minta tolong nih.",
+      "english": "I'd like to ask a favor.",
+      "hints": [
+        { "english": "I want", "indonesian": "Gue mau" },
+        { "english": "to ask for help", "indonesian": "minta tolong" },
+        { "english": "here", "indonesian": "nih" }
+      ]
+    },
+    {
+      "id": 88,
+      "indonesian": "Mau gue coba gimana juga, tetep nggak bisa.",
+      "english": "No matter how I try, I still can't do it.",
+      "hints": [
+        { "english": "However I try", "indonesian": "Mau gue coba gimana juga" },
+        { "english": "still can't", "indonesian": "tetep nggak bisa" }
+      ]
+    },
+    {
+      "id": 89,
+      "indonesian": "Gue takut udah telat deh.",
+      "english": "I'm afraid it's already too late.",
+      "hints": [
+        { "english": "I'm afraid", "indonesian": "Gue takut" },
+        { "english": "already too late", "indonesian": "udah telat" },
+        { "english": "I think", "indonesian": "deh" }
+      ]
+    },
+    {
+      "id": 90,
+      "indonesian": "Sayang banget lo nggak bisa dateng.",
+      "english": "It's such a shame you can't come.",
+      "hints": [
+        { "english": "Such a shame", "indonesian": "Sayang banget" },
+        { "english": "you can't come", "indonesian": "lo nggak bisa dateng" }
+      ]
+    },
+    {
+      "id": 91,
+      "indonesian": "Gue nggak sabar nunggu weekend!",
+      "english": "I can't wait for the weekend!",
+      "hints": [
+        { "english": "I can't be patient", "indonesian": "Gue nggak sabar" },
+        { "english": "waiting for the weekend", "indonesian": "nunggu weekend" }
+      ]
+    },
+    {
+      "id": 92,
+      "indonesian": "Gue sadar udah bikin kesalahan.",
+      "english": "I realized I made a mistake.",
+      "hints": [
+        { "english": "I realized", "indonesian": "Gue sadar" },
+        { "english": "already made", "indonesian": "udah bikin" },
+        { "english": "a mistake", "indonesian": "kesalahan" }
+      ]
+    },
+    {
+      "id": 93,
+      "indonesian": "Begitu kelar, langsung gue telpon lo.",
+      "english": "As soon as I'm done, I'll call you right away.",
+      "hints": [
+        { "english": "As soon as done", "indonesian": "Begitu kelar" },
+        { "english": "right away I'll call you", "indonesian": "langsung gue telpon lo" }
+      ]
+    },
+    {
+      "id": 94,
+      "indonesian": "Kalo tau begini, gue nggak bakal dateng.",
+      "english": "If I'd known, I wouldn't have come.",
+      "hints": [
+        { "english": "If I'd known this", "indonesian": "Kalo tau begini" },
+        { "english": "I wouldn't have come", "indonesian": "gue nggak bakal dateng" }
+      ]
+    },
+    {
+      "id": 95,
+      "indonesian": "Mungkin lo harus konsul sama ahlinya.",
+      "english": "Maybe you should consult with an expert.",
+      "hints": [
+        { "english": "Maybe", "indonesian": "Mungkin" },
+        { "english": "you should consult", "indonesian": "lo harus konsul" },
+        { "english": "with an expert", "indonesian": "sama ahlinya" }
+      ]
+    },
+    {
+      "id": 96,
+      "indonesian": "Bukan gue nggak peduli, tapi gue lagi sibuk.",
+      "english": "It's not that I don't care, I'm just busy.",
+      "hints": [
+        { "english": "Not that I don't care", "indonesian": "Bukan gue nggak peduli" },
+        { "english": "but I'm busy", "indonesian": "tapi gue lagi sibuk" }
+      ]
+    },
+    {
+      "id": 97,
+      "indonesian": "Berapapun harganya, gue bakal dapetin itu.",
+      "english": "Whatever it costs, I'll get it.",
+      "hints": [
+        { "english": "Whatever the price", "indonesian": "Berapapun harganya" },
+        { "english": "I'll get it", "indonesian": "gue bakal dapetin itu" }
+      ]
+    },
+    {
+      "id": 98,
+      "indonesian": "Mulutmu harimaumu.",
+      "english": "Your words become reality.",
+      "hints": [
+        { "english": "Your mouth", "indonesian": "Mulutmu" },
+        { "english": "is your tiger", "indonesian": "harimaumu" }
+      ]
+    },
+    {
+      "id": 99,
+      "indonesian": "Mending telat daripada nggak sama sekali.",
+      "english": "Better late than never.",
+      "hints": [
+        { "english": "Better late", "indonesian": "Mending telat" },
+        { "english": "than not at all", "indonesian": "daripada nggak sama sekali" }
+      ]
+    },
+    {
+      "id": 100,
+      "indonesian": "Nggak ada asap kalo nggak ada api.",
+      "english": "There's no smoke without fire.",
+      "hints": [
+        { "english": "There's no smoke", "indonesian": "Nggak ada asap" },
+        { "english": "if there's no fire", "indonesian": "kalo nggak ada api" }
+      ]
+    }
+  ]
+}

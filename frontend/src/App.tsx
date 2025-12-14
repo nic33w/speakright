@@ -1,20 +1,48 @@
-//import { useState } from 'react'
-//import reactLogo from './assets/react.svg'
-//import viteLogo from '/vite.svg'
-//import './App.css'
-//import ChatUI from "./ChatUI";
-import ChatWithWispr from "./ChatWithWispr";
+import { useState } from 'react';
+import HomeScreen from "./HomeScreen";
 import StoryCardsGame from "./StoryCardsGame";
+import TriviaGame from "./TriviaGame";
+
+type LangSpec = { code: string; name: string };
 
 function App() {
-  //const [count, setCount] = useState(0)
+  const [currentMode, setCurrentMode] = useState<'home' | 'story' | 'trivia'>('home');
+  const [selectedFluent, setSelectedFluent] = useState<LangSpec>({ code: "en", name: "English" });
+  const [selectedLearning, setSelectedLearning] = useState<LangSpec>({ code: "es", name: "Spanish" });
+
+  function handleSelectMode(mode: 'story' | 'trivia', fluent: LangSpec, learning: LangSpec) {
+    setSelectedFluent(fluent);
+    setSelectedLearning(learning);
+    setCurrentMode(mode);
+  }
+
+  function handleBack() {
+    setCurrentMode('home');
+  }
 
   return (
     <>
+      {currentMode === 'home' && (
+        <HomeScreen onSelectMode={handleSelectMode} />
+      )}
 
-      <StoryCardsGame />
+      {currentMode === 'story' && (
+        <StoryCardsGame
+          fluent={selectedFluent}
+          learning={selectedLearning}
+          onBack={handleBack}
+        />
+      )}
+
+      {currentMode === 'trivia' && (
+        <TriviaGame
+          fluent={selectedFluent}
+          learning={selectedLearning}
+          onBack={handleBack}
+        />
+      )}
     </>
-  )
+  );
 }
 
 export default App

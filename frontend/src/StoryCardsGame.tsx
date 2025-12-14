@@ -1,6 +1,7 @@
 // StoryCardsGame.tsx
 // Full component with card-replacement highlight + +points animation
 import React, { useEffect, useState, useRef } from "react";
+import CARDS_DECK_150_RAW from './cards_deck_150.json';
 
 type LangSpec = { code: string; name: string };
 
@@ -13,11 +14,27 @@ type Card = {
   points?: number;
 };
 
+type Card2 = {
+  id: string;
+  text_en: string;
+  type: string;
+  difficulty: number;
+  tags: string[];
+  examples: string[];
+  hints: {
+    "en-US": string;
+    "es-MX": string;
+    "id-ID": string;
+  };
+};
+
 const LANG_OPTIONS: LangSpec[] = [
   { code: "en", name: "English" },
   { code: "es", name: "Spanish" },
   { code: "id", name: "Indonesian" },
 ];
+
+const CARD_DECK_150: Card2[] = CARDS_DECK_150_RAW as Card2[];
 
 const MIN_AUTO_SEND_LENGTH = 8; // characters
 const AUTO_SEND_DELAY_MS = 1200; // debounce delay after typing stops
@@ -49,15 +66,41 @@ function drawCards(deck: Card[], count = 7) {
   return shuffle(deck).slice(0, count);
 }
 
+function drawCards2(deck: Card2[], count = 7) {
+  return shuffle(deck).slice(0, count);
+}
+
+function getHintForLearningLang(card: Card2, learningCode: string): string {
+  const hintMap: Record<string, keyof Card2["hints"]> = {
+    "es": "es-MX",
+    "id": "id-ID",
+    "en": "en-US"
+  };
+  const hintKey = hintMap[learningCode] || "en-US";
+  return card.hints[hintKey] || card.text_en;
+}
+
 function generateId(prefix = "id") {
   return `${prefix}_${Math.random().toString(36).slice(2, 9)}`;
 }
 
-export default function StoryCardsGame({ apiBase = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000" }:{ apiBase?: string }) {
+type StoryCardsGameProps = {
+  apiBase?: string;
+  fluent?: LangSpec;
+  learning?: LangSpec;
+  onBack?: () => void;
+};
+
+export default function StoryCardsGame({
+  apiBase = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000",
+  fluent: initialFluent,
+  learning: initialLearning,
+  onBack,
+}: StoryCardsGameProps) {
   const [isMockMode, setIsMockMode] = useState<boolean>(false);
 
-  const [fluent, setFluent] = useState<LangSpec>(LANG_OPTIONS[0]);
-  const [learning, setLearning] = useState<LangSpec>(LANG_OPTIONS[1]);
+  const [fluent, setFluent] = useState<LangSpec>(initialFluent || LANG_OPTIONS[0]);
+  const [learning, setLearning] = useState<LangSpec>(initialLearning || LANG_OPTIONS[1]);
 
   const [phase, setPhase] = useState<"setup" | "chooseTitle" | "playing">("setup");
   const [sessionId, setSessionId] = useState<string | null>(null);
@@ -69,9 +112,14 @@ export default function StoryCardsGame({ apiBase = import.meta.env.VITE_API_BASE
   const [availableCards, setAvailableCards] = useState<Card[]>([]);
   const [visibleCards, setVisibleCards] = useState<Card[]>([]);
 
+  const [availableCards2, setAvailableCards2] = useState<Card2[]>([]);
+  const [visibleCards2, setVisibleCards2] = useState<Card2[]>([]);
+  const [hoverCard2Index, setHoverCard2Index] = useState<number | null>(null);
+
   const [transcript, setTranscript] = useState<string>("");
   const autoSendTimer = useRef<number | null>(null);
   const lastSentRef = useRef<number>(0);
+  const previousTranscriptLengthRef = useRef<number>(0);
   const [busy, setBusy] = useState(false);
 
   const [history, setHistory] = useState<any[]>([]);
@@ -82,8 +130,8 @@ export default function StoryCardsGame({ apiBase = import.meta.env.VITE_API_BASE
   const [expandedIndex, setExpandedIndex] = useState<number | null>(null);
   const [hoverButton, setHoverButton] = useState<{idx: number, btn: 1|2|3} | null>(null);
 
-  // State for remove spaces checkbox
-  const [removeSpaces, setRemoveSpaces] = useState<boolean>(false);
+  // State for tracking which side of "Show More" button is hovered (left=normal, right=no spaces)
+  const [showMoreHoverSide, setShowMoreHoverSide] = useState<'left' | 'right' | null>(null);
 
   // hover playback control refs
   const currentAudioRef = useRef<HTMLAudioElement | null>(null);
@@ -129,6 +177,10 @@ export default function StoryCardsGame({ apiBase = import.meta.env.VITE_API_BASE
         setVisibleCards(drawCards(CARD_DECK, 7));
       }
 
+      // initialize row 2 cards from cards_deck_150.json
+      setAvailableCards2(CARD_DECK_150);
+      setVisibleCards2(drawCards2(CARD_DECK_150, 7));
+
       setPhase("playing");
     } catch (e) {
       console.error(e);
@@ -155,20 +207,29 @@ export default function StoryCardsGame({ apiBase = import.meta.env.VITE_API_BASE
     void fetchConfig();
   }, [apiBase]);
 
-  // auto-send logic (debounced)
+  // auto-send logic (debounced for typing, immediate for Wispr)
   useEffect(() => {
     if (autoSendTimer.current) {
       window.clearTimeout(autoSendTimer.current);
       autoSendTimer.current = null;
     }
     if (transcript.length >= MIN_AUTO_SEND_LENGTH) {
+      // Detect if this is Wispr input (large chunk added at once) vs typing (gradual)
+      const lengthIncrease = transcript.length - previousTranscriptLengthRef.current;
+      const isWisprInput = lengthIncrease >= 10; // 10+ chars added at once = likely Wispr
+      const delay = isWisprInput ? 100 : AUTO_SEND_DELAY_MS; // 100ms for Wispr, 1200ms for typing
+
       autoSendTimer.current = window.setTimeout(() => {
         const now = Date.now();
         if (now - lastSentRef.current > 700) {
           void submitTurn();
         }
-      }, AUTO_SEND_DELAY_MS);
+      }, delay);
     }
+
+    // Update previous length for next comparison
+    previousTranscriptLengthRef.current = transcript.length;
+
     return () => {
       if (autoSendTimer.current) {
         window.clearTimeout(autoSendTimer.current);
@@ -257,6 +318,47 @@ export default function StoryCardsGame({ apiBase = import.meta.env.VITE_API_BASE
     });
   }
 
+  // Replace used visible cards from row 2 with fresh draws from CARD_DECK_150
+  function replaceUsedCards2(usedCards: string[] | undefined) {
+    if (!usedCards || !usedCards.length) return;
+
+    setVisibleCards2((currentVisible) => {
+      const visibleIds = new Set(currentVisible.map((c) => c.id));
+      const exclude = new Set(Array.from(visibleIds));
+
+      function drawNew(excludeSet: Set<string>): Card2 | null {
+        const pool = CARD_DECK_150.filter((c) => !excludeSet.has(c.id));
+        if (!pool.length) return null;
+        const pick = pool[Math.floor(Math.random() * pool.length)];
+        excludeSet.add(pick.id);
+        return pick;
+      }
+
+      const usedSetById = new Set(usedCards);
+      const usedSetByText = new Set(usedCards.map((s) => String(s).toLowerCase()));
+
+      const newVisible = currentVisible.map((card) => {
+        const cardMatched =
+          usedSetById.has(card.id) ||
+          usedSetByText.has(String(card.text_en).toLowerCase());
+
+        if (!cardMatched) return card;
+
+        const replacement = drawNew(exclude);
+        if (replacement) {
+          setReplacedHighlights((prev) => ({
+            ...prev,
+            [replacement.id]: { ts: Date.now(), points: 0 },
+          }));
+          return replacement;
+        }
+        return card;
+      });
+
+      return newVisible;
+    });
+  }
+
   async function submitTurn() {
     if (!sessionId) {
       alert("No session — press Start");
@@ -269,10 +371,23 @@ export default function StoryCardsGame({ apiBase = import.meta.env.VITE_API_BASE
     setBusy(true);
 
     try {
+      // Transform row 2 cards to row 1 format for backend compatibility
+      // Use hint in learning language as value so mock mode can detect it
+      const row2AsRow1Format = visibleCards2.map((c) => {
+        const hintInLearningLang = getHintForLearningLang(c, learning.code);
+        return {
+          id: c.id,
+          type: c.type,
+          value: hintInLearningLang,
+          display_text: c.text_en,
+          points: 0,
+        };
+      });
+
       const body = {
         session_id: sessionId,
         story_title: storyTitle,
-        active_cards: visibleCards,
+        active_cards: [...visibleCards, ...row2AsRow1Format],
         transcript: text,
         fluent: fluent,
         learning: learning,
@@ -288,13 +403,18 @@ export default function StoryCardsGame({ apiBase = import.meta.env.VITE_API_BASE
       // append response to history
       setHistory((h) => [...h, data]);
 
-      // handle used cards replacement (frontend local replacement)
-      if (Array.isArray(data.used_cards) && data.used_cards.length) {
-        replaceUsedCards(data.used_cards);
-      } else if (Array.isArray(data.used_card_ids) && data.used_card_ids.length) {
-        replaceUsedCards(data.used_card_ids);
-      } else if (Array.isArray(data.used_card_values) && data.used_card_values.length) {
-        replaceUsedCards(data.used_card_values);
+      // handle used cards replacement - split between row 1 and row 2
+      const usedCardIds = data.used_cards || data.used_card_ids || data.used_card_values || [];
+
+      if (usedCardIds.length) {
+        const row1Ids = new Set(visibleCards.map(c => c.id));
+        const row2Ids = new Set(visibleCards2.map(c => c.id));
+
+        const usedRow1 = usedCardIds.filter((id: string) => row1Ids.has(id));
+        const usedRow2 = usedCardIds.filter((id: string) => row2Ids.has(id));
+
+        if (usedRow1.length) replaceUsedCards(usedRow1);
+        if (usedRow2.length) replaceUsedCards2(usedRow2);
       }
 
       // Playback (prioritize audio_files array)
@@ -329,6 +449,7 @@ export default function StoryCardsGame({ apiBase = import.meta.env.VITE_API_BASE
       }
 
       setTranscript("");
+      previousTranscriptLengthRef.current = 0; // Reset after submit
     } catch (e) {
       console.error(e);
       alert("Turn failed — see console.");
@@ -540,6 +661,15 @@ export default function StoryCardsGame({ apiBase = import.meta.env.VITE_API_BASE
     setReplacedHighlights((prev) => ({ ...prev, [next.id]: { ts: Date.now(), points: next.points ?? 0 } }));
   }
 
+  // swap card for row 2
+  function swapCard2(index: number) {
+    const remaining = CARD_DECK_150.filter(c => !visibleCards2.some(vc => vc.id === c.id));
+    if (remaining.length === 0) return;
+    const next = remaining[Math.floor(Math.random() * remaining.length)];
+    setVisibleCards2((v) => v.map((c,i)=> i===index ? next : c));
+    setReplacedHighlights((prev) => ({ ...prev, [next.id]: { ts: Date.now(), points: 0 } }));
+  }
+
   // UI
   if (phase === "setup") {
     return (
@@ -565,18 +695,44 @@ export default function StoryCardsGame({ apiBase = import.meta.env.VITE_API_BASE
           </div>
         )}
         <div style={{ padding: 18, paddingTop: isMockMode ? 48 : 18 }}>
-          <h2>Story Cards — Setup</h2>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+            {onBack && (
+              <button
+                onClick={onBack}
+                style={{
+                  padding: '8px 16px',
+                  fontSize: 14,
+                  background: '#6b7280',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: 6,
+                  cursor: 'pointer',
+                }}
+              >
+                ← Back
+              </button>
+            )}
+            <h2 style={{ margin: 0 }}>Story Cards — Setup</h2>
+          </div>
         <div style={{ display: 'flex', gap: 12 }}>
           <div>
             <label>Fluent language</label>
-            <select value={fluent.code} onChange={(e)=> setFluent(LANG_OPTIONS.find(l=>l.code===e.target.value) || LANG_OPTIONS[0])}>
-              {LANG_OPTIONS.map(l => <option key={l.code} value={l.code}>{l.name}</option>)}
+            <select
+              value={fluent.code}
+              onChange={(e)=> setFluent(LANG_OPTIONS.find(l=>l.code===e.target.value) || LANG_OPTIONS[0])}
+              style={{ background: 'white', color: '#1f2937', padding: '8px', border: '1px solid #e5e7eb', borderRadius: '4px' }}
+            >
+              {LANG_OPTIONS.map(l => <option key={l.code} value={l.code} style={{ color: '#1f2937', background: 'white' }}>{l.name}</option>)}
             </select>
           </div>
           <div>
             <label>Learning language</label>
-            <select value={learning.code} onChange={(e)=> setLearning(LANG_OPTIONS.find(l=>l.code===e.target.value) || LANG_OPTIONS[1])}>
-              {LANG_OPTIONS.map(l => <option key={l.code} value={l.code}>{l.name}</option>)}
+            <select
+              value={learning.code}
+              onChange={(e)=> setLearning(LANG_OPTIONS.find(l=>l.code===e.target.value) || LANG_OPTIONS[1])}
+              style={{ background: 'white', color: '#1f2937', padding: '8px', border: '1px solid #e5e7eb', borderRadius: '4px' }}
+            >
+              {LANG_OPTIONS.map(l => <option key={l.code} value={l.code} style={{ color: '#1f2937', background: 'white' }}>{l.name}</option>)}
             </select>
           </div>
         </div>
@@ -616,19 +772,32 @@ export default function StoryCardsGame({ apiBase = import.meta.env.VITE_API_BASE
         <div style={{ display:'flex', gap:12, alignItems:'center' }}>
           <div>
             <label>Character</label>
-            <select value={character} onChange={(e)=> setCharacter(e.target.value)}>
-              {characterOptions.map(c => <option key={c}>{c}</option>)}
+            <select
+              value={character}
+              onChange={(e)=> setCharacter(e.target.value)}
+              style={{ background: 'white', color: '#1f2937', padding: '8px', border: '1px solid #e5e7eb', borderRadius: '4px' }}
+            >
+              {characterOptions.map(c => <option key={c} style={{ color: '#1f2937', background: 'white' }}>{c}</option>)}
             </select>
           </div>
           <div>
             <label>Place / Object</label>
-            <select value={objectOrPlace} onChange={(e)=> setObjectOrPlace(e.target.value)}>
-              {placeOrObjectOptions.map(p => <option key={p}>{p}</option>)}
+            <select
+              value={objectOrPlace}
+              onChange={(e)=> setObjectOrPlace(e.target.value)}
+              style={{ background: 'white', color: '#1f2937', padding: '8px', border: '1px solid #e5e7eb', borderRadius: '4px' }}
+            >
+              {placeOrObjectOptions.map(p => <option key={p} style={{ color: '#1f2937', background: 'white' }}>{p}</option>)}
             </select>
           </div>
           <div>
             <label>Or enter custom title</label>
-            <input value={storyTitle} onChange={(e)=> setStoryTitle(e.target.value)} placeholder="Optional custom title" />
+            <input
+              value={storyTitle}
+              onChange={(e)=> setStoryTitle(e.target.value)}
+              placeholder="Optional custom title"
+              style={{ background: 'white', color: '#1f2937', padding: '8px', border: '1px solid #e5e7eb', borderRadius: '4px', width: '300px' }}
+            />
           </div>
         </div>
         <div style={{ marginTop: 12 }}>
@@ -714,10 +883,25 @@ export default function StoryCardsGame({ apiBase = import.meta.env.VITE_API_BASE
             <div style={{ flex: 1, overflowY: 'auto', padding: 18 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
-            <h3>{storyTitle}</h3>
-            <div>Session: {sessionId}</div>
+            <h3>{storyTitle} (session: {sessionId})</h3>
           </div>
-          <div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            {onBack && (
+              <button
+                onClick={onBack}
+                style={{
+                  padding: '8px 16px',
+                  fontSize: 14,
+                  background: '#6b7280',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: 6,
+                  cursor: 'pointer',
+                }}
+              >
+                ← Back to Home
+              </button>
+            )}
             <button onClick={()=> { setPhase('setup'); setSessionId(null); setVisibleCards([]); }}>End Story</button>
           </div>
         </div>
@@ -762,6 +946,73 @@ export default function StoryCardsGame({ apiBase = import.meta.env.VITE_API_BASE
             })}
           </div>
         </div>
+
+        {/* Row 2: Advanced Cards from cards_deck_150.json */}
+        <div style={{ marginTop: 24 }}>
+          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+            {visibleCards2.map((c, i) => {
+              const highlight = replacedHighlights[c.id];
+              const isHighlighted = !!highlight;
+              const isHovered = hoverCard2Index === i;
+              const displayText = isHovered
+                ? getHintForLearningLang(c, learning.code)
+                : c.text_en;
+
+              return (
+                <div key={c.id} style={{ position: 'relative' }}>
+                  <div
+                    className={isHighlighted ? "card-highlight" : ""}
+                    onMouseEnter={() => setHoverCard2Index(i)}
+                    onMouseLeave={() => setHoverCard2Index(null)}
+                    style={{
+                      backgroundImage: "url(/cardFront.png)",
+                      backgroundSize: "cover",
+                      width: 132,
+                      height: 174,
+                      border: '2px solid #333',
+                      padding: 8,
+                      borderRadius: 8,
+                      transition: 'transform 220ms ease, border-color 220ms ease, background-color 150ms ease',
+                      transformOrigin: 'center',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      justifyContent: 'flex-start',
+                      gap: 6,
+                      backgroundColor: isHovered ? 'rgba(255, 248, 220, 0.9)' : undefined,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    <div style={{
+                      fontWeight: 700,
+                      color: "blue",
+                      wordBreak: 'break-word',
+                      fontSize: isHovered ? 11 : 13,
+                      transition: 'font-size 150ms ease'
+                    }}>
+                      {displayText}
+                    </div>
+                    <div style={{ fontSize: 11, opacity: 0.8, color: "blue" }}>
+                      {c.type}
+                    </div>
+                    <div style={{ fontSize: 10, opacity: 0.7, color: "blue" }}>
+                      Difficulty: {c.difficulty}
+                    </div>
+                    <button
+                      style={{ marginTop: 'auto', fontSize: 11 }}
+                      onClick={() => swapCard2(i)}
+                    >
+                      Swap
+                    </button>
+                  </div>
+
+                  {isHighlighted && (
+                    <div className="points-fly">NEW</div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
             </div>
 
             {/* Fixed bottom input - only for left column */}
@@ -772,7 +1023,7 @@ export default function StoryCardsGame({ apiBase = import.meta.env.VITE_API_BASE
               boxShadow: '0 -2px 8px rgba(0,0,0,0.1)'
             }}>
               <div style={{ marginBottom: 6, color: '#666', fontSize: 13 }}>
-                Speak (Wispr will fill or paste transcript below). Auto-send after pause.
+                Hold CTRL + WIN and Speak (Wispr will fill or paste transcript below). Auto-send after pause.
               </div>
               <textarea
                 value={transcript}
@@ -807,19 +1058,9 @@ export default function StoryCardsGame({ apiBase = import.meta.env.VITE_API_BASE
 
       {/* Right: History section */}
       <div style={{ width: 420, display: 'flex', flexDirection: 'column', height: '100%', borderLeft: '1px solid #ddd' }}>
-        {/* Fixed header with checkbox */}
+        {/* Fixed header */}
         <div style={{ padding: '12px', borderBottom: '2px solid #ddd', background: '#6c6c6cff' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <h4 style={{ margin: 0, fontSize: 16 }}>History</h4>
-            <label style={{ fontSize: 13, display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' }}>
-              <input
-                type="checkbox"
-                checked={removeSpaces}
-                onChange={(e) => setRemoveSpaces(e.target.checked)}
-              />
-              Remove spaces
-            </label>
-          </div>
+          <h4 style={{ margin: 0, fontSize: 16 }}>History</h4>
         </div>
 
         {/* Scrollable history list */}
@@ -839,9 +1080,9 @@ export default function StoryCardsGame({ apiBase = import.meta.env.VITE_API_BASE
             const isPlaying = playingIndex === idx;
             const isExpanded = expandedIndex === idx;
 
-            // Helper function to remove spaces when checkbox is enabled
+            // Helper function to conditionally remove spaces based on hover side
             const displayText = (text: string) =>
-              removeSpaces ? text.replace(/\s+/g, '') : text;
+              showMoreHoverSide === 'right' ? text.replace(/\s+/g, '') : text;
 
             return (
               <div
@@ -930,10 +1171,14 @@ export default function StoryCardsGame({ apiBase = import.meta.env.VITE_API_BASE
                     {learning.name} Audio
                   </button>
 
-                  {/* Button 3: Show More */}
+                  {/* Button 3: Show More - Split into two hover zones */}
                   <button
-                    onMouseEnter={(e) => {
-                      e.stopPropagation();
+                    onMouseMove={(e) => {
+                      const rect = e.currentTarget.getBoundingClientRect();
+                      const relativeX = e.clientX - rect.left;
+                      const halfWidth = rect.width / 2;
+                      const side = relativeX < halfWidth ? 'left' : 'right';
+                      setShowMoreHoverSide(side);
                       setHoverButton({idx, btn: 3});
                       setExpandedIndex(idx);
                     }}
@@ -941,15 +1186,34 @@ export default function StoryCardsGame({ apiBase = import.meta.env.VITE_API_BASE
                       e.stopPropagation();
                       setHoverButton(null);
                       setExpandedIndex(null);
+                      setShowMoreHoverSide(null);
                     }}
                     style={{
                       padding: '6px 12px',
                       flex: 1,
                       fontSize: 12,
-                      background: hoverButton?.idx === idx && hoverButton.btn === 3 ? '#fffae6' : undefined
+                      background: hoverButton?.idx === idx && hoverButton.btn === 3
+                        ? (showMoreHoverSide === 'left' ? '#fffae6' : '#ffe6f0')
+                        : undefined,
+                      position: 'relative',
+                      overflow: 'hidden'
                     }}
                   >
-                    Show More {isExpanded ? '▲' : '▼'}
+                    {/* Visual split indicator */}
+                    {hoverButton?.idx === idx && hoverButton.btn === 3 && (
+                      <div style={{
+                        position: 'absolute',
+                        top: 0,
+                        left: '50%',
+                        bottom: 0,
+                        width: 1,
+                        background: 'rgba(0,0,0,0.1)',
+                        pointerEvents: 'none'
+                      }} />
+                    )}
+                    <span style={{ position: 'relative', zIndex: 1 }}>
+                      Show More {isExpanded ? '▲' : '▼'}
+                    </span>
                   </button>
                 </div>
 
@@ -965,9 +1229,11 @@ export default function StoryCardsGame({ apiBase = import.meta.env.VITE_API_BASE
                     background: '#f9f9f9',
                     borderRadius: 4,
                     border: '1px solid #e0e0e0',
-                    color: 'red'
+                    color: 'red',
+                    minHeight: 80,
+                    position: 'relative'
                   }}>
-                    <div style={{ marginBottom: 6 }}>
+                    <div style={{ marginBottom: 6, wordBreak: 'break-word', overflowWrap: 'break-word' }}>
                       <strong>Corrected ({learning.name}):</strong> {displayText(h.corrected_sentence || '')}
                     </div>
                     <div style={{ marginBottom: 6 }}>

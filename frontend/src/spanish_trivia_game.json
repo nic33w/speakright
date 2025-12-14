@@ -1,0 +1,992 @@
+{
+  "sentences": [
+    {
+      "id": 1,
+      "spanish": "Yo estoy aquí.",
+      "english": "I am here.",
+      "hints": [
+        { "english": "I am", "spanish": "Yo estoy" },
+        { "english": "here", "spanish": "aquí" }
+      ]
+    },
+    {
+      "id": 2,
+      "spanish": "Eso es para ti.",
+      "english": "That is for you.",
+      "hints": [
+        { "english": "That is", "spanish": "Eso es" },
+        { "english": "for you", "spanish": "para ti" }
+      ]
+    },
+    {
+      "id": 3,
+      "spanish": "Mi amigo está en la casa.",
+      "english": "My friend is in the house.",
+      "hints": [
+        { "english": "My friend", "spanish": "Mi amigo" },
+        { "english": "is", "spanish": "está" },
+        { "english": "in the house", "spanish": "en la casa" }
+      ]
+    },
+    {
+      "id": 4,
+      "spanish": "Ella no está aquí hoy.",
+      "english": "She is not here today.",
+      "hints": [
+        { "english": "She", "spanish": "Ella" },
+        { "english": "is not here", "spanish": "no está aquí" },
+        { "english": "today", "spanish": "hoy" }
+      ]
+    },
+    {
+      "id": 5,
+      "spanish": "¿Por qué no vienes conmigo?",
+      "english": "Why don't you come with me?",
+      "hints": [
+        { "english": "Why", "spanish": "¿Por qué" },
+        { "english": "don't you come", "spanish": "no vienes" },
+        { "english": "with me?", "spanish": "conmigo?" }
+      ]
+    },
+    {
+      "id": 6,
+      "spanish": "Necesito hablar con ella.",
+      "english": "I need to talk with her.",
+      "hints": [
+        { "english": "I need", "spanish": "Necesito" },
+        { "english": "to talk", "spanish": "hablar" },
+        { "english": "with her", "spanish": "con ella" }
+      ]
+    },
+    {
+      "id": 7,
+      "spanish": "El libro está sobre la mesa.",
+      "english": "The book is on the table.",
+      "hints": [
+        { "english": "The book", "spanish": "El libro" },
+        { "english": "is on", "spanish": "está sobre" },
+        { "english": "the table", "spanish": "la mesa" }
+      ]
+    },
+    {
+      "id": 8,
+      "spanish": "Yo era un chico feliz.",
+      "english": "I was a happy boy.",
+      "hints": [
+        { "english": "I was", "spanish": "Yo era" },
+        { "english": "a happy", "spanish": "un chico feliz" },
+        { "english": "boy", "spanish": "chico" }
+      ]
+    },
+    {
+      "id": 9,
+      "spanish": "¿Dónde están las llaves?",
+      "english": "Where are the keys?",
+      "hints": [
+        { "english": "Where", "spanish": "¿Dónde" },
+        { "english": "are", "spanish": "están" },
+        { "english": "the keys?", "spanish": "las llaves?" }
+      ]
+    },
+    {
+      "id": 10,
+      "spanish": "Quiero un café, por favor.",
+      "english": "I want a coffee, please.",
+      "hints": [
+        { "english": "I want", "spanish": "Quiero" },
+        { "english": "a coffee", "spanish": "un café" },
+        { "english": "please", "spanish": "por favor" }
+      ]
+    },
+    {
+      "id": 11,
+      "spanish": "Tengo que ir al trabajo mañana.",
+      "english": "I have to go to work tomorrow.",
+      "hints": [
+        { "english": "I have to", "spanish": "Tengo que" },
+        { "english": "go to work", "spanish": "ir al trabajo" },
+        { "english": "tomorrow", "spanish": "mañana" }
+      ]
+    },
+    {
+      "id": 12,
+      "spanish": "Ella me dijo la verdad.",
+      "english": "She told me the truth.",
+      "hints": [
+        { "english": "She told me", "spanish": "Ella me dijo" },
+        { "english": "the truth", "spanish": "la verdad" }
+      ]
+    },
+    {
+      "id": 13,
+      "spanish": "Los niños están jugando en el parque.",
+      "english": "The children are playing in the park.",
+      "hints": [
+        { "english": "The children", "spanish": "Los niños" },
+        { "english": "are playing", "spanish": "están jugando" },
+        { "english": "in the park", "spanish": "en el parque" }
+      ]
+    },
+    {
+      "id": 14,
+      "spanish": "No sé qué hacer.",
+      "english": "I don't know what to do.",
+      "hints": [
+        { "english": "I don't know", "spanish": "No sé" },
+        { "english": "what", "spanish": "qué" },
+        { "english": "to do", "spanish": "hacer" }
+      ]
+    },
+    {
+      "id": 15,
+      "spanish": "Mi familia vive cerca de aquí.",
+      "english": "My family lives near here.",
+      "hints": [
+        { "english": "My family", "spanish": "Mi familia" },
+        { "english": "lives", "spanish": "vive" },
+        { "english": "near here", "spanish": "cerca de aquí" }
+      ]
+    },
+    {
+      "id": 16,
+      "spanish": "¿Cuánto cuesta este vestido?",
+      "english": "How much does this dress cost?",
+      "hints": [
+        { "english": "How much", "spanish": "¿Cuánto" },
+        { "english": "does cost", "spanish": "cuesta" },
+        { "english": "this dress?", "spanish": "este vestido?" }
+      ]
+    },
+    {
+      "id": 17,
+      "spanish": "Voy a la tienda después de comer.",
+      "english": "I'm going to the store after eating.",
+      "hints": [
+        { "english": "I'm going", "spanish": "Voy" },
+        { "english": "to the store", "spanish": "a la tienda" },
+        { "english": "after eating", "spanish": "después de comer" }
+      ]
+    },
+    {
+      "id": 18,
+      "spanish": "Él nunca llega a tiempo.",
+      "english": "He never arrives on time.",
+      "hints": [
+        { "english": "He", "spanish": "Él" },
+        { "english": "never arrives", "spanish": "nunca llega" },
+        { "english": "on time", "spanish": "a tiempo" }
+      ]
+    },
+    {
+      "id": 19,
+      "spanish": "Me gusta mucho la música.",
+      "english": "I really like music.",
+      "hints": [
+        { "english": "I like", "spanish": "Me gusta" },
+        { "english": "a lot", "spanish": "mucho" },
+        { "english": "music", "spanish": "la música" }
+      ]
+    },
+    {
+      "id": 20,
+      "spanish": "¿Puedes ayudarme con esto?",
+      "english": "Can you help me with this?",
+      "hints": [
+        { "english": "Can you", "spanish": "¿Puedes" },
+        { "english": "help me", "spanish": "ayudarme" },
+        { "english": "with this?", "spanish": "con esto?" }
+      ]
+    },
+    {
+      "id": 21,
+      "spanish": "Estaba cansado cuando llegué a casa.",
+      "english": "I was tired when I arrived home.",
+      "hints": [
+        { "english": "I was tired", "spanish": "Estaba cansado" },
+        { "english": "when I arrived", "spanish": "cuando llegué" },
+        { "english": "home", "spanish": "a casa" }
+      ]
+    },
+    {
+      "id": 22,
+      "spanish": "Ellos siempre comen juntos.",
+      "english": "They always eat together.",
+      "hints": [
+        { "english": "They", "spanish": "Ellos" },
+        { "english": "always eat", "spanish": "siempre comen" },
+        { "english": "together", "spanish": "juntos" }
+      ]
+    },
+    {
+      "id": 23,
+      "spanish": "Le di el regalo ayer.",
+      "english": "I gave him the gift yesterday.",
+      "hints": [
+        { "english": "I gave him", "spanish": "Le di" },
+        { "english": "the gift", "spanish": "el regalo" },
+        { "english": "yesterday", "spanish": "ayer" }
+      ]
+    },
+    {
+      "id": 24,
+      "spanish": "Hace mucho calor hoy.",
+      "english": "It's very hot today.",
+      "hints": [
+        { "english": "It's", "spanish": "Hace" },
+        { "english": "very hot", "spanish": "mucho calor" },
+        { "english": "today", "spanish": "hoy" }
+      ]
+    },
+    {
+      "id": 25,
+      "spanish": "No tengo tiempo para eso ahora.",
+      "english": "I don't have time for that now.",
+      "hints": [
+        { "english": "I don't have", "spanish": "No tengo" },
+        { "english": "time for that", "spanish": "tiempo para eso" },
+        { "english": "now", "spanish": "ahora" }
+      ]
+    },
+    {
+      "id": 26,
+      "spanish": "Mis padres vienen a visitarme la próxima semana.",
+      "english": "My parents are coming to visit me next week.",
+      "hints": [
+        { "english": "My parents", "spanish": "Mis padres" },
+        { "english": "are coming to visit me", "spanish": "vienen a visitarme" },
+        { "english": "next week", "spanish": "la próxima semana" }
+      ]
+    },
+    {
+      "id": 27,
+      "spanish": "¿Has visto mi teléfono?",
+      "english": "Have you seen my phone?",
+      "hints": [
+        { "english": "Have you seen", "spanish": "¿Has visto" },
+        { "english": "my phone?", "spanish": "mi teléfono?" }
+      ]
+    },
+    {
+      "id": 28,
+      "spanish": "Todos estábamos esperando afuera.",
+      "english": "We were all waiting outside.",
+      "hints": [
+        { "english": "We all", "spanish": "Todos" },
+        { "english": "were waiting", "spanish": "estábamos esperando" },
+        { "english": "outside", "spanish": "afuera" }
+      ]
+    },
+    {
+      "id": 29,
+      "spanish": "Es importante estudiar todos los días.",
+      "english": "It's important to study every day.",
+      "hints": [
+        { "english": "It's important", "spanish": "Es importante" },
+        { "english": "to study", "spanish": "estudiar" },
+        { "english": "every day", "spanish": "todos los días" }
+      ]
+    },
+    {
+      "id": 30,
+      "spanish": "Me preguntó si quería ir.",
+      "english": "He asked me if I wanted to go.",
+      "hints": [
+        { "english": "He asked me", "spanish": "Me preguntó" },
+        { "english": "if I wanted", "spanish": "si quería" },
+        { "english": "to go", "spanish": "ir" }
+      ]
+    },
+    {
+      "id": 31,
+      "spanish": "La ventana está abierta porque hace calor.",
+      "english": "The window is open because it's hot.",
+      "hints": [
+        { "english": "The window", "spanish": "La ventana" },
+        { "english": "is open", "spanish": "está abierta" },
+        { "english": "because it's hot", "spanish": "porque hace calor" }
+      ]
+    },
+    {
+      "id": 32,
+      "spanish": "Vamos a salir esta noche.",
+      "english": "We're going to go out tonight.",
+      "hints": [
+        { "english": "We're going to", "spanish": "Vamos a" },
+        { "english": "go out", "spanish": "salir" },
+        { "english": "tonight", "spanish": "esta noche" }
+      ]
+    },
+    {
+      "id": 33,
+      "spanish": "Le pedí que me ayudara.",
+      "english": "I asked him to help me.",
+      "hints": [
+        { "english": "I asked him", "spanish": "Le pedí" },
+        { "english": "to help me", "spanish": "que me ayudara" }
+      ]
+    },
+    {
+      "id": 34,
+      "spanish": "Hay mucha gente en el centro.",
+      "english": "There are many people downtown.",
+      "hints": [
+        { "english": "There are", "spanish": "Hay" },
+        { "english": "many people", "spanish": "mucha gente" },
+        { "english": "downtown", "spanish": "en el centro" }
+      ]
+    },
+    {
+      "id": 35,
+      "spanish": "No me gusta cuando llueve.",
+      "english": "I don't like it when it rains.",
+      "hints": [
+        { "english": "I don't like it", "spanish": "No me gusta" },
+        { "english": "when", "spanish": "cuando" },
+        { "english": "it rains", "spanish": "llueve" }
+      ]
+    },
+    {
+      "id": 36,
+      "spanish": "Ella trabaja desde las ocho hasta las cinco.",
+      "english": "She works from eight until five.",
+      "hints": [
+        { "english": "She works", "spanish": "Ella trabaja" },
+        { "english": "from eight", "spanish": "desde las ocho" },
+        { "english": "until five", "spanish": "hasta las cinco" }
+      ]
+    },
+    {
+      "id": 37,
+      "spanish": "Quiero aprender a tocar la guitarra.",
+      "english": "I want to learn to play the guitar.",
+      "hints": [
+        { "english": "I want", "spanish": "Quiero" },
+        { "english": "to learn to play", "spanish": "aprender a tocar" },
+        { "english": "the guitar", "spanish": "la guitarra" }
+      ]
+    },
+    {
+      "id": 38,
+      "spanish": "Nadie sabe lo que pasó.",
+      "english": "Nobody knows what happened.",
+      "hints": [
+        { "english": "Nobody", "spanish": "Nadie" },
+        { "english": "knows", "spanish": "sabe" },
+        { "english": "what happened", "spanish": "lo que pasó" }
+      ]
+    },
+    {
+      "id": 39,
+      "spanish": "Te llamé tres veces ayer.",
+      "english": "I called you three times yesterday.",
+      "hints": [
+        { "english": "I called you", "spanish": "Te llamé" },
+        { "english": "three times", "spanish": "tres veces" },
+        { "english": "yesterday", "spanish": "ayer" }
+      ]
+    },
+    {
+      "id": 40,
+      "spanish": "Debes llegar antes de las siete.",
+      "english": "You should arrive before seven.",
+      "hints": [
+        { "english": "You should arrive", "spanish": "Debes llegar" },
+        { "english": "before", "spanish": "antes de" },
+        { "english": "seven", "spanish": "las siete" }
+      ]
+    },
+    {
+      "id": 41,
+      "spanish": "Me gustaría viajar por el mundo.",
+      "english": "I would like to travel around the world.",
+      "hints": [
+        { "english": "I would like", "spanish": "Me gustaría" },
+        { "english": "to travel", "spanish": "viajar" },
+        { "english": "around the world", "spanish": "por el mundo" }
+      ]
+    },
+    {
+      "id": 42,
+      "spanish": "Siempre pienso en ti.",
+      "english": "I always think about you.",
+      "hints": [
+        { "english": "I always think", "spanish": "Siempre pienso" },
+        { "english": "about you", "spanish": "en ti" }
+      ]
+    },
+    {
+      "id": 43,
+      "spanish": "No puedo encontrar mis llaves en ninguna parte.",
+      "english": "I can't find my keys anywhere.",
+      "hints": [
+        { "english": "I can't find", "spanish": "No puedo encontrar" },
+        { "english": "my keys", "spanish": "mis llaves" },
+        { "english": "anywhere", "spanish": "en ninguna parte" }
+      ]
+    },
+    {
+      "id": 44,
+      "spanish": "La comida estuvo deliciosa.",
+      "english": "The food was delicious.",
+      "hints": [
+        { "english": "The food", "spanish": "La comida" },
+        { "english": "was delicious", "spanish": "estuvo deliciosa" }
+      ]
+    },
+    {
+      "id": 45,
+      "spanish": "Espero que estés bien.",
+      "english": "I hope you are well.",
+      "hints": [
+        { "english": "I hope", "spanish": "Espero" },
+        { "english": "that you are", "spanish": "que estés" },
+        { "english": "well", "spanish": "bien" }
+      ]
+    },
+    {
+      "id": 46,
+      "spanish": "Hace mucho tiempo que no te veo.",
+      "english": "It's been a long time since I've seen you.",
+      "hints": [
+        { "english": "It's been", "spanish": "Hace" },
+        { "english": "a long time", "spanish": "mucho tiempo" },
+        { "english": "that I haven't seen you", "spanish": "que no te veo" }
+      ]
+    },
+    {
+      "id": 47,
+      "spanish": "Me duele la cabeza.",
+      "english": "My head hurts.",
+      "hints": [
+        { "english": "It hurts me", "spanish": "Me duele" },
+        { "english": "the head", "spanish": "la cabeza" }
+      ]
+    },
+    {
+      "id": 48,
+      "spanish": "¿Sabes dónde está el baño?",
+      "english": "Do you know where the bathroom is?",
+      "hints": [
+        { "english": "Do you know", "spanish": "¿Sabes" },
+        { "english": "where", "spanish": "dónde" },
+        { "english": "the bathroom is?", "spanish": "está el baño?" }
+      ]
+    },
+    {
+      "id": 49,
+      "spanish": "Voy a comprar pan en la panadería.",
+      "english": "I'm going to buy bread at the bakery.",
+      "hints": [
+        { "english": "I'm going to buy", "spanish": "Voy a comprar" },
+        { "english": "bread", "spanish": "pan" },
+        { "english": "at the bakery", "spanish": "en la panadería" }
+      ]
+    },
+    {
+      "id": 50,
+      "spanish": "No he comido nada en todo el día.",
+      "english": "I haven't eaten anything all day.",
+      "hints": [
+        { "english": "I haven't eaten", "spanish": "No he comido" },
+        { "english": "anything", "spanish": "nada" },
+        { "english": "all day", "spanish": "en todo el día" }
+      ]
+    },
+    {
+      "id": 51,
+      "spanish": "Ella es más alta que su hermana.",
+      "english": "She is taller than her sister.",
+      "hints": [
+        { "english": "She is", "spanish": "Ella es" },
+        { "english": "taller than", "spanish": "más alta que" },
+        { "english": "her sister", "spanish": "su hermana" }
+      ]
+    },
+    {
+      "id": 52,
+      "spanish": "Me olvidé de traer el dinero.",
+      "english": "I forgot to bring the money.",
+      "hints": [
+        { "english": "I forgot", "spanish": "Me olvidé" },
+        { "english": "to bring", "spanish": "de traer" },
+        { "english": "the money", "spanish": "el dinero" }
+      ]
+    },
+    {
+      "id": 53,
+      "spanish": "Tenemos que terminar esto antes del viernes.",
+      "english": "We have to finish this before Friday.",
+      "hints": [
+        { "english": "We have to finish", "spanish": "Tenemos que terminar" },
+        { "english": "this", "spanish": "esto" },
+        { "english": "before Friday", "spanish": "antes del viernes" }
+      ]
+    },
+    {
+      "id": 54,
+      "spanish": "¿Cuántos años tienes?",
+      "english": "How old are you?",
+      "hints": [
+        { "english": "How many years", "spanish": "¿Cuántos años" },
+        { "english": "do you have?", "spanish": "tienes?" }
+      ]
+    },
+    {
+      "id": 55,
+      "spanish": "Me encanta tu camisa nueva.",
+      "english": "I love your new shirt.",
+      "hints": [
+        { "english": "I love", "spanish": "Me encanta" },
+        { "english": "your new", "spanish": "tu camisa nueva" },
+        { "english": "shirt", "spanish": "camisa" }
+      ]
+    },
+    {
+      "id": 56,
+      "spanish": "Estoy aprendiendo español desde hace dos años.",
+      "english": "I've been learning Spanish for two years.",
+      "hints": [
+        { "english": "I am learning", "spanish": "Estoy aprendiendo" },
+        { "english": "Spanish", "spanish": "español" },
+        { "english": "for two years", "spanish": "desde hace dos años" }
+      ]
+    },
+    {
+      "id": 57,
+      "spanish": "No entiendo por qué está enojado.",
+      "english": "I don't understand why he's angry.",
+      "hints": [
+        { "english": "I don't understand", "spanish": "No entiendo" },
+        { "english": "why", "spanish": "por qué" },
+        { "english": "he's angry", "spanish": "está enojado" }
+      ]
+    },
+    {
+      "id": 58,
+      "spanish": "Deben estar llegando pronto.",
+      "english": "They should be arriving soon.",
+      "hints": [
+        { "english": "They should", "spanish": "Deben" },
+        { "english": "be arriving", "spanish": "estar llegando" },
+        { "english": "soon", "spanish": "pronto" }
+      ]
+    },
+    {
+      "id": 59,
+      "spanish": "El tren sale a las dos y media.",
+      "english": "The train leaves at two thirty.",
+      "hints": [
+        { "english": "The train", "spanish": "El tren" },
+        { "english": "leaves at", "spanish": "sale a" },
+        { "english": "two thirty", "spanish": "las dos y media" }
+      ]
+    },
+    {
+      "id": 60,
+      "spanish": "¿Te gustaría tomar algo?",
+      "english": "Would you like to have something to drink?",
+      "hints": [
+        { "english": "Would you like", "spanish": "¿Te gustaría" },
+        { "english": "to have", "spanish": "tomar" },
+        { "english": "something?", "spanish": "algo?" }
+      ]
+    },
+    {
+      "id": 61,
+      "spanish": "Nos conocimos hace cinco años.",
+      "english": "We met five years ago.",
+      "hints": [
+        { "english": "We met", "spanish": "Nos conocimos" },
+        { "english": "five years ago", "spanish": "hace cinco años" }
+      ]
+    },
+    {
+      "id": 62,
+      "spanish": "Prefiero quedarme en casa esta noche.",
+      "english": "I prefer to stay home tonight.",
+      "hints": [
+        { "english": "I prefer", "spanish": "Prefiero" },
+        { "english": "to stay home", "spanish": "quedarme en casa" },
+        { "english": "tonight", "spanish": "esta noche" }
+      ]
+    },
+    {
+      "id": 63,
+      "spanish": "Se fue sin decir nada.",
+      "english": "He left without saying anything.",
+      "hints": [
+        { "english": "He left", "spanish": "Se fue" },
+        { "english": "without saying", "spanish": "sin decir" },
+        { "english": "anything", "spanish": "nada" }
+      ]
+    },
+    {
+      "id": 64,
+      "spanish": "Todavía no sé la respuesta.",
+      "english": "I still don't know the answer.",
+      "hints": [
+        { "english": "Still", "spanish": "Todavía" },
+        { "english": "I don't know", "spanish": "no sé" },
+        { "english": "the answer", "spanish": "la respuesta" }
+      ]
+    },
+    {
+      "id": 65,
+      "spanish": "Es necesario que vengas temprano.",
+      "english": "It's necessary that you come early.",
+      "hints": [
+        { "english": "It's necessary", "spanish": "Es necesario" },
+        { "english": "that you come", "spanish": "que vengas" },
+        { "english": "early", "spanish": "temprano" }
+      ]
+    },
+    {
+      "id": 66,
+      "spanish": "Me sorprendió verlo allí.",
+      "english": "It surprised me to see him there.",
+      "hints": [
+        { "english": "It surprised me", "spanish": "Me sorprendió" },
+        { "english": "to see him", "spanish": "verlo" },
+        { "english": "there", "spanish": "allí" }
+      ]
+    },
+    {
+      "id": 67,
+      "spanish": "¿Has estado alguna vez en México?",
+      "english": "Have you ever been to Mexico?",
+      "hints": [
+        { "english": "Have you been", "spanish": "¿Has estado" },
+        { "english": "ever", "spanish": "alguna vez" },
+        { "english": "in Mexico?", "spanish": "en México?" }
+      ]
+    },
+    {
+      "id": 68,
+      "spanish": "Le prometí que volvería pronto.",
+      "english": "I promised him I would return soon.",
+      "hints": [
+        { "english": "I promised him", "spanish": "Le prometí" },
+        { "english": "that I would return", "spanish": "que volvería" },
+        { "english": "soon", "spanish": "pronto" }
+      ]
+    },
+    {
+      "id": 69,
+      "spanish": "Estoy seguro de que lo lograrás.",
+      "english": "I'm sure you'll achieve it.",
+      "hints": [
+        { "english": "I'm sure", "spanish": "Estoy seguro" },
+        { "english": "that you'll achieve it", "spanish": "de que lo lograrás" }
+      ]
+    },
+    {
+      "id": 70,
+      "spanish": "No quiero que se preocupen por mí.",
+      "english": "I don't want them to worry about me.",
+      "hints": [
+        { "english": "I don't want", "spanish": "No quiero" },
+        { "english": "them to worry", "spanish": "que se preocupen" },
+        { "english": "about me", "spanish": "por mí" }
+      ]
+    },
+    {
+      "id": 71,
+      "spanish": "Llevamos viviendo aquí desde el año pasado.",
+      "english": "We've been living here since last year.",
+      "hints": [
+        { "english": "We've been living", "spanish": "Llevamos viviendo" },
+        { "english": "here", "spanish": "aquí" },
+        { "english": "since last year", "spanish": "desde el año pasado" }
+      ]
+    },
+    {
+      "id": 72,
+      "spanish": "Me gustaría que vinieras conmigo.",
+      "english": "I would like you to come with me.",
+      "hints": [
+        { "english": "I would like", "spanish": "Me gustaría" },
+        { "english": "you to come", "spanish": "que vinieras" },
+        { "english": "with me", "spanish": "conmigo" }
+      ]
+    },
+    {
+      "id": 73,
+      "spanish": "Aunque llueva, vamos a salir.",
+      "english": "Even if it rains, we're going out.",
+      "hints": [
+        { "english": "Even if it rains", "spanish": "Aunque llueva" },
+        { "english": "we're going", "spanish": "vamos" },
+        { "english": "to go out", "spanish": "a salir" }
+      ]
+    },
+    {
+      "id": 74,
+      "spanish": "Ya había terminado cuando llegaste.",
+      "english": "I had already finished when you arrived.",
+      "hints": [
+        { "english": "Already", "spanish": "Ya" },
+        { "english": "I had finished", "spanish": "había terminado" },
+        { "english": "when you arrived", "spanish": "cuando llegaste" }
+      ]
+    },
+    {
+      "id": 75,
+      "spanish": "Cuanto más lo pienso, menos lo entiendo.",
+      "english": "The more I think about it, the less I understand it.",
+      "hints": [
+        { "english": "The more I think about it", "spanish": "Cuanto más lo pienso" },
+        { "english": "the less", "spanish": "menos" },
+        { "english": "I understand it", "spanish": "lo entiendo" }
+      ]
+    },
+    {
+      "id": 76,
+      "spanish": "Si tuviera dinero, viajaría por el mundo.",
+      "english": "If I had money, I would travel the world.",
+      "hints": [
+        { "english": "If I had", "spanish": "Si tuviera" },
+        { "english": "money", "spanish": "dinero" },
+        { "english": "I would travel the world", "spanish": "viajaría por el mundo" }
+      ]
+    },
+    {
+      "id": 77,
+      "spanish": "Es probable que lleguen tarde.",
+      "english": "It's likely they'll arrive late.",
+      "hints": [
+        { "english": "It's likely", "spanish": "Es probable" },
+        { "english": "that they'll arrive", "spanish": "que lleguen" },
+        { "english": "late", "spanish": "tarde" }
+      ]
+    },
+    {
+      "id": 78,
+      "spanish": "Lo habría hecho si hubiera tenido tiempo.",
+      "english": "I would have done it if I had had time.",
+      "hints": [
+        { "english": "I would have done it", "spanish": "Lo habría hecho" },
+        { "english": "if I had had", "spanish": "si hubiera tenido" },
+        { "english": "time", "spanish": "tiempo" }
+      ]
+    },
+    {
+      "id": 79,
+      "spanish": "Ojala que tengas un buen día.",
+      "english": "I hope you have a good day.",
+      "hints": [
+        { "english": "I hope", "spanish": "Ojalá" },
+        { "english": "that you have", "spanish": "que tengas" },
+        { "english": "a good day", "spanish": "un buen día" }
+      ]
+    },
+    {
+      "id": 80,
+      "spanish": "No importa lo que digan los demás.",
+      "english": "It doesn't matter what others say.",
+      "hints": [
+        { "english": "It doesn't matter", "spanish": "No importa" },
+        { "english": "what say", "spanish": "lo que digan" },
+        { "english": "the others", "spanish": "los demás" }
+      ]
+    },
+    {
+      "id": 81,
+      "spanish": "Me cuesta mucho levantarme temprano.",
+      "english": "It's very hard for me to get up early.",
+      "hints": [
+        { "english": "It's hard for me", "spanish": "Me cuesta mucho" },
+        { "english": "to get up", "spanish": "levantarme" },
+        { "english": "early", "spanish": "temprano" }
+      ]
+    },
+    {
+      "id": 82,
+      "spanish": "Hace falta que seamos más cuidadosos.",
+      "english": "We need to be more careful.",
+      "hints": [
+        { "english": "It's necessary", "spanish": "Hace falta" },
+        { "english": "that we be", "spanish": "que seamos" },
+        { "english": "more careful", "spanish": "más cuidadosos" }
+      ]
+    },
+    {
+      "id": 83,
+      "spanish": "A pesar de todo, seguimos adelante.",
+      "english": "Despite everything, we keep going forward.",
+      "hints": [
+        { "english": "Despite everything", "spanish": "A pesar de todo" },
+        { "english": "we keep going", "spanish": "seguimos" },
+        { "english": "forward", "spanish": "adelante" }
+      ]
+    },
+    {
+      "id": 84,
+      "spanish": "No te preocupes, todo saldrá bien.",
+      "english": "Don't worry, everything will turn out fine.",
+      "hints": [
+        { "english": "Don't worry", "spanish": "No te preocupes" },
+        { "english": "everything", "spanish": "todo" },
+        { "english": "will turn out fine", "spanish": "saldrá bien" }
+      ]
+    },
+    {
+      "id": 85,
+      "spanish": "Me alegro de que hayas venido.",
+      "english": "I'm glad you came.",
+      "hints": [
+        { "english": "I'm glad", "spanish": "Me alegro" },
+        { "english": "that you came", "spanish": "de que hayas venido" }
+      ]
+    },
+    {
+      "id": 86,
+      "spanish": "Vale la pena intentarlo una vez más.",
+      "english": "It's worth trying one more time.",
+      "hints": [
+        { "english": "It's worth", "spanish": "Vale la pena" },
+        { "english": "trying it", "spanish": "intentarlo" },
+        { "english": "one more time", "spanish": "una vez más" }
+      ]
+    },
+    {
+      "id": 87,
+      "spanish": "Quisiera pedirte un favor.",
+      "english": "I would like to ask you a favor.",
+      "hints": [
+        { "english": "I would like", "spanish": "Quisiera" },
+        { "english": "to ask you", "spanish": "pedirte" },
+        { "english": "a favor", "spanish": "un favor" }
+      ]
+    },
+    {
+      "id": 88,
+      "spanish": "Por mucho que lo intente, no puedo hacerlo.",
+      "english": "No matter how much I try, I can't do it.",
+      "hints": [
+        { "english": "No matter how much I try", "spanish": "Por mucho que lo intente" },
+        { "english": "I can't", "spanish": "no puedo" },
+        { "english": "do it", "spanish": "hacerlo" }
+      ]
+    },
+    {
+      "id": 89,
+      "spanish": "Temo que sea demasiado tarde.",
+      "english": "I'm afraid it may be too late.",
+      "hints": [
+        { "english": "I fear", "spanish": "Temo" },
+        { "english": "that it may be", "spanish": "que sea" },
+        { "english": "too late", "spanish": "demasiado tarde" }
+      ]
+    },
+    {
+      "id": 90,
+      "spanish": "Es una lástima que no puedas venir.",
+      "english": "It's a shame you can't come.",
+      "hints": [
+        { "english": "It's a shame", "spanish": "Es una lástima" },
+        { "english": "that you can't", "spanish": "que no puedas" },
+        { "english": "come", "spanish": "venir" }
+      ]
+    },
+    {
+      "id": 91,
+      "spanish": "No veo la hora de que llegue el fin de semana.",
+      "english": "I can't wait for the weekend to arrive.",
+      "hints": [
+        { "english": "I can't wait", "spanish": "No veo la hora" },
+        { "english": "for the weekend", "spanish": "de que llegue el fin de semana" },
+        { "english": "to arrive", "spanish": "llegue" }
+      ]
+    },
+    {
+      "id": 92,
+      "spanish": "Me di cuenta de que había cometido un error.",
+      "english": "I realized I had made a mistake.",
+      "hints": [
+        { "english": "I realized", "spanish": "Me di cuenta" },
+        { "english": "that I had made", "spanish": "de que había cometido" },
+        { "english": "a mistake", "spanish": "un error" }
+      ]
+    },
+    {
+      "id": 93,
+      "spanish": "En cuanto termine, te llamo.",
+      "english": "As soon as I finish, I'll call you.",
+      "hints": [
+        { "english": "As soon as", "spanish": "En cuanto" },
+        { "english": "I finish", "spanish": "termine" },
+        { "english": "I'll call you", "spanish": "te llamo" }
+      ]
+    },
+    {
+      "id": 94,
+      "spanish": "De haber sabido, no habría venido.",
+      "english": "Had I known, I wouldn't have come.",
+      "hints": [
+        { "english": "Had I known", "spanish": "De haber sabido" },
+        { "english": "I wouldn't have", "spanish": "no habría" },
+        { "english": "come", "spanish": "venido" }
+      ]
+    },
+    {
+      "id": 95,
+      "spanish": "Tal vez deberías consultar con un experto.",
+      "english": "Perhaps you should consult with an expert.",
+      "hints": [
+        { "english": "Perhaps", "spanish": "Tal vez" },
+        { "english": "you should consult", "spanish": "deberías consultar" },
+        { "english": "with an expert", "spanish": "con un experto" }
+      ]
+    },
+    {
+      "id": 96,
+      "spanish": "No es que no me importe, es que estoy ocupado.",
+      "english": "It's not that I don't care, it's that I'm busy.",
+      "hints": [
+        { "english": "It's not that I don't care", "spanish": "No es que no me importe" },
+        { "english": "it's that", "spanish": "es que" },
+        { "english": "I'm busy", "spanish": "estoy ocupado" }
+      ]
+    },
+    {
+      "id": 97,
+      "spanish": "Cueste lo que cueste, voy a lograrlo.",
+      "english": "Whatever it costs, I'm going to achieve it.",
+      "hints": [
+        { "english": "Whatever it costs", "spanish": "Cueste lo que cueste" },
+        { "english": "I'm going", "spanish": "voy" },
+        { "english": "to achieve it", "spanish": "a lograrlo" }
+      ]
+    },
+    {
+      "id": 98,
+      "spanish": "Hablando se entiende la gente.",
+      "english": "People understand each other by talking.",
+      "hints": [
+        { "english": "By talking", "spanish": "Hablando" },
+        { "english": "people understand", "spanish": "se entiende la gente" },
+        { "english": "each other", "spanish": "se entiende" }
+      ]
+    },
+    {
+      "id": 99,
+      "spanish": "Más vale tarde que nunca.",
+      "english": "Better late than never.",
+      "hints": [
+        { "english": "Better", "spanish": "Más vale" },
+        { "english": "late", "spanish": "tarde" },
+        { "english": "than never", "spanish": "que nunca" }
+      ]
+    },
+    {
+      "id": 100,
+      "spanish": "No hay mal que por bien no venga.",
+      "english": "Every cloud has a silver lining.",
+      "hints": [
+        { "english": "There's no bad", "spanish": "No hay mal" },
+        { "english": "that for good", "spanish": "que por bien" },
+        { "english": "doesn't come", "spanish": "no venga" }
+      ]
+    }
+  ]
+}

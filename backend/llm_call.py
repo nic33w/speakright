@@ -2,6 +2,7 @@
 import os
 import json
 import re
+import unicodedata
 from typing import Any, Dict, List, Optional
 
 try:
@@ -80,6 +81,28 @@ def _make_prompt(transcript: str, active_cards: List[Dict[str, Any]], fluent: Di
     )
     return system + "\n" + user
 
+def _strip_accents(text: str) -> str:
+    """Remove accents/diacritics from text for fuzzy matching."""
+    if not text:
+        return ""
+    # First, handle special Spanish characters explicitly
+    text = text.replace('ñ', 'n').replace('Ñ', 'N')
+    # Then normalize to NFD (decomposed form) and filter out combining characters
+    nfd = unicodedata.normalize('NFD', text)
+    return ''.join(char for char in nfd if unicodedata.category(char) != 'Mn')
+
+def _normalize_for_matching(text: str) -> str:
+    """Normalize text for matching: strip accents, remove punctuation, lowercase."""
+    if not text:
+        return ""
+    # Strip accents
+    text = _strip_accents(text)
+    # Remove common punctuation (but keep spaces and letters)
+    text = re.sub(r'[.,;:!?¿¡\-_…\.]+', '', text)
+    # Normalize whitespace
+    text = re.sub(r'\s+', ' ', text)
+    return text.strip().lower()
+
 def _init_client():
     if MOCK_MODE:
         return None
@@ -90,12 +113,18 @@ def _init_client():
     return None
 
 def _mock_response(transcript: str, active_cards: List[Dict[str,Any]], fluent: Dict[str,Any], learning: Dict[str,Any]) -> Dict[str,Any]:
-    lower = (transcript or "").lower()
+    # Normalize transcript for matching (strip accents, punctuation, lowercase)
+    normalized_transcript = _normalize_for_matching(transcript or "")
+    print(f"[MOCK] Normalized transcript: '{normalized_transcript}'")
     used = []
     for c in active_cards:
-        val = (c.get("value") or c.get("display_text") or "").lower()
-        if val and val in lower:
-            used.append(c.get("id"))
+        val = c.get("value") or c.get("display_text") or ""
+        normalized_val = _normalize_for_matching(val)
+        if normalized_val:
+            is_match = normalized_val in normalized_transcript
+            print(f"[MOCK] Card '{c.get('id')}': '{val}' → normalized: '{normalized_val}' → Match: {is_match}")
+            if is_match:
+                used.append(c.get("id"))
     lang_tag = "es-MX" if learning.get("code","").startswith("es") else ("id-ID" if learning.get("code","").startswith("id") else "en-US")
     return {
         "corrected_sentence": transcript,
@@ -180,3 +209,120 @@ def call_llm_for_turn(
     except Exception as e:
         print("LLM call failed:", e)
         return _mock_response(transcript, active_plain, fluent_plain, learning_plain)
+
+
+def check_trivia_answer(
+    user_answer: str,
+    correct_answer: str,
+    english_prompt: str,
+    fluent: Dict[str, Any],
+    learning: Dict[str, Any],
+    model: Optional[str] = None,
+    temperature: float = 0.15,
+    timeout: int = 20,
+) -> Dict[str, Any]:
+    """
+    Check if user's answer is semantically equivalent to correct answer.
+
+    Returns:
+    {
+        "is_correct": bool,
+        "feedback": str,  # In fluent/native language
+        "corrected_answer": str,  # Corrected version of user's answer
+    }
+    """
+    model = model or DEFAULT_MODEL
+    client = _init_client()
+
+    if client is None:
+        # Mock mode - simple string comparison
+        normalized_user = _normalize_for_matching(user_answer)
+        normalized_correct = _normalize_for_matching(correct_answer)
+        is_correct = normalized_user == normalized_correct
+
+        return {
+            "is_correct": is_correct,
+            "feedback": "(mock) Correct!" if is_correct else "(mock) Not quite right. Try again!",
+            "corrected_answer": correct_answer,
+        }
+
+    lang_code = learning.get("code", "")[:2]
+    language_style = _language_style_instruction(lang_code)
+
+    fluent_name = fluent.get("name", "English")
+    learning_name = learning.get("name", "Spanish")
+
+    system_prompt = (
+        f"You are a language learning assistant. {language_style}\n"
+        f"Your task is to determine if a student's {learning_name} answer is semantically equivalent to the correct answer.\n"
+        "Be lenient with minor grammar mistakes, but check that the core meaning matches.\n"
+        "Return only valid JSON."
+    )
+
+    user_prompt = (
+        "INPUT:\n"
+        f"- {fluent_name} prompt: {json.dumps(english_prompt, ensure_ascii=False)}\n"
+        f"- Correct {learning_name} answer: {json.dumps(correct_answer, ensure_ascii=False)}\n"
+        f"- User's {learning_name} answer: {json.dumps(user_answer, ensure_ascii=False)}\n\n"
+        "OUTPUT SCHEMA (return exactly one JSON object):\n"
+        "{\n"
+        '  "is_correct": true/false,\n'
+        f'  "feedback": "...",  # Brief feedback in {fluent_name}\n'
+        '  "corrected_answer": "..."  # Corrected version of user answer if needed\n'
+        "}\n\n"
+        "Rules:\n"
+        "- is_correct should be true if the user's answer conveys the same meaning as the correct answer.\n"
+        "- Minor grammar or spelling mistakes are acceptable if meaning is clear.\n"
+        f"- feedback should be encouraging and in {fluent_name}.\n"
+        "- corrected_answer should be the user's answer with corrections applied.\n"
+    )
+
+    full_prompt = system_prompt + "\n\n" + user_prompt
+
+    try:
+        resp = client.responses.create(
+            model=model,
+            input=full_prompt,
+            temperature=temperature,
+            max_output_tokens=300,
+            timeout=timeout,
+        )
+
+        # Extract text (reuse existing pattern from call_llm_for_turn)
+        raw_text = ""
+        if hasattr(resp, "output_text") and resp.output_text:
+            raw_text = resp.output_text
+        elif hasattr(resp, "choices") and resp.choices:
+            c = resp.choices[0]
+            if hasattr(c, "message") and hasattr(c.message, "content"):
+                raw_text = c.message.content or ""
+            elif hasattr(c, "text"):
+                raw_text = c.text or ""
+        elif hasattr(resp, "content"):
+            if isinstance(resp.content, list):
+                for block in resp.content:
+                    if hasattr(block, "text"):
+                        raw_text += block.text
+            else:
+                raw_text = str(resp.content)
+
+        parsed = _extract_json(raw_text)
+        parsed.setdefault("is_correct", False)
+        parsed.setdefault("feedback", "")
+        parsed.setdefault("corrected_answer", correct_answer)
+
+        return parsed
+    except Exception as e:
+        print("LLM trivia check failed:", e)
+        import traceback
+        traceback.print_exc()
+        # Fallback to mock
+        normalized_user = _normalize_for_matching(user_answer)
+        normalized_correct = _normalize_for_matching(correct_answer)
+        is_correct = normalized_user == normalized_correct
+
+        return {
+            "is_correct": is_correct,
+            "feedback": "Correct!" if is_correct else "Not quite right. Try again!",
+            "corrected_answer": correct_answer,
+        }

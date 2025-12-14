@@ -764,7 +764,7 @@ export default function ChatWithWispr({
                 style={{ padding: "6px 8px", borderRadius: 6, background: "#0b1220", color: "#e6eef8", border: "1px solid rgba(255,255,255,0.06)" }}
               >
                 {LANG_OPTIONS.map((l) => (
-                  <option key={l.code} value={l.code}>
+                  <option key={l.code} value={l.code} style={{ background: "#0b1220", color: "#e6eef8" }}>
                     {l.name}
                   </option>
                 ))}
@@ -777,7 +777,7 @@ export default function ChatWithWispr({
                 style={{ padding: "6px 8px", borderRadius: 6, background: "#0b1220", color: "#e6eef8", border: "1px solid rgba(255,255,255,0.06)" }}
               >
                 {LANG_OPTIONS.map((l) => (
-                  <option key={l.code} value={l.code}>
+                  <option key={l.code} value={l.code} style={{ background: "#0b1220", color: "#e6eef8" }}>
                     {l.name}
                   </option>
                 ))}

@@ -269,3 +269,84 @@ def get_config():
         "mock_mode": MOCK_MODE,
         "has_azure_tts": bool(AZURE_SPEECH_KEY and AZURE_REGION)
     }
+
+
+# --- Trivia Game Endpoints ---
+
+class TriviaCheckReq(BaseModel):
+    session_id: str
+    user_answer: str
+    correct_answer: str  # The correct answer in the learning language
+    prompt_text: str  # The prompt text in the fluent language
+    learning: Optional[LangSpec] = None
+    fluent: Optional[LangSpec] = None
+
+
+class TriviaAudioReq(BaseModel):
+    text: str
+    locale: str  # es-MX, en-US, id-ID
+
+
+@app.post("/api/trivia/check")
+def api_trivia_check(req: TriviaCheckReq):
+    """
+    Validate user's answer against correct answer using LLM.
+    Works for any language pair (English-Spanish, Indonesian-English, English-Indonesian).
+    Returns: { is_correct: bool, feedback: str, corrected_answer: str }
+    """
+    from llm_call import check_trivia_answer
+
+    fluent = req.fluent or LangSpec(code='en', name='English')
+    learning = req.learning or LangSpec(code='es', name='Spanish')
+
+    try:
+        result = check_trivia_answer(
+            user_answer=req.user_answer,
+            correct_answer=req.correct_answer,
+            english_prompt=req.prompt_text,
+            fluent=fluent.dict(),
+            learning=learning.dict(),
+        )
+
+        return {
+            "is_correct": result.get("is_correct", False),
+            "feedback": result.get("feedback", ""),
+            "corrected_answer": result.get("corrected_answer", req.correct_answer),
+        }
+    except Exception as e:
+        print("Trivia check failed:", e)
+        import traceback
+        traceback.print_exc()
+        return {
+            "is_correct": False,
+            "feedback": "Unable to check answer. Please try again.",
+            "corrected_answer": req.correct_answer,
+        }
+
+
+@app.post("/api/trivia/audio")
+def api_trivia_audio(req: TriviaAudioReq):
+    """
+    Generate TTS audio for given text and locale.
+    Returns: { audio_file: str (URL path) }
+    """
+    from tts_helpers import tts_bytes_for_chunk
+
+    try:
+        wav_bytes = tts_bytes_for_chunk(req.text, req.locale)
+
+        # Save to audio_files directory
+        session_id = "trivia"
+        turn_id = f"trivia_{int(time.time()*1000)}"
+        lang_short = req.locale.split("-")[0]
+        file_path = save_wav(session_id, turn_id, lang_short, 0, wav_bytes)
+
+        return {"audio_file": file_path}
+    except Exception as e:
+        print("TTS generation failed:", e)
+        import traceback
+        traceback.print_exc()
+        # Return silent audio as fallback
+        wav_bytes = generate_silent_wav(duration_secs=1.0)
+        file_path = save_wav("trivia", f"silent_{int(time.time()*1000)}", "en", 0, wav_bytes)
+        return {"audio_file": file_path}
