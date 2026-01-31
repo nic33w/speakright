@@ -2,6 +2,7 @@ from dotenv import load_dotenv
 import os
 import time
 import re
+import hashlib
 from typing import List, Dict, Any, Optional
 from pathlib import Path
 from fastapi.responses import FileResponse
@@ -89,6 +90,30 @@ def save_wav(session_id: str, turn_id: str, lang_code: str, idx: int, wav_bytes:
     with open(path, 'wb') as f:
         f.write(wav_bytes)
     return f"/api/audio_file/{safe}/{filename}"
+
+def get_cached_audio_path(text: str, locale: str) -> tuple[str, bool, Path]:
+    """
+    Check if audio for this text+locale already exists.
+    Returns: (url_path, exists, disk_path)
+    """
+    # Create deterministic hash from text + locale
+    hash_input = f"{text}|{locale}".encode('utf-8')
+    text_hash = hashlib.md5(hash_input).hexdigest()[:12]  # First 12 chars
+
+    # Simplified filename: cached_{locale}_{hash}.wav
+    lang_short = locale.split("-")[0]
+    filename = f"cached_{lang_short}_{text_hash}.wav"
+
+    # Store in dedicated cache directory
+    cache_folder = AUDIO_ROOT / "cache"
+    cache_folder.mkdir(parents=True, exist_ok=True)
+
+    disk_path = cache_folder / filename
+    exists = disk_path.exists()
+
+    # Return URL path format
+    url_path = f"/api/audio_file/cache/{filename}"
+    return url_path, exists, disk_path
 
 # fuzzy detection of card usage
 def fuzzy_card_detect(transcript: str, cards: List[Card], threshold: int = 75):
@@ -327,26 +352,34 @@ def api_trivia_check(req: TriviaCheckReq):
 @app.post("/api/trivia/audio")
 def api_trivia_audio(req: TriviaAudioReq):
     """
-    Generate TTS audio for given text and locale.
+    Generate TTS audio for given text and locale (with caching).
     Returns: { audio_file: str (URL path) }
     """
     from tts_helpers import tts_bytes_for_chunk
 
     try:
+        # Check cache first
+        url_path, exists, disk_path = get_cached_audio_path(req.text, req.locale)
+
+        if exists:
+            # Cache hit - return existing audio URL
+            print(f"[CACHE HIT] Returning cached audio for: {req.text[:30]}...")
+            return {"audio_file": url_path}
+
+        # Cache miss - generate new audio
+        print(f"[CACHE MISS] Generating audio for: {req.text[:30]}...")
         wav_bytes = tts_bytes_for_chunk(req.text, req.locale)
 
-        # Save to audio_files directory
-        session_id = "trivia"
-        turn_id = f"trivia_{int(time.time()*1000)}"
-        lang_short = req.locale.split("-")[0]
-        file_path = save_wav(session_id, turn_id, lang_short, 0, wav_bytes)
+        # Save to cache location
+        with open(disk_path, 'wb') as f:
+            f.write(wav_bytes)
 
-        return {"audio_file": file_path}
+        return {"audio_file": url_path}
     except Exception as e:
         print("TTS generation failed:", e)
         import traceback
         traceback.print_exc()
-        # Return silent audio as fallback
+        # Return silent audio as fallback (don't cache fallback audio)
         wav_bytes = generate_silent_wav(duration_secs=1.0)
         file_path = save_wav("trivia", f"silent_{int(time.time()*1000)}", "en", 0, wav_bytes)
         return {"audio_file": file_path}

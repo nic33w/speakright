@@ -2,15 +2,16 @@ import { useState } from 'react';
 import HomeScreen from "./HomeScreen";
 import StoryCardsGame from "./StoryCardsGame";
 import TriviaGame from "./TriviaGame";
+import MessengerChat from "./MessengerChat";
 
 type LangSpec = { code: string; name: string };
 
 function App() {
-  const [currentMode, setCurrentMode] = useState<'home' | 'story' | 'trivia'>('home');
+  const [currentMode, setCurrentMode] = useState<'home' | 'story' | 'trivia' | 'messenger'>('home');
   const [selectedFluent, setSelectedFluent] = useState<LangSpec>({ code: "en", name: "English" });
   const [selectedLearning, setSelectedLearning] = useState<LangSpec>({ code: "es", name: "Spanish" });
 
-  function handleSelectMode(mode: 'story' | 'trivia', fluent: LangSpec, learning: LangSpec) {
+  function handleSelectMode(mode: 'story' | 'trivia' | 'messenger', fluent: LangSpec, learning: LangSpec) {
     setSelectedFluent(fluent);
     setSelectedLearning(learning);
     setCurrentMode(mode);
@@ -36,6 +37,14 @@ function App() {
 
       {currentMode === 'trivia' && (
         <TriviaGame
+          fluent={selectedFluent}
+          learning={selectedLearning}
+          onBack={handleBack}
+        />
+      )}
+
+      {currentMode === 'messenger' && (
+        <MessengerChat
           fluent={selectedFluent}
           learning={selectedLearning}
           onBack={handleBack}

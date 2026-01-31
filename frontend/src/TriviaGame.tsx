@@ -109,12 +109,18 @@ export default function TriviaGame({
   const [sessionId] = useState<string>(`trivia_${Date.now()}`);
   const [paused, setPaused] = useState<boolean>(false);
 
+  // Proximity-based scaling state
+  const [mousePosition, setMousePosition] = useState<{ x: number; y: number } | null>(null);
+  const [closestHintIndex, setClosestHintIndex] = useState<number | null>(null);
+  const [closestHintScale, setClosestHintScale] = useState<number>(14);
+
   const autoSendTimer = useRef<number | null>(null);
   const lastSentRef = useRef<number>(0);
   const previousTranscriptLengthRef = useRef<number>(0);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const timerExpiredInProgress = useRef<boolean>(false);
   const currentAudioRef = useRef<HTMLAudioElement | null>(null);
+  const hintCardsRefs = useRef<(HTMLDivElement | null)[]>([]);
 
   // Initialize trivia questions based on language selection
   useEffect(() => {
@@ -162,6 +168,20 @@ export default function TriviaGame({
       }
     };
   }, []);
+
+  // Initialize hint card refs array when hints change
+  useEffect(() => {
+    if (currentSentence) {
+      hintCardsRefs.current = new Array(currentSentence.hints.length).fill(null);
+    }
+  }, [currentSentence]);
+
+  // Reset proximity scaling state when question changes
+  useEffect(() => {
+    setMousePosition(null);
+    setClosestHintIndex(null);
+    setClosestHintScale(14);
+  }, [currentSentence?.id]);
 
   // Timer countdown logic
   useEffect(() => {
@@ -436,6 +456,92 @@ export default function TriviaGame({
     setViewedHints(prev => new Set([...prev, index]));
   }
 
+  /**
+   * Calculate Euclidean distance from cursor to nearest edge of hint card
+   */
+  function calculateDistance(
+    cursorX: number,
+    cursorY: number,
+    cardElement: HTMLDivElement
+  ): number {
+    const rect = cardElement.getBoundingClientRect();
+
+    // Calculate distance to nearest edge (0 if inside the box)
+    const dx = Math.max(rect.left - cursorX, 0, cursorX - rect.right);
+    const dy = Math.max(rect.top - cursorY, 0, cursorY - rect.bottom);
+
+    return Math.sqrt(dx * dx + dy * dy);
+  }
+
+  /**
+   * Convert distance to font size using inverse linear interpolation
+   * Distance 0-300px maps to 24-14px font size
+   */
+  function distanceToFontSize(distance: number): number {
+    const MAX_DISTANCE = 300;
+    const MIN_FONT_SIZE = 14;
+    const MAX_FONT_SIZE = 24;
+
+    if (distance >= MAX_DISTANCE) return MIN_FONT_SIZE;
+    if (distance <= 0) return MAX_FONT_SIZE;
+
+    // Linear interpolation: fontSize = 14 + (10 * (1 - distance/300))
+    const scale = 1 - (distance / MAX_DISTANCE);
+    return MIN_FONT_SIZE + (MAX_FONT_SIZE - MIN_FONT_SIZE) * scale;
+  }
+
+  /**
+   * Handle mouse movement within hints container
+   * Calculates closest unrevealed hint and updates scaling
+   */
+  const handleHintsMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!currentSentence) return;
+
+    const cursorX = e.clientX;
+    const cursorY = e.clientY;
+
+    setMousePosition({ x: cursorX, y: cursorY });
+
+    let closestIndex: number | null = null;
+    let minDistance = Infinity;
+
+    // Find closest unrevealed hint
+    currentSentence.hints.forEach((hint, index) => {
+      // Skip revealed hints
+      if (viewedHints.has(index)) return;
+
+      const cardElement = hintCardsRefs.current[index];
+      if (!cardElement) return;
+
+      const distance = calculateDistance(cursorX, cursorY, cardElement);
+
+      if (distance < minDistance) {
+        minDistance = distance;
+        closestIndex = index;
+      }
+    });
+
+    setClosestHintIndex(closestIndex);
+
+    // Update font size based on distance
+    if (closestIndex !== null && minDistance < Infinity) {
+      const fontSize = distanceToFontSize(minDistance);
+      setClosestHintScale(fontSize);
+    } else {
+      // No valid hints nearby, reset to default
+      setClosestHintScale(14);
+    }
+  };
+
+  /**
+   * Reset scaling when mouse leaves hints container
+   */
+  const handleHintsMouseLeave = () => {
+    setMousePosition(null);
+    setClosestHintIndex(null);
+    setClosestHintScale(14);
+  };
+
   // Completion screen
   if (!currentSentence) {
     return (
@@ -642,81 +748,101 @@ export default function TriviaGame({
           padding: '40px 20px',
           overflow: 'auto',
         }}>
-          {/* Hint cards */}
-          <div style={{
-            width: '100%',
-            maxWidth: '900px',
-            marginBottom: '32px',
-          }}>
-            <div style={{
+          {/* Mouse tracking container for hints + sentence */}
+          <div
+            onMouseMove={handleHintsMouseMove}
+            onMouseLeave={handleHintsMouseLeave}
+            style={{
+              width: '100%',
+              maxWidth: '900px',
               display: 'flex',
-              gap: 12,
-              overflowX: 'auto',
-              padding: '16px 0',
-              justifyContent: 'center',
-              flexWrap: 'wrap',
-            }}>
-              {currentSentence.hints.map((hint, index) => (
-                <div
-                  key={index}
-                  onMouseEnter={() => handleHintView(index)}
-                  style={{
-                    minWidth: 150,
-                    height: 100,
-                    border: viewedHints.has(index) ? '2px solid #333' : '3px solid #FFD700',
-                    borderRadius: 8,
-                    padding: 12,
-                    background: viewedHints.has(index) ? '#fff' : '#fffbeb',
-                    cursor: 'pointer',
-                    transition: 'all 0.3s ease',
-                    boxShadow: viewedHints.has(index) ? '0 2px 8px rgba(0,0,0,0.1)' : '0 4px 12px rgba(255, 215, 0, 0.3)',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    justifyContent: 'center',
-                    alignItems: 'center',
-                  }}
-                >
-                  <div style={{
-                    fontWeight: 600,
-                    marginBottom: 8,
-                    textAlign: 'center',
-                    fontSize: 14,
-                    color: '#1f2937',
-                  }}>
-                    {hint.native}
-                  </div>
-                  {viewedHints.has(index) && (
-                    <div style={{
-                      color: '#3b82f6',
-                      fontSize: 14,
-                      textAlign: 'center',
-                      fontWeight: 500,
-                    }}>
-                      {hint.learning}
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Sentence prompt (in fluent language) */}
-          <div style={{
-            background: 'white',
-            borderRadius: '16px',
-            padding: '32px',
-            boxShadow: '0 8px 24px rgba(0,0,0,0.15)',
-            marginBottom: '32px',
-            minWidth: '300px',
-            textAlign: 'center',
-          }}>
+              flexDirection: 'column',
+              alignItems: 'center',
+              marginBottom: '32px',
+            }}
+          >
+            {/* Hint cards */}
             <div style={{
-              fontSize: '28px',
-              fontWeight: 600,
-              color: '#1f2937',
-              lineHeight: 1.4,
+              width: '100%',
+              marginBottom: '32px',
             }}>
-              {currentSentence.nativeText}
+              <div style={{
+                display: 'flex',
+                gap: 12,
+                overflowX: 'auto',
+                padding: '16px 0',
+                justifyContent: 'center',
+                flexWrap: 'wrap',
+              }}>
+                {currentSentence.hints.map((hint, index) => {
+                  const isRevealed = viewedHints.has(index);
+                  const isClosest = closestHintIndex === index;
+                  const dynamicFontSize = isClosest && !isRevealed ? closestHintScale : 14;
+
+                  return (
+                    <div
+                      key={index}
+                      ref={(el) => { hintCardsRefs.current[index] = el; }}
+                      onMouseEnter={() => handleHintView(index)}
+                      style={{
+                        minWidth: 150,
+                        height: 100,
+                        border: isRevealed ? '2px solid #333' : '3px solid #FFD700',
+                        borderRadius: 8,
+                        padding: 12,
+                        background: isRevealed ? '#fff' : '#fffbeb',
+                        cursor: 'pointer',
+                        transition: 'all 0.3s ease',
+                        boxShadow: isRevealed ? '0 2px 8px rgba(0,0,0,0.1)' : '0 4px 12px rgba(255, 215, 0, 0.3)',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        justifyContent: 'center',
+                        alignItems: 'center',
+                      }}
+                    >
+                      <div style={{
+                        fontWeight: 600,
+                        marginBottom: 8,
+                        textAlign: 'center',
+                        fontSize: dynamicFontSize,
+                        color: '#1f2937',
+                        transition: 'font-size 0.15s ease-out',
+                      }}>
+                        {hint.native}
+                      </div>
+                      {isRevealed && (
+                        <div style={{
+                          color: '#3b82f6',
+                          fontSize: 14,
+                          textAlign: 'center',
+                          fontWeight: 500,
+                        }}>
+                          {hint.learning}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Sentence prompt (in fluent language) */}
+            <div style={{
+              background: 'white',
+              borderRadius: '16px',
+              padding: '32px',
+              boxShadow: '0 8px 24px rgba(0,0,0,0.15)',
+              minWidth: '300px',
+              textAlign: 'center',
+            }}>
+              <div style={{
+                fontSize: '28px',
+                fontWeight: 600,
+                color: '#1f2937',
+                lineHeight: 1.4,
+              }}>
+                {currentSentence.nativeText}
+              </div>
             </div>
           </div>
 
@@ -800,6 +926,7 @@ export default function TriviaGame({
                 borderRadius: 8,
                 resize: 'vertical',
                 fontFamily: 'system-ui, sans-serif',
+                boxSizing: 'border-box',
               }}
             />
             <div style={{

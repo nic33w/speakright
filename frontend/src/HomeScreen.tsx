@@ -6,7 +6,7 @@ type LangSpec = { code: string; name: string };
 
 type HomeScreenProps = {
   apiBase?: string;
-  onSelectMode: (mode: 'story' | 'trivia', fluent: LangSpec, learning: LangSpec) => void;
+  onSelectMode: (mode: 'story' | 'trivia' | 'messenger', fluent: LangSpec, learning: LangSpec) => void;
 };
 
 const LANG_OPTIONS: LangSpec[] = [
@@ -357,6 +357,50 @@ export default function HomeScreen({
               lineHeight: '1.5',
             }}>
               Translate English sentences with hint cards. Race against the timer!
+            </p>
+          </button>
+
+          {/* Messenger Chat Card */}
+          <button
+            onClick={() => onSelectMode('messenger', fluent, learning)}
+            style={{
+              padding: '32px 24px',
+              background: 'linear-gradient(135deg, #4ade80 0%, #22c55e 100%)',
+              border: 'none',
+              borderRadius: '12px',
+              color: 'white',
+              cursor: 'pointer',
+              transition: 'transform 0.2s, box-shadow 0.2s',
+              boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.transform = 'translateY(-4px)';
+              e.currentTarget.style.boxShadow = '0 8px 24px rgba(0,0,0,0.25)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.transform = 'translateY(0)';
+              e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.15)';
+            }}
+          >
+            <div style={{
+              fontSize: '48px',
+              marginBottom: '16px',
+            }}>
+              💬
+            </div>
+            <h2 style={{
+              fontSize: '24px',
+              fontWeight: 700,
+              marginBottom: '12px',
+            }}>
+              Messenger Chat
+            </h2>
+            <p style={{
+              fontSize: '14px',
+              opacity: 0.9,
+              lineHeight: '1.5',
+            }}>
+              Practice conversation in a messenger-style interface with auto-send.
             </p>
           </button>
         </div>
