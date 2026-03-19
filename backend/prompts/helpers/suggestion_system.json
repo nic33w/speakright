@@ -1,0 +1,14 @@
+{
+  "id":"suggestion_system_v1",
+  "max_suggestions":3,
+  "suggestion_types":["question","followup","empathy","microchallenge"],
+  "display_policy":{"show_chips":true,"show_target_buttons":true,"chips_label_locale":"user_native"},
+  "translation_policy":{
+    "preferred": "use_cached_translation_if_exists",
+    "auto_translate_when_missing": true,
+    "back_translation_quality_check": true,
+    "confidence_threshold": 0.80
+  },
+  "generation_prompt_template": "Given the persona line in {lang}, generate {n} short suggested follow-ups in {user_native_lang} and translations into {target_langs}. Keep suggestions varied (one question, one empathetic, one playful).",
+  "metadata_on_send":{"via_suggestion":true,"suggestion_id":"r123"}
+}

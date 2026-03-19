@@ -1,0 +1,6 @@
+[
+  {"id":"id_g_001","text":"Gimana kabarnya?","translation_en":"How are you? (casual)","formality":2,"register":"informal","level":"A1","tags":["starter"],"weight":1.2},
+  {"id":"id_g_002","text":"Gimana?","translation_en":"How’s it going?","formality":1,"register":"very_informal","level":"A1","tags":["starter"],"weight":1.0},
+  {"id":"id_g_003","text":"Apa kabar hari ini?","translation_en":"How are you today?","formality":3,"register":"neutral","level":"A1","tags":["starter"],"weight":1.1},
+  {"id":"id_g_004","text":"Lagi apa?","translation_en":"What are you doing? (casual)","formality":1,"register":"very_informal","level":"A1","tags":["starter"],"weight":1.0}
+]

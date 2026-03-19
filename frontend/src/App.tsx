@@ -3,15 +3,17 @@ import HomeScreen from "./HomeScreen";
 import StoryCardsGame from "./StoryCardsGame";
 import TriviaGame from "./TriviaGame";
 import MessengerChat from "./MessengerChat";
+import GuessingGame from "./GuessingGame";
+import BattleGame from "./BattleGame";
 
 type LangSpec = { code: string; name: string };
 
 function App() {
-  const [currentMode, setCurrentMode] = useState<'home' | 'story' | 'trivia' | 'messenger'>('home');
+  const [currentMode, setCurrentMode] = useState<'home' | 'story' | 'trivia' | 'messenger' | 'guessing' | 'battle'>('home');
   const [selectedFluent, setSelectedFluent] = useState<LangSpec>({ code: "en", name: "English" });
   const [selectedLearning, setSelectedLearning] = useState<LangSpec>({ code: "es", name: "Spanish" });
 
-  function handleSelectMode(mode: 'story' | 'trivia' | 'messenger', fluent: LangSpec, learning: LangSpec) {
+  function handleSelectMode(mode: 'story' | 'trivia' | 'messenger' | 'guessing' | 'battle', fluent: LangSpec, learning: LangSpec) {
     setSelectedFluent(fluent);
     setSelectedLearning(learning);
     setCurrentMode(mode);
@@ -45,6 +47,22 @@ function App() {
 
       {currentMode === 'messenger' && (
         <MessengerChat
+          fluent={selectedFluent}
+          learning={selectedLearning}
+          onBack={handleBack}
+        />
+      )}
+
+      {currentMode === 'guessing' && (
+        <GuessingGame
+          fluent={selectedFluent}
+          learning={selectedLearning}
+          onBack={handleBack}
+        />
+      )}
+
+      {currentMode === 'battle' && (
+        <BattleGame
           fluent={selectedFluent}
           learning={selectedLearning}
           onBack={handleBack}

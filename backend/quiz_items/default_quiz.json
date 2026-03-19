@@ -1,0 +1,50 @@
+[
+  {
+    "id": "quiz_1771017251580_1",
+    "type": "translation",
+    "original": "sunscreen",
+    "corrected": "bloqueador solar",
+    "error_type": "vocabulary",
+    "prompt_native": "How do you say 'sunscreen' in Spanish?",
+    "prompt_target": "¿Cómo se dice 'sunscreen' en español?",
+    "created_at": 1771017251,
+    "created_at_turn": 79,
+    "show_after_turn": 144,
+    "times_reviewed": 5,
+    "last_reviewed": 1771046010,
+    "mastery_level": 3,
+    "is_answered": false
+  },
+  {
+    "id": "quiz_1771017293791_2",
+    "type": "correction",
+    "original": "short form",
+    "corrected": "forma corta",
+    "error_type": "vocabulary",
+    "prompt_native": "How do you say 'short form' in Spanish?",
+    "prompt_target": "¿Cómo se dice 'short form' en español?",
+    "created_at": 1771017293,
+    "created_at_turn": 80,
+    "show_after_turn": 133,
+    "times_reviewed": 4,
+    "last_reviewed": 1771045455,
+    "mastery_level": 3,
+    "is_answered": false
+  },
+  {
+    "id": "quiz_1771017408100_3",
+    "type": "correction",
+    "original": "dress",
+    "corrected": "vestir",
+    "error_type": "vocabulary",
+    "prompt_native": "How do you say 'dress' in Spanish?",
+    "prompt_target": "¿Cómo se dice 'dress' en español?",
+    "created_at": 1771017408,
+    "created_at_turn": 82,
+    "show_after_turn": 147,
+    "times_reviewed": 8,
+    "last_reviewed": 1771046136,
+    "mastery_level": 3,
+    "is_answered": false
+  }
+]

@@ -1,0 +1,11 @@
+STUDENT MODEL CONTEXT:
+
+Learner profile:
+- UI language: {{ui_language}}
+- Target language: {{target_language}}
+- Comfortable with:
+{{comfortable_points}}
+- Struggles with:
+{{weak_points}}
+- Avoid:
+{{avoid_points}}

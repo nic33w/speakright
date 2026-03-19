@@ -15,6 +15,19 @@ import type { FormEvent, KeyboardEvent } from "react";
 
 type LangSpec = { code: string; name: string };
 
+type Character = {
+  id: string;
+  name: string;
+  color: string;  // bubble color for this character
+};
+
+const CHARACTERS: Character[] = [
+  { id: "sombongo", name: "Sombongo", color: "#d97706" },  // amber/orange
+  { id: "mateo", name: "Mateo", color: "#0b6b5b" },        // teal
+];
+
+const PICO: Character = { id: "pico", name: "Pico", color: "#6b7280" };  // gray
+
 type SentencePair = {
   id: string; // unique per sentence
   native: string; // fluent language text (top)
@@ -26,8 +39,8 @@ type SentencePair = {
 
 type Message =
   | { kind: "translation_check"; turnId: string; joinedEnglish: string; userPairs: SentencePair[] }
-  | { kind: "pair"; turnId: string; side: "user" | "reply"; pair: SentencePair }
-  | { kind: "explanation"; turnId?: string; text: string }
+  | { kind: "pair"; turnId: string; side: "user" | "reply"; pair: SentencePair; speaker?: string }
+  | { kind: "explanation"; turnId?: string; text: string; speaker?: string }
   | { kind: "status"; text: string };
 
 const LANG_OPTIONS: LangSpec[] = [
@@ -45,6 +58,9 @@ export default function ChatWithWispr({
   // --- session languages (default) ---
   const [fluentLanguage, setFluentLanguage] = useState<LangSpec>(LANG_OPTIONS[0]); // top (default English)
   const [learningLanguage, setLearningLanguage] = useState<LangSpec>(LANG_OPTIONS[1]); // bottom (default Spanish)
+
+  // --- selected chat character ---
+  const [selectedCharacter, setSelectedCharacter] = useState<Character>(CHARACTERS[0]);
 
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState<string>("");
@@ -342,6 +358,7 @@ export default function ChatWithWispr({
           session_id: sessionIdRef.current,
           fluent_language: fluentLanguage,
           learning_language: learningLanguage,
+          character_id: selectedCharacter.id,
           input_language: fluentLanguage,
           text: trimmed,
         };
@@ -353,6 +370,9 @@ export default function ChatWithWispr({
         });
         if (!res.ok) throw new Error(`confirm failed ${res.status}`);
         const data = await res.json();
+
+        // Parse speakers from response
+        const speakers = data.speakers || { correction: "pico", reply: selectedCharacter.id };
 
         // The confirm response returns corrected_pairs and reply_pairs (arrays)
         const correctedPairs: SentencePair[] = (data.corrected_pairs || []).map((p: any) => ({
@@ -375,11 +395,11 @@ export default function ChatWithWispr({
         // remove status messages
         setMessages((m) => m.filter((x) => x.kind !== "status"));
 
-        // push corrected user pairs (left) and reply pairs (right)
+        // push corrected user pairs (left) and reply pairs (right) with speaker info
         const newMessages: Message[] = [];
         for (const cp of correctedPairs) newMessages.push({ kind: "pair", turnId, side: "user", pair: cp });
-        if (data.correction_explanation) newMessages.push({ kind: "explanation", turnId, text: data.correction_explanation });
-        for (const rp of replyPairs) newMessages.push({ kind: "pair", turnId, side: "reply", pair: rp });
+        if (data.correction_explanation) newMessages.push({ kind: "explanation", turnId, text: data.correction_explanation, speaker: "pico" });
+        for (const rp of replyPairs) newMessages.push({ kind: "pair", turnId, side: "reply", pair: rp, speaker: speakers.reply });
 
         replaceMessagesWithTurn(turnId, newMessages);
 
@@ -414,6 +434,7 @@ export default function ChatWithWispr({
         session_id: sessionIdRef.current,
         fluent_language: fluentLanguage,
         learning_language: learningLanguage,
+        character_id: selectedCharacter.id,
         // when confirming, send both original learning sentences (if available) and the edited native text
         original_pairs: originalTurn?.userPairs?.map((p) => ({ native: p.native, learning: p.learning })) ?? [],
         confirmed_native_joined: editedNativeJoined,
@@ -426,6 +447,9 @@ export default function ChatWithWispr({
       });
       if (!res.ok) throw new Error(`confirm failed ${res.status}`);
       const data = await res.json();
+
+      // Parse speakers from response
+      const speakers = data.speakers || { correction: "pico", reply: selectedCharacter.id };
 
       // server returns corrected_pairs and reply_pairs
       const correctedPairs: SentencePair[] = (data.corrected_pairs || []).map((p: any) => ({
@@ -447,11 +471,11 @@ export default function ChatWithWispr({
 
       setMessages((m) => m.filter((x) => x.kind !== "status"));
 
-      // Replace any translation_check and pending pairs for this turnId with final corrected + reply
+      // Replace any translation_check and pending pairs for this turnId with final corrected + reply (with speaker info)
       const newMessages: Message[] = [];
       for (const cp of correctedPairs) newMessages.push({ kind: "pair", turnId, side: "user", pair: cp });
-      if (data.correction_explanation && showExplanations) newMessages.push({ kind: "explanation", turnId, text: data.correction_explanation });
-      for (const rp of replyPairs) newMessages.push({ kind: "pair", turnId, side: "reply", pair: rp });
+      if (data.correction_explanation && showExplanations) newMessages.push({ kind: "explanation", turnId, text: data.correction_explanation, speaker: "pico" });
+      for (const rp of replyPairs) newMessages.push({ kind: "pair", turnId, side: "reply", pair: rp, speaker: speakers.reply });
 
       replaceMessagesWithTurn(turnId, newMessages);
 
@@ -647,10 +671,12 @@ export default function ChatWithWispr({
 
   // --- Render functions ---
   function renderPair(m: Extract<Message, { kind: "pair" }>) {
-    const { pair, side } = m;
+    const { pair, side, speaker } = m;
     const isUser = side === "user";
+
+    // Use speaker-specific styling for reply bubbles
     const wrapperStyle: React.CSSProperties = {
-      ...bubbleStyle(isUser ? "user" : "reply"),
+      ...bubbleStyle(isUser ? "user" : "reply", isUser ? undefined : speaker),
       alignSelf: isUser ? "flex-start" : "flex-end",
       cursor: (pair.audio_file || pair.audio_base64) ? "pointer" : "default",
       display: "inline-block",
@@ -662,6 +688,17 @@ export default function ChatWithWispr({
     // If showSpaces is false, remove spaces (user requested)
     const learningText = showSpaces ? pair.learning : pair.learning.replaceAll?.(" ", "") ?? pair.learning.split(" ").join("");
 
+    // Get speaker display name for reply bubbles
+    let speakerName = "";
+    if (!isUser && speaker) {
+      if (speaker === "pico") {
+        speakerName = PICO.name;
+      } else {
+        const char = CHARACTERS.find(c => c.id === speaker);
+        speakerName = char?.name || speaker;
+      }
+    }
+
     return (
       <div
         key={m.turnId + ":" + pair.id}
@@ -672,6 +709,9 @@ export default function ChatWithWispr({
           void playAudioForPair(pair);
         }}
       >
+        {!isUser && speakerName && (
+          <div style={{ fontSize: 11, opacity: 0.7, marginBottom: 4 }}>{speakerName}</div>
+        )}
         {showNative && <div style={{ fontSize: 12, opacity: 0.85, marginBottom: 6 }}>{pair.native}</div>}
         {showLearning && <div style={{ fontSize: 16, fontWeight: 700 }}>{learningText}</div>}
       </div>
@@ -690,7 +730,8 @@ export default function ChatWithWispr({
   function renderExplanation(m: Extract<Message, { kind: "explanation" }>) {
     if (!showExplanations) return null;
     return (
-      <div key={m.text + (m.turnId ?? "")} style={bubbleStyle("explanation")}>
+      <div key={m.text + (m.turnId ?? "")} style={bubbleStyle("explanation", m.speaker || "pico")}>
+        <div style={{ fontSize: 11, opacity: 0.7, marginBottom: 4 }}>{PICO.name}</div>
         <div style={{ whiteSpace: "pre-wrap" }}>{m.text}</div>
       </div>
     );
@@ -791,6 +832,25 @@ export default function ChatWithWispr({
                 EN ↔ ID
               </button>
             </div>
+
+            {/* Character selector */}
+            <div style={{ display: "flex", gap: 8, alignItems: "center", marginLeft: 16 }}>
+              <div style={{ fontSize: 12, color: "#94a3b8" }}>Chat with:</div>
+              <select
+                value={selectedCharacter.id}
+                onChange={(e) => {
+                  const char = CHARACTERS.find(c => c.id === e.target.value);
+                  if (char) setSelectedCharacter(char);
+                }}
+                style={{ padding: "6px 8px", borderRadius: 6, background: "#0b1220", color: "#e6eef8", border: "1px solid rgba(255,255,255,0.06)" }}
+              >
+                {CHARACTERS.map((c) => (
+                  <option key={c.id} value={c.id} style={{ background: "#0b1220", color: "#e6eef8" }}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
 
           <div style={{ fontSize: 12, color: "#94a3b8" }}>
@@ -889,8 +949,21 @@ const styles: { [k: string]: React.CSSProperties } = {
   button: { minWidth: 120, padding: "8px 12px", borderRadius: 8, border: "none", background: "#0ea5a4", color: "#041014", fontWeight: 600, cursor: "pointer" },
 };
 
-function bubbleStyle(kind: "user" | "reply" | "translation_check" | "explanation" | "status"): React.CSSProperties {
+function bubbleStyle(kind: "user" | "reply" | "translation_check" | "explanation" | "status", speaker?: string): React.CSSProperties {
   const base: React.CSSProperties = { maxWidth: "85%", padding: "10px 12px", borderRadius: 12, marginBottom: 6 };
+
+  // Get speaker-specific color for reply/explanation bubbles
+  if (speaker) {
+    if (speaker === "pico") {
+      return { ...base, background: PICO.color, color: "#f3f4f6", alignSelf: "center" };
+    }
+    const char = CHARACTERS.find(c => c.id === speaker);
+    if (char) {
+      return { ...base, background: char.color, color: "#e6eef8", alignSelf: "flex-end" };
+    }
+  }
+
+  // Fallback to kind-based styling
   switch (kind) {
     case "user":
       return { ...base, background: "#427ccdff", color: "#e6eef8", alignSelf: "flex-start" };
@@ -899,7 +972,7 @@ function bubbleStyle(kind: "user" | "reply" | "translation_check" | "explanation
     case "translation_check":
       return { ...base, background: "#3d2666ff", color: "#dbeafe", alignSelf: "flex-start" };
     case "explanation":
-      return { ...base, background: "#3f3f3fff", color: "#f0e9ff", alignSelf: "center" };
+      return { ...base, background: "#4b5563", color: "#f3f4f6", alignSelf: "center" };  // Pico's gray
     case "status":
       return { ...base, background: "transparent", color: "#94a3b8", alignSelf: "center" };
     default:

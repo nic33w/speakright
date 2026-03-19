@@ -1,0 +1,253 @@
+{
+  "conversation_id": "new_neighbor",
+  "title": "The New Neighbor",
+  "enemy_name": "Sofía",
+  "enemy_emoji": "👩",
+  "player_emoji": "🏠",
+  "rounds": [
+    {
+      "id": 1,
+      "speaker": "enemy",
+      "enemy_line_native": "Hi! I just moved in next door. I'm Sofía, nice to meet you!",
+      "enemy_line_learning": "¡Hola! Acabo de mudarme al cuarto de al lado. Soy Sofía, ¡mucho gusto!"
+    },
+    {
+      "id": 2,
+      "speaker": "player",
+      "options": {
+        "easy": {
+          "native": "Nice to meet you! I'm your neighbor.",
+          "accepted_translations": [
+            "¡Mucho gusto! Soy tu vecino.",
+            "¡Gusto en conocerte! Soy tu vecino."
+          ],
+          "hints": [
+            { "native": "Nice to meet you", "learning": "Mucho gusto / Gusto en conocerte" },
+            { "native": "I'm your neighbor", "learning": "Soy tu vecino" }
+          ]
+        },
+        "medium": {
+          "native": "Welcome to the building! How long have you been in the city?",
+          "accepted_translations": [
+            "¡Bienvenida al edificio! ¿Cuánto tiempo llevas en la ciudad?",
+            "¡Bienvenida! ¿Cuánto tiempo tienes viviendo en la ciudad?"
+          ],
+          "hints": [
+            { "native": "Welcome to the building", "learning": "Bienvenida al edificio" },
+            { "native": "How long have you been", "learning": "¿Cuánto tiempo llevas / ¿Cuánto tiempo tienes" },
+            { "native": "in the city", "learning": "en la ciudad" }
+          ]
+        },
+        "hard": {
+          "native": "Welcome! I've been living here for three years, so if you need anything don't hesitate to knock.",
+          "accepted_translations": [
+            "¡Bienvenida! Llevo tres años viviendo aquí, así que si necesitas algo no dudes en tocar.",
+            "¡Bienvenida! Tengo tres años viviendo aquí, así que si necesitas algo no dudes en llamar a la puerta."
+          ],
+          "hints": [
+            { "native": "I've been living here for three years", "learning": "Llevo tres años viviendo aquí / Tengo tres años viviendo aquí" },
+            { "native": "if you need anything", "learning": "si necesitas algo" },
+            { "native": "don't hesitate to knock", "learning": "no dudes en tocar / no dudes en llamar a la puerta" }
+          ]
+        }
+      }
+    },
+    {
+      "id": 3,
+      "speaker": "enemy",
+      "enemy_line_native": "Thank you! I'm still getting to know the area. Is there a good supermarket nearby?",
+      "enemy_line_learning": "¡Gracias! Todavía estoy conociendo la zona. ¿Hay un buen supermercado cerca?"
+    },
+    {
+      "id": 4,
+      "speaker": "player",
+      "options": {
+        "easy": {
+          "native": "Yes, there's one two blocks away.",
+          "accepted_translations": [
+            "Sí, hay uno a dos cuadras.",
+            "Sí, hay uno a dos cuadras de aquí."
+          ],
+          "hints": [
+            { "native": "there's one", "learning": "hay uno" },
+            { "native": "two blocks away", "learning": "a dos cuadras / a dos cuadras de aquí" }
+          ]
+        },
+        "medium": {
+          "native": "There's a great one on the main street. It has everything you need.",
+          "accepted_translations": [
+            "Hay uno muy bueno en la calle principal. Tiene todo lo que necesitas.",
+            "Hay un supermercado muy bueno en la avenida principal. Tiene de todo."
+          ],
+          "hints": [
+            { "native": "There's a great one", "learning": "Hay uno muy bueno / Hay un supermercado muy bueno" },
+            { "native": "on the main street", "learning": "en la calle principal / en la avenida principal" },
+            { "native": "it has everything you need", "learning": "tiene todo lo que necesitas / tiene de todo" }
+          ]
+        },
+        "hard": {
+          "native": "There are actually two options — a big one four blocks away and a smaller one around the corner that's open late.",
+          "accepted_translations": [
+            "En realidad hay dos opciones — uno grande a cuatro cuadras y uno más pequeño a la vuelta de la esquina que cierra tarde.",
+            "Hay dos opciones — uno grande a cuatro cuadras y uno más chico aquí a la vuelta que abre hasta tarde."
+          ],
+          "hints": [
+            { "native": "there are actually two options", "learning": "en realidad hay dos opciones / hay dos opciones" },
+            { "native": "a big one", "learning": "uno grande" },
+            { "native": "four blocks away", "learning": "a cuatro cuadras" },
+            { "native": "around the corner", "learning": "a la vuelta de la esquina / aquí a la vuelta" },
+            { "native": "open late", "learning": "que cierra tarde / que abre hasta tarde" }
+          ]
+        }
+      }
+    },
+    {
+      "id": 5,
+      "speaker": "enemy",
+      "enemy_line_native": "Great! And is there a gym around here? I really need to keep up my routine.",
+      "enemy_line_learning": "¡Genial! ¿Y hay un gimnasio por aquí? De verdad necesito mantener mi rutina."
+    },
+    {
+      "id": 6,
+      "speaker": "player",
+      "options": {
+        "easy": {
+          "native": "Yes, there is a gym nearby.",
+          "accepted_translations": [
+            "Sí, hay un gimnasio cerca.",
+            "Sí, hay un gimnasio por aquí."
+          ],
+          "hints": [
+            { "native": "there is a gym", "learning": "hay un gimnasio" },
+            { "native": "nearby", "learning": "cerca / por aquí" }
+          ]
+        },
+        "medium": {
+          "native": "Yes! There's one on the main avenue, it's not expensive and it's open 24 hours.",
+          "accepted_translations": [
+            "¡Sí! Hay uno en la avenida principal, no es caro y está abierto las 24 horas.",
+            "¡Sí! Hay uno en la avenida principal, es barato y abre las veinticuatro horas."
+          ],
+          "hints": [
+            { "native": "on the main avenue", "learning": "en la avenida principal" },
+            { "native": "it's not expensive", "learning": "no es caro / es barato" },
+            { "native": "open 24 hours", "learning": "abierto las 24 horas / abre las veinticuatro horas" }
+          ]
+        },
+        "hard": {
+          "native": "There's a pretty good one two blocks from here. It's affordable and they offer group classes if you're interested.",
+          "accepted_translations": [
+            "Hay uno bastante bueno a dos cuadras de aquí. Es accesible y ofrecen clases grupales si te interesa.",
+            "Hay uno muy bueno a dos cuadras. Es económico y tienen clases grupales si te llama la atención."
+          ],
+          "hints": [
+            { "native": "a pretty good one", "learning": "uno bastante bueno / uno muy bueno" },
+            { "native": "two blocks from here", "learning": "a dos cuadras de aquí / a dos cuadras" },
+            { "native": "affordable", "learning": "accesible / económico" },
+            { "native": "they offer group classes", "learning": "ofrecen clases grupales / tienen clases grupales" },
+            { "native": "if you're interested", "learning": "si te interesa / si te llama la atención" }
+          ]
+        }
+      }
+    },
+    {
+      "id": 7,
+      "speaker": "enemy",
+      "enemy_line_native": "Perfect! By the way, how are the other neighbors? Are they friendly?",
+      "enemy_line_learning": "¡Perfecto! Por cierto, ¿cómo son los demás vecinos? ¿Son amables?"
+    },
+    {
+      "id": 8,
+      "speaker": "player",
+      "options": {
+        "easy": {
+          "native": "Yes, they are very friendly.",
+          "accepted_translations": [
+            "Sí, son muy amables.",
+            "Sí, todos son muy amables."
+          ],
+          "hints": [
+            { "native": "they are very friendly", "learning": "son muy amables" }
+          ]
+        },
+        "medium": {
+          "native": "Most of them are great. The building is quiet and everyone gets along well.",
+          "accepted_translations": [
+            "La mayoría son geniales. El edificio es tranquilo y todos se llevan bien.",
+            "La mayoría son muy buena gente. El edificio es calmado y todos se respetan."
+          ],
+          "hints": [
+            { "native": "most of them are great", "learning": "la mayoría son geniales / la mayoría son muy buena gente" },
+            { "native": "quiet", "learning": "tranquilo / calmado" },
+            { "native": "everyone gets along well", "learning": "todos se llevan bien / todos se respetan" }
+          ]
+        },
+        "hard": {
+          "native": "They're a great mix — some young professionals and a few families. I think you'll fit right in.",
+          "accepted_translations": [
+            "Son un buen grupo — algunos jóvenes profesionistas y algunas familias. Creo que te vas a llevar muy bien con todos.",
+            "Hay gente muy variada — jóvenes profesionales y algunas familias. Creo que vas a encajar muy bien."
+          ],
+          "hints": [
+            { "native": "a great mix", "learning": "un buen grupo / gente muy variada" },
+            { "native": "young professionals", "learning": "jóvenes profesionistas / jóvenes profesionales" },
+            { "native": "families", "learning": "familias" },
+            { "native": "you'll fit right in", "learning": "te vas a llevar muy bien con todos / vas a encajar muy bien" }
+          ]
+        }
+      }
+    },
+    {
+      "id": 9,
+      "speaker": "enemy",
+      "enemy_line_native": "That's reassuring! Hey, would you like to have dinner together one of these days?",
+      "enemy_line_learning": "¡Qué alivio! Oye, ¿te gustaría cenar juntos uno de estos días?"
+    },
+    {
+      "id": 10,
+      "speaker": "player",
+      "options": {
+        "easy": {
+          "native": "Yes, I'd love that!",
+          "accepted_translations": [
+            "¡Sí, me encantaría!",
+            "¡Sí, con mucho gusto!"
+          ],
+          "hints": [
+            { "native": "I'd love that", "learning": "me encantaría / con mucho gusto" }
+          ]
+        },
+        "medium": {
+          "native": "I'd love to! How about this Friday evening?",
+          "accepted_translations": [
+            "¡Me encantaría! ¿Qué tal este viernes por la noche?",
+            "¡Con gusto! ¿Qué te parece este viernes en la noche?"
+          ],
+          "hints": [
+            { "native": "I'd love to", "learning": "Me encantaría / Con gusto" },
+            { "native": "How about", "learning": "¿Qué tal / ¿Qué te parece" },
+            { "native": "this Friday evening", "learning": "este viernes por la noche / este viernes en la noche" }
+          ]
+        },
+        "hard": {
+          "native": "That sounds wonderful! I know a really good restaurant nearby that I've been wanting to try.",
+          "accepted_translations": [
+            "¡Suena genial! Conozco un restaurante muy bueno cerca de aquí que he querido probar.",
+            "¡Qué buena idea! Hay un restaurante muy bueno aquí cerca que tengo ganas de probar."
+          ],
+          "hints": [
+            { "native": "that sounds wonderful", "learning": "suena genial / qué buena idea" },
+            { "native": "a really good restaurant nearby", "learning": "un restaurante muy bueno cerca de aquí / un restaurante muy bueno aquí cerca" },
+            { "native": "that I've been wanting to try", "learning": "que he querido probar / que tengo ganas de probar" }
+          ]
+        }
+      }
+    },
+    {
+      "id": 11,
+      "speaker": "enemy",
+      "enemy_line_native": "Perfect! I'll knock on your door Friday then. Welcome to the neighborhood, neighbor!",
+      "enemy_line_learning": "¡Perfecto! Te toco el viernes entonces. ¡Bienvenido al vecindario, vecino!"
+    }
+  ]
+}

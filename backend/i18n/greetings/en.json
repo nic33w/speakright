@@ -1,0 +1,6 @@
+[
+  {"id":"en_g_001","text":"How's it going?","translation_en":"How's it going?","formality":2,"register":"informal","level":"A1","tags":["starter"],"weight":1.2},
+  {"id":"en_g_002","text":"How's your week?","translation_en":"How's your week?","formality":3,"register":"neutral","level":"A2","tags":["starter"],"weight":1.0},
+  {"id":"en_g_003","text":"What's up?","translation_en":"What's up?","formality":1,"register":"very_informal","level":"A1","tags":["starter"],"weight":1.1},
+  {"id":"en_g_004","text":"Hey, what are you up to?","translation_en":"Hey, what are you up to?","formality":2,"register":"informal","level":"A1","tags":["starter"],"weight":1.0}
+]

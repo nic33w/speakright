@@ -1,0 +1,268 @@
+{
+  "conversation_id": "market_haggle",
+  "title": "The Street Market",
+  "enemy_name": "Dona Rosa",
+  "enemy_emoji": "\ud83e\uddd9\u200d\u2640\ufe0f",
+  "player_emoji": "\ud83e\uddcd",
+  "rounds": [
+    {
+      "id": 1,
+      "speaker": "enemy",
+      "enemy_line_native": "Welcome to my stall! Are you looking for something special?",
+      "enemy_line_learning": "\u00a1Bienvenido a mi puesto! \u00bfBuscas algo especial?"
+    },
+    {
+      "id": 2,
+      "speaker": "player",
+      "options": {
+        "easy": {
+          "native": "Yes, I need a gift.",
+          "accepted_translations": [
+            "S\u00ed, necesito un regalo.",
+            "S\u00ed, yo necesito un regalo."
+          ],
+          "hints": [
+            { "native": "Yes", "learning": "S\u00ed" },
+            { "native": "I need", "learning": "necesito" },
+            { "native": "a gift", "learning": "un regalo" }
+          ]
+        },
+        "medium": {
+          "native": "I'm looking for a birthday gift for my friend.",
+          "accepted_translations": [
+            "Estoy buscando un regalo de cumplea\u00f1os para mi amigo.",
+            "Busco un regalo de cumplea\u00f1os para mi amigo.",
+            "Estoy buscando un regalo de cumplea\u00f1os para mi amiga."
+          ],
+          "hints": [
+            { "native": "I'm looking for", "learning": "Estoy buscando / Busco" },
+            { "native": "a birthday gift", "learning": "un regalo de cumplea\u00f1os" },
+            { "native": "for my friend", "learning": "para mi amigo / para mi amiga" }
+          ]
+        },
+        "hard": {
+          "native": "I want something unique that you can't find in regular stores.",
+          "accepted_translations": [
+            "Quiero algo \u00fanico que no se pueda encontrar en tiendas normales.",
+            "Quiero algo \u00fanico que no puedas encontrar en las tiendas regulares.",
+            "Busco algo \u00fanico que no se encuentre en tiendas normales."
+          ],
+          "hints": [
+            { "native": "I want", "learning": "Quiero / Busco" },
+            { "native": "something unique", "learning": "algo \u00fanico" },
+            { "native": "that you can't find", "learning": "que no se pueda encontrar / que no puedas encontrar" },
+            { "native": "in regular stores", "learning": "en tiendas normales / en las tiendas regulares" }
+          ]
+        }
+      }
+    },
+    {
+      "id": 3,
+      "speaker": "enemy",
+      "enemy_line_native": "I have just the thing! Look at this beautiful handmade bracelet.",
+      "enemy_line_learning": "\u00a1Tengo justo lo que necesitas! Mira esta hermosa pulsera hecha a mano."
+    },
+    {
+      "id": 4,
+      "speaker": "player",
+      "options": {
+        "easy": {
+          "native": "It's very pretty. How much is it?",
+          "accepted_translations": [
+            "Es muy bonita. \u00bfCu\u00e1nto cuesta?",
+            "Es muy linda. \u00bfCu\u00e1nto cuesta?",
+            "Es muy bonita. \u00bfCu\u00e1nto vale?"
+          ],
+          "hints": [
+            { "native": "It's very pretty", "learning": "Es muy bonita / Es muy linda" },
+            { "native": "How much is it?", "learning": "\u00bfCu\u00e1nto cuesta? / \u00bfCu\u00e1nto vale?" }
+          ]
+        },
+        "medium": {
+          "native": "It's beautiful! What material is it made of?",
+          "accepted_translations": [
+            "\u00a1Es hermosa! \u00bfDe qu\u00e9 material est\u00e1 hecha?",
+            "\u00a1Qu\u00e9 bonita! \u00bfDe qu\u00e9 material est\u00e1 hecha?",
+            "\u00a1Es hermosa! \u00bfDe qu\u00e9 est\u00e1 hecha?"
+          ],
+          "hints": [
+            { "native": "It's beautiful", "learning": "\u00a1Es hermosa! / \u00a1Qu\u00e9 bonita!" },
+            { "native": "What material", "learning": "\u00bfDe qu\u00e9 material" },
+            { "native": "is it made of?", "learning": "est\u00e1 hecha?" }
+          ]
+        },
+        "hard": {
+          "native": "The craftsmanship is incredible! How long does it take you to make one of these?",
+          "accepted_translations": [
+            "\u00a1La artesan\u00eda es incre\u00edble! \u00bfCu\u00e1nto tiempo te toma hacer una de estas?",
+            "\u00a1El trabajo artesanal es incre\u00edble! \u00bfCu\u00e1nto tardas en hacer una de estas?",
+            "\u00a1La artesan\u00eda es incre\u00edble! \u00bfCu\u00e1nto te tardas en hacer una de estas?"
+          ],
+          "hints": [
+            { "native": "The craftsmanship", "learning": "La artesan\u00eda / El trabajo artesanal" },
+            { "native": "is incredible", "learning": "es incre\u00edble" },
+            { "native": "How long does it take you", "learning": "\u00bfCu\u00e1nto tiempo te toma / \u00bfCu\u00e1nto tardas" },
+            { "native": "to make one of these?", "learning": "en hacer una de estas?" }
+          ]
+        }
+      }
+    },
+    {
+      "id": 5,
+      "speaker": "enemy",
+      "enemy_line_native": "It's 200 pesos. But for you, I'll make it 180.",
+      "enemy_line_learning": "Son 200 pesos. Pero para ti, te lo dejo en 180."
+    },
+    {
+      "id": 6,
+      "speaker": "player",
+      "options": {
+        "easy": {
+          "native": "That's too expensive.",
+          "accepted_translations": [
+            "Eso es muy caro.",
+            "Es muy caro.",
+            "Est\u00e1 muy caro."
+          ],
+          "hints": [
+            { "native": "That's", "learning": "Eso es / Es / Est\u00e1" },
+            { "native": "too expensive", "learning": "muy caro" }
+          ]
+        },
+        "medium": {
+          "native": "Could you give me a better price? I'll buy two if you lower it.",
+          "accepted_translations": [
+            "\u00bfMe podr\u00edas dar un mejor precio? Compro dos si lo bajas.",
+            "\u00bfPodr\u00edas darme un mejor precio? Te compro dos si lo bajas.",
+            "\u00bfMe puedes dar un mejor precio? Compro dos si lo bajas."
+          ],
+          "hints": [
+            { "native": "Could you give me", "learning": "\u00bfMe podr\u00edas dar / \u00bfPodr\u00edas darme" },
+            { "native": "a better price", "learning": "un mejor precio" },
+            { "native": "I'll buy two", "learning": "Compro dos / Te compro dos" },
+            { "native": "if you lower it", "learning": "si lo bajas" }
+          ]
+        },
+        "hard": {
+          "native": "I really like it, but my budget is tight. Would you accept 120 if I also buy those earrings?",
+          "accepted_translations": [
+            "Me gusta mucho, pero mi presupuesto es ajustado. \u00bfAceptar\u00edas 120 si tambi\u00e9n compro esos aretes?",
+            "Me encanta, pero ando corto de presupuesto. \u00bfAceptas 120 si tambi\u00e9n me llevo esos aretes?"
+          ],
+          "hints": [
+            { "native": "I really like it", "learning": "Me gusta mucho / Me encanta" },
+            { "native": "my budget is tight", "learning": "mi presupuesto es ajustado / ando corto de presupuesto" },
+            { "native": "Would you accept", "learning": "\u00bfAceptar\u00edas / \u00bfAceptas" },
+            { "native": "if I also buy", "learning": "si tambi\u00e9n compro / si tambi\u00e9n me llevo" },
+            { "native": "those earrings", "learning": "esos aretes" }
+          ]
+        }
+      }
+    },
+    {
+      "id": 7,
+      "speaker": "enemy",
+      "enemy_line_native": "Hmm, you drive a hard bargain! Alright, 150 for the bracelet. Final offer!",
+      "enemy_line_learning": "\u00a1Hmm, sabes negociar! Est\u00e1 bien, 150 por la pulsera. \u00a1\u00daltima oferta!"
+    },
+    {
+      "id": 8,
+      "speaker": "player",
+      "options": {
+        "easy": {
+          "native": "Okay, I'll take it.",
+          "accepted_translations": [
+            "Bueno, me lo llevo.",
+            "Est\u00e1 bien, me lo llevo.",
+            "Okay, lo compro."
+          ],
+          "hints": [
+            { "native": "Okay", "learning": "Bueno / Est\u00e1 bien" },
+            { "native": "I'll take it", "learning": "me lo llevo / lo compro" }
+          ]
+        },
+        "medium": {
+          "native": "Deal! Can you wrap it as a gift, please?",
+          "accepted_translations": [
+            "\u00a1Trato hecho! \u00bfPuedes envolverlo como regalo, por favor?",
+            "\u00a1Hecho! \u00bfMe lo puedes envolver para regalo, por favor?"
+          ],
+          "hints": [
+            { "native": "Deal!", "learning": "\u00a1Trato hecho! / \u00a1Hecho!" },
+            { "native": "Can you wrap it", "learning": "\u00bfPuedes envolverlo / \u00bfMe lo puedes envolver" },
+            { "native": "as a gift", "learning": "como regalo / para regalo" },
+            { "native": "please", "learning": "por favor" }
+          ]
+        },
+        "hard": {
+          "native": "You've got yourself a deal! My friend is going to love this. Do you have a business card so I can come back?",
+          "accepted_translations": [
+            "\u00a1Tienes un trato! A mi amigo le va a encantar esto. \u00bfTienes una tarjeta para que pueda volver?",
+            "\u00a1Trato hecho! A mi amiga le va a encantar. \u00bfTienes una tarjeta de presentaci\u00f3n para poder regresar?"
+          ],
+          "hints": [
+            { "native": "You've got a deal", "learning": "\u00a1Tienes un trato! / \u00a1Trato hecho!" },
+            { "native": "My friend is going to love this", "learning": "A mi amigo le va a encantar esto" },
+            { "native": "Do you have a business card", "learning": "\u00bfTienes una tarjeta / \u00bfTienes una tarjeta de presentaci\u00f3n" },
+            { "native": "so I can come back", "learning": "para que pueda volver / para poder regresar" }
+          ]
+        }
+      }
+    },
+    {
+      "id": 9,
+      "speaker": "enemy",
+      "enemy_line_native": "Of course! Here you go. Come back anytime, my friend!",
+      "enemy_line_learning": "\u00a1Claro! Aqu\u00ed tienes. \u00a1Vuelve cuando quieras, amigo!"
+    },
+    {
+      "id": 10,
+      "speaker": "player",
+      "options": {
+        "easy": {
+          "native": "Thank you very much! Goodbye!",
+          "accepted_translations": [
+            "\u00a1Muchas gracias! \u00a1Adi\u00f3s!",
+            "\u00a1Muchas gracias! \u00a1Hasta luego!"
+          ],
+          "hints": [
+            { "native": "Thank you very much", "learning": "Muchas gracias" },
+            { "native": "Goodbye", "learning": "\u00a1Adi\u00f3s! / \u00a1Hasta luego!" }
+          ]
+        },
+        "medium": {
+          "native": "Thanks for everything! This market is amazing.",
+          "accepted_translations": [
+            "\u00a1Gracias por todo! Este mercado es incre\u00edble.",
+            "\u00a1Gracias por todo! Este mercado es asombroso."
+          ],
+          "hints": [
+            { "native": "Thanks for everything", "learning": "Gracias por todo" },
+            { "native": "This market", "learning": "Este mercado" },
+            { "native": "is amazing", "learning": "es incre\u00edble / es asombroso" }
+          ]
+        },
+        "hard": {
+          "native": "It was a pleasure doing business with you! I'll definitely recommend your stall to all my friends.",
+          "accepted_translations": [
+            "\u00a1Fue un placer hacer negocios contigo! Definitivamente voy a recomendar tu puesto a todos mis amigos.",
+            "\u00a1Fue un placer! Sin duda les recomendar\u00e9 tu puesto a todos mis amigos."
+          ],
+          "hints": [
+            { "native": "It was a pleasure", "learning": "Fue un placer" },
+            { "native": "doing business with you", "learning": "hacer negocios contigo" },
+            { "native": "I'll definitely recommend", "learning": "Definitivamente voy a recomendar / Sin duda les recomendar\u00e9" },
+            { "native": "your stall", "learning": "tu puesto" },
+            { "native": "to all my friends", "learning": "a todos mis amigos" }
+          ]
+        }
+      }
+    },
+    {
+      "id": 11,
+      "speaker": "enemy",
+      "enemy_line_native": "The pleasure is mine! Enjoy the bracelet!",
+      "enemy_line_learning": "\u00a1El placer es m\u00edo! \u00a1Disfruta la pulsera!"
+    }
+  ]
+}

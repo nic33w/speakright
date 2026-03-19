@@ -1,0 +1,108 @@
+{
+  "created_at": 1769845610,
+  "last_updated": 1772182214,
+  "ui_language": {
+    "code": "en",
+    "name": "English"
+  },
+  "target_language": {
+    "code": "es",
+    "name": "Spanish"
+  },
+  "level": "beginner",
+  "level_confidence": 0.6,
+  "level_history": [
+    {
+      "timestamp": 1769845610,
+      "level": "beginner",
+      "reason": "Initial profile creation"
+    }
+  ],
+  "comfortable_with": [],
+  "weak_points": [
+    "tisco",
+    "past tense",
+    "vocabulary",
+    "adjective agreement",
+    "gender",
+    "grammar structure",
+    "verb conjugation",
+    "prepositions"
+  ],
+  "avoid_topics": [],
+  "turn_count": 200,
+  "corrections_needed": 113,
+  "last_assessment_turn": 0,
+  "recent_turns": [
+    {
+      "turn_id": "turn_1772174387950",
+      "user_input": "Do people dress very casually there?",
+      "corrected_input": "¿Las personas se visten muy casualmente allí?",
+      "had_errors": true,
+      "timestamp": 1772174396
+    },
+    {
+      "turn_id": "turn_1772174665582",
+      "user_input": "Thank you for watching!",
+      "corrected_input": "¡Gracias por mirar!",
+      "had_errors": true,
+      "timestamp": 1772174675
+    },
+    {
+      "turn_id": "turn_1772175141011",
+      "user_input": "¿Qué más me puedes enseñar sobre Nicaragua?",
+      "corrected_input": "¿Qué más me puedes enseñar sobre Nicaragua?",
+      "had_errors": false,
+      "timestamp": 1772175152
+    },
+    {
+      "turn_id": "turn_1772175198140",
+      "user_input": "¿Nunca probaste el gallo pinto o la comida de Nicaragua? ¿Sabes que hay dos restaurantes de Nicaragua en Los Angeles?",
+      "corrected_input": "¿Nunca probaste el gallo pinto o la comida de Nicaragua? ¿Sabes que hay dos restaurantes nicaragüenses en Los Ángeles?",
+      "had_errors": true,
+      "timestamp": 1772175210
+    },
+    {
+      "turn_id": "turn_1772175243682",
+      "user_input": "Nunca he probado comer el gallo pinto. ¿Cómo es el gallo pinto?",
+      "corrected_input": "Nunca he probado el gallo pinto.",
+      "had_errors": false,
+      "timestamp": 1772175250
+    },
+    {
+      "turn_id": "turn_1772175896514",
+      "user_input": "Solo son un arroz y los frijoles. No hay carne o pollo.",
+      "corrected_input": "Solo son arroz y frijoles. No hay carne ni pollo.",
+      "had_errors": true,
+      "timestamp": 1772175918
+    },
+    {
+      "turn_id": "turn_1772182024382",
+      "user_input": "Cuéntame por qué la cultura de Nicaragua es diferente a la de otros países en Latinoamérica.",
+      "corrected_input": "Cuéntame por qué la cultura de Nicaragua es diferente a la de otros países de Latinoamérica.",
+      "had_errors": true,
+      "timestamp": 1772182035
+    },
+    {
+      "turn_id": "turn_1772182091926",
+      "user_input": "¿Qué más se hace? Muy único, Nicaragua.",
+      "corrected_input": "¿Qué más se hace? Muy único, Nicaragua.",
+      "had_errors": false,
+      "timestamp": 1772182100
+    },
+    {
+      "turn_id": "turn_1772182137446",
+      "user_input": "¿Cuál es único sobre la cultura de Nicaragua?",
+      "corrected_input": "¿Qué es único sobre la cultura de Nicaragua?",
+      "had_errors": true,
+      "timestamp": 1772182147
+    },
+    {
+      "turn_id": "turn_1772182204945",
+      "user_input": "¿Pero cómo es diferente que otros países la cultura de Nicaragua?",
+      "corrected_input": "¿Pero cómo es diferente de otros países la cultura de Nicaragua?",
+      "had_errors": true,
+      "timestamp": 1772182214
+    }
+  ]
+}

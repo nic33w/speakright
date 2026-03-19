@@ -30,6 +30,8 @@ AUDIO_ROOT.mkdir(exist_ok=True, parents=True)
 CONV_ROOT = Path(__file__).resolve().parent / "conversations"
 CONV_ROOT.mkdir(exist_ok=True, parents=True)
 
+PROMPTS_ROOT = Path(__file__).resolve().parent / "prompts"
+
 # --- defaults / voices ---
 DEFAULT_VOICE_BY_LANG = {
     "es": os.getenv("AZURE_VOICE_ES", "es-MX-LucianoNeural"),
@@ -112,6 +114,7 @@ class ConfirmRequest(BaseModel):
     session_id: Optional[str] = None
     fluent_language: Optional[LangSpec] = None
     learning_language: Optional[LangSpec] = None
+    character_id: Optional[str] = "sombongo"  # selected chat character
     original_pairs: Optional[List[Dict[str, str]]] = None
     confirmed_native_joined: Optional[str] = None
     original_spanish: Optional[str] = None
@@ -197,6 +200,74 @@ def language_style_instruction(learning: LangSpec):
         return "Use a casual, conversational Indonesian register (not overly formal)."
     return ""
 
+# --- Persona loading functions ---
+def load_persona(persona_id: str) -> dict:
+    """Load persona from JSON or TXT file."""
+    json_path = PROMPTS_ROOT / "persona" / f"{persona_id}.json"
+    txt_path = PROMPTS_ROOT / "persona" / f"{persona_id}.txt"
+
+    if json_path.exists():
+        with open(json_path, encoding="utf-8") as f:
+            return json.load(f)
+    elif txt_path.exists():
+        with open(txt_path, encoding="utf-8") as f:
+            return {"prompt_text": f.read(), "meta": {"id": persona_id, "display_name": persona_id.capitalize()}}
+    return {"meta": {"id": persona_id, "display_name": persona_id.capitalize()}}
+
+def load_pico() -> dict:
+    """Load Pico helper robot config."""
+    path = PROMPTS_ROOT / "helpers" / "pico_grammar_robot.json"
+    if path.exists():
+        with open(path, encoding="utf-8") as f:
+            return json.load(f)
+    return {"id": "pico", "display_name": "Pico"}
+
+def build_chat_system_prompt(persona: dict, pico: dict, fluent: LangSpec, learning: LangSpec) -> str:
+    """Build system prompt for two-character chat (persona + Pico)."""
+    persona_name = persona.get("meta", {}).get("display_name", "Assistant")
+    persona_bio = persona.get("short_bio", {}).get(fluent.code, "")
+
+    # If persona loaded from txt file, use prompt_text
+    if "prompt_text" in persona:
+        persona_bio = persona["prompt_text"]
+
+    style_instruction = language_style_instruction(learning)
+
+    return f"""You are generating responses for a language learning chat with TWO characters:
+
+1. **{persona_name}** (conversational partner):
+   - {persona_bio}
+   - Speaks mostly in {fluent.name} (UI language)
+   - Occasionally uses {learning.name} when natural for the conversation
+   - Personality should shine through in replies
+
+2. **Pico** (grammar helper robot):
+   - A small, friendly robot that helps with grammar
+   - ALWAYS uses {fluent.name} for explanations
+   - Only shows {learning.name} when demonstrating correct forms
+   - Concise, supportive, never judgmental
+
+{style_instruction}
+
+RESPONSE FORMAT (JSON):
+{{
+  "corrected_pairs": [
+    {{"native": "<{fluent.name}>", "learning": "<{learning.name}>"}}
+  ],
+  "reply_pairs": [
+    {{"native": "<{persona_name}'s reply in {fluent.name}>", "learning": "<{learning.name} version>"}}
+  ],
+  "correction_explanation": "<Pico's brief explanation in {fluent.name}>"
+}}
+
+RULES:
+- {persona_name}'s replies (reply_pairs) should be conversational and in-character
+- Pico's correction_explanation should be helpful but brief
+- correction_explanation MUST be in {fluent.name}
+- If no correction needed, correction_explanation can be empty or a brief encouragement
+- Respond with ONLY valid JSON
+"""
+
 # --- OpenAI helpers (modern client) ---
 def _ensure_openai_client():
     if MOCK_MODE:
@@ -250,30 +321,32 @@ If input_lang == out_lang, you may copy text into both fields.
             return json.loads(content[start:end+1])
         raise
 
-def call_openai_confirm_from_native(confirmed_native_joined: str, fluent: LangSpec, learning: LangSpec, original_pairs=None) -> Dict[str, Any]:
+def call_openai_confirm_from_native(confirmed_native_joined: str, fluent: LangSpec, learning: LangSpec, original_pairs=None, character_id: str = "sombongo") -> Dict[str, Any]:
     """
     Ask OpenAI to return 'corrected_pairs' and 'reply_pairs' arrays (aligned), plus an explanation.
     IMPORTANT: correction_explanation must be returned in the fluent/native language only.
+    Uses two-character system: selected persona for replies, Pico for corrections.
     """
     _ensure_openai_client()
-    system = (
-        f"You are a helpful teacher and native speaker. The session fluent/native language is {fluent.name} ({fluent.code}), "
-        f"the learning language is {learning.name} ({learning.code}).\n"
-        + language_style_instruction(learning) +
-        "\nGiven the user's confirmed native-language text (possibly multi-sentence), return a JSON object with the following fields:\n"
-        "  - corrected_pairs: an array of objects {native, learning} (native = fluent language text, learning = target/learning language)\n"
-        "  - reply_pairs: an array of objects {native, learning} for a natural follow-up reply\n"
-        "  - correction_explanation: a single-sentence explanation written IN THE FLUENT/NATIVE LANGUAGE (not the learning language)\n"
-        "Respond with ONLY valid JSON."
-    )
+
+    # Load persona and Pico configs
+    persona = load_persona(character_id)
+    pico = load_pico()
+
+    # Build two-character system prompt
+    system = build_chat_system_prompt(persona, pico, fluent, learning)
+
     user_msg = f"confirmed_native_joined: \"{confirmed_native_joined}\""
     if original_pairs:
         user_msg += f"\noriginal_pairs: {json.dumps(original_pairs)}"
 
+    # Get temperature from persona config if available
+    temperature = persona.get("meta", {}).get("temperature", 0.2)
+
     resp = openai_client.chat.completions.create(
         model=OPENAI_MODEL,
         messages=[{"role": "system", "content": system}, {"role": "user", "content": user_msg}],
-        temperature=0.2,
+        temperature=temperature,
         max_tokens=1200,
     )
 
@@ -286,13 +359,22 @@ def call_openai_confirm_from_native(confirmed_native_joined: str, fluent: LangSp
             content = str(resp)
 
     try:
-        return json.loads(content)
+        result = json.loads(content)
     except Exception:
         start = content.find("{")
         end = content.rfind("}")
         if start != -1 and end != -1:
-            return json.loads(content[start:end+1])
-        raise
+            result = json.loads(content[start:end+1])
+        else:
+            raise
+
+    # Add speakers info to result
+    persona_name = persona.get("meta", {}).get("id", character_id)
+    result["speakers"] = {
+        "correction": "pico",
+        "reply": persona_name
+    }
+    return result
 
 # --- Endpoints ---
 
@@ -370,19 +452,27 @@ async def receive_confirm(req: ConfirmRequest, background_tasks: BackgroundTasks
         corrected_with_audio = attach_audio(corrected_pairs)
         reply_with_audio = attach_audio(reply_pairs)
 
+        # Include speakers info in mock response
+        character_id = req.character_id or "sombongo"
         return JSONResponse({
             "turn_id": f"turn_{generate_id()}",
             "corrected_pairs": corrected_with_audio,
             "reply_pairs": reply_with_audio,
-            "correction_explanation": "Mock: minor wording adjusted for politeness."
+            "correction_explanation": "Mock: minor wording adjusted for politeness.",
+            "speakers": {
+                "correction": "pico",
+                "reply": character_id
+            }
         })
 
     # REAL mode
     try:
-        result = call_openai_confirm_from_native(confirmed_native_joined or "", fluent, learning, original_pairs)
+        character_id = req.character_id or "sombongo"
+        result = call_openai_confirm_from_native(confirmed_native_joined or "", fluent, learning, original_pairs, character_id)
         corrected = result.get("corrected_pairs", [])
         reply = result.get("reply_pairs", [])
         explanation = result.get("correction_explanation", "")
+        speakers = result.get("speakers", {"correction": "pico", "reply": character_id})
 
         # generate TTS per sentence (synchronously write audio files so frontend can fetch it immediately)
         corrected_with_audio = []
@@ -411,6 +501,7 @@ async def receive_confirm(req: ConfirmRequest, background_tasks: BackgroundTasks
             "corrected_pairs": corrected_with_audio,
             "reply_pairs": reply_with_audio,
             "correction_explanation": explanation,
+            "speakers": speakers
         })
     except Exception as e:
         logger.exception("confirm real mode failed")

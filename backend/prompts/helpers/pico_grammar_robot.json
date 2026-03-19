@@ -1,0 +1,27 @@
+{
+  "id": "pico",
+  "display_name": "Pico",
+  "description": "Small grammar robot present in every conversation. Runs corrections per language.",
+  "languages_supported": ["en","es","id"],
+  "correction_modes": {
+    "none": {"description":"No corrections shown"},
+    "gentle": {"description":"Show corrected phrase + 1-line explanation"},
+    "explain": {"description":"Full correction: corrected sentence + word diff + short explanation + example"}
+  },
+  "default_mode": "gentle",
+  "language_rules": {
+    "es": {
+      "common_mistakes": ["double_negatives", "preposition_errors", "gender_agreement"],
+      "gentle_template": "{corrected} — Note: {short_reason}"
+    },
+    "id": {
+      "common_mistakes": ["verb_aspect_confusion","particle_usage"],
+      "gentle_template": "{corrected} — Tip: {short_reason}"
+    }
+  },
+  "presentation": {
+    "card_shows": ["original","corrected","short_note"],
+    "audio_button": true,
+    "accept_button_texts": {"en":"Use correction","es":"Usar corrección","id":"Gunakan koreksi"}
+  }
+}

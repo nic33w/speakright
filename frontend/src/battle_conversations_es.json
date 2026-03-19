@@ -1,0 +1,272 @@
+{
+  "conversation_id": "cafe_encounter",
+  "title": "The Cafe Encounter",
+  "enemy_name": "Carlos",
+  "enemy_emoji": "🧛",
+  "player_emoji": "🥷",
+  "rounds": [
+    {
+      "id": 1,
+      "speaker": "enemy",
+      "enemy_line_native": "Hey! Do you want to grab a coffee?",
+      "enemy_line_learning": "\u00a1Oye! \u00bfQuieres tomar un caf\u00e9?"
+    },
+    {
+      "id": 2,
+      "speaker": "player",
+      "options": {
+        "easy": {
+          "native": "Yes, I want coffee.",
+          "accepted_translations": [
+            "S\u00ed, quiero caf\u00e9.",
+            "S\u00ed, yo quiero caf\u00e9."
+          ],
+          "hints": [
+            { "native": "Yes", "learning": "S\u00ed" },
+            { "native": "I want", "learning": "quiero" },
+            { "native": "coffee", "learning": "caf\u00e9" }
+          ]
+        },
+        "medium": {
+          "native": "Yes, I'd love to grab a coffee with you.",
+          "accepted_translations": [
+            "S\u00ed, me encantar\u00eda tomar un caf\u00e9 contigo.",
+            "S\u00ed, me gustar\u00eda tomar un caf\u00e9 contigo."
+          ],
+          "hints": [
+            { "native": "I'd love to", "learning": "me encantar\u00eda" },
+            { "native": "to grab", "learning": "tomar" },
+            { "native": "a coffee", "learning": "un caf\u00e9" },
+            { "native": "with you", "learning": "contigo" }
+          ]
+        },
+        "hard": {
+          "native": "Of course! I've been wanting to try the new cafe that opened on the corner.",
+          "accepted_translations": [
+            "\u00a1Por supuesto! He querido probar el nuevo caf\u00e9 que abri\u00f3 en la esquina.",
+            "\u00a1Claro! He estado queriendo probar el caf\u00e9 nuevo que abri\u00f3 en la esquina."
+          ],
+          "hints": [
+            { "native": "Of course", "learning": "Por supuesto / Claro" },
+            { "native": "I've been wanting", "learning": "He querido / He estado queriendo" },
+            { "native": "to try", "learning": "probar" },
+            { "native": "the new cafe", "learning": "el nuevo caf\u00e9 / el caf\u00e9 nuevo" },
+            { "native": "that opened", "learning": "que abri\u00f3" },
+            { "native": "on the corner", "learning": "en la esquina" }
+          ]
+        }
+      }
+    },
+    {
+      "id": 3,
+      "speaker": "enemy",
+      "enemy_line_native": "Great! I know the perfect place. Let's go!",
+      "enemy_line_learning": "\u00a1Genial! Conozco el lugar perfecto. \u00a1Vamos!"
+    },
+    {
+      "id": 4,
+      "speaker": "player",
+      "options": {
+        "easy": {
+          "native": "Okay, let's go.",
+          "accepted_translations": [
+            "Bueno, vamos.",
+            "Okay, vamos.",
+            "Est\u00e1 bien, vamos."
+          ],
+          "hints": [
+            { "native": "Okay", "learning": "Bueno / Est\u00e1 bien" },
+            { "native": "let's go", "learning": "vamos" }
+          ]
+        },
+        "medium": {
+          "native": "Sounds good! Do they have good pastries there?",
+          "accepted_translations": [
+            "\u00a1Suena bien! \u00bfTienen buenos pasteles ah\u00ed?",
+            "\u00a1Suena bien! \u00bfTienen buenas galletas ah\u00ed?",
+            "\u00a1Suena bien! \u00bfTienen buena reposter\u00eda ah\u00ed?"
+          ],
+          "hints": [
+            { "native": "Sounds good", "learning": "Suena bien" },
+            { "native": "Do they have", "learning": "\u00bfTienen" },
+            { "native": "good pastries", "learning": "buenos pasteles / buena reposter\u00eda" },
+            { "native": "there", "learning": "ah\u00ed" }
+          ]
+        },
+        "hard": {
+          "native": "Perfect! I hope they have outdoor seating because it's a beautiful day.",
+          "accepted_translations": [
+            "\u00a1Perfecto! Espero que tengan mesas afuera porque es un d\u00eda hermoso.",
+            "\u00a1Perfecto! Espero que tengan asientos al aire libre porque hace un d\u00eda bonito."
+          ],
+          "hints": [
+            { "native": "Perfect", "learning": "Perfecto" },
+            { "native": "I hope they have", "learning": "Espero que tengan" },
+            { "native": "outdoor seating", "learning": "mesas afuera / asientos al aire libre" },
+            { "native": "because", "learning": "porque" },
+            { "native": "it's a beautiful day", "learning": "es un d\u00eda hermoso / hace un d\u00eda bonito" }
+          ]
+        }
+      }
+    },
+    {
+      "id": 5,
+      "speaker": "enemy",
+      "enemy_line_native": "Here we are! What do you want to order?",
+      "enemy_line_learning": "\u00a1Aqu\u00ed estamos! \u00bfQu\u00e9 quieres pedir?"
+    },
+    {
+      "id": 6,
+      "speaker": "player",
+      "options": {
+        "easy": {
+          "native": "I want a black coffee.",
+          "accepted_translations": [
+            "Quiero un caf\u00e9 negro.",
+            "Yo quiero un caf\u00e9 negro."
+          ],
+          "hints": [
+            { "native": "I want", "learning": "Quiero" },
+            { "native": "a black coffee", "learning": "un caf\u00e9 negro" }
+          ]
+        },
+        "medium": {
+          "native": "I'll have a latte with oat milk, please.",
+          "accepted_translations": [
+            "Voy a pedir un latte con leche de avena, por favor.",
+            "Me gustar\u00eda un latte con leche de avena, por favor.",
+            "Quiero un latte con leche de avena, por favor."
+          ],
+          "hints": [
+            { "native": "I'll have", "learning": "Voy a pedir / Me gustar\u00eda" },
+            { "native": "a latte", "learning": "un latte" },
+            { "native": "with oat milk", "learning": "con leche de avena" },
+            { "native": "please", "learning": "por favor" }
+          ]
+        },
+        "hard": {
+          "native": "Could you recommend something? I'm not sure what to get because there are so many options.",
+          "accepted_translations": [
+            "\u00bfPodr\u00edas recomendarme algo? No estoy seguro de qu\u00e9 pedir porque hay tantas opciones.",
+            "\u00bfMe podr\u00edas recomendar algo? No s\u00e9 qu\u00e9 pedir porque hay muchas opciones."
+          ],
+          "hints": [
+            { "native": "Could you recommend", "learning": "\u00bfPodr\u00edas recomendarme / \u00bfMe podr\u00edas recomendar" },
+            { "native": "something", "learning": "algo" },
+            { "native": "I'm not sure", "learning": "No estoy seguro / No s\u00e9" },
+            { "native": "what to get", "learning": "qu\u00e9 pedir" },
+            { "native": "because there are so many options", "learning": "porque hay tantas opciones / porque hay muchas opciones" }
+          ]
+        }
+      }
+    },
+    {
+      "id": 7,
+      "speaker": "enemy",
+      "enemy_line_native": "Good choice! The barista here makes the best coffee in the city.",
+      "enemy_line_learning": "\u00a1Buena elecci\u00f3n! El barista aqu\u00ed hace el mejor caf\u00e9 de la ciudad."
+    },
+    {
+      "id": 8,
+      "speaker": "player",
+      "options": {
+        "easy": {
+          "native": "This coffee is very good.",
+          "accepted_translations": [
+            "Este caf\u00e9 es muy bueno.",
+            "Este caf\u00e9 est\u00e1 muy bueno.",
+            "Este caf\u00e9 est\u00e1 muy rico."
+          ],
+          "hints": [
+            { "native": "This coffee", "learning": "Este caf\u00e9" },
+            { "native": "is very good", "learning": "es muy bueno / est\u00e1 muy bueno" }
+          ]
+        },
+        "medium": {
+          "native": "You're right, this is delicious! Do you come here often?",
+          "accepted_translations": [
+            "\u00a1Tienes raz\u00f3n, esto est\u00e1 delicioso! \u00bfVienes aqu\u00ed seguido?",
+            "\u00a1Tienes raz\u00f3n, est\u00e1 delicioso! \u00bfVienes aqu\u00ed a menudo?"
+          ],
+          "hints": [
+            { "native": "You're right", "learning": "Tienes raz\u00f3n" },
+            { "native": "this is delicious", "learning": "esto est\u00e1 delicioso / est\u00e1 delicioso" },
+            { "native": "Do you come here", "learning": "\u00bfVienes aqu\u00ed" },
+            { "native": "often", "learning": "seguido / a menudo" }
+          ]
+        },
+        "hard": {
+          "native": "I've never tasted anything this good! I wish I had discovered this place sooner.",
+          "accepted_translations": [
+            "\u00a1Nunca hab\u00eda probado algo tan bueno! Ojalá hubiera descubierto este lugar antes.",
+            "\u00a1Jam\u00e1s hab\u00eda probado algo as\u00ed de bueno! Me hubiera gustado descubrir este lugar antes."
+          ],
+          "hints": [
+            { "native": "I've never tasted", "learning": "Nunca hab\u00eda probado / Jam\u00e1s hab\u00eda probado" },
+            { "native": "anything this good", "learning": "algo tan bueno / algo as\u00ed de bueno" },
+            { "native": "I wish I had discovered", "learning": "Ojalá hubiera descubierto / Me hubiera gustado descubrir" },
+            { "native": "this place", "learning": "este lugar" },
+            { "native": "sooner", "learning": "antes" }
+          ]
+        }
+      }
+    },
+    {
+      "id": 9,
+      "speaker": "enemy",
+      "enemy_line_native": "I'm glad you like it! We should do this more often.",
+      "enemy_line_learning": "\u00a1Me alegra que te guste! Deber\u00edamos hacer esto m\u00e1s seguido."
+    },
+    {
+      "id": 10,
+      "speaker": "player",
+      "options": {
+        "easy": {
+          "native": "Yes, see you next time!",
+          "accepted_translations": [
+            "S\u00ed, \u00a1nos vemos la pr\u00f3xima vez!",
+            "S\u00ed, \u00a1hasta la pr\u00f3xima!"
+          ],
+          "hints": [
+            { "native": "Yes", "learning": "S\u00ed" },
+            { "native": "see you", "learning": "nos vemos / hasta" },
+            { "native": "next time", "learning": "la pr\u00f3xima vez / la pr\u00f3xima" }
+          ]
+        },
+        "medium": {
+          "native": "Definitely! How about next Saturday at the same time?",
+          "accepted_translations": [
+            "\u00a1Definitivamente! \u00bfQu\u00e9 tal el pr\u00f3ximo s\u00e1bado a la misma hora?",
+            "\u00a1Claro que s\u00ed! \u00bfQu\u00e9 te parece el pr\u00f3ximo s\u00e1bado a la misma hora?"
+          ],
+          "hints": [
+            { "native": "Definitely", "learning": "Definitivamente / Claro que s\u00ed" },
+            { "native": "How about", "learning": "\u00bfQu\u00e9 tal / \u00bfQu\u00e9 te parece" },
+            { "native": "next Saturday", "learning": "el pr\u00f3ximo s\u00e1bado" },
+            { "native": "at the same time", "learning": "a la misma hora" }
+          ]
+        },
+        "hard": {
+          "native": "Absolutely! And next time you should let me pay because you always treat me.",
+          "accepted_translations": [
+            "\u00a1Por supuesto! Y la pr\u00f3xima vez deber\u00edas dejarme pagar porque siempre me invitas.",
+            "\u00a1Claro! Y la pr\u00f3xima vez d\u00e9jame pagar a m\u00ed porque t\u00fa siempre invitas."
+          ],
+          "hints": [
+            { "native": "Absolutely", "learning": "\u00a1Por supuesto! / \u00a1Claro!" },
+            { "native": "next time", "learning": "la pr\u00f3xima vez" },
+            { "native": "you should let me pay", "learning": "deber\u00edas dejarme pagar / d\u00e9jame pagar a m\u00ed" },
+            { "native": "because", "learning": "porque" },
+            { "native": "you always treat me", "learning": "siempre me invitas / t\u00fa siempre invitas" }
+          ]
+        }
+      }
+    },
+    {
+      "id": 11,
+      "speaker": "enemy",
+      "enemy_line_native": "Ha! You're on. See you Saturday then!",
+      "enemy_line_learning": "\u00a1Ja! Hecho. \u00a1Nos vemos el s\u00e1bado entonces!"
+    }
+  ]
+}

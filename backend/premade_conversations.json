@@ -1,0 +1,183 @@
+[
+  {
+    "id": "premade_1",
+    "sombongo_turns": [
+      {
+        "index": 0,
+        "display_text": "Hey! I can't find my sombrero. [Did I give it to you / ¿Te lo di?]",
+        "audio_parts": [
+          { "text": "¿Te lo di?", "locale": "es-MX" }
+        ],
+        "suggested_replies": [
+          { "id": "1a", "text_native": "Yes, you gave it to me", "text_target": "Sí, me lo diste" },
+          { "id": "1b", "text_native": "No, you didn't give it to me", "text_target": "No, no me lo diste" },
+          { "id": "1c", "text_native": "You gave it to your brother", "text_target": "Se lo diste a tu hermano" }
+        ]
+      },
+      {
+        "index": 1,
+        "display_text": "[Of course / Por supuesto], now I remember. I just [realized / me di cuenta] how stunning I look, [even though / aunque] I'm not wearing a sombrero. Don't you think so?",
+        "audio_parts": [
+          { "text": "Por supuesto", "locale": "es-MX" },
+          { "text": "me di cuenta", "locale": "es-MX" },
+          { "text": "aunque", "locale": "es-MX" }
+        ],
+        "suggested_replies": [
+          { "id": "2a", "text_native": "Yeah, you look great!", "text_target": "Sí, te ves genial" },
+          { "id": "2b", "text_native": "I think I look better than you", "text_target": "Creo que me veo mejor que tú" },
+          { "id": "2c", "text_native": "I think your brother looks better than you", "text_target": "Creo que tu hermano se ve mejor que tú" }
+        ]
+      },
+      {
+        "index": 2,
+        "display_text": "[Stop pretending that / Deja de pretender que] you aren't jealous of me. Now when [did you see / viste] my brother?",
+        "audio_parts": [
+          { "text": "Deja de pretender que", "locale": "es-MX" },
+          { "text": "viste", "locale": "es-MX" }
+        ],
+        "suggested_replies": [
+          { "id": "3a", "text_native": "I saw him before you came to the party", "text_target": "Lo vi antes de que llegaras a la fiesta" },
+          { "id": "3b", "text_native": "I saw him after you came to the party", "text_target": "Lo vi después de que llegaste a la fiesta" },
+          { "id": "3c", "text_native": "I saw him at the same time you came to the party", "text_target": "Lo vi al mismo tiempo que llegaste a la fiesta" }
+        ]
+      },
+      {
+        "index": 3,
+        "display_text_options": [
+          {
+            "display_text": "[You must tell me / Debes decirme] what you thought about his outfit.",
+            "audio_parts": [
+              { "text": "Debes decirme", "locale": "es-MX" }
+            ]
+          },
+          {
+            "display_text": "[Without a doubt / Sin duda], I'm the better brother.",
+            "audio_parts": [
+              { "text": "Sin duda", "locale": "es-MX" }
+            ]
+          },
+          {
+            "display_text": "How tragic! [He doesn't even know / Ni siquiera sabe] how to make an entrance.",
+            "audio_parts": [
+              { "text": "Ni siquiera sabe", "locale": "es-MX" }
+            ]
+          }
+        ],
+        "suggested_replies": []
+      }
+    ]
+  },
+  {
+    "id": "premade_2",
+    "sombongo_turns": [
+      {
+        "index": 0,
+        "display_text": "[I just got out of / Acabo de salir de] the science class of Professor Ratus.",
+        "audio_parts": [
+          { "text": "Acabo de salir de", "locale": "es-MX" }
+        ],
+        "suggested_replies": [
+          { "id": "1a", "text_native": "I just got out of his class too", "text_target": "Acabo de salir de su clase también" },
+          { "id": "1b", "text_native": "I left his class early", "text_target": "Me fui de su clase temprano" },
+          { "id": "1c", "text_native": "I went to the gym instead of going to his class", "text_target": "Fui al gimnasio en vez de ir a su clase" }
+        ]
+      },
+      {
+        "index": 1,
+        "display_text": "[Seriously? / ¿En serio?] [How often / ¿Con qué frecuencia] do you go to class?",
+        "audio_parts": [
+          { "text": "¿En serio?", "locale": "es-MX" },
+          { "text": "¿Con qué frecuencia", "locale": "es-MX" }
+        ],
+        "suggested_replies": [
+          { "id": "2a", "text_native": "I always go to his class", "text_target": "Siempre voy a su clase" },
+          { "id": "2b", "text_native": "I sometimes go to his class", "text_target": "A veces voy a su clase" },
+          { "id": "2c", "text_native": "I never go to his class", "text_target": "Nunca voy a su clase" }
+        ]
+      },
+      {
+        "index": 2,
+        "display_text": "What do you think of his class?",
+        "audio_parts": [],
+        "suggested_replies": [
+          { "id": "3a", "text_native": "I think his class is way too boring", "text_target": "Creo que su clase es demasiado aburrida" },
+          { "id": "3b", "text_native": "I think his class is quite boring", "text_target": "Creo que su clase es bastante aburrida" },
+          { "id": "3c", "text_native": "I think his class is a little boring", "text_target": "Creo que su clase es un poco aburrida" }
+        ]
+      },
+      {
+        "index": 3,
+        "display_text_options": [
+          {
+            "display_text": "[At least / Al menos] you have someone as magnificent as me in your class.",
+            "audio_parts": [
+              { "text": "Al menos", "locale": "es-MX" }
+            ]
+          },
+          {
+            "display_text": "[Unless / A menos que] someone tells him, his class will always be that way.",
+            "audio_parts": [
+              { "text": "A menos que", "locale": "es-MX" }
+            ]
+          },
+          {
+            "display_text": "Well, I find his class relaxing. [In fact / De hecho], I fall asleep every single time!",
+            "audio_parts": [
+              { "text": "De hecho", "locale": "es-MX" }
+            ]
+          }
+        ],
+        "suggested_replies": []
+      }
+    ]
+  },
+  {
+    "id": "premade_3",
+    "sombongo_turns": [
+      {
+        "index": 0,
+        "display_text": "Hey, [did I tell you this / ¿te dije esto?] [Once in a while / De vez en cuando], I enjoy taking you on a shopping trip with me.",
+        "audio_parts": [
+          { "text": "¿te dije esto?", "locale": "es-MX" },
+          { "text": "De vez en cuando", "locale": "es-MX" }
+        ],
+        "suggested_replies": [
+          { "id": "1a", "text_native": "I told you that I don't like shopping with you", "text_target": "Te dije que no me gusta ir de compras contigo" },
+          { "id": "1b", "text_native": "Your brother told me to never go shopping with you", "text_target": "Tu hermano me dijo que nunca fuera de compras contigo" },
+          { "id": "1c", "text_native": "You told me that you don't like shopping with me", "text_target": "Me dijiste que no te gusta ir de compras conmigo" }
+        ]
+      },
+      {
+        "index": 1,
+        "display_text": "[Don't get difficult / No te pongas difícil] conmigo. [It makes me angry / Me pone enojado] when people don't do as I say.",
+        "audio_parts": [
+          { "text": "No te pongas difícil conmigo.", "locale": "es-MX" },
+          { "text": "Me pone enojado", "locale": "es-MX" }
+        ],
+        "suggested_replies": [
+          { "id": "2a", "text_native": "I have to think about it first", "text_target": "Tengo que pensarlo primero" },
+          { "id": "2b", "text_native": "You have to calm down first", "text_target": "Tienes que calmarte primero" },
+          { "id": "2c", "text_native": "Ok, but your brother has to come too", "text_target": "Vale, pero tu hermano también tiene que venir" }
+        ]
+      },
+      {
+        "index": 2,
+        "display_text": "[So that you understand me / Para que me entiendas], YOU'RE COMING NO MATTER WHAT!!",
+        "audio_parts": [
+          { "text": "Para que me entiendas", "locale": "es-MX" }
+        ],
+        "suggested_replies": [
+          { "id": "3a", "text_native": "Ok, but the important thing is that you drive", "text_target": "Vale, pero lo importante es que conduzcas" }
+        ]
+      },
+      {
+        "index": 3,
+        "display_text": "Absolutely not! I don't want to drive [at all / para nada]. I'm too fabulous for that.",
+        "audio_parts": [
+          { "text": "para nada", "locale": "es-MX" }
+        ],
+        "suggested_replies": []
+      }
+    ]
+  }
+]

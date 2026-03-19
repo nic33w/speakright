@@ -1,0 +1,16 @@
+[
+  {"id":"es_g_001","text":"Hola, ¿qué tal?","translation_en":"Hello, how’s it going?","formality":2,"register":"informal","level":"A1","tags":["starter"],"weight":1.2},
+  {"id":"es_g_002","text":"Hola, ¿cómo te va?","translation_en":"How’s it going for you?","formality":2,"register":"informal","level":"A1","tags":["starter"],"weight":1.0},
+  {"id":"es_g_003","text":"¿Cómo andas?","translation_en":"How are you doing?","formality":2,"register":"informal","level":"A2","tags":["starter"],"weight":0.9},
+  {"id":"es_g_004","text":"¿Qué haces?","translation_en":"What are you doing?","formality":2,"register":"informal","level":"A1","tags":["starter"],"weight":0.8},
+  {"id":"es_g_005","text":"¿Qué cuentas?","translation_en":"What’s new?","formality":2,"register":"informal","level":"A2","tags":["starter"],"weight":0.9},
+  {"id":"es_g_006","text":"¿Todo bien?","translation_en":"Everything good?","formality":2,"register":"informal","level":"A1","tags":["starter"],"weight":1.1},
+  {"id":"es_g_007","text":"¿Qué tal tu día?","translation_en":"How’s your day?","formality":2,"register":"informal","level":"A1","tags":["starter"],"weight":1.0},
+  {"id":"es_g_008","text":"Hola, ¿cómo estás hoy?","translation_en":"Hello, how are you today?","formality":3,"register":"neutral","level":"A1","tags":["starter"],"weight":1.1},
+  {"id":"es_g_009","text":"¡Hola! ¿Qué tal tu día?","translation_en":"Hi! How’s your day?","formality":2,"register":"informal","level":"A1","tags":["starter"],"weight":0.9},
+  {"id":"es_g_010","text":"¡Hola! ¿Cómo va todo?","translation_en":"Hi! How’s everything going?","formality":2,"register":"informal","level":"A1","tags":["starter"],"weight":1.1},
+  {"id":"es_g_011","text":"¡Hola! ¿Qué tal? ¿En qué andas?","translation_en":"Hi! How’s it going? What are you up to?","formality":2,"register":"informal","level":"A2","tags":["starter"],"weight":0.8},
+  {"id":"es_g_012","text":"Buenas, ¿cómo va todo?","translation_en":"Hey, how’s everything going?","formality":2,"register":"informal","level":"A1","tags":["starter"],"weight":0.9},
+  {"id":"es_g_013","text":"¿Cómo va tu día?","translation_en":"How’s your day going?","formality":2,"register":"informal","level":"A1","tags":["starter"],"weight":1.0},
+  {"id":"es_g_014","text":"¿Cómo le ha ido?","translation_en":"How have you been? (formal)","formality":4,"register":"formal","level":"B1","tags":["starter"],"weight":0.5}
+]
