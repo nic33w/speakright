@@ -9,7 +9,13 @@
       "id": 1,
       "speaker": "enemy",
       "enemy_line_native": "Hi! I just moved in next door. I'm Sofía, nice to meet you!",
-      "enemy_line_learning": "¡Hola! Acabo de mudarme al cuarto de al lado. Soy Sofía, ¡mucho gusto!"
+      "enemy_line_learning": "¡Hola! Acabo de mudarme al cuarto de al lado. Soy Sofía, ¡mucho gusto!",
+      "defend_question": {
+        "audio_url": "/battle_audio/new_neighbor/round_1.wav",
+        "question": "Where did Sofía just move?",
+        "choices": ["Next door", "Upstairs", "Across the street"],
+        "correct_index": 0
+      }
     },
     {
       "id": 2,
@@ -56,7 +62,13 @@
       "id": 3,
       "speaker": "enemy",
       "enemy_line_native": "Thank you! I'm still getting to know the area. Is there a good supermarket nearby?",
-      "enemy_line_learning": "¡Gracias! Todavía estoy conociendo la zona. ¿Hay un buen supermercado cerca?"
+      "enemy_line_learning": "¡Gracias! Todavía estoy conociendo la zona. ¿Hay un buen supermercado cerca?",
+      "defend_question": {
+        "audio_url": "/battle_audio/new_neighbor/round_3.wav",
+        "question": "What is Sofía looking for nearby?",
+        "choices": ["A pharmacy", "A good supermarket", "A restaurant"],
+        "correct_index": 1
+      }
     },
     {
       "id": 4,
@@ -105,7 +117,13 @@
       "id": 5,
       "speaker": "enemy",
       "enemy_line_native": "Great! And is there a gym around here? I really need to keep up my routine.",
-      "enemy_line_learning": "¡Genial! ¿Y hay un gimnasio por aquí? De verdad necesito mantener mi rutina."
+      "enemy_line_learning": "¡Genial! ¿Y hay un gimnasio por aquí? De verdad necesito mantener mi rutina.",
+      "defend_question": {
+        "audio_url": "/battle_audio/new_neighbor/round_5.wav",
+        "question": "What does Sofía really need to do?",
+        "choices": ["Keep up her routine", "Find a new doctor", "Meet the neighbors"],
+        "correct_index": 0
+      }
     },
     {
       "id": 6,
@@ -154,7 +172,13 @@
       "id": 7,
       "speaker": "enemy",
       "enemy_line_native": "Perfect! By the way, how are the other neighbors? Are they friendly?",
-      "enemy_line_learning": "¡Perfecto! Por cierto, ¿cómo son los demás vecinos? ¿Son amables?"
+      "enemy_line_learning": "¡Perfecto! Por cierto, ¿cómo son los demás vecinos? ¿Son amables?",
+      "defend_question": {
+        "audio_url": "/battle_audio/new_neighbor/round_7.wav",
+        "question": "What does Sofía ask about the other neighbors?",
+        "choices": ["How many there are", "Whether they are friendly", "Where they are from"],
+        "correct_index": 1
+      }
     },
     {
       "id": 8,
@@ -201,7 +225,13 @@
       "id": 9,
       "speaker": "enemy",
       "enemy_line_native": "That's reassuring! Hey, would you like to have dinner together one of these days?",
-      "enemy_line_learning": "¡Qué alivio! Oye, ¿te gustaría cenar juntos uno de estos días?"
+      "enemy_line_learning": "¡Qué alivio! Oye, ¿te gustaría cenar juntos uno de estos días?",
+      "defend_question": {
+        "audio_url": "/battle_audio/new_neighbor/round_9.wav",
+        "question": "What does Sofía invite you to do?",
+        "choices": ["Go grocery shopping", "Go to the gym together", "Have dinner together"],
+        "correct_index": 2
+      }
     },
     {
       "id": 10,
@@ -247,7 +277,13 @@
       "id": 11,
       "speaker": "enemy",
       "enemy_line_native": "Perfect! I'll knock on your door Friday then. Welcome to the neighborhood, neighbor!",
-      "enemy_line_learning": "¡Perfecto! Te toco el viernes entonces. ¡Bienvenido al vecindario, vecino!"
+      "enemy_line_learning": "¡Perfecto! Te toco el viernes entonces. ¡Bienvenido al vecindario, vecino!",
+      "defend_question": {
+        "audio_url": "/battle_audio/new_neighbor/round_11.wav",
+        "question": "What day will Sofía knock on your door?",
+        "choices": ["Thursday", "Friday", "Saturday"],
+        "correct_index": 1
+      }
     }
   ]
 }

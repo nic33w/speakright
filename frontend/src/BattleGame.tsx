@@ -25,11 +25,19 @@ type PlayerRound = {
   };
 };
 
+type DefendQuestion = {
+  audio_url: string;
+  question: string;
+  choices: string[];
+  correct_index: number;
+};
+
 type EnemyRound = {
   id: number;
   speaker: "enemy";
   enemy_line_native: string;
   enemy_line_learning: string;
+  defend_question?: DefendQuestion;
 };
 
 type Round = PlayerRound | EnemyRound;
@@ -126,10 +134,16 @@ export default function BattleGame({
   const [freeformMode, setFreeformMode] = useState(false);
   const [colorHints, setColorHints] = useState(true);
   const [petsEnabled, setPetsEnabled] = useState(false);
-  const [animationsEnabled, setAnimationsEnabled] = useState(false);
+  const [animationsEnabled, setAnimationsEnabled] = useState(true);
   const [playerPets, setPlayerPets] = useState<Pet[]>([]);
   const [enemyPets, setEnemyPets] = useState<Pet[]>([]);
   const [attackingId, setAttackingId] = useState<string | null>(null);
+  const [defendEnabled, setDefendEnabled] = useState(true);
+  const [showDefendPhase, setShowDefendPhase] = useState(false);
+  const [currentDefendQuestion, setCurrentDefendQuestion] = useState<DefendQuestion | null>(null);
+  const [defendResult, setDefendResult] = useState<"correct" | "incorrect" | null>(null);
+  const [defendAudioDone, setDefendAudioDone] = useState(false);
+  const [defendShuffledChoices, setDefendShuffledChoices] = useState<{ text: string; isCorrect: boolean }[]>([]);
   const [selectedConversation, setSelectedConversation] = useState<ConversationData | null>(null);
 
   // Proximity-based hint scaling/color
@@ -144,6 +158,9 @@ export default function BattleGame({
   const autoSendTimer = useRef<number | null>(null);
   const lastSentRef = useRef<number>(0);
   const previousTranscriptLengthRef = useRef<number>(0);
+  const defendResolveRef = useRef<((correct: boolean) => void) | null>(null);
+  const playerHealthRef = useRef(PLAYER_MAX_HP);
+  const defendAudioRef = useRef<HTMLAudioElement | null>(null);
 
   // Active conversation (set after selection)
   const conversation = selectedConversation;
@@ -151,6 +168,9 @@ export default function BattleGame({
 
   // Current round helper
   const currentRound = currentRoundIndex < rounds.length ? rounds[currentRoundIndex] : null;
+
+  // Keep playerHealthRef in sync for async defend phase checks
+  useEffect(() => { playerHealthRef.current = playerHealth; }, [playerHealth]);
 
   // Auto-scroll history
   useEffect(() => {
@@ -183,6 +203,19 @@ export default function BattleGame({
       textareaRef.current.focus();
     }
   }, [selectedDifficulty, freeformMode, timerEnabled, timerActive, busy, answerStatus]);
+
+  // Hotkeys 1/2/3 for defend phase answer selection
+  useEffect(() => {
+    if (!showDefendPhase || !defendAudioDone || defendResult !== null) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "1") { e.preventDefault(); handleDefendAnswer(0); }
+      else if (e.key === "2") { e.preventDefault(); handleDefendAnswer(1); }
+      else if (e.key === "3") { e.preventDefault(); handleDefendAnswer(2); }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showDefendPhase, defendAudioDone, defendResult, defendShuffledChoices]);
 
   // Hotkeys 1/2/3 for difficulty selection (standard mode only)
   useEffect(() => {
@@ -295,13 +328,89 @@ export default function BattleGame({
     }
   }
 
+  function runDefendPhase(question: DefendQuestion): Promise<boolean> {
+    return new Promise(resolve => {
+      setCurrentDefendQuestion(question);
+      setShowDefendPhase(true);
+      setDefendResult(null);
+      setDefendAudioDone(false);
+      // Shuffle choices, preserving which one is correct
+      const shuffled = question.choices
+        .map((text, i) => ({ text, isCorrect: i === question.correct_index }))
+        .sort(() => Math.random() - 0.5);
+      setDefendShuffledChoices(shuffled);
+      const audio = new Audio(question.audio_url);
+      defendAudioRef.current = audio;
+      audio.addEventListener("ended", () => setDefendAudioDone(true), { once: true });
+      audio.play().catch(() => setDefendAudioDone(true)); // show question even if audio fails
+      defendResolveRef.current = resolve;
+    });
+  }
+
+  function handleDefendAnswer(choiceIndex: number) {
+    if (!currentDefendQuestion || defendResult !== null) return;
+    const correct = defendShuffledChoices[choiceIndex]?.isCorrect ?? false;
+    setDefendResult(correct ? "correct" : "incorrect");
+
+    if (!correct) {
+      const newHp = Math.max(0, playerHealthRef.current - ENEMY_DAMAGE);
+      playerHealthRef.current = newHp;
+      setPlayerHealth(newHp);
+      setDamageFlash("player");
+      setLastPlayerDamage(ENEMY_DAMAGE);
+      setTimeout(() => {
+        setDamageFlash(null);
+        setLastPlayerDamage(null);
+      }, 900);
+    }
+
+    setTimeout(() => {
+      setShowDefendPhase(false);
+      setCurrentDefendQuestion(null);
+      defendAudioRef.current = null;
+      const resolve = defendResolveRef.current;
+      defendResolveRef.current = null;
+      resolve?.(correct);
+    }, 1600);
+  }
+
+  function handleDefendSkip() {
+    if (!currentDefendQuestion || defendResult !== null) return;
+    setDefendResult("incorrect");
+    const newHp = Math.max(0, playerHealthRef.current - ENEMY_DAMAGE);
+    playerHealthRef.current = newHp;
+    setPlayerHealth(newHp);
+    setDamageFlash("player");
+    setLastPlayerDamage(ENEMY_DAMAGE);
+    setTimeout(() => { setDamageFlash(null); setLastPlayerDamage(null); }, 900);
+    setTimeout(() => {
+      setShowDefendPhase(false);
+      setCurrentDefendQuestion(null);
+      defendAudioRef.current = null;
+      const resolve = defendResolveRef.current;
+      defendResolveRef.current = null;
+      resolve?.(false);
+    }, 1600);
+  }
+
   async function processEnemyTurn() {
     if (!currentRound || currentRound.speaker !== "enemy") return;
     const enemy = currentRound as EnemyRound;
 
     setShowEnemyTurn(true);
     await delay(1500);
+    setShowEnemyTurn(false);
 
+    // Defend phase: test listening comprehension before revealing the text in the log
+    if (defendEnabled && enemy.defend_question) {
+      const wasCorrect = await runDefendPhase(enemy.defend_question);
+      if (!wasCorrect && playerHealthRef.current <= 0) {
+        setGamePhase("defeat");
+        return;
+      }
+    }
+
+    // Add to battle log only after defend phase (so the translation can't be read as a cheat)
     setConversationHistory(prev => [...prev, {
       id: enemy.id,
       speaker: "enemy",
@@ -309,7 +418,6 @@ export default function BattleGame({
       textLearning: enemy.enemy_line_learning,
     }]);
 
-    setShowEnemyTurn(false);
     advanceRound();
   }
 
@@ -1077,6 +1185,25 @@ export default function BattleGame({
           }}>
             <input
               type="checkbox"
+              checked={defendEnabled}
+              onChange={e => setDefendEnabled(e.target.checked)}
+              style={{ width: 18, height: 18, cursor: "pointer" }}
+            />
+            Defend phase 🛡️ — listen &amp; answer to block damage (The New Neighbor only)
+          </label>
+          <label style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 8,
+            marginBottom: 20,
+            fontSize: 16,
+            color: "#374151",
+            cursor: "pointer",
+            userSelect: "none",
+          }}>
+            <input
+              type="checkbox"
               checked={petsEnabled}
               onChange={e => setPetsEnabled(e.target.checked)}
               style={{ width: 18, height: 18, cursor: "pointer" }}
@@ -1374,7 +1501,7 @@ export default function BattleGame({
 
 
               {/* Player Turn UI (no textarea here) */}
-              {playerRound && !showEnemyTurn && (
+              {!showDefendPhase && playerRound && !showEnemyTurn && (
                 <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
 
                   {/* Timer bar */}
@@ -1529,12 +1656,140 @@ export default function BattleGame({
               );
             })()}
 
+            {/* Defend Phase panel */}
+            {showDefendPhase && currentDefendQuestion && (() => {
+              const q = currentDefendQuestion;
+              return (
+                <div style={{
+                  flex: 1, display: "flex", flexDirection: "column",
+                  alignItems: "center", justifyContent: "center",
+                  padding: "0 24px", gap: 18, textAlign: "center",
+                }}>
+                  {/* Header */}
+                  <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
+                    <div style={{ fontSize: 36 }}>🛡️</div>
+                    <div style={{ fontSize: 20, fontWeight: 700, color: "#fbbf24" }}>Defend!</div>
+                    <div style={{ fontSize: 13, opacity: 0.6 }}>
+                      {defendAudioDone
+                        ? `Answer correctly to block ${conversation!.enemy_name}'s attack.`
+                        : `Listen to what ${conversation!.enemy_name} said...`}
+                    </div>
+                  </div>
+
+                  {/* Hover-to-replay audio button */}
+                  <div
+                    onMouseEnter={() => {
+                      setDefendAudioDone(false);
+                      if (defendAudioRef.current) {
+                        defendAudioRef.current.currentTime = 0;
+                        defendAudioRef.current.addEventListener("ended", () => setDefendAudioDone(true), { once: true });
+                        defendAudioRef.current.play().catch(() => setDefendAudioDone(true));
+                      } else {
+                        const audio = new Audio(q.audio_url);
+                        defendAudioRef.current = audio;
+                        audio.addEventListener("ended", () => setDefendAudioDone(true), { once: true });
+                        audio.play().catch(() => setDefendAudioDone(true));
+                      }
+                    }}
+                    style={{
+                      display: "flex", alignItems: "center", gap: 8,
+                      padding: "8px 20px", fontSize: 14, fontWeight: 600,
+                      background: "rgba(251,191,36,0.15)", color: "#fbbf24",
+                      border: "1px solid rgba(251,191,36,0.4)", borderRadius: 8, cursor: "default",
+                      userSelect: "none",
+                    }}
+                  >
+                    🔊 Hover to replay
+                  </div>
+
+                  {/* Question and choices — only shown after audio finishes */}
+                  {defendAudioDone && <>
+                  {/* Question */}
+                  <div style={{ fontSize: 17, fontWeight: 600, lineHeight: 1.4, maxWidth: 380 }}>
+                    {q.question}
+                  </div>
+
+                  {/* Choices */}
+                  {defendResult === null ? (
+                    <div style={{ display: "flex", flexDirection: "column", gap: 10, width: "100%", maxWidth: 340 }}>
+                      {defendShuffledChoices.map((choice, ci) => (
+                        <button
+                          key={ci}
+                          onClick={() => handleDefendAnswer(ci)}
+                          style={{
+                            width: "100%", padding: "12px 16px", fontSize: 15, fontWeight: 500,
+                            background: "rgba(255,255,255,0.08)", color: "white",
+                            border: "2px solid rgba(255,255,255,0.2)", borderRadius: 10,
+                            cursor: "pointer", textAlign: "left", transition: "background 0.15s, border-color 0.15s",
+                          }}
+                          onMouseEnter={e => {
+                            e.currentTarget.style.background = "rgba(255,255,255,0.16)";
+                            e.currentTarget.style.borderColor = "rgba(255,255,255,0.4)";
+                          }}
+                          onMouseLeave={e => {
+                            e.currentTarget.style.background = "rgba(255,255,255,0.08)";
+                            e.currentTarget.style.borderColor = "rgba(255,255,255,0.2)";
+                          }}
+                        >
+                          {ci + 1}. {choice.text}
+                        </button>
+                      ))}
+                      <button
+                        onClick={handleDefendSkip}
+                        style={{
+                          width: "100%", padding: "8px 16px", fontSize: 13, fontWeight: 500,
+                          background: "transparent", color: "rgba(255,255,255,0.35)",
+                          border: "1px solid rgba(255,255,255,0.15)", borderRadius: 10,
+                          cursor: "pointer", marginTop: 4, transition: "color 0.15s, border-color 0.15s",
+                        }}
+                        onMouseEnter={e => {
+                          e.currentTarget.style.color = "rgba(255,255,255,0.6)";
+                          e.currentTarget.style.borderColor = "rgba(255,255,255,0.3)";
+                        }}
+                        onMouseLeave={e => {
+                          e.currentTarget.style.color = "rgba(255,255,255,0.35)";
+                          e.currentTarget.style.borderColor = "rgba(255,255,255,0.15)";
+                        }}
+                      >
+                        Skip (take damage)
+                      </button>
+                    </div>
+                  ) : (
+                    <div style={{ display: "flex", flexDirection: "column", gap: 10, width: "100%", maxWidth: 340 }}>
+                      {defendShuffledChoices.map((choice, ci) => {
+                        const bg = choice.isCorrect ? "rgba(34,197,94,0.25)" : "rgba(239,68,68,0.15)";
+                        const border = choice.isCorrect ? "#22c55e" : "rgba(239,68,68,0.4)";
+                        return (
+                          <div key={ci} style={{
+                            width: "100%", padding: "12px 16px", fontSize: 15, fontWeight: 500,
+                            background: bg, color: "white",
+                            border: `2px solid ${border}`, borderRadius: 10, textAlign: "left",
+                          }}>
+                            {choice.isCorrect ? "✓" : "✗"} {ci + 1}. {choice.text}
+                          </div>
+                        );
+                      })}
+                      <div style={{
+                        fontSize: 16, fontWeight: 700, marginTop: 4,
+                        color: defendResult === "correct" ? "#86efac" : "#fca5a5",
+                      }}>
+                        {defendResult === "correct"
+                          ? "✓ Blocked! No damage taken."
+                          : `✗ Wrong! ${conversation!.enemy_name} deals ${ENEMY_DAMAGE} damage!`}
+                      </div>
+                    </div>
+                  )}
+                  </>}
+                </div>
+              );
+            })()}
+
             {/* Unified content zone — shown during enemy turn AND player turn */}
-            {!freeformMode && (showEnemyTurn || playerRound) && (() => {
+            {!showDefendPhase && !freeformMode && (showEnemyTurn || playerRound) && (() => {
               // Enemy text source: currentRound during animation, history once added
               const lastHistory = conversationHistory.length > 0 ? conversationHistory[conversationHistory.length - 1] : null;
               const enemyText = showEnemyTurn && currentRound?.speaker === "enemy"
-                ? (currentRound as EnemyRound).enemy_line_native
+                ? (defendEnabled ? null : (currentRound as EnemyRound).enemy_line_native)
                 : (lastHistory?.speaker === "enemy" ? lastHistory.textNative : null);
 
               return (
@@ -1711,7 +1966,7 @@ export default function BattleGame({
             })()}
 
             {/* Sticky bottom — textarea (shown when ready for input) */}
-            {playerRound && !showEnemyTurn && (freeformMode || selectedDifficulty) && (
+            {!showDefendPhase && playerRound && !showEnemyTurn && (freeformMode || selectedDifficulty) && (
               <div style={{
                 flexShrink: 0,
                 padding: "12px 20px 16px",
@@ -1893,7 +2148,7 @@ export default function BattleGame({
               })}
 
               {/* Enemy turn mirrored in log */}
-              {showEnemyTurn && currentRound?.speaker === "enemy" && (
+              {showEnemyTurn && !defendEnabled && currentRound?.speaker === "enemy" && (
                 <div style={{ display: "flex", justifyContent: "flex-end" }}>
                   <div style={{
                     maxWidth: "60%", width: "fit-content", padding: "8px 12px", borderRadius: 12,
