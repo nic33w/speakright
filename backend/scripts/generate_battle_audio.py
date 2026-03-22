@@ -20,18 +20,33 @@ from tts_helpers import azure_tts_bytes_real
 
 BACKEND_DIR = Path(__file__).resolve().parent.parent
 FRONTEND_PUBLIC = BACKEND_DIR.parent / "frontend" / "public"
-
-# Female voice for Sofía (new_neighbor conversation)
-SOFIA_VOICE = "es-MX-DaliaNeural"
-LOCALE = "es-MX"
+FRONTEND_SRC = BACKEND_DIR.parent / "frontend" / "src"
 
 CONVERSATIONS = [
     {
-        "json_path": BACKEND_DIR.parent / "frontend" / "src" / "battle_conversations_es_3.json",
+        "json_path": FRONTEND_SRC / "battle_conversations_es.json",
+        "output_dir": FRONTEND_PUBLIC / "battle_audio" / "cafe_encounter",
+        "voice": "es-MX-JorgeNeural",
+        "locale": "es-MX",
+    },
+    {
+        "json_path": FRONTEND_SRC / "battle_conversations_es_2.json",
+        "output_dir": FRONTEND_PUBLIC / "battle_audio" / "market_haggle",
+        "voice": "es-MX-DaliaNeural",
+        "locale": "es-MX",
+    },
+    {
+        "json_path": FRONTEND_SRC / "battle_conversations_es_3.json",
         "output_dir": FRONTEND_PUBLIC / "battle_audio" / "new_neighbor",
-        "voice": SOFIA_VOICE,
-        "locale": LOCALE,
-    }
+        "voice": "es-MX-DaliaNeural",
+        "locale": "es-MX",
+    },
+    {
+        "json_path": FRONTEND_SRC / "battle_conversations_id.json",
+        "output_dir": FRONTEND_PUBLIC / "battle_audio" / "warung_order",
+        "voice": "id-ID-GadisNeural",
+        "locale": "id-ID",
+    },
 ]
 
 
@@ -45,7 +60,7 @@ def generate_for_conversation(json_path: Path, output_dir: Path, voice: str, loc
     print(f"Voice: {voice} ({locale})")
 
     enemy_rounds = [r for r in conv["rounds"] if r["speaker"] == "enemy"]
-    print(f"Found {len(enemy_rounds)} enemy rounds\n")
+    print(f"Found {len(enemy_rounds)} enemy rounds")
 
     generated = 0
     skipped = 0
@@ -56,20 +71,20 @@ def generate_for_conversation(json_path: Path, output_dir: Path, voice: str, loc
         out_file = output_dir / f"round_{rid}.wav"
 
         if out_file.exists():
-            print(f"  [SKIP] round_{rid} — already exists")
+            print(f"  [SKIP] round_{rid} -- already exists")
             skipped += 1
             continue
 
-        print(f"  [GEN] round_{rid}: {text[:60]}...")
+        print(f"  [GEN]  round_{rid}: {text[:60]}...")
         try:
             wav_bytes = azure_tts_bytes_real(text, locale=locale, voice=voice)
             out_file.write_bytes(wav_bytes)
-            print(f"         → saved ({len(wav_bytes):,} bytes)")
+            print(f"         saved ({len(wav_bytes):,} bytes)")
             generated += 1
         except Exception as e:
             print(f"  [ERROR] round_{rid}: {e}")
 
-    print(f"\n  Done: {generated} generated, {skipped} skipped")
+    print(f"  Done: {generated} generated, {skipped} skipped")
 
 
 def main():

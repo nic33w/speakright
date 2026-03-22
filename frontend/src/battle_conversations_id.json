@@ -1,0 +1,285 @@
+{
+  "conversation_id": "warung_order",
+  "title": "At the Warung",
+  "enemy_name": "Bu Sari",
+  "enemy_emoji": "👩‍🍳",
+  "player_emoji": "🧳",
+  "rounds": [
+    {
+      "id": 1,
+      "speaker": "enemy",
+      "enemy_line_native": "Welcome! Please sit down. What would you like to order?",
+      "enemy_line_learning": "Selamat datang! Silakan duduk. Mau pesan apa?",
+      "defend_question": {
+        "audio_url": "/battle_audio/warung_order/round_1.wav",
+        "question": "What does Bu Sari ask you to do first?",
+        "choices": ["Sit down", "Stand and wait", "Come back later"],
+        "correct_index": 0
+      }
+    },
+    {
+      "id": 2,
+      "speaker": "player",
+      "options": {
+        "easy": {
+          "native": "I want fried rice.",
+          "accepted_translations": [
+            "Saya mau nasi goreng.",
+            "Saya ingin nasi goreng."
+          ],
+          "hints": [
+            { "native": "I want", "learning": "Saya mau / Saya ingin" },
+            { "native": "fried rice", "learning": "nasi goreng" }
+          ]
+        },
+        "medium": {
+          "native": "Can I see the menu first?",
+          "accepted_translations": [
+            "Boleh saya lihat menunya dulu?",
+            "Bisa saya lihat menunya dulu?"
+          ],
+          "hints": [
+            { "native": "Can I", "learning": "Boleh saya / Bisa saya" },
+            { "native": "see the menu", "learning": "lihat menunya" },
+            { "native": "first", "learning": "dulu" }
+          ]
+        },
+        "hard": {
+          "native": "What do you recommend? I've never tried Indonesian food before.",
+          "accepted_translations": [
+            "Apa yang kamu rekomendasikan? Saya belum pernah makan makanan Indonesia.",
+            "Apa rekomendasinya? Saya belum pernah makan masakan Indonesia."
+          ],
+          "hints": [
+            { "native": "What do you recommend?", "learning": "Apa yang kamu rekomendasikan? / Apa rekomendasinya?" },
+            { "native": "I've never tried", "learning": "Saya belum pernah makan" },
+            { "native": "Indonesian food", "learning": "makanan Indonesia / masakan Indonesia" }
+          ]
+        }
+      }
+    },
+    {
+      "id": 3,
+      "speaker": "enemy",
+      "enemy_line_native": "We have fried rice, fried noodles, and chicken soup. Everything is delicious!",
+      "enemy_line_learning": "Kami punya nasi goreng, mie goreng, dan soto ayam. Semuanya enak!",
+      "defend_question": {
+        "audio_url": "/battle_audio/warung_order/round_3.wav",
+        "question": "Which of these is NOT on the menu?",
+        "choices": ["Fried rice", "Grilled fish", "Chicken soup"],
+        "correct_index": 1
+      }
+    },
+    {
+      "id": 4,
+      "speaker": "player",
+      "options": {
+        "easy": {
+          "native": "I'll have the fried rice.",
+          "accepted_translations": [
+            "Saya mau nasi goreng.",
+            "Saya pesan nasi goreng."
+          ],
+          "hints": [
+            { "native": "I'll have / I want", "learning": "Saya mau / Saya pesan" },
+            { "native": "fried rice", "learning": "nasi goreng" }
+          ]
+        },
+        "medium": {
+          "native": "I'd like the fried noodles, please.",
+          "accepted_translations": [
+            "Saya mau mie goreng, tolong.",
+            "Saya pesan mie goreng, tolong."
+          ],
+          "hints": [
+            { "native": "I'd like / I'll have", "learning": "Saya mau / Saya pesan" },
+            { "native": "fried noodles", "learning": "mie goreng" },
+            { "native": "please", "learning": "tolong" }
+          ]
+        },
+        "hard": {
+          "native": "I'll try the fried rice. I've heard the food here is very good.",
+          "accepted_translations": [
+            "Saya pesan nasi goreng. Katanya makanan di sini sangat enak.",
+            "Saya mau coba nasi goreng. Konon makanan di sini enak sekali."
+          ],
+          "hints": [
+            { "native": "I'll try", "learning": "Saya pesan / Saya mau coba" },
+            { "native": "I've heard", "learning": "Katanya / Konon" },
+            { "native": "the food here", "learning": "makanan di sini" },
+            { "native": "is very good", "learning": "sangat enak / enak sekali" }
+          ]
+        }
+      }
+    },
+    {
+      "id": 5,
+      "speaker": "enemy",
+      "enemy_line_native": "Do you want it spicy or not spicy?",
+      "enemy_line_learning": "Mau pedas atau tidak pedas?",
+      "defend_question": {
+        "audio_url": "/battle_audio/warung_order/round_5.wav",
+        "question": "What is Bu Sari asking about your food?",
+        "choices": ["The portion size", "Whether you want it spicy", "How you want it cooked"],
+        "correct_index": 1
+      }
+    },
+    {
+      "id": 6,
+      "speaker": "player",
+      "options": {
+        "easy": {
+          "native": "Not spicy, please.",
+          "accepted_translations": [
+            "Tidak pedas, tolong.",
+            "Tidak pedas ya."
+          ],
+          "hints": [
+            { "native": "Not spicy", "learning": "Tidak pedas" },
+            { "native": "please", "learning": "tolong / ya" }
+          ]
+        },
+        "medium": {
+          "native": "A little spicy, please.",
+          "accepted_translations": [
+            "Pedas sedikit, tolong.",
+            "Sedikit pedas saja, tolong."
+          ],
+          "hints": [
+            { "native": "A little spicy", "learning": "Pedas sedikit / Sedikit pedas saja" },
+            { "native": "please", "learning": "tolong" }
+          ]
+        },
+        "hard": {
+          "native": "Medium spicy please. I like spicy food but not too much.",
+          "accepted_translations": [
+            "Pedas sedang, tolong. Saya suka pedas tapi tidak terlalu.",
+            "Sedang saja tolong. Saya suka pedas tapi jangan terlalu."
+          ],
+          "hints": [
+            { "native": "Medium spicy", "learning": "Pedas sedang / Sedang saja" },
+            { "native": "I like spicy food", "learning": "Saya suka pedas" },
+            { "native": "but not too much", "learning": "tapi tidak terlalu / tapi jangan terlalu" }
+          ]
+        }
+      }
+    },
+    {
+      "id": 7,
+      "speaker": "enemy",
+      "enemy_line_native": "Great! What would you like to drink? We have iced tea, orange juice, or water.",
+      "enemy_line_learning": "Oke! Mau minum apa? Ada es teh, jus jeruk, atau air putih.",
+      "defend_question": {
+        "audio_url": "/battle_audio/warung_order/round_7.wav",
+        "question": "Which drink is NOT offered?",
+        "choices": ["Iced tea", "Coffee", "Orange juice"],
+        "correct_index": 1
+      }
+    },
+    {
+      "id": 8,
+      "speaker": "player",
+      "options": {
+        "easy": {
+          "native": "Iced tea, please.",
+          "accepted_translations": [
+            "Es teh, tolong.",
+            "Es teh ya, tolong."
+          ],
+          "hints": [
+            { "native": "Iced tea", "learning": "Es teh" },
+            { "native": "please", "learning": "tolong" }
+          ]
+        },
+        "medium": {
+          "native": "I'd like orange juice, please.",
+          "accepted_translations": [
+            "Saya mau jus jeruk, tolong.",
+            "Jus jeruk saja, tolong."
+          ],
+          "hints": [
+            { "native": "I'd like", "learning": "Saya mau / ... saja" },
+            { "native": "orange juice", "learning": "jus jeruk" },
+            { "native": "please", "learning": "tolong" }
+          ]
+        },
+        "hard": {
+          "native": "Iced tea please. Is it sweet? I prefer not too sweet.",
+          "accepted_translations": [
+            "Es teh tolong. Apakah manis? Saya lebih suka tidak terlalu manis.",
+            "Es teh ya. Manisnya banyak tidak? Saya lebih suka yang tidak terlalu manis."
+          ],
+          "hints": [
+            { "native": "Iced tea please", "learning": "Es teh tolong / Es teh ya" },
+            { "native": "Is it sweet?", "learning": "Apakah manis? / Manisnya banyak tidak?" },
+            { "native": "I prefer", "learning": "Saya lebih suka" },
+            { "native": "not too sweet", "learning": "tidak terlalu manis / yang tidak terlalu manis" }
+          ]
+        }
+      }
+    },
+    {
+      "id": 9,
+      "speaker": "enemy",
+      "enemy_line_native": "Just a moment, your food will be ready soon.",
+      "enemy_line_learning": "Sebentar ya, makanan kamu akan segera siap.",
+      "defend_question": {
+        "audio_url": "/battle_audio/warung_order/round_9.wav",
+        "question": "What does Bu Sari say about the food?",
+        "choices": ["It will be ready soon", "It will take a long time", "They have run out of it"],
+        "correct_index": 0
+      }
+    },
+    {
+      "id": 10,
+      "speaker": "player",
+      "options": {
+        "easy": {
+          "native": "Thank you!",
+          "accepted_translations": [
+            "Terima kasih!",
+            "Makasih!"
+          ],
+          "hints": [
+            { "native": "Thank you", "learning": "Terima kasih / Makasih" }
+          ]
+        },
+        "medium": {
+          "native": "Thank you! It smells delicious.",
+          "accepted_translations": [
+            "Terima kasih! Aromanya enak.",
+            "Makasih! Wanginya enak."
+          ],
+          "hints": [
+            { "native": "Thank you", "learning": "Terima kasih / Makasih" },
+            { "native": "It smells delicious", "learning": "Aromanya enak / Wanginya enak" }
+          ]
+        },
+        "hard": {
+          "native": "Thank you so much! I can't wait to try it. This is my first time here.",
+          "accepted_translations": [
+            "Terima kasih banyak! Saya tidak sabar untuk mencobanya. Ini pertama kali saya ke sini.",
+            "Makasih banyak! Saya sudah tidak sabar. Ini pertama kali saya makan di sini."
+          ],
+          "hints": [
+            { "native": "Thank you so much", "learning": "Terima kasih banyak / Makasih banyak" },
+            { "native": "I can't wait to try it", "learning": "Saya tidak sabar untuk mencobanya / Saya sudah tidak sabar" },
+            { "native": "This is my first time here", "learning": "Ini pertama kali saya ke sini / Ini pertama kali saya makan di sini" }
+          ]
+        }
+      }
+    },
+    {
+      "id": 11,
+      "speaker": "enemy",
+      "enemy_line_native": "Here's your food! Enjoy your meal!",
+      "enemy_line_learning": "Ini makanannya! Selamat makan!",
+      "defend_question": {
+        "audio_url": "/battle_audio/warung_order/round_11.wav",
+        "question": "What does Bu Sari say when she brings the food?",
+        "choices": ["Please pay now", "Enjoy your meal", "Come back tomorrow"],
+        "correct_index": 1
+      }
+    }
+  ]
+}

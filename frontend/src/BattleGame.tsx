@@ -4,6 +4,7 @@ import React, { useEffect, useState, useRef } from "react";
 import BATTLE_CONV_CAFE from './battle_conversations_es.json';
 import BATTLE_CONV_MARKET from './battle_conversations_es_2.json';
 import BATTLE_CONV_NEIGHBOR from './battle_conversations_es_3.json';
+import BATTLE_CONV_WARUNG from './battle_conversations_id.json';
 
 type LangSpec = { code: string; name: string };
 
@@ -55,6 +56,7 @@ const ALL_CONVERSATIONS: ConversationData[] = [
   BATTLE_CONV_CAFE as any,
   BATTLE_CONV_MARKET as any,
   BATTLE_CONV_NEIGHBOR as any,
+  BATTLE_CONV_WARUNG as any,
 ];
 
 type Difficulty = "easy" | "medium" | "hard";
@@ -82,7 +84,6 @@ type BattleGameProps = {
 
 const TIMER_DURATION = 30;
 const MIN_AUTO_SEND_LENGTH = 8;
-const AUTO_SEND_DELAY_MS = 1200;
 const BASE_DAMAGE: Record<Difficulty, number> = { easy: 10, medium: 20, hard: 30 };
 const HINT_PENALTY = 2;
 const MIN_DAMAGE = 5;
@@ -132,7 +133,6 @@ export default function BattleGame({
   const [totalCostCents, setTotalCostCents] = useState(0);
   const [timerEnabled, setTimerEnabled] = useState(false);
   const [freeformMode, setFreeformMode] = useState(false);
-  const [colorHints, setColorHints] = useState(true);
   const [petsEnabled, setPetsEnabled] = useState(false);
   const [animationsEnabled, setAnimationsEnabled] = useState(true);
   const [playerPets, setPlayerPets] = useState<Pet[]>([]);
@@ -146,9 +146,8 @@ export default function BattleGame({
   const [defendShuffledChoices, setDefendShuffledChoices] = useState<{ text: string; isCorrect: boolean }[]>([]);
   const [selectedConversation, setSelectedConversation] = useState<ConversationData | null>(null);
 
-  // Proximity-based hint scaling/color
+  // Proximity-based hint color
   const [closestHintIndex, setClosestHintIndex] = useState<number | null>(null);
-  const [closestHintScale, setClosestHintScale] = useState<number>(14);
   const [closestHintOpacity, setClosestHintOpacity] = useState<number>(0);
   const hintCardsRefs = useRef<(HTMLDivElement | null)[]>([]);
 
@@ -234,7 +233,7 @@ export default function BattleGame({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [freeformMode, selectedDifficulty, gamePhase, currentRoundIndex]);
 
-  // Auto-send logic (immediate for Wispr bulk input, debounced for typing)
+  // Auto-send logic (Wispr bulk input only — typing requires Enter)
   useEffect(() => {
     if (autoSendTimer.current) {
       window.clearTimeout(autoSendTimer.current);
@@ -244,14 +243,15 @@ export default function BattleGame({
     if (transcript.length >= MIN_AUTO_SEND_LENGTH && timerActive && (selectedDifficulty || freeformMode)) {
       const lengthIncrease = transcript.length - previousTranscriptLengthRef.current;
       const isWisprInput = lengthIncrease >= 10;
-      const delayMs = isWisprInput ? 100 : AUTO_SEND_DELAY_MS;
 
-      autoSendTimer.current = window.setTimeout(() => {
-        const now = Date.now();
-        if (now - lastSentRef.current > 700) {
-          void submitAnswer();
-        }
-      }, delayMs);
+      if (isWisprInput) {
+        autoSendTimer.current = window.setTimeout(() => {
+          const now = Date.now();
+          if (now - lastSentRef.current > 700) {
+            void submitAnswer();
+          }
+        }, 100);
+      }
     }
 
     previousTranscriptLengthRef.current = transcript.length;
@@ -272,7 +272,7 @@ export default function BattleGame({
       hintCardsRefs.current = new Array(opts.hints.length).fill(null);
     }
     setClosestHintIndex(null);
-    setClosestHintScale(14);
+    setClosestHintOpacity(0);
   }, [selectedDifficulty, currentRoundIndex]);
 
   // Process enemy turns automatically, and auto-start timer in freeform mode
@@ -954,12 +954,6 @@ export default function BattleGame({
     return Math.sqrt(dx * dx + dy * dy);
   }
 
-  function distanceToFontSize(distance: number): number {
-    const MAX_DISTANCE = 300;
-    if (distance >= MAX_DISTANCE) return 14;
-    if (distance <= 0) return 24;
-    return 14 + 10 * (1 - distance / MAX_DISTANCE);
-  }
 
   function distanceToOpacity(distance: number): number {
     const MAX_DISTANCE = 300;
@@ -1001,13 +995,11 @@ export default function BattleGame({
     });
 
     setClosestHintIndex(closest);
-    setClosestHintScale(closest !== null ? distanceToFontSize(minDist) : 14);
     setClosestHintOpacity(closest !== null ? distanceToOpacity(minDist) : 0);
   };
 
   const handleHintsMouseLeave = () => {
     setClosestHintIndex(null);
-    setClosestHintScale(14);
     setClosestHintOpacity(0);
   };
 
@@ -1152,25 +1144,6 @@ export default function BattleGame({
               style={{ width: 18, height: 18, cursor: "pointer" }}
             />
             Freeform mode (all sentences visible)
-          </label>
-          <label style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: 8,
-            marginBottom: 20,
-            fontSize: 16,
-            color: "#374151",
-            cursor: "pointer",
-            userSelect: "none",
-          }}>
-            <input
-              type="checkbox"
-              checked={colorHints}
-              onChange={e => setColorHints(e.target.checked)}
-              style={{ width: 18, height: 18, cursor: "pointer" }}
-            />
-            Color hints (no resize)
           </label>
           <label style={{
             display: "flex",
@@ -1560,10 +1533,9 @@ export default function BattleGame({
                                 const globalIdx = startIdx + i;
                                 const isRevealed = viewedHints.has(globalIdx);
                                 const isClosest = closestHintIndex === globalIdx;
-                                const dynamicFontSize = colorHints ? 11 : (isClosest && !isRevealed ? closestHintScale : 11);
-                                const fProximityBorder = isClosest && !isRevealed && colorHints
+                                const fProximityBorder = isClosest && !isRevealed
                                   ? `1px solid rgba(0, 212, 255, ${Math.max(0.3, closestHintOpacity)})` : undefined;
-                                const fProximityBg = isClosest && !isRevealed && colorHints
+                                const fProximityBg = isClosest && !isRevealed
                                   ? `rgba(0, 212, 255, ${0.15 * closestHintOpacity})` : undefined;
                                 const learningParts = hint.learning.split("/").map(p => p.trim()).filter(Boolean);
                                 return (
@@ -1582,9 +1554,9 @@ export default function BattleGame({
                                     }}
                                   >
                                     <div style={{
-                                      fontWeight: 600, fontSize: dynamicFontSize,
+                                      fontWeight: 600, fontSize: 11,
                                       color: isRevealed ? "#9ca3af" : "white",
-                                      transition: colorHints ? "color 0.15s ease-out" : "font-size 0.15s ease-out",
+                                      transition: "color 0.15s ease-out",
                                     }}>
                                       {hint.native}
                                     </div>
@@ -1846,10 +1818,9 @@ export default function BattleGame({
                                 const isRevealed = viewedHints.has(index);
                                 const isRevealing = revealingHintIndex === index;
                                 const isClosest = closestHintIndex === index;
-                                const dynamicFontSize = colorHints ? 14 : (isClosest && !isRevealed ? closestHintScale : 14);
-                                const proximityBorder = isClosest && !isRevealed && colorHints
+                                const proximityBorder = isClosest && !isRevealed
                                   ? `2px solid rgba(0, 212, 255, ${Math.max(0.3, closestHintOpacity)})` : undefined;
-                                const proximityBg = isClosest && !isRevealed && colorHints
+                                const proximityBg = isClosest && !isRevealed
                                   ? `rgba(0, 212, 255, ${0.15 * closestHintOpacity})` : undefined;
                                 const learningParts = hint.learning.split("/").map(p => p.trim()).filter(Boolean);
                                 return (
@@ -1872,9 +1843,9 @@ export default function BattleGame({
                                     }}
                                   >
                                     <div style={{
-                                      fontWeight: 600, marginBottom: 4, fontSize: dynamicFontSize,
+                                      fontWeight: 600, marginBottom: 4, fontSize: 14,
                                       color: isRevealed ? "#9ca3af" : "white",
-                                      transition: colorHints ? "color 0.15s ease-out" : "font-size 0.15s ease-out",
+                                      transition: "color 0.15s ease-out",
                                     }}>
                                       {hint.native}
                                     </div>
@@ -2001,7 +1972,7 @@ export default function BattleGame({
                   onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); void submitAnswer(); } }}
                   placeholder={freeformMode
                     ? `Translate any sentence in ${initialLearning.name}...`
-                    : `Type your translation in ${initialLearning.name}...`}
+                    : `Hold CTRL + Win and wait for beep to speak or type your translation in ${initialLearning.name}...`}
                   disabled={(!timerActive && timerEnabled) || busy || answerStatus === "correct"}
                   autoFocus
                   style={{
