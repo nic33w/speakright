@@ -1,6 +1,11 @@
 """
-Generate TTS audio for battle conversation enemy lines (learning language).
-Saves WAV files to frontend/public/battle_audio/<conversation_id>/
+Generate TTS audio for battle conversations:
+  1. Enemy lines (learning language) — female voices
+  2. Player hint phrases (learning language) — male voices
+
+Output structure:
+  frontend/public/battle_audio/{conversation_id}/round_{id}.wav
+  frontend/public/battle_audio/{conversation_id}/hints/round_{id}_{difficulty}_hint_{index}_v{variant}.wav
 
 Usage (run from backend/):
     python scripts/generate_battle_audio.py
@@ -26,65 +31,104 @@ CONVERSATIONS = [
     {
         "json_path": FRONTEND_SRC / "battle_conversations_es.json",
         "output_dir": FRONTEND_PUBLIC / "battle_audio" / "cafe_encounter",
-        "voice": "es-MX-JorgeNeural",
-        "locale": "es-MX",
+        "enemy_voice": "es-MX-JorgeNeural",
+        "enemy_locale": "es-MX",
+        "hint_voice": "es-MX-JorgeNeural",
+        "hint_locale": "es-MX",
     },
     {
         "json_path": FRONTEND_SRC / "battle_conversations_es_2.json",
         "output_dir": FRONTEND_PUBLIC / "battle_audio" / "market_haggle",
-        "voice": "es-MX-DaliaNeural",
-        "locale": "es-MX",
+        "enemy_voice": "es-MX-DaliaNeural",
+        "enemy_locale": "es-MX",
+        "hint_voice": "es-MX-JorgeNeural",
+        "hint_locale": "es-MX",
     },
     {
         "json_path": FRONTEND_SRC / "battle_conversations_es_3.json",
         "output_dir": FRONTEND_PUBLIC / "battle_audio" / "new_neighbor",
-        "voice": "es-MX-DaliaNeural",
-        "locale": "es-MX",
+        "enemy_voice": "es-MX-DaliaNeural",
+        "enemy_locale": "es-MX",
+        "hint_voice": "es-MX-JorgeNeural",
+        "hint_locale": "es-MX",
     },
     {
         "json_path": FRONTEND_SRC / "battle_conversations_id.json",
         "output_dir": FRONTEND_PUBLIC / "battle_audio" / "warung_order",
-        "voice": "id-ID-GadisNeural",
-        "locale": "id-ID",
+        "enemy_voice": "id-ID-GadisNeural",
+        "enemy_locale": "id-ID",
+        "hint_voice": "id-ID-ArdiNeural",
+        "hint_locale": "id-ID",
     },
 ]
 
 
-def generate_for_conversation(json_path: Path, output_dir: Path, voice: str, locale: str):
+def generate_enemy_lines(json_path, output_dir, voice, locale, conv):
+    enemy_rounds = [r for r in conv["rounds"] if r["speaker"] == "enemy"]
+    print(f"  Enemy lines: {len(enemy_rounds)} rounds, voice={voice}")
+    generated = skipped = 0
+    for r in enemy_rounds:
+        out_file = output_dir / f"round_{r['id']}.wav"
+        if out_file.exists():
+            print(f"    [SKIP] round_{r['id']}")
+            skipped += 1
+            continue
+        text = r["enemy_line_learning"]
+        print(f"    [GEN]  round_{r['id']}: {text[:55]}...")
+        try:
+            wav = azure_tts_bytes_real(text, locale=locale, voice=voice)
+            out_file.write_bytes(wav)
+            print(f"           saved ({len(wav):,} bytes)")
+            generated += 1
+        except Exception as e:
+            print(f"    [ERROR] round_{r['id']}: {e}")
+    print(f"  Enemy lines done: {generated} generated, {skipped} skipped")
+
+
+def generate_hints(output_dir, voice, locale, conv):
+    hints_dir = output_dir / "hints"
+    hints_dir.mkdir(parents=True, exist_ok=True)
+
+    player_rounds = [r for r in conv["rounds"] if r["speaker"] == "player"]
+    difficulties = ["easy", "medium", "hard"]
+    print(f"  Hints: {len(player_rounds)} player rounds x {len(difficulties)} difficulties, voice={voice}")
+    generated = skipped = 0
+
+    for r in player_rounds:
+        rid = r["id"]
+        for diff in difficulties:
+            opts = r.get("options", {}).get(diff)
+            if not opts:
+                continue
+            hints = opts.get("hints", [])
+            for hi, hint in enumerate(hints):
+                # Split on " / " to get variants
+                variants = [v.strip() for v in hint["learning"].split(" / ") if v.strip()]
+                for vi, variant_text in enumerate(variants):
+                    out_file = hints_dir / f"round_{rid}_{diff}_hint_{hi}_v{vi}.wav"
+                    if out_file.exists():
+                        skipped += 1
+                        continue
+                    print(f"    [GEN]  round_{rid} {diff} hint_{hi} v{vi}: {variant_text[:50]}...")
+                    try:
+                        wav = azure_tts_bytes_real(variant_text, locale=locale, voice=voice)
+                        out_file.write_bytes(wav)
+                        print(f"           saved ({len(wav):,} bytes)")
+                        generated += 1
+                    except Exception as e:
+                        print(f"    [ERROR] round_{rid} {diff} hint_{hi} v{vi}: {e}")
+
+    print(f"  Hints done: {generated} generated, {skipped} skipped")
+
+
+def process_conversation(json_path, output_dir, enemy_voice, enemy_locale, hint_voice, hint_locale):
     print(f"\nLoading: {json_path.name}")
     with open(json_path, "r", encoding="utf-8") as f:
         conv = json.load(f)
-
     output_dir.mkdir(parents=True, exist_ok=True)
-    print(f"Output dir: {output_dir}")
-    print(f"Voice: {voice} ({locale})")
 
-    enemy_rounds = [r for r in conv["rounds"] if r["speaker"] == "enemy"]
-    print(f"Found {len(enemy_rounds)} enemy rounds")
-
-    generated = 0
-    skipped = 0
-
-    for round_data in enemy_rounds:
-        rid = round_data["id"]
-        text = round_data["enemy_line_learning"]
-        out_file = output_dir / f"round_{rid}.wav"
-
-        if out_file.exists():
-            print(f"  [SKIP] round_{rid} -- already exists")
-            skipped += 1
-            continue
-
-        print(f"  [GEN]  round_{rid}: {text[:60]}...")
-        try:
-            wav_bytes = azure_tts_bytes_real(text, locale=locale, voice=voice)
-            out_file.write_bytes(wav_bytes)
-            print(f"         saved ({len(wav_bytes):,} bytes)")
-            generated += 1
-        except Exception as e:
-            print(f"  [ERROR] round_{rid}: {e}")
-
-    print(f"  Done: {generated} generated, {skipped} skipped")
+    generate_enemy_lines(json_path, output_dir, enemy_voice, enemy_locale, conv)
+    generate_hints(output_dir, hint_voice, hint_locale, conv)
 
 
 def main():
@@ -92,17 +136,21 @@ def main():
     print("Battle Audio Generator")
     print("=" * 60)
 
-    azure_key = os.getenv("AZURE_SPEECH_KEY")
-    azure_region = os.getenv("AZURE_REGION")
-
-    if not azure_key or not azure_region:
-        print("\n[ERROR] Azure credentials missing! Set AZURE_SPEECH_KEY and AZURE_REGION in backend/.env")
+    if not os.getenv("AZURE_SPEECH_KEY") or not os.getenv("AZURE_REGION"):
+        print("\n[ERROR] Azure credentials missing — set AZURE_SPEECH_KEY and AZURE_REGION in backend/.env")
         sys.exit(1)
 
-    print(f"Azure Region: {azure_region}")
+    print(f"Azure Region: {os.getenv('AZURE_REGION')}")
 
     for conv in CONVERSATIONS:
-        generate_for_conversation(**conv)
+        process_conversation(
+            conv["json_path"],
+            conv["output_dir"],
+            conv["enemy_voice"],
+            conv["enemy_locale"],
+            conv["hint_voice"],
+            conv["hint_locale"],
+        )
 
     print("\n" + "=" * 60)
     print("Done!")

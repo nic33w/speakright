@@ -8,7 +8,7 @@ import BATTLE_CONV_WARUNG from './battle_conversations_id.json';
 
 type LangSpec = { code: string; name: string };
 
-type HintItem = { native: string; learning: string };
+type HintItem = { native: string; learning: string; note?: string };
 
 type DifficultyOption = {
   native: string;
@@ -83,11 +83,12 @@ type BattleGameProps = {
 };
 
 const TIMER_DURATION = 30;
-const MIN_AUTO_SEND_LENGTH = 8;
+const MIN_AUTO_SEND_LENGTH = 2;
 const BASE_DAMAGE: Record<Difficulty, number> = { easy: 10, medium: 20, hard: 30 };
 const HINT_PENALTY = 2;
 const MIN_DAMAGE = 5;
 const ENEMY_DAMAGE = 15;
+const DEFEND_COUNTER_DAMAGE = 10;
 const PLAYER_MAX_HP = 100;
 const ENEMY_MAX_HP = 100;
 const PLAYER_PET_EMOJIS = ["🐺", "🦊", "🦅"];
@@ -96,6 +97,226 @@ const PET_MAX_HP = 20;
 const PET_DAMAGE = 5;
 
 type Pet = { id: string; emoji: string; hp: number; maxHp: number };
+
+
+// ── Tokenizes native sentence text into hint-mapped segments ──
+function tokenizeWithHints(
+  text: string,
+  hints: HintItem[]
+): Array<{ text: string; hintIndex: number | null }> {
+  if (!hints.length) return [{ text, hintIndex: null }];
+  type Span = { start: number; end: number; hintIndex: number };
+  const spans: Span[] = [];
+  hints.forEach((hint, hi) => {
+    const terms = hint.native.split("/").map(t => t.trim()).filter(Boolean);
+    for (const term of terms) {
+      const escaped = term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const re = new RegExp(escaped, "gi");
+      let m: RegExpExecArray | null;
+      while ((m = re.exec(text)) !== null) {
+        spans.push({ start: m.index, end: m.index + m[0].length, hintIndex: hi });
+      }
+    }
+  });
+  spans.sort((a, b) => a.start !== b.start ? a.start - b.start : (b.end - b.start) - (a.end - a.start));
+  const kept: Span[] = [];
+  let cursor = 0;
+  for (const sp of spans) {
+    if (sp.start >= cursor) { kept.push(sp); cursor = sp.end; }
+  }
+  const result: Array<{ text: string; hintIndex: number | null }> = [];
+  let pos = 0;
+  for (const sp of kept) {
+    if (pos < sp.start) result.push({ text: text.slice(pos, sp.start), hintIndex: null });
+    result.push({ text: text.slice(sp.start, sp.end), hintIndex: sp.hintIndex });
+    pos = sp.end;
+  }
+  if (pos < text.length) result.push({ text: text.slice(pos), hintIndex: null });
+  return result.length ? result : [{ text, hintIndex: null }];
+}
+
+// ── Expanded player log entry: 4-section hover layout ──
+type PlayerLogEntryExpandedProps = {
+  entry: CompletedRound;
+  hideLearnText: boolean;
+  conversationId: string;
+};
+
+function PlayerLogEntryExpanded({ entry, hideLearnText, conversationId }: PlayerLogEntryExpandedProps) {
+  const [hoveredHintIdx, setHoveredHintIdx] = useState<number | null>(null);
+  const [playingVariant, setPlayingVariant] = useState<number | null>(null);
+  const [previewExIdx, setPreviewExIdx] = useState<number | null>(null);
+  const [peekText, setPeekText] = useState(false);
+  const hintAudioRef = useRef<HTMLAudioElement | null>(null);
+
+  const hints = entry.allHints ?? [];
+  const tokens = tokenizeWithHints(entry.textNative, hints);
+  const examples = entry.acceptedTranslations ?? [];
+
+  function stopHintAudio() {
+    if (hintAudioRef.current) { hintAudioRef.current.pause(); hintAudioRef.current = null; }
+    setPlayingVariant(null);
+  }
+
+  function playHintAudio(hintIdx: number) {
+    const variants = hints[hintIdx].learning.split(" / ").map(v => v.trim()).filter(Boolean);
+    stopHintAudio();
+    setPlayingVariant(0);
+    const audio0 = new Audio(`/battle_audio/${conversationId}/hints/round_${entry.id}_${entry.difficulty}_hint_${hintIdx}_v0.wav`);
+    hintAudioRef.current = audio0;
+    audio0.onended = () => {
+      if (variants.length > 1) {
+        setPlayingVariant(1);
+        const audio1 = new Audio(`/battle_audio/${conversationId}/hints/round_${entry.id}_${entry.difficulty}_hint_${hintIdx}_v1.wav`);
+        hintAudioRef.current = audio1;
+        audio1.onended = () => setPlayingVariant(null);
+        audio1.play().catch(() => setPlayingVariant(null));
+      } else {
+        setPlayingVariant(null);
+      }
+    };
+    audio0.play().catch(() => setPlayingVariant(null));
+  }
+
+  const hoveredHint = hoveredHintIdx !== null ? hints[hoveredHintIdx] : null;
+  const hoveredVariants = hoveredHint ? hoveredHint.learning.split(" / ").map(v => v.trim()).filter(Boolean) : [];
+
+  const isPreview = previewExIdx !== null;
+  const displayedText = isPreview ? (examples[previewExIdx!] ?? entry.textLearning ?? "") : (entry.textLearning ?? "");
+  const feedbackText = entry.skipped ? "Skipped" : entry.damageDealt ? `+${entry.damageDealt} damage` : "";
+
+  return (
+    <div
+      style={{ display: "flex", flexDirection: "column", gap: 0 }}
+      onMouseLeave={() => { setHoveredHintIdx(null); stopHintAudio(); setPeekText(false); }}
+    >
+
+      {/* 1. Native sentence with hoverable hint-matched spans */}
+      <div style={{ lineHeight: 1.6, fontSize: 13 }}>
+        {tokens.map((tok, ti) => {
+          if (tok.hintIndex === null) return (
+            <span key={ti} onMouseEnter={() => { setHoveredHintIdx(null); stopHintAudio(); }}>{tok.text}</span>
+          );
+          const hint = hints[tok.hintIndex];
+          const wasUsed = entry.usedHintPairs?.some(u => u.native === hint.native) ?? false;
+          const isHov = hoveredHintIdx === tok.hintIndex;
+          return (
+            <span
+              key={ti}
+              onMouseEnter={() => { setHoveredHintIdx(tok.hintIndex!); playHintAudio(tok.hintIndex!); }}
+              style={{
+                borderBottom: `1px ${isHov ? "solid" : "dashed"} ${wasUsed ? "rgba(251,191,36,0.6)" : "rgba(147,197,253,0.45)"}`,
+                color: isHov ? (wasUsed ? "#fbbf24" : "#93c5fd") : "inherit",
+                cursor: "default",
+                transition: "color 0.1s",
+                paddingBottom: 1,
+              }}
+            >
+              {tok.text}
+            </span>
+          );
+        })}
+      </div>
+
+      {/* 2. Contextual hint display — hover here to reveal text in audio-only mode */}
+      <div
+        style={{ minHeight: 26, display: "flex", alignItems: "center", justifyContent: "space-between", paddingTop: 4 }}
+        onMouseEnter={() => { if (hideLearnText) setPeekText(true); }}
+        onMouseLeave={() => setPeekText(false)}
+      >
+        {hoveredHint ? (
+          <div style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 12, flexWrap: "wrap" }}>
+            {hoveredVariants.map((v, vi) => {
+              const isPlaying = playingVariant === vi;
+              const showText = !hideLearnText || peekText;
+              return (
+                <span
+                  key={vi}
+                  style={{
+                    display: "inline-flex", alignItems: "center", gap: 4,
+                    padding: showText ? "2px 9px" : "2px 10px", borderRadius: 20,
+                    border: `1px solid ${isPlaying ? "rgba(251,191,36,0.6)" : "rgba(147,197,253,0.3)"}`,
+                    background: isPlaying ? "rgba(251,191,36,0.1)" : "rgba(147,197,253,0.07)",
+                    transition: "border-color 0.2s, background 0.2s",
+                  }}
+                >
+                  <span className={isPlaying ? "hint-playing-dot" : undefined} style={{
+                    width: 5, height: 5, borderRadius: "50%", display: "inline-block", flexShrink: 0,
+                    background: isPlaying ? "#fbbf24" : "rgba(147,197,253,0.4)",
+                    transition: "background 0.2s",
+                  }} />
+                  {showText && (
+                    <span style={{
+                      color: isPlaying ? "#fbbf24" : "#93c5fd",
+                      fontWeight: isPlaying ? 600 : 400,
+                      transition: "color 0.2s",
+                    }}>
+                      {v}
+                    </span>
+                  )}
+                </span>
+              );
+            })}
+            {hoveredHint?.note && (!hideLearnText || peekText) && (
+              <span style={{ fontSize: 11, fontStyle: "italic", color: "rgba(255,255,255,0.45)", marginLeft: 2 }}>
+                {hoveredHint.note}
+              </span>
+            )}
+          </div>
+        ) : <div />}
+      </div>
+
+      {/* 3. You said — with example preview buttons */}
+      <div style={{ borderTop: "1px solid rgba(255,255,255,0.1)", paddingTop: 7, paddingBottom: 4 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
+          <div style={{ fontSize: 10, opacity: 0.45, textTransform: "uppercase", letterSpacing: "0.06em" }}>
+            {isPreview ? `Example ${previewExIdx! + 1}` : "You said"}
+          </div>
+          {examples.length > 0 && (
+            <div style={{ display: "flex", gap: 4 }}>
+              {examples.slice(0, 2).map((_, ei) => (
+                <div
+                  key={ei}
+                  onMouseEnter={() => setPreviewExIdx(ei)}
+                  onMouseLeave={() => setPreviewExIdx(null)}
+                  style={{
+                    width: 20, height: 20, borderRadius: 4, fontSize: 10, fontWeight: 700,
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    cursor: "default", userSelect: "none",
+                    background: previewExIdx === ei ? "rgba(147,197,253,0.2)" : "rgba(255,255,255,0.07)",
+                    border: `1px solid ${previewExIdx === ei ? "rgba(147,197,253,0.5)" : "rgba(255,255,255,0.15)"}`,
+                    color: previewExIdx === ei ? "#93c5fd" : "rgba(255,255,255,0.4)",
+                    transition: "all 0.15s",
+                  }}
+                >
+                  {ei + 1}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+        <div style={{
+          color: isPreview ? "#93c5fd" : (entry.skipped ? "#fbbf24" : "#86efac"),
+          fontSize: 13, fontStyle: isPreview ? "italic" : "normal",
+          transition: "color 0.15s",
+        }}>
+          {displayedText}
+        </div>
+      </div>
+
+      {/* 4. Feedback */}
+      {feedbackText && (
+        <div style={{ borderTop: "1px solid rgba(255,255,255,0.1)", paddingTop: 7 }}>
+          <div style={{ fontSize: 10, opacity: 0.45, marginBottom: 3, textTransform: "uppercase", letterSpacing: "0.06em" }}>Feedback</div>
+          <div style={{ fontSize: 12, color: entry.skipped ? "#94a3b8" : "#86efac" }}>
+            {feedbackText}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 
 function delay(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms));
@@ -118,10 +339,10 @@ export default function BattleGame({
   const [answerStatus, setAnswerStatus] = useState<"idle" | "checking" | "correct" | "incorrect" | "skipped">("idle");
   const [feedbackMessage, setFeedbackMessage] = useState("");
   const [conversationHistory, setConversationHistory] = useState<CompletedRound[]>([]);
-  const [hoveredLogEntry, setHoveredLogEntry] = useState<number | null>(null);
+  const [expandedLogEntry, setExpandedLogEntry] = useState<number | null>(null);
   const [revealingHintIndex, setRevealingHintIndex] = useState<number | null>(null);
   const [showPowerUpBanner, setShowPowerUpBanner] = useState(false);
-  const [previewAnswer, setPreviewAnswer] = useState<{ entryIndex: number; transIndex: number } | null>(null);
+  const [hideLearnText, setHideLearnText] = useState(false);
   const [showEnemyTurn, setShowEnemyTurn] = useState(false);
   const [timerSeconds, setTimerSeconds] = useState(TIMER_DURATION);
   const [timerActive, setTimerActive] = useState(false);
@@ -143,7 +364,13 @@ export default function BattleGame({
   const [currentDefendQuestion, setCurrentDefendQuestion] = useState<DefendQuestion | null>(null);
   const [defendResult, setDefendResult] = useState<"correct" | "incorrect" | null>(null);
   const [defendAudioDone, setDefendAudioDone] = useState(false);
+  const [defendSeenOnce, setDefendSeenOnce] = useState(false);
+  const [defendAudioPlayCount, setDefendAudioPlayCount] = useState(0);
+  const [defendCounterDealt, setDefendCounterDealt] = useState<number | null>(null);
   const [defendShuffledChoices, setDefendShuffledChoices] = useState<{ text: string; isCorrect: boolean }[]>([]);
+  const [peekLogIdx, setPeekLogIdx] = useState<number | null>(null);
+  const [peekHintKey, setPeekHintKey] = useState<string | null>(null);
+  const [revealLearnAfterRound, setRevealLearnAfterRound] = useState(false);
   const [selectedConversation, setSelectedConversation] = useState<ConversationData | null>(null);
 
   // Proximity-based hint color
@@ -154,12 +381,16 @@ export default function BattleGame({
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const timerExpiredRef = useRef(false);
   const historyEndRef = useRef<HTMLDivElement | null>(null);
+  const expandTimerRef = useRef<number | null>(null);
   const autoSendTimer = useRef<number | null>(null);
   const lastSentRef = useRef<number>(0);
   const previousTranscriptLengthRef = useRef<number>(0);
   const defendResolveRef = useRef<((correct: boolean) => void) | null>(null);
   const playerHealthRef = useRef(PLAYER_MAX_HP);
   const defendAudioRef = useRef<HTMLAudioElement | null>(null);
+  const enemyLogAudioRef = useRef<HTMLAudioElement | null>(null);
+  const [arenaPlayingHint, setArenaPlayingHint] = useState<{ key: string; variant: number } | null>(null);
+  const arenaAudioRef = useRef<HTMLAudioElement | null>(null);
 
   // Active conversation (set after selection)
   const conversation = selectedConversation;
@@ -334,6 +565,9 @@ export default function BattleGame({
       setShowDefendPhase(true);
       setDefendResult(null);
       setDefendAudioDone(false);
+      setDefendSeenOnce(false);
+      setDefendAudioPlayCount(1);
+      setDefendCounterDealt(null);
       // Shuffle choices, preserving which one is correct
       const shuffled = question.choices
         .map((text, i) => ({ text, isCorrect: i === question.correct_index }))
@@ -341,8 +575,8 @@ export default function BattleGame({
       setDefendShuffledChoices(shuffled);
       const audio = new Audio(question.audio_url);
       defendAudioRef.current = audio;
-      audio.addEventListener("ended", () => setDefendAudioDone(true), { once: true });
-      audio.play().catch(() => setDefendAudioDone(true)); // show question even if audio fails
+      audio.addEventListener("ended", () => { setDefendAudioDone(true); setDefendSeenOnce(true); }, { once: true });
+      audio.play().catch(() => { setDefendAudioDone(true); setDefendSeenOnce(true); }); // show question even if audio fails
       defendResolveRef.current = resolve;
     });
   }
@@ -358,10 +592,14 @@ export default function BattleGame({
       setPlayerHealth(newHp);
       setDamageFlash("player");
       setLastPlayerDamage(ENEMY_DAMAGE);
-      setTimeout(() => {
-        setDamageFlash(null);
-        setLastPlayerDamage(null);
-      }, 900);
+      setTimeout(() => { setDamageFlash(null); setLastPlayerDamage(null); }, 900);
+    } else if (defendAudioPlayCount === 1) {
+      // First-listen bonus: counter-attack the enemy
+      setDefendCounterDealt(DEFEND_COUNTER_DAMAGE);
+      setEnemyHealth(prev => Math.max(0, prev - DEFEND_COUNTER_DAMAGE));
+      setDamageFlash("enemy");
+      setLastDamage(DEFEND_COUNTER_DAMAGE);
+      setTimeout(() => { setDamageFlash(null); setLastDamage(null); }, 900);
     }
 
     setTimeout(() => {
@@ -438,6 +676,8 @@ export default function BattleGame({
     setFeedbackMessage("");
     setTimerActive(false);
     timerExpiredRef.current = false;
+    setRevealLearnAfterRound(false);
+    setPeekHintKey(null);
   }
 
   function selectDifficulty(diff: Difficulty) {
@@ -469,56 +709,6 @@ export default function BattleGame({
   }
 
   const HINT_COLORS = ["#fbbf24", "#67e8f9", "#86efac", "#c4b5fd", "#f9a8d4", "#fdba74"];
-
-  function highlightHintWords(
-    text: string,
-    pairs: { native: string; learning: string }[],
-    field: "native" | "learning",
-  ): React.ReactNode {
-    // Build [start, end, colorIndex] ranges
-    const ranges: [number, number, number][] = [];
-    const normalize = (s: string) => s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-    const stripPunct = (s: string) => s.replace(/^[\s\p{P}\p{S}]+|[\s\p{P}\p{S}]+$/gu, "");
-    const normText = normalize(text);
-    pairs.forEach((pair, colorIdx) => {
-      const src = field === "native" ? pair.native : pair.learning;
-      const terms = src.split("/").map(p => stripPunct(p.trim())).filter(Boolean);
-      for (const term of terms) {
-        const t = normalize(term);
-        let pos = 0;
-        while (pos < normText.length) {
-          const idx = normText.indexOf(t, pos);
-          if (idx === -1) break;
-          ranges.push([idx, idx + t.length, colorIdx]);
-          pos = idx + t.length;
-        }
-      }
-    });
-    if (ranges.length === 0) return text;
-
-    // Sort by start, keep first match when overlapping
-    ranges.sort((a, b) => a[0] - b[0]);
-    const merged: [number, number, number][] = [ranges[0]];
-    for (let i = 1; i < ranges.length; i++) {
-      const last = merged[merged.length - 1];
-      if (ranges[i][0] < last[1]) continue; // skip overlapping
-      merged.push(ranges[i]);
-    }
-
-    const nodes: React.ReactNode[] = [];
-    let cursor = 0;
-    for (const [start, end, colorIdx] of merged) {
-      if (cursor < start) nodes.push(text.slice(cursor, start));
-      nodes.push(
-        <span key={start} style={{ color: HINT_COLORS[colorIdx % HINT_COLORS.length] }}>
-          {text.slice(start, end)}
-        </span>
-      );
-      cursor = end;
-    }
-    if (cursor < text.length) nodes.push(text.slice(cursor));
-    return <>{nodes}</>;
-  }
 
   function renderSentenceWithHints(
     text: string,
@@ -770,6 +960,7 @@ export default function BattleGame({
 
     // Reveal unused hints one at a time before advancing
     const unusedIndices = opts.hints.map((_, i) => i).filter(i => !viewedHints.has(i));
+    setRevealLearnAfterRound(true);
     if (unusedIndices.length > 0) {
       setShowPowerUpBanner(true);
       await delay(350);
@@ -903,6 +1094,7 @@ export default function BattleGame({
     setFeedbackMessage(opts.accepted_translations[0]);
 
     // Reveal unused hints one at a time
+    setRevealLearnAfterRound(true);
     const unusedIndices = opts.hints.map((_, i) => i).filter(i => !viewedHints.has(i));
     if (unusedIndices.length > 0) {
       setShowPowerUpBanner(true);
@@ -944,6 +1136,25 @@ export default function BattleGame({
 
   function handleHintView(index: number) {
     setViewedHints(prev => new Set([...prev, index]));
+  }
+
+  function playArenaHint(key: string, roundId: number, diff: string, hintLocalIdx: number, variants: string[]) {
+    if (arenaAudioRef.current) { arenaAudioRef.current.pause(); arenaAudioRef.current = null; }
+    setArenaPlayingHint({ key, variant: 0 });
+    const audio0 = new Audio(`/battle_audio/${conversation!.conversation_id}/hints/round_${roundId}_${diff}_hint_${hintLocalIdx}_v0.wav`);
+    arenaAudioRef.current = audio0;
+    audio0.onended = () => {
+      if (variants.length > 1) {
+        setArenaPlayingHint({ key, variant: 1 });
+        const audio1 = new Audio(`/battle_audio/${conversation!.conversation_id}/hints/round_${roundId}_${diff}_hint_${hintLocalIdx}_v1.wav`);
+        arenaAudioRef.current = audio1;
+        audio1.onended = () => setArenaPlayingHint(null);
+        audio1.play().catch(() => setArenaPlayingHint(null));
+      } else {
+        setArenaPlayingHint(null);
+      }
+    };
+    audio0.play().catch(() => setArenaPlayingHint(null));
   }
 
   // Proximity-based scaling for hints
@@ -1202,6 +1413,19 @@ export default function BattleGame({
             />
             Attack animations (lunge toward target)
           </label>
+          <label style={{
+            display: "flex", alignItems: "center", justifyContent: "center",
+            gap: 8, marginBottom: 20, fontSize: 16, color: "#374151",
+            cursor: "pointer", userSelect: "none",
+          }}>
+            <input
+              type="checkbox"
+              checked={hideLearnText}
+              onChange={e => setHideLearnText(e.target.checked)}
+              style={{ width: 18, height: 18, cursor: "pointer" }}
+            />
+            🔇 Audio only — hide hint translations (listen, don't read)
+          </label>
 
           {/* Back button */}
           {onBack && (
@@ -1274,6 +1498,11 @@ export default function BattleGame({
         .damage-shake { animation: shake 0.4s ease; }
         .lunge-right { animation: lungeRight 0.38s ease-in-out; }
         .lunge-left  { animation: lungeLeft 0.38s ease-in-out; }
+        @keyframes pulse {
+          0%, 100% { opacity: 1; transform: scale(1); }
+          50% { opacity: 0.5; transform: scale(0.7); }
+        }
+        .hint-playing-dot { animation: pulse 0.6s ease-in-out infinite; }
         .damage-float {
           animation: floatUp 1s ease-out forwards;
           position: absolute;
@@ -1333,6 +1562,20 @@ export default function BattleGame({
                 {totalCostCents < 0.01 ? "<0.01" : totalCostCents.toFixed(2)}&#162;
               </div>
             )}
+            <button
+              onClick={() => setHideLearnText(h => !h)}
+              title={hideLearnText ? "Show hint translations" : "Audio only — hide hint translations"}
+              style={{
+                padding: "4px 10px", fontSize: 12, fontWeight: 600, borderRadius: 6,
+                cursor: "pointer", border: "1px solid",
+                background: hideLearnText ? "rgba(251,191,36,0.2)" : "rgba(255,255,255,0.08)",
+                borderColor: hideLearnText ? "rgba(251,191,36,0.5)" : "rgba(255,255,255,0.2)",
+                color: hideLearnText ? "#fbbf24" : "rgba(255,255,255,0.6)",
+                transition: "all 0.15s",
+              }}
+            >
+              {hideLearnText ? "🔇 Audio only" : "👁 Show text"}
+            </button>
             <div style={{ fontSize: 14, opacity: 0.7 }}>
               Round {playerRoundCount}/{totalPlayerRounds}
             </div>
@@ -1538,11 +1781,16 @@ export default function BattleGame({
                                 const fProximityBg = isClosest && !isRevealed
                                   ? `rgba(0, 212, 255, ${0.15 * closestHintOpacity})` : undefined;
                                 const learningParts = hint.learning.split("/").map(p => p.trim()).filter(Boolean);
+                                const hintKey = `free_${globalIdx}`;
+                                const playingVariant = arenaPlayingHint?.key === hintKey ? arenaPlayingHint.variant : null;
                                 return (
                                   <div
                                     key={globalIdx}
                                     ref={el => { hintCardsRefs.current[globalIdx] = el; }}
-                                    onMouseEnter={() => handleHintView(globalIdx)}
+                                    onMouseEnter={() => {
+                                      playArenaHint(hintKey, currentRound!.id, diff, i, learningParts);
+                                      handleHintView(globalIdx);
+                                    }}
                                     style={{
                                       flexShrink: 0,
                                       padding: "6px 10px",
@@ -1560,14 +1808,44 @@ export default function BattleGame({
                                     }}>
                                       {hint.native}
                                     </div>
-                                    <div style={{ visibility: isRevealed ? "visible" : "hidden", marginTop: 3 }}>
+                                    <div style={{ visibility: isRevealed && (!hideLearnText || peekHintKey === hintKey || revealLearnAfterRound) ? "visible" : "hidden", marginTop: 3 }}>
                                       {learningParts.length > 1
                                         ? <ol style={{ margin: 0, padding: "0 0 0 14px", color: "#93c5fd", fontSize: 10, fontWeight: 500 }}>
                                             {learningParts.map((p, pi) => <li key={pi}>{p}</li>)}
                                           </ol>
                                         : <div style={{ color: "#93c5fd", fontSize: 10, fontWeight: 500 }}>{hint.learning}</div>
                                       }
+                                      {hint.note && (
+                                        <div style={{ fontSize: 9, fontStyle: "italic", color: "rgba(255,255,255,0.45)", marginTop: 3 }}>
+                                          {hint.note}
+                                        </div>
+                                      )}
                                     </div>
+                                    {learningParts.length > 1 && (
+                                      <div style={{ display: "flex", gap: 3, marginTop: 4, justifyContent: "center" }}>
+                                        {learningParts.map((_, pi) => (
+                                          <span key={pi} className={playingVariant === pi ? "hint-playing-dot" : undefined} style={{
+                                            width: 4, height: 4, borderRadius: "50%", display: "inline-block",
+                                            background: playingVariant === pi ? "#fbbf24" : "rgba(255,255,255,0.25)",
+                                            transition: "background 0.2s",
+                                          }} />
+                                        ))}
+                                      </div>
+                                    )}
+                                    {hideLearnText && isRevealed && !revealLearnAfterRound && (
+                                      <div
+                                        onMouseEnter={e => { e.stopPropagation(); setPeekHintKey(hintKey); }}
+                                        onMouseLeave={e => { e.stopPropagation(); setPeekHintKey(null); }}
+                                        title="Hold to reveal"
+                                        style={{
+                                          fontSize: 9, textAlign: "center", marginTop: 3,
+                                          cursor: "default", userSelect: "none",
+                                          opacity: peekHintKey === hintKey ? 0.8 : 0.3, transition: "opacity 0.15s",
+                                        }}
+                                      >
+                                        👁
+                                      </div>
+                                    )}
                                   </div>
                                 );
                               })}
@@ -1642,15 +1920,35 @@ export default function BattleGame({
                     <div style={{ fontSize: 36 }}>🛡️</div>
                     <div style={{ fontSize: 20, fontWeight: 700, color: "#fbbf24" }}>Defend!</div>
                     <div style={{ fontSize: 13, opacity: 0.6 }}>
-                      {defendAudioDone
+                      {defendSeenOnce
                         ? `Answer correctly to block ${conversation!.enemy_name}'s attack.`
                         : `Listen to what ${conversation!.enemy_name} said...`}
                     </div>
                   </div>
 
+                  {/* Skip button — only during initial audio playback */}
+                  {!defendSeenOnce && (
+                    <button
+                      onClick={() => {
+                        if (defendAudioRef.current) { defendAudioRef.current.pause(); }
+                        setDefendAudioDone(true);
+                        setDefendSeenOnce(true);
+                      }}
+                      style={{
+                        padding: "5px 14px", fontSize: 12, fontWeight: 500,
+                        background: "transparent", color: "rgba(255,255,255,0.4)",
+                        border: "1px solid rgba(255,255,255,0.2)", borderRadius: 6,
+                        cursor: "pointer",
+                      }}
+                    >
+                      Skip →
+                    </button>
+                  )}
+
                   {/* Hover-to-replay audio button */}
                   <div
                     onMouseEnter={() => {
+                      setDefendAudioPlayCount(prev => prev + 1);
                       setDefendAudioDone(false);
                       if (defendAudioRef.current) {
                         defendAudioRef.current.currentTime = 0;
@@ -1674,8 +1972,8 @@ export default function BattleGame({
                     🔊 Hover to replay
                   </div>
 
-                  {/* Question and choices — only shown after audio finishes */}
-                  {defendAudioDone && <>
+                  {/* Question and choices — shown after first listen; stays visible during replays */}
+                  {(defendAudioDone || defendSeenOnce) && <>
                   {/* Question */}
                   <div style={{ fontSize: 17, fontWeight: 600, lineHeight: 1.4, maxWidth: 380 }}>
                     {q.question}
@@ -1746,7 +2044,9 @@ export default function BattleGame({
                         color: defendResult === "correct" ? "#86efac" : "#fca5a5",
                       }}>
                         {defendResult === "correct"
-                          ? "✓ Blocked! No damage taken."
+                          ? defendCounterDealt
+                            ? `✓ Blocked! Counter-attacked for ${defendCounterDealt} damage! ⚡`
+                            : "✓ Blocked! No damage taken."
                           : `✗ Wrong! ${conversation!.enemy_name} deals ${ENEMY_DAMAGE} damage!`}
                       </div>
                     </div>
@@ -1823,11 +2123,16 @@ export default function BattleGame({
                                 const proximityBg = isClosest && !isRevealed
                                   ? `rgba(0, 212, 255, ${0.15 * closestHintOpacity})` : undefined;
                                 const learningParts = hint.learning.split("/").map(p => p.trim()).filter(Boolean);
+                                const hintKey = `sel_${index}`;
+                                const playingVariant = arenaPlayingHint?.key === hintKey ? arenaPlayingHint.variant : null;
                                 return (
                                   <div
                                     key={index}
                                     ref={el => { hintCardsRefs.current[index] = el; }}
-                                    onMouseEnter={() => handleHintView(index)}
+                                    onMouseEnter={() => {
+                                      playArenaHint(hintKey, currentRound!.id, selectedDifficulty!, index, learningParts);
+                                      handleHintView(index);
+                                    }}
                                     className={isRevealing ? "hint-revealing" : undefined}
                                     style={{
                                       flexShrink: 0, minWidth: 100,
@@ -1849,14 +2154,44 @@ export default function BattleGame({
                                     }}>
                                       {hint.native}
                                     </div>
-                                    <div style={{ visibility: isRevealed ? "visible" : "hidden" }}>
+                                    <div style={{ visibility: isRevealed && (!hideLearnText || peekHintKey === hintKey || revealLearnAfterRound) ? "visible" : "hidden" }}>
                                       {learningParts.length > 1
                                         ? <ol style={{ margin: 0, padding: "0 0 0 16px", color: "#93c5fd", fontSize: 12, fontWeight: 500 }}>
                                             {learningParts.map((p, pi) => <li key={pi}>{p}</li>)}
                                           </ol>
                                         : <div style={{ color: "#93c5fd", fontSize: 12, fontWeight: 500 }}>{hint.learning}</div>
                                       }
+                                      {hint.note && (
+                                        <div style={{ fontSize: 10, fontStyle: "italic", color: "rgba(255,255,255,0.45)", marginTop: 4 }}>
+                                          {hint.note}
+                                        </div>
+                                      )}
                                     </div>
+                                    {learningParts.length > 1 && (
+                                      <div style={{ display: "flex", gap: 4, marginTop: 6, justifyContent: "center" }}>
+                                        {learningParts.map((_, pi) => (
+                                          <span key={pi} className={playingVariant === pi ? "hint-playing-dot" : undefined} style={{
+                                            width: 5, height: 5, borderRadius: "50%", display: "inline-block",
+                                            background: playingVariant === pi ? "#fbbf24" : "rgba(255,255,255,0.25)",
+                                            transition: "background 0.2s",
+                                          }} />
+                                        ))}
+                                      </div>
+                                    )}
+                                    {hideLearnText && isRevealed && !revealLearnAfterRound && (
+                                      <div
+                                        onMouseEnter={e => { e.stopPropagation(); setPeekHintKey(hintKey); }}
+                                        onMouseLeave={e => { e.stopPropagation(); setPeekHintKey(null); }}
+                                        title="Hold to reveal"
+                                        style={{
+                                          fontSize: 10, textAlign: "center", marginTop: 4,
+                                          cursor: "default", userSelect: "none",
+                                          opacity: peekHintKey === hintKey ? 0.8 : 0.3, transition: "opacity 0.15s",
+                                        }}
+                                      >
+                                        👁
+                                      </div>
+                                    )}
                                   </div>
                                 );
                               })}
@@ -2037,82 +2372,87 @@ export default function BattleGame({
             >
               {conversationHistory.map((entry, i) => {
                 const isPlayer = entry.speaker === "player";
-                const usedHints = isPlayer && (entry.hintsUsed ?? 0) > 0;
-                const isHovered = hoveredLogEntry === i;
-                const showLearning = isPlayer && (usedHints || entry.skipped || isHovered);
-                // On hover show all hints colored; otherwise only used hints
-                const highlightPairs = isHovered ? entry.allHints : entry.usedHintPairs;
+                const isExpanded = expandedLogEntry === i;
                 return (
-                  <div key={i} style={{ display: "flex", justifyContent: isPlayer ? "flex-start" : "flex-end" }}
-                    onMouseEnter={() => isPlayer && setHoveredLogEntry(i)}
-                    onMouseLeave={() => setHoveredLogEntry(null)}
+                  <div
+                    key={i}
+                    style={{ display: "flex", justifyContent: isPlayer ? "flex-start" : "flex-end" }}
+                    onMouseEnter={() => {
+                      if (!isPlayer) {
+                        if (enemyLogAudioRef.current) { enemyLogAudioRef.current.pause(); enemyLogAudioRef.current = null; }
+                        const audio = new Audio(`/battle_audio/${conversation!.conversation_id}/round_${entry.id}.wav`);
+                        enemyLogAudioRef.current = audio;
+                        audio.play().catch(() => {});
+                        return;
+                      }
+                      if (expandTimerRef.current) clearTimeout(expandTimerRef.current);
+                      expandTimerRef.current = window.setTimeout(() => setExpandedLogEntry(i), 250);
+                    }}
+                    onMouseLeave={() => {
+                      if (!isPlayer) {
+                        if (enemyLogAudioRef.current) { enemyLogAudioRef.current.pause(); enemyLogAudioRef.current = null; }
+                        return;
+                      }
+                      if (expandTimerRef.current) clearTimeout(expandTimerRef.current);
+                      setExpandedLogEntry(null);
+                    }}
                   >
                     <div style={{
-                      maxWidth: "60%", width: "fit-content", padding: "8px 12px", borderRadius: 12,
+                      maxWidth: isExpanded ? "85%" : "60%",
+                      width: isExpanded ? "85%" : "fit-content",
+                      padding: "8px 12px", borderRadius: 12,
                       background: isPlayer ? "rgba(59,130,246,0.25)" : "rgba(239,68,68,0.25)",
                       fontSize: 13, lineHeight: 1.4, wordBreak: "break-word", overflowWrap: "break-word",
-                      cursor: isPlayer && !usedHints ? "default" : undefined,
+                      transition: "max-width 0.2s, width 0.2s",
                     }}>
-                      <div style={{ opacity: 0.6, fontSize: 11, marginBottom: 2 }}>
-                        {isPlayer ? "You" : conversation!.enemy_name}
-                        {entry.skipped ? " · skipped" : entry.damageDealt ? ` · ${entry.damageDealt} dmg` : ""}
-                        {highlightPairs && highlightPairs.length > 0 && (
-                          <span style={{ marginLeft: 6 }}>
-                            {highlightPairs.map((_, ci) => (
-                              <span key={ci} style={{ color: HINT_COLORS[ci % HINT_COLORS.length] }}>●</span>
-                            ))}
-                          </span>
+                      {/* Header */}
+                      <div style={{ display: "flex", alignItems: "center", gap: 5, opacity: 0.6, fontSize: 11, marginBottom: 3 }}>
+                        <span>{isPlayer ? "You" : conversation!.enemy_name}</span>
+                        {isPlayer && (
+                          <span style={{
+                            width: 7, height: 7, borderRadius: "50%", display: "inline-block", flexShrink: 0,
+                            background: entry.skipped ? "#fbbf24" : "#22c55e",
+                          }} />
+                        )}
+                        {isPlayer && entry.damageDealt && !entry.skipped && (
+                          <span style={{ color: "#86efac" }}>+{entry.damageDealt} dmg</span>
                         )}
                       </div>
-                      {highlightPairs
-                        ? highlightHintWords(entry.textNative, highlightPairs, "native")
-                        : entry.textNative}
-                      {showLearning && entry.textLearning && (() => {
-                        const isPreviewing = previewAnswer?.entryIndex === i;
-                        return (
-                          <div style={{ marginTop: 5, paddingTop: 5, borderTop: "1px solid rgba(255,255,255,0.12)" }}>
-                            {/* Grid overlay so switching texts never resizes the bubble */}
-                            <div style={{ display: "grid", color: "rgba(255,255,255,0.55)", fontSize: 12 }}>
-                              {[entry.textLearning, ...(entry.acceptedTranslations?.slice(0, 2) ?? [])].map((t, ti) => {
-                                const isVisible = ti === 0
-                                  ? !isPreviewing
-                                  : isPreviewing && previewAnswer!.transIndex === ti - 1;
-                                return (
-                                  <div key={ti} style={{ gridRow: 1, gridColumn: 1, visibility: isVisible ? "visible" : "hidden" }}>
-                                    {highlightPairs ? highlightHintWords(t!, highlightPairs, "learning") : t}
-                                  </div>
-                                );
-                              })}
-                            </div>
-                            {entry.acceptedTranslations && entry.acceptedTranslations.length > 0 && (
-                              <div style={{ display: "flex", justifyContent: "flex-end", gap: 4, marginTop: 5 }}>
-                                {entry.acceptedTranslations.slice(0, 2).map((_, ti) => {
-                                  const isActive = isPreviewing && previewAnswer!.transIndex === ti;
-                                  return (
-                                    <div
-                                      key={ti}
-                                      onMouseEnter={() => setPreviewAnswer({ entryIndex: i, transIndex: ti })}
-                                      onMouseLeave={() => setPreviewAnswer(null)}
-                                      style={{
-                                        width: 16, height: 16, borderRadius: 3, fontSize: 9, fontWeight: 700,
-                                        display: "flex", alignItems: "center", justifyContent: "center",
-                                        cursor: "pointer",
-                                        background: isActive ? "rgba(255,255,255,0.25)" : "rgba(255,255,255,0.08)",
-                                        border: `1px solid ${isActive ? "rgba(255,255,255,0.4)" : "rgba(255,255,255,0.15)"}`,
-                                        color: isActive ? "white" : "rgba(255,255,255,0.4)",
-                                        transition: "all 0.15s",
-                                        userSelect: "none",
-                                      }}
-                                    >
-                                      {ti + 1}
-                                    </div>
-                                  );
-                                })}
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })()}
+
+                      {/* Native sentence — hidden when expanded (section 1 of expanded view handles it) */}
+                      {(!isPlayer || !isExpanded) && (
+                        <div style={{ display: "flex", alignItems: "baseline", gap: 5 }}>
+                          <span>{entry.textNative}</span>
+                          {!isPlayer && hideLearnText && entry.textLearning && (
+                            <span
+                              onMouseEnter={() => setPeekLogIdx(i)}
+                              onMouseLeave={() => setPeekLogIdx(null)}
+                              style={{
+                                fontSize: 11, cursor: "default", userSelect: "none", flexShrink: 0,
+                                opacity: peekLogIdx === i ? 0.8 : 0.28, transition: "opacity 0.15s",
+                              }}
+                            >
+                              👁
+                            </span>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Enemy learning text */}
+                      {!isPlayer && entry.textLearning && (!hideLearnText || peekLogIdx === i) && (
+                        <div style={{ color: "#fca5a5", fontSize: 12, marginTop: 3, opacity: 0.75 }}>
+                          {entry.textLearning}
+                        </div>
+                      )}
+
+                      {/* Expanded player details */}
+                      {isPlayer && isExpanded && (
+                        <PlayerLogEntryExpanded
+                          entry={entry}
+                          hideLearnText={hideLearnText}
+                          conversationId={conversation!.conversation_id}
+                        />
+                      )}
                     </div>
                   </div>
                 );

@@ -81,7 +81,7 @@
             "Saya pesan nasi goreng."
           ],
           "hints": [
-            { "native": "I'll have / I want", "learning": "Saya mau / Saya pesan" },
+            { "native": "I'll have / I want", "learning": "Saya mau / Saya pesan", "note": "lit. \"I want\" / \"I order\"" },
             { "native": "fried rice", "learning": "nasi goreng" }
           ]
         },
@@ -92,7 +92,7 @@
             "Saya pesan mie goreng, tolong."
           ],
           "hints": [
-            { "native": "I'd like / I'll have", "learning": "Saya mau / Saya pesan" },
+            { "native": "I'd like / I'll have", "learning": "Saya mau / Saya pesan", "note": "lit. \"I want\" / \"I order\"" },
             { "native": "fried noodles", "learning": "mie goreng" },
             { "native": "please", "learning": "tolong" }
           ]
@@ -104,7 +104,7 @@
             "Saya mau coba nasi goreng. Konon makanan di sini enak sekali."
           ],
           "hints": [
-            { "native": "I'll try", "learning": "Saya pesan / Saya mau coba" },
+            { "native": "I'll try", "learning": "Saya pesan / Saya mau coba", "note": "lit. \"I order\" / \"I want to try\"" },
             { "native": "I've heard", "learning": "Katanya / Konon" },
             { "native": "the food here", "learning": "makanan di sini" },
             { "native": "is very good", "learning": "sangat enak / enak sekali" }
@@ -198,7 +198,7 @@
             "Jus jeruk saja, tolong."
           ],
           "hints": [
-            { "native": "I'd like", "learning": "Saya mau / ... saja" },
+            { "native": "I'd like", "learning": "Saya mau / ... saja", "note": "\"...saja\" = \"[item] only\" — casual order style" },
             { "native": "orange juice", "learning": "jus jeruk" },
             { "native": "please", "learning": "tolong" }
           ]
