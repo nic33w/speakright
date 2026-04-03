@@ -1,0 +1,381 @@
+{
+  "conversation_id": "batik_bargain",
+  "title": "Pak Budi's Batik",
+  "enemy_name": "Pak Budi",
+  "enemy_emoji": "🧵",
+  "player_emoji": "🧳",
+
+  "format_notes": {
+    "variants": "Enemy round with 'variants' array — game randomly picks one at runtime. Each variant has its own audio_url and defend_question so the player must listen, not memorize.",
+    "branch_point": "Player round with 'branch_point: true' — the difficulty chosen determines which branch follows. hard → branch B/D, easy/medium → branch A/C.",
+    "branch": "Rounds with a 'branch' field are only shown when the active branch matches. Rounds with no 'branch' field are always shown."
+  },
+
+  "rounds": [
+    {
+      "id": "1",
+      "speaker": "enemy",
+      "variants": [
+        {
+          "enemy_line_native": "Hey hey hey! Welcome! You have great taste — this is the BEST stall in the market! Pure handmade batik, only 150,000 rupiah. Special price for you!",
+          "enemy_line_learning": "Hei hei hei! Selamat datang! Kamu punya selera bagus — ini kios TERBAIK di pasar! Batik buatan tangan asli, hanya 150.000 rupiah. Harga spesial buat kamu!",
+          "defend_question": {
+            "audio_url": "/battle_audio/batik_bargain/round_1_v0.wav",
+            "question": "How much does Pak Budi say the batik costs?",
+            "choices": ["100,000 rupiah", "150,000 rupiah", "200,000 rupiah"],
+            "correct_index": 1
+          }
+        },
+        {
+          "enemy_line_native": "Hey hey hey! Welcome! You have great taste — this is the BEST stall in the market! Pure handmade batik, only 175,000 rupiah. Special price for you!",
+          "enemy_line_learning": "Hei hei hei! Selamat datang! Kamu punya selera bagus — ini kios TERBAIK di pasar! Batik buatan tangan asli, hanya 175.000 rupiah. Harga spesial buat kamu!",
+          "defend_question": {
+            "audio_url": "/battle_audio/batik_bargain/round_1_v1.wav",
+            "question": "How much does Pak Budi say the batik costs?",
+            "choices": ["125,000 rupiah", "175,000 rupiah", "225,000 rupiah"],
+            "correct_index": 1
+          }
+        }
+      ]
+    },
+
+    {
+      "id": "2",
+      "speaker": "player",
+      "branch_point": true,
+      "options": {
+        "easy": {
+          "leads_to_branch": "A",
+          "native": "It's nice, but can you lower the price a little?",
+          "accepted_translations": [
+            "Bagus, tapi bisa turun sedikit harganya?",
+            "Bagus, tapi boleh kurang sedikit?"
+          ],
+          "hints": [
+            { "native": "It's nice", "learning": "Bagus" },
+            { "native": "can you lower", "learning": "bisa turun / boleh kurang" },
+            { "native": "the price", "learning": "harganya" },
+            { "native": "a little", "learning": "sedikit" }
+          ]
+        },
+        "medium": {
+          "leads_to_branch": "A",
+          "native": "Beautiful work! But the price is too high. What's your best price?",
+          "accepted_translations": [
+            "Indah sekali! Tapi harganya terlalu tinggi. Harga terbaikmu berapa?",
+            "Bagus sekali! Tapi terlalu mahal. Harga terbaik berapa?"
+          ],
+          "hints": [
+            { "native": "Beautiful", "learning": "Indah sekali / Bagus sekali" },
+            { "native": "the price is too high", "learning": "harganya terlalu tinggi / terlalu mahal" },
+            { "native": "What's your best price?", "learning": "Harga terbaikmu berapa?" }
+          ]
+        },
+        "hard": {
+          "leads_to_branch": "B",
+          "native": "Honestly, the stall next door is selling the exact same batik for half that price.",
+          "accepted_translations": [
+            "Terus terang, kios sebelah jual batik yang sama persis dengan setengah harga itu.",
+            "Sejujurnya, di kios sebelah ada batik yang sama dengan harga setengahnya."
+          ],
+          "hints": [
+            { "native": "Honestly", "learning": "Terus terang / Sejujurnya" },
+            { "native": "the stall next door", "learning": "kios sebelah" },
+            { "native": "the exact same", "learning": "yang sama persis" },
+            { "native": "for half that price", "learning": "dengan setengah harga itu / dengan harga setengahnya" }
+          ]
+        }
+      }
+    },
+
+    {
+      "id": "3A",
+      "branch": "A",
+      "speaker": "enemy",
+      "enemy_line_native": "Lower?! Friend, this IS already the special price! This batik took two whole days to make. Two days! So no more discount.",
+      "enemy_line_learning": "Turun?! Kawan, ini sudah harga spesial! Batik ini butuh dua hari penuh untuk dibuat. Dua hari! Jadi tidak bisa kurang lagi.",
+      "defend_question": {
+        "audio_url": "/battle_audio/batik_bargain/round_3A.wav",
+        "question": "How long did Pak Budi say the batik took to make?",
+        "choices": ["One day", "Two days", "Three days"],
+        "correct_index": 1
+      }
+    },
+
+    {
+      "id": "3B",
+      "branch": "B",
+      "speaker": "enemy",
+      "enemy_line_native": "HALF PRICE?! Friend. FRIEND. That batik next door is printed by a machine. MY batik is hand-drawn, right here, by these two hands. These are the hands of an ARTIST.",
+      "enemy_line_learning": "SETENGAH HARGA?! Kawan. KAWAN. Batik di sebelah dicetak mesin. Batik SAYA digambar tangan, di sini. Ini adalah tangan seorang SENIMAN.",
+      "defend_question": {
+        "audio_url": "/battle_audio/batik_bargain/round_3B.wav",
+        "question": "How does Pak Budi say his batik is different from the one next door?",
+        "choices": ["It's cheaper", "It's hand-drawn", "It came from Bali"],
+        "correct_index": 1
+      }
+    },
+
+    {
+      "id": "4B",
+      "branch": "B",
+      "speaker": "player",
+      "options": {
+        "easy": {
+          "leads_to_branch": "B",
+          "native": "Very nice hands. But can you still lower the price?",
+          "accepted_translations": [
+            "Tangannya bagus sekali. Tapi bisa turun harganya?",
+            "Tangannya indah. Tapi masih bisa kurang harganya?"
+          ],
+          "hints": [
+            { "native": "Very nice hands", "learning": "Tangannya bagus sekali / Tangannya indah" },
+            { "native": "can you still lower the price?", "learning": "bisa turun harganya? / masih bisa kurang harganya?" }
+          ]
+        },
+        "medium": {
+          "leads_to_branch": "B",
+          "native": "I understand. But it's still too expensive for me.",
+          "accepted_translations": [
+            "Saya mengerti. Tapi masih terlalu mahal untuk saya.",
+            "Saya paham. Tapi harganya masih terlalu tinggi buat saya."
+          ],
+          "hints": [
+            { "native": "I understand", "learning": "Saya mengerti / Saya paham" },
+            { "native": "still too expensive", "learning": "masih terlalu mahal / masih terlalu tinggi" },
+            { "native": "for me", "learning": "untuk saya / buat saya" }
+          ]
+        },
+        "hard": {
+          "leads_to_branch": "B",
+          "native": "Incredible hands. But I still won't pay more than 100,000.",
+          "accepted_translations": [
+            "Tangan yang luar biasa. Tapi saya tetap tidak mau bayar lebih dari 100.000.",
+            "Tangannya memang keren. Tapi saya tidak akan bayar lebih dari 100.000.",
+            "Tangan yang luar biasa. Tapi saya tetap tidak mau bayar lebih dari seratus ribu.",
+            "Tangannya memang keren. Tapi saya tidak akan bayar lebih dari seratus ribu."
+          ],
+          "hints": [
+            { "native": "Incredible hands", "learning": "Tangan yang luar biasa / Tangannya memang keren" },
+            { "native": "I still won't pay", "learning": "saya tetap tidak mau bayar / saya tidak akan bayar" },
+            { "native": "more than 100,000", "learning": "lebih dari 100.000 / lebih dari seratus ribu" }
+          ]
+        }
+      }
+    },
+
+    {
+      "id": "5B",
+      "branch": "B",
+      "speaker": "enemy",
+      "enemy_line_native": "You are tough! OK. Because I like your spirit — and my wife says I need to sell more this month — a VERY special price. But tell absolutely no one, yes?",
+      "enemy_line_learning": "Kamu keras kepala! Oke. Karena saya suka semangatmu — dan istri saya bilang harus jual lebih banyak bulan ini — harga yang SANGAT spesial. Tapi jangan bilang siapa-siapa, ya?",
+      "defend_question": {
+        "audio_url": "/battle_audio/batik_bargain/round_5B.wav",
+        "question": "Why does Pak Budi say he's giving a special price?",
+        "choices": ["Because you are a loyal customer", "Because he likes your spirit and his wife says he needs to sell more", "Because the batik has a small defect"],
+        "correct_index": 1
+      }
+    },
+
+    {
+      "id": "6",
+      "speaker": "player",
+      "options": {
+        "easy": {
+          "native": "How about 100,000?",
+          "accepted_translations": [
+            "Bagaimana kalau 100.000?",
+            "Kalau 100.000 gimana?",
+            "Bagaimana kalau seratus ribu?",
+            "Kalau seratus ribu gimana?"
+          ],
+          "hints": [
+            { "native": "How about", "learning": "Bagaimana kalau / Kalau ... gimana" },
+            { "native": "100,000", "learning": "100.000 / seratus ribu" }
+          ]
+        },
+        "medium": {
+          "native": "I can offer 100,000. That's my best price.",
+          "accepted_translations": [
+            "Saya tawar 100.000. Itu harga terbaik saya.",
+            "Saya bisa bayar 100.000. Itu harga maksimal saya.",
+            "Saya tawar seratus ribu. Itu harga terbaik saya.",
+            "Saya bisa bayar seratus ribu. Itu harga maksimal saya."
+          ],
+          "hints": [
+            { "native": "I can offer", "learning": "Saya tawar / Saya bisa bayar" },
+            { "native": "That's my best price", "learning": "Itu harga terbaik saya / Itu harga maksimal saya" }
+          ]
+        },
+        "hard": {
+          "native": "I'll give you 90,000. Final offer, I won't go higher.",
+          "accepted_translations": [
+            "Saya kasih 90.000. Penawaran terakhir, tidak bisa lebih.",
+            "90.000, tidak kurang tidak lebih. Itu penawaran final saya.",
+            "Saya kasih sembilan puluh ribu. Penawaran terakhir, tidak bisa lebih.",
+            "Sembilan puluh ribu, tidak kurang tidak lebih. Itu penawaran final saya."
+          ],
+          "hints": [
+            { "native": "I'll give you", "learning": "Saya kasih / Saya tawar" },
+            { "native": "Final offer", "learning": "Penawaran terakhir / Penawaran final" },
+            { "native": "I won't go higher", "learning": "tidak bisa lebih / tidak kurang tidak lebih" }
+          ]
+        }
+      }
+    },
+
+    {
+      "id": "7",
+      "speaker": "enemy",
+      "variants": [
+        {
+          "enemy_line_native": "90,000?! Hahaha! OK, you are very funny. I like you. For you — 120,000. And a free keychain. LOOK AT THIS KEYCHAIN. Beautiful, yes?",
+          "enemy_line_learning": "90.000?! Hahaha! Oke, kamu sangat lucu. Saya suka kamu. Buat kamu — 120.000. Dan gantungan kunci gratis. LIHAT GANTUNGAN KUNCI INI. Bagus, kan?",
+          "defend_question": {
+            "audio_url": "/battle_audio/batik_bargain/round_7_v0.wav",
+            "question": "What is Pak Budi's new offered price?",
+            "choices": ["100,000 rupiah", "120,000 rupiah", "140,000 rupiah"],
+            "correct_index": 1
+          }
+        },
+        {
+          "enemy_line_native": "90,000?! Hahaha! OK, you are very funny. I like you. For you — 130,000. And a free keychain. LOOK AT THIS KEYCHAIN. Beautiful, yes?",
+          "enemy_line_learning": "90.000?! Hahaha! Oke, kamu sangat lucu. Saya suka kamu. Buat kamu — 130.000. Dan gantungan kunci gratis. LIHAT GANTUNGAN KUNCI INI. Bagus, kan?",
+          "defend_question": {
+            "audio_url": "/battle_audio/batik_bargain/round_7_v1.wav",
+            "question": "What is Pak Budi's new offered price?",
+            "choices": ["110,000 rupiah", "130,000 rupiah", "150,000 rupiah"],
+            "correct_index": 1
+          }
+        }
+      ]
+    },
+
+    {
+      "id": "8",
+      "speaker": "player",
+      "branch_point": true,
+      "options": {
+        "easy": {
+          "leads_to_branch": "C",
+          "native": "OK, deal! I'll take it.",
+          "accepted_translations": [
+            "Oke, setuju! Saya ambil.",
+            "Oke, deal! Saya beli."
+          ],
+          "hints": [
+            { "native": "OK, deal", "learning": "Oke, setuju / Oke, deal" },
+            { "native": "I'll take it", "learning": "Saya ambil / Saya beli" }
+          ]
+        },
+        "medium": {
+          "leads_to_branch": "C",
+          "native": "Fine, you convinced me. I'll take it.",
+          "accepted_translations": [
+            "Baiklah, kamu berhasil meyakinkan saya. Saya ambil.",
+            "Oke, saya terima. Saya beli."
+          ],
+          "hints": [
+            { "native": "you convinced me", "learning": "kamu berhasil meyakinkan saya / saya terima" },
+            { "native": "I'll take it", "learning": "Saya ambil / Saya beli" }
+          ]
+        },
+        "hard": {
+          "leads_to_branch": "D",
+          "native": "Hmm, I need to think. Maybe I'll check the other stalls first.",
+          "accepted_translations": [
+            "Hmm, perlu dipikir dulu. Mungkin saya lihat kios lain dulu.",
+            "Saya mau lihat-lihat dulu ke kios sebelah."
+          ],
+          "hints": [
+            { "native": "I need to think", "learning": "perlu dipikir dulu" },
+            { "native": "Maybe I'll check", "learning": "Mungkin saya lihat" },
+            { "native": "the other stalls first", "learning": "kios lain dulu / kios sebelah" }
+          ]
+        }
+      }
+    },
+
+    {
+      "id": "9C",
+      "branch": "C",
+      "speaker": "enemy",
+      "enemy_line_native": "EXCELLENT choice! You will not regret this, my friend. This batik will bring good luck, good health, and a very attractive appearance. Everyone will think you are very sophisticated.",
+      "enemy_line_learning": "Pilihan LUAR BIASA! Kamu tidak akan menyesal, kawan. Batik ini bawa keberuntungan, kesehatan, dan penampilan yang sangat menarik. Semua orang akan pikir kamu sangat berkelas.",
+      "defend_question": {
+        "audio_url": "/battle_audio/batik_bargain/round_9C.wav",
+        "question": "What does Pak Budi say the batik will bring?",
+        "choices": ["Bad luck and sadness", "Good luck and good health", "Fame and great wealth"],
+        "correct_index": 1
+      }
+    },
+
+    {
+      "id": "9D",
+      "branch": "D",
+      "speaker": "enemy",
+      "enemy_line_native": "Wait wait wait. OK, I see you are serious. Don't tell anyone... 110,000. The keychain. AND homemade sambal from my wife. Ibu Budi makes the best sambal in Yogyakarta. POSSIBLY all of Indonesia.",
+      "enemy_line_learning": "Tunggu tunggu! Oke, saya lihat kamu serius. Jangan bilang siapa-siapa... 110.000. Plus gantungan kunci. DAN sambal buatan istri saya. Ibu Budi buat sambal terbaik di Yogyakarta. MUNGKIN seluruh Indonesia.",
+      "defend_question": {
+        "audio_url": "/battle_audio/batik_bargain/round_9D.wav",
+        "question": "Besides the keychain, what extra does Pak Budi offer?",
+        "choices": ["A free batik bag", "Homemade sambal from his wife", "A discount on your next visit"],
+        "correct_index": 1
+      }
+    },
+
+    {
+      "id": "10",
+      "speaker": "player",
+      "options": {
+        "easy": {
+          "native": "OK, deal! Thank you.",
+          "accepted_translations": [
+            "Oke, setuju! Terima kasih.",
+            "Deal! Makasih."
+          ],
+          "hints": [
+            { "native": "OK, deal", "learning": "Oke, setuju / Deal" },
+            { "native": "Thank you", "learning": "Terima kasih / Makasih" }
+          ]
+        },
+        "medium": {
+          "native": "OK deal. You drive a hard bargain, Pak Budi!",
+          "accepted_translations": [
+            "Oke setuju. Pak Budi memang jago tawar-menawar!",
+            "Baiklah. Kamu memang pintar berdagang, Pak Budi!"
+          ],
+          "hints": [
+            { "native": "You drive a hard bargain", "learning": "Pak Budi memang jago tawar-menawar / Kamu memang pintar berdagang" }
+          ]
+        },
+        "hard": {
+          "native": "You win, Pak Budi. I can't say no to the sambal. Here's the money.",
+          "accepted_translations": [
+            "Pak Budi menang. Saya tidak bisa menolak sambalnya. Ini uangnya.",
+            "Kamu menang, Pak Budi. Tidak bisa menolak sambal. Ini uangnya."
+          ],
+          "hints": [
+            { "native": "You win", "learning": "Pak Budi menang / Kamu menang" },
+            { "native": "I can't say no to", "learning": "Saya tidak bisa menolak / Tidak bisa menolak" },
+            { "native": "Here's the money", "learning": "Ini uangnya" }
+          ]
+        }
+      }
+    },
+
+    {
+      "id": "11",
+      "speaker": "enemy",
+      "enemy_line_native": "WONDERFUL! You are my best customer today. Maybe this whole week. Tell your friends about Pak Budi's stall. Tell them I gave a very, very good price. Just don't tell them the actual number.",
+      "enemy_line_learning": "LUAR BIASA! Kamu pelanggan terbaik hari ini. Mungkin minggu ini. Ceritakan kios Pak Budi ke teman-temanmu. Bilang saya kasih harga yang sangat bagus. Tapi jangan bilang angka aslinya.",
+      "defend_question": {
+        "audio_url": "/battle_audio/batik_bargain/round_11.wav",
+        "question": "What does Pak Budi ask you NOT to tell your friends?",
+        "choices": ["That the batik is handmade", "The actual price you paid", "That he has a wife named Ibu Budi"],
+        "correct_index": 1
+      }
+    }
+  ]
+}

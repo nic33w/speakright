@@ -60,6 +60,14 @@ CONVERSATIONS = [
         "hint_voice": "id-ID-ArdiNeural",
         "hint_locale": "id-ID",
     },
+    {
+        "json_path": FRONTEND_SRC / "battle_conversations_id_2.json",
+        "output_dir": FRONTEND_PUBLIC / "battle_audio" / "batik_bargain",
+        "enemy_voice": "id-ID-ArdiNeural",
+        "enemy_locale": "id-ID",
+        "hint_voice": "id-ID-ArdiNeural",
+        "hint_locale": "id-ID",
+    },
 ]
 
 
@@ -68,20 +76,39 @@ def generate_enemy_lines(json_path, output_dir, voice, locale, conv):
     print(f"  Enemy lines: {len(enemy_rounds)} rounds, voice={voice}")
     generated = skipped = 0
     for r in enemy_rounds:
-        out_file = output_dir / f"round_{r['id']}.wav"
-        if out_file.exists():
-            print(f"    [SKIP] round_{r['id']}")
-            skipped += 1
-            continue
-        text = r["enemy_line_learning"]
-        print(f"    [GEN]  round_{r['id']}: {text[:55]}...")
-        try:
-            wav = azure_tts_bytes_real(text, locale=locale, voice=voice)
-            out_file.write_bytes(wav)
-            print(f"           saved ({len(wav):,} bytes)")
-            generated += 1
-        except Exception as e:
-            print(f"    [ERROR] round_{r['id']}: {e}")
+        rid = r["id"]
+        variants = r.get("variants")
+        if variants:
+            for vi, variant in enumerate(variants):
+                out_file = output_dir / f"round_{rid}_v{vi}.wav"
+                if out_file.exists():
+                    print(f"    [SKIP] round_{rid}_v{vi}")
+                    skipped += 1
+                    continue
+                text = variant["enemy_line_learning"]
+                print(f"    [GEN]  round_{rid}_v{vi}: {text[:55]}...")
+                try:
+                    wav = azure_tts_bytes_real(text, locale=locale, voice=voice)
+                    out_file.write_bytes(wav)
+                    print(f"           saved ({len(wav):,} bytes)")
+                    generated += 1
+                except Exception as e:
+                    print(f"    [ERROR] round_{rid}_v{vi}: {e}")
+        else:
+            out_file = output_dir / f"round_{rid}.wav"
+            if out_file.exists():
+                print(f"    [SKIP] round_{rid}")
+                skipped += 1
+                continue
+            text = r["enemy_line_learning"]
+            print(f"    [GEN]  round_{rid}: {text[:55]}...")
+            try:
+                wav = azure_tts_bytes_real(text, locale=locale, voice=voice)
+                out_file.write_bytes(wav)
+                print(f"           saved ({len(wav):,} bytes)")
+                generated += 1
+            except Exception as e:
+                print(f"    [ERROR] round_{rid}: {e}")
     print(f"  Enemy lines done: {generated} generated, {skipped} skipped")
 
 

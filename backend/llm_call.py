@@ -241,79 +241,115 @@ def check_trivia_answer(
     english_prompt: str,
     fluent: Dict[str, Any],
     learning: Dict[str, Any],
+    accepted_translations: Optional[List[str]] = None,
     model: Optional[str] = None,
     temperature: float = 0.15,
     timeout: int = 20,
 ) -> Dict[str, Any]:
     """
-    Check if user's answer is semantically equivalent to correct answer.
+    Check if user's answer is semantically equivalent to the correct answer.
 
     Returns:
     {
-        "is_correct": bool,
-        "feedback": str,  # In fluent/native language
-        "corrected_answer": str,  # Corrected version of user's answer
+        "accepted": bool,
+        "damage_multiplier": float,  # 1.0 = perfect, 0.0 = wrong
+        "feedback_key": str | None,  # snake_case grammar issue code
+        "corrected_snippet": str | None,  # minimal corrected phrase
     }
     """
+    # --- Normalization fast-path ---
+    candidates = accepted_translations if accepted_translations else [correct_answer]
+    norm_user = _normalize_for_matching(user_answer)
+    for candidate in candidates:
+        if _normalize_for_matching(candidate) == norm_user:
+            return {
+                "accepted": True,
+                "damage_multiplier": 1.0,
+                "feedback_key": None,
+                "corrected_snippet": None,
+                "fast_path": True,
+            }
+
     model = model or DEFAULT_MODEL
     client = _init_client()
 
     if client is None:
-        # Mock mode - simple string comparison
-        normalized_user = _normalize_for_matching(user_answer)
-        normalized_correct = _normalize_for_matching(correct_answer)
-        is_correct = normalized_user == normalized_correct
-
+        # Mock mode
+        is_correct = norm_user == _normalize_for_matching(correct_answer)
         return {
-            "is_correct": is_correct,
-            "feedback": "(mock) Correct!" if is_correct else "(mock) Not quite right. Try again!",
-            "corrected_answer": correct_answer,
+            "accepted": is_correct,
+            "damage_multiplier": 1.0 if is_correct else 0.0,
+            "feedback_key": None,
+            "corrected_snippet": None,
         }
 
     lang_code = learning.get("code", "")[:2]
     language_style = _language_style_instruction(lang_code)
-
-    fluent_name = fluent.get("name", "English")
     learning_name = learning.get("name", "Spanish")
 
     system_prompt = (
-        f"You are a language learning assistant. {language_style}\n"
-        f"Your task is to determine if a student's {learning_name} answer is semantically equivalent to the correct answer.\n"
-        "Be lenient with minor grammar mistakes, but check that the core meaning matches.\n"
-        "Return only valid JSON."
+        f"You are a strict but fair {learning_name} language learning judge. {language_style}\n"
+        "Evaluate the student's answer against the reference answer.\n\n"
+        "Rules:\n"
+        "- NEVER penalize for missing accents, punctuation, or capitalization.\n"
+        "- FIRST, before any other evaluation: the student is using speech-to-text (Wispr). Check if unexpected words are STT mishearings. Common patterns: phonetically similar words (e.g. 'cus'→'jus'), merged or split tokens (e.g. 'Este'→'Es teh', 'S T'→'es teh', 'dise'→'di sini'), or words run together. If correcting the mishearing makes the answer acceptable, IMMEDIATELY set accepted: true, damage_multiplier: 1.0, feedback_key: 'asr_error', and explain in feedback_explanation. Do NOT apply any other feedback_key in this case.\n"
+        "- accepted: true if the student demonstrated understanding of the meaning, even if imperfectly expressed. ONLY set accepted: false for wrong conjugation, wrong tense that changes meaning, or completely wrong/missing core meaning.\n"
+        "- damage_multiplier:\n"
+        "    1.0   → perfect (or asr_error)\n"
+        "    0.85  → missing_minor_words: dropped a particle, softener, or minor word (e.g. 'saja', 'ya', 'que')\n"
+        "    0.8   → gender_agreement: wrong gender on article/adjective | register_too_formal: too formal for context (e.g. -kah suffix) | register_too_informal: too casual for context (e.g. 'aja' instead of 'saja')\n"
+        "    0.75  → subtle_meaning_shift: slightly different nuance but meaning mostly intact | wrong_mood: used indicative instead of subjunctive/conditional, but meaning clear\n"
+        "    0.7   → word_order: words rearranged, meaning still understandable\n"
+        "    0.6   → unnatural_phrasing: valid grammar but a native speaker would immediately notice\n"
+        "    0.0   → wrong_conjugation | wrong_tense | wrong_meaning; accepted must be false\n"
+        "- feedback_key: null OR one of:\n"
+        "    asr_error | missing_minor_words | gender_agreement | register_too_formal | register_too_informal | subtle_meaning_shift | wrong_mood | word_order | unnatural_phrasing | wrong_conjugation | wrong_tense | wrong_meaning\n"
+        "  Use asr_error when the answer appears correct except for a likely STT mishearing.\n"
+        "  Use wrong_mood for subjunctive/conditional/imperative mix-ups — always accepted with 0.75 multiplier.\n"
+        "  Use register_too_formal when too formal for context. Use register_too_informal when too casual.\n"
+        "- corrected_snippet: the minimal corrected word or phrase to replace what the student wrote — NOT the student's original word. null if perfect.\n"
+        f"- feedback_explanation: when feedback_key is set, write ONE to TWO sentences in {fluent.get('name', 'English')} that (1) name the exact word or construction, (2) explain WHY the preferred form is more natural or correct in this context, and (3) briefly contrast it with what the student wrote so they understand the difference. For example, for a tense/mood issue: explain when each form is typically used, not just which one to swap in. For asr_error: explain what was likely misheard. null if feedback_key is null.\n"
+        "- correction_tokens: when feedback_key is set (and NOT asr_error), produce a WORD-LEVEL inline diff of the student's FULL answer as a JSON array of token objects: [{\"text\": \"...\", \"status\": \"ok\"|\"remove\"|\"add\"}, ...]. "
+        "CRITICAL rules: "
+        "(1) Every word and space of the student's answer MUST appear in the tokens as 'ok' or 'remove' — do NOT omit any part. "
+        "(2) Only mark the minimum words that need to change — never mark a correct word as 'remove'/'add'. "
+        "(3) For extra/duplicate words the student inserted: mark just the extra word as 'remove', leave the rest as 'ok'. Do NOT also add it back as 'add'. "
+        "Example extra word — student: 'saya akan tidak akan bayar', correct: 'saya tidak akan bayar' → [{\"text\":\"saya \",\"status\":\"ok\"},{\"text\":\"akan \",\"status\":\"remove\"},{\"text\":\"tidak akan bayar\",\"status\":\"ok\"}]. "
+        "Example wrong word — student: 'Tidak bisa menolak sambal.', correct: '...sambalnya.' → [{\"text\":\"Tidak bisa menolak \",\"status\":\"ok\"},{\"text\":\"sambal\",\"status\":\"remove\"},{\"text\":\"sambalnya\",\"status\":\"add\"},{\"text\":\".\",\"status\":\"ok\"}]. "
+        "Example substitution — student: 'itu harga yang baik', correct: 'itu harga terbaik saya' → [{\"text\":\"itu harga \",\"status\":\"ok\"},{\"text\":\"yang baik\",\"status\":\"remove\"},{\"text\":\"terbaik saya\",\"status\":\"add\"}]. "
+        "null if feedback_key is null or asr_error.\n"
+        "Return ONLY valid JSON, no prose."
     )
 
+    # Remove hyphens joining word parts (e.g. "menu-nya" → "menunya") before LLM sees the answer
+    user_answer = re.sub(r'(?<=\w)-(?=\w)', '', user_answer)
+
+    all_candidates = accepted_translations if accepted_translations else [correct_answer]
+    if len(all_candidates) > 1:
+        refs_str = "\n".join(f"  - {json.dumps(c, ensure_ascii=False)}" for c in all_candidates)
+        ref_line = f"Accepted answers (any of these is correct):\n{refs_str}"
+    else:
+        ref_line = f"Reference answer: {json.dumps(all_candidates[0], ensure_ascii=False)}"
+
     user_prompt = (
-        "INPUT:\n"
-        f"- {fluent_name} prompt: {json.dumps(english_prompt, ensure_ascii=False)}\n"
-        f"- Correct {learning_name} answer: {json.dumps(correct_answer, ensure_ascii=False)}\n"
-        f"- User's {learning_name} answer: {json.dumps(user_answer, ensure_ascii=False)}\n\n"
-        "OUTPUT SCHEMA (return exactly one JSON object):\n"
-        "{\n"
-        '  "is_correct": true/false,\n'
-        f'  "feedback": "...",  # Brief feedback in {fluent_name}\n'
-        '  "corrected_answer": "..."  # Corrected version of user answer if needed\n'
-        "}\n\n"
-        "Rules:\n"
-        "- is_correct should be true if the user's answer conveys the same meaning as the correct answer.\n"
-        "- Minor grammar or spelling mistakes are acceptable if meaning is clear.\n"
-        f"- feedback should be encouraging and in {fluent_name}.\n"
-        "- corrected_answer should be the user's answer with corrections applied.\n"
+        f"Prompt ({learning.get('name','Spanish')}): {json.dumps(english_prompt, ensure_ascii=False)}\n"
+        f"{ref_line}\n"
+        f"Student's answer: {json.dumps(user_answer, ensure_ascii=False)}\n\n"
+        'Return: {"accepted": bool, "damage_multiplier": float, "feedback_key": string|null, "corrected_snippet": string|null, "feedback_explanation": string|null, "correction_tokens": [{text, status}]|null}'
     )
 
     full_prompt = system_prompt + "\n\n" + user_prompt
-    _log_debug("TRIVIA GAME - LLM REQUEST", full_prompt)
+    _log_debug("BATTLE CHECK - LLM REQUEST", full_prompt)
 
     try:
         resp = client.responses.create(
             model=model,
             input=full_prompt,
             temperature=temperature,
-            max_output_tokens=300,
+            max_output_tokens=600,
             timeout=timeout,
         )
 
-        # Extract text (reuse existing pattern from call_llm_for_turn)
         raw_text = ""
         if hasattr(resp, "output_text") and resp.output_text:
             raw_text = resp.output_text
@@ -332,13 +368,35 @@ def check_trivia_answer(
                 raw_text = str(resp.content)
 
         parsed = _extract_json(raw_text)
-        _log_debug("TRIVIA GAME - LLM RESPONSE (parsed)", json.dumps(parsed, indent=2, ensure_ascii=False))
+        _log_debug("BATTLE CHECK - LLM RESPONSE", json.dumps(parsed, indent=2, ensure_ascii=False))
 
-        parsed.setdefault("is_correct", False)
-        parsed.setdefault("feedback", "")
-        parsed.setdefault("corrected_answer", correct_answer)
+        parsed.setdefault("accepted", False)
+        parsed.setdefault("damage_multiplier", 0.0)
+        parsed.setdefault("feedback_key", None)
+        parsed.setdefault("corrected_snippet", None)
+        parsed.setdefault("feedback_explanation", None)
+        parsed.setdefault("correction_tokens", None)
 
-        # Extract token usage and calculate cost
+        # Enforce consistency: these keys must always result in accepted: true
+        # (LLM sometimes ignores the prompt instruction)
+        ALWAYS_ACCEPT_MULTIPLIERS = {
+            "asr_error": 1.0,
+            "missing_minor_words": 0.85,
+            "gender_agreement": 0.8,
+            "register_too_formal": 0.8,
+            "register_too_informal": 0.8,
+            "subtle_meaning_shift": 0.75,
+            "wrong_mood": 0.75,
+            "word_order": 0.7,
+            "unnatural_phrasing": 0.6,
+        }
+        fk = parsed["feedback_key"]
+        if not parsed["accepted"] and fk in ALWAYS_ACCEPT_MULTIPLIERS:
+            parsed["accepted"] = True
+            if parsed["damage_multiplier"] == 0.0:
+                parsed["damage_multiplier"] = ALWAYS_ACCEPT_MULTIPLIERS[fk]
+
+        # Extract token usage
         prompt_tokens = 0
         completion_tokens = 0
         total_tokens = 0
@@ -347,10 +405,9 @@ def check_trivia_answer(
             prompt_tokens = getattr(usage, "input_tokens", 0) or getattr(usage, "prompt_tokens", 0) or 0
             completion_tokens = getattr(usage, "output_tokens", 0) or getattr(usage, "completion_tokens", 0) or 0
             total_tokens = getattr(usage, "total_tokens", 0) or (prompt_tokens + completion_tokens)
-        input_cost_per_token = 0.00000015  # $0.15 / 1M tokens
-        output_cost_per_token = 0.00000060  # $0.60 / 1M tokens
-        cost_dollars = (prompt_tokens * input_cost_per_token) + (completion_tokens * output_cost_per_token)
-        cost_cents = round(cost_dollars * 100, 4)
+        input_cost_per_token = 0.00000015
+        output_cost_per_token = 0.00000060
+        cost_cents = round(((prompt_tokens * input_cost_per_token) + (completion_tokens * output_cost_per_token)) * 100, 4)
         parsed["token_usage"] = {
             "prompt_tokens": prompt_tokens,
             "completion_tokens": completion_tokens,
@@ -360,18 +417,16 @@ def check_trivia_answer(
 
         return parsed
     except Exception as e:
-        print("LLM trivia check failed:", e)
+        print("LLM battle check failed:", e)
         import traceback
         traceback.print_exc()
-        # Fallback to mock
-        normalized_user = _normalize_for_matching(user_answer)
-        normalized_correct = _normalize_for_matching(correct_answer)
-        is_correct = normalized_user == normalized_correct
-
+        norm_correct = _normalize_for_matching(correct_answer)
+        is_correct = norm_user == norm_correct
         return {
-            "is_correct": is_correct,
-            "feedback": "Correct!" if is_correct else "Not quite right. Try again!",
-            "corrected_answer": correct_answer,
+            "accepted": is_correct,
+            "damage_multiplier": 1.0 if is_correct else 0.0,
+            "feedback_key": None,
+            "corrected_snippet": None,
         }
 
 

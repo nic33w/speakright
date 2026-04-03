@@ -1579,6 +1579,7 @@ class BattleCheckReq(BaseModel):
     session_id: str
     user_answer: str
     correct_answer: str
+    accepted_translations: Optional[List[str]] = None
     prompt_text: str
     learning: Optional[LangSpec] = None
     fluent: Optional[LangSpec] = None
@@ -1602,12 +1603,17 @@ def api_battle_check(req: BattleCheckReq):
             english_prompt=req.prompt_text,
             fluent=fluent.dict(),
             learning=learning.dict(),
+            accepted_translations=req.accepted_translations,
         )
 
         return {
-            "is_correct": result.get("is_correct", False),
-            "feedback": result.get("feedback", ""),
-            "corrected_answer": result.get("corrected_answer", req.correct_answer),
+            "accepted": result.get("accepted", False),
+            "damage_multiplier": result.get("damage_multiplier", 0.0),
+            "feedback_key": result.get("feedback_key", None),
+            "corrected_snippet": result.get("corrected_snippet", None),
+            "feedback_explanation": result.get("feedback_explanation", None),
+            "correction_tokens": result.get("correction_tokens", None),
+            "fast_path": result.get("fast_path", False),
             "token_usage": result.get("token_usage"),
         }
     except Exception as e:
@@ -1615,9 +1621,10 @@ def api_battle_check(req: BattleCheckReq):
         import traceback
         traceback.print_exc()
         return {
-            "is_correct": False,
-            "feedback": "Unable to check answer. Please try again.",
-            "corrected_answer": req.correct_answer,
+            "accepted": False,
+            "damage_multiplier": 0.0,
+            "feedback_key": None,
+            "corrected_snippet": None,
             "token_usage": None,
         }
 
