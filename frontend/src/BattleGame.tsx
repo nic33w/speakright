@@ -100,6 +100,7 @@ type CompletedRound = {
   correctedSnippet?: string | null;
   feedbackExplanation?: string | null;
   correctionTokens?: Array<{ text: string; status: "ok" | "remove" | "add" }> | null;
+  qualityScore?: number | null; // 0–100 derived from damage_multiplier
 };
 
 type BattleGameProps = {
@@ -502,6 +503,9 @@ export default function BattleGame({
   const [defendCounterDealt, setDefendCounterDealt] = useState<number | null>(null);
   const [defendShuffledChoices, setDefendShuffledChoices] = useState<{ text: string; isCorrect: boolean }[]>([]);
   const [defendSelectedIndex, setDefendSelectedIndex] = useState<number | null>(null);
+  const [defendCountdownMs, setDefendCountdownMs] = useState<number | null>(null);
+  const [defendCountdownPaused, setDefendCountdownPaused] = useState(false);
+  const defendCountdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [peekLogIdx, setPeekLogIdx] = useState<number | null>(null);
   const [pinnedHintKeys, setPinnedHintKeys] = useState<Set<string>>(new Set());
   const [activeBranch, setActiveBranch] = useState<string | null>(null);
@@ -561,6 +565,32 @@ export default function BattleGame({
     return () => clearInterval(interval);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [timerEnabled, timerActive, timerSeconds]);
+
+  // Defend phase countdown timer
+  useEffect(() => {
+    if (defendCountdownMs === null || defendCountdownPaused) {
+      if (defendCountdownRef.current) { clearInterval(defendCountdownRef.current); defendCountdownRef.current = null; }
+      return;
+    }
+    defendCountdownRef.current = setInterval(() => {
+      setDefendCountdownMs(prev => {
+        if (prev === null) return null;
+        const next = prev - 50;
+        if (next <= 0) {
+          clearInterval(defendCountdownRef.current!);
+          defendCountdownRef.current = null;
+          // Play audio
+          if (defendAudioRef.current) {
+            defendAudioRef.current.addEventListener("ended", () => { setDefendAudioDone(true); setDefendSeenOnce(true); }, { once: true });
+            defendAudioRef.current.play().catch(() => { setDefendAudioDone(true); setDefendSeenOnce(true); });
+          }
+          return null;
+        }
+        return next;
+      });
+    }, 50);
+    return () => { if (defendCountdownRef.current) { clearInterval(defendCountdownRef.current); defendCountdownRef.current = null; } };
+  }, [defendCountdownMs === null, defendCountdownPaused]);
 
   // Focus textarea when ready for input
   useEffect(() => {
@@ -714,8 +744,9 @@ export default function BattleGame({
       setDefendShuffledChoices(shuffled);
       const audio = new Audio(question.audio_url);
       defendAudioRef.current = audio;
-      audio.addEventListener("ended", () => { setDefendAudioDone(true); setDefendSeenOnce(true); }, { once: true });
-      audio.play().catch(() => { setDefendAudioDone(true); setDefendSeenOnce(true); }); // show question even if audio fails
+      // Don't play yet — countdown will trigger playback
+      setDefendCountdownMs(3000);
+      setDefendCountdownPaused(false);
       defendResolveRef.current = resolve;
     });
   }
@@ -754,6 +785,7 @@ export default function BattleGame({
 
   function handleDefendSkip() {
     if (!currentDefendQuestion || defendResult !== null) return;
+    setDefendCountdownMs(null);
     if (defendAudioRef.current) { defendAudioRef.current.pause(); }
     setDefendResult("incorrect");
     const newHp = Math.max(0, playerHealthRef.current - ENEMY_DAMAGE);
@@ -1016,6 +1048,7 @@ export default function BattleGame({
         correctedSnippet: (lastRejectedData?.corrected_snippet as string | null) ?? null,
         feedbackExplanation: (lastRejectedData?.feedback_explanation as string | null) ?? null,
         correctionTokens: (lastRejectedData?.correction_tokens as Array<{ text: string; status: "ok" | "remove" | "add" }> | null) ?? null,
+        qualityScore: 0,
       }]);
       handleIncorrectAnswer("Try again!");
       setBusy(false);
@@ -1066,6 +1099,7 @@ export default function BattleGame({
           correctedSnippet: data.corrected_snippet ?? null,
           feedbackExplanation: data.feedback_explanation ?? null,
           correctionTokens: data.correction_tokens ?? null,
+          qualityScore: 0,
         }]);
         handleIncorrectAnswer("Try again!");
       }
@@ -1162,6 +1196,7 @@ export default function BattleGame({
       correctedSnippet,
       feedbackExplanation,
       correctionTokens,
+      qualityScore: Math.round(damageMultiplier * 100),
       hintsUsed: viewedHints.size,
       usedHintPairs: Array.from(viewedHints).map(idx => ({
         native: currentOptions!.hints[idx].native,
@@ -1348,7 +1383,10 @@ export default function BattleGame({
 
     await delay(400);
     setBusy(false);
-    advanceRound();
+    // Mirror branch logic from the normal answer path so branch-point skips don't skip the enemy round
+    const newBranch = pr.branch_point ? (opts.leads_to_branch ?? activeBranch) : activeBranch;
+    if (newBranch !== activeBranch) setActiveBranch(newBranch);
+    advanceRound(newBranch ?? undefined);
   }
 
   function handleHintView(index: number) {
@@ -2159,20 +2197,78 @@ export default function BattleGame({
                   padding: "0 24px", gap: 18, textAlign: "center",
                 }}>
                   {/* Header */}
-                  <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
-                    <div style={{ fontSize: 36 }}>🛡️</div>
-                    <div style={{ fontSize: 20, fontWeight: 700, color: "#fbbf24" }}>Defend!</div>
-                    <div style={{ fontSize: 13, opacity: 0.6 }}>
-                      {defendSeenOnce
-                        ? `Answer correctly to block ${conversation!.enemy_name}'s attack.`
-                        : `Listen to what ${conversation!.enemy_name} said...`}
+                  {(!defendSeenOnce && defendCountdownMs === null) ? (
+                    /* Audio is playing: show listening icon instead of shield/defend text */
+                    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 10 }}>
+                      <div style={{
+                        fontSize: 72,
+                        animation: "pulse 1.2s ease-in-out infinite",
+                        filter: "drop-shadow(0 0 12px rgba(251,191,36,0.6))",
+                      }}>🎧</div>
+                      <style>{`@keyframes pulse { 0%,100%{transform:scale(1);opacity:1} 50%{transform:scale(1.08);opacity:0.8} }`}</style>
                     </div>
-                  </div>
+                  ) : (
+                    defendCountdownMs !== null && (
+                      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
+                        <div style={{ fontSize: 20, fontWeight: 700, color: "#fbbf24" }}>Defend!</div>
+                        <div style={{ fontSize: 13, opacity: 0.6 }}>
+                          {defendCountdownPaused ? "Paused" : `Listen to what ${conversation!.enemy_name} says...`}
+                        </div>
+                      </div>
+                    )
+                  )}
 
-                  {/* Skip button — only during initial audio playback */}
-                  {!defendSeenOnce && (
+                  {/* Countdown ring */}
+                  {defendCountdownMs !== null && (() => {
+                    const TOTAL = 3000;
+                    const R = 24;
+                    const CIRC = 2 * Math.PI * R;
+                    const progress = defendCountdownMs / TOTAL; // 1→0
+                    const offset = CIRC * (1 - progress);
+                    return (
+                      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
+                        <div
+                          onClick={() => {
+                            setDefendCountdownMs(null);
+                            if (defendAudioRef.current) {
+                              defendAudioRef.current.addEventListener("ended", () => { setDefendAudioDone(true); setDefendSeenOnce(true); }, { once: true });
+                              defendAudioRef.current.play().catch(() => { setDefendAudioDone(true); setDefendSeenOnce(true); });
+                            }
+                          }}
+                          style={{ position: "relative", width: 64, height: 64, cursor: "pointer" }}
+                        >
+                          <svg width={64} height={64} style={{ transform: "rotate(-90deg)" }}>
+                            <circle cx={32} cy={32} r={R} fill="none" stroke="rgba(255,255,255,0.12)" strokeWidth={5} />
+                            <circle
+                              cx={32} cy={32} r={R} fill="none"
+                              stroke={defendCountdownPaused ? "rgba(251,191,36,0.5)" : "#fbbf24"}
+                              strokeWidth={5}
+                              strokeDasharray={CIRC}
+                              strokeDashoffset={offset}
+                              strokeLinecap="round"
+                              style={{ transition: "stroke-dashoffset 0.05s linear, stroke 0.2s" }}
+                            />
+                          </svg>
+                          <div style={{
+                            position: "absolute", inset: 0,
+                            display: "flex", alignItems: "center", justifyContent: "center",
+                            fontSize: 11, fontWeight: 600, color: "rgba(255,255,255,0.7)",
+                          }}>
+                            Start
+                          </div>
+                        </div>
+                        <div style={{ fontSize: 11, opacity: 0.45, letterSpacing: "0.05em" }}>
+                          {defendCountdownPaused ? "hover back to resume" : "hover battle log to pause"}
+                        </div>
+                      </div>
+                    );
+                  })()}
+
+                  {/* Skip button — only during initial audio playback (not during countdown) */}
+                  {!defendSeenOnce && defendCountdownMs === null && (
                     <button
                       onClick={() => {
+                        setDefendCountdownMs(null);
                         if (defendAudioRef.current) { defendAudioRef.current.pause(); }
                         setDefendAudioDone(true);
                         setDefendSeenOnce(true);
@@ -2223,30 +2319,54 @@ export default function BattleGame({
                   </div>
 
                   {/* Choices */}
-                  {defendResult === null ? (
-                    <div style={{ display: "flex", flexDirection: "column", gap: 10, width: "100%", maxWidth: 340 }}>
-                      {defendShuffledChoices.map((choice, ci) => (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 10, width: "100%", maxWidth: 340 }}>
+                    {defendShuffledChoices.map((choice, ci) => {
+                      const isSelected = ci === defendSelectedIndex;
+                      const isWrongSelection = isSelected && !choice.isCorrect;
+                      const answered = defendResult !== null;
+                      const bg = answered
+                        ? choice.isCorrect
+                          ? "rgba(34,197,94,0.25)"
+                          : isWrongSelection
+                            ? "rgba(239,68,68,0.25)"
+                            : "rgba(255,255,255,0.05)"
+                        : "rgba(255,255,255,0.08)";
+                      const border = answered
+                        ? choice.isCorrect
+                          ? "#22c55e"
+                          : isWrongSelection
+                            ? "#ef4444"
+                            : "rgba(255,255,255,0.15)"
+                        : "rgba(255,255,255,0.2)";
+                      return (
                         <button
                           key={ci}
-                          onClick={() => handleDefendAnswer(ci)}
+                          onClick={answered ? undefined : () => handleDefendAnswer(ci)}
                           style={{
                             width: "100%", padding: "12px 16px", fontSize: 15, fontWeight: 500,
-                            background: "rgba(255,255,255,0.08)", color: "white",
-                            border: "2px solid rgba(255,255,255,0.2)", borderRadius: 10,
-                            cursor: "pointer", textAlign: "left", transition: "background 0.15s, border-color 0.15s",
+                            background: bg, color: "white",
+                            border: `2px solid ${border}`, borderRadius: 10,
+                            cursor: answered ? "default" : "pointer",
+                            textAlign: "left", transition: "background 0.15s, border-color 0.15s",
+                            boxSizing: "border-box",
                           }}
                           onMouseEnter={e => {
+                            if (answered) return;
                             e.currentTarget.style.background = "rgba(255,255,255,0.16)";
                             e.currentTarget.style.borderColor = "rgba(255,255,255,0.4)";
                           }}
                           onMouseLeave={e => {
+                            if (answered) return;
                             e.currentTarget.style.background = "rgba(255,255,255,0.08)";
                             e.currentTarget.style.borderColor = "rgba(255,255,255,0.2)";
                           }}
                         >
                           {ci + 1}. {choice.text}
                         </button>
-                      ))}
+                      );
+                    })}
+                    {/* Skip button before answer / result message after — same space to prevent layout shift */}
+                    {defendResult === null ? (
                       <button
                         onClick={handleDefendSkip}
                         style={{
@@ -2254,6 +2374,7 @@ export default function BattleGame({
                           background: "transparent", color: "rgba(255,255,255,0.35)",
                           border: "1px solid rgba(255,255,255,0.15)", borderRadius: 10,
                           cursor: "pointer", marginTop: 4, transition: "color 0.15s, border-color 0.15s",
+                          boxSizing: "border-box",
                         }}
                         onMouseEnter={e => {
                           e.currentTarget.style.color = "rgba(255,255,255,0.6)";
@@ -2266,45 +2387,20 @@ export default function BattleGame({
                       >
                         Skip (take damage)
                       </button>
-                    </div>
-                  ) : (
-                    <div style={{ display: "flex", flexDirection: "column", gap: 10, width: "100%", maxWidth: 340 }}>
-                      {/* Single result indicator next to question */}
+                    ) : (
                       <div style={{
-                        fontSize: 16, fontWeight: 700,
+                        width: "100%", padding: "8px 16px", fontSize: 13, fontWeight: 600,
+                        borderRadius: 10, marginTop: 4, textAlign: "center", boxSizing: "border-box",
                         color: defendResult === "correct" ? "#86efac" : "#fca5a5",
                       }}>
                         {defendResult === "correct"
                           ? defendCounterDealt
-                            ? `✓ Blocked! Counter-attacked for ${defendCounterDealt} damage! ⚡`
+                            ? `✓ Blocked! Counter-attacked for ${defendCounterDealt} damage ⚡`
                             : "✓ Blocked! No damage taken."
-                          : `✗ Wrong! ${conversation!.enemy_name} deals ${ENEMY_DAMAGE} damage!`}
+                          : `✗ Wrong. ${conversation!.enemy_name} deals ${ENEMY_DAMAGE} damage!`}
                       </div>
-                      {defendShuffledChoices.map((choice, ci) => {
-                        const isSelected = ci === defendSelectedIndex;
-                        const isWrongSelection = isSelected && !choice.isCorrect;
-                        const bg = choice.isCorrect
-                          ? "rgba(34,197,94,0.25)"
-                          : isWrongSelection
-                            ? "rgba(239,68,68,0.25)"
-                            : "rgba(255,255,255,0.05)";
-                        const border = choice.isCorrect
-                          ? "#22c55e"
-                          : isWrongSelection
-                            ? "#ef4444"
-                            : "rgba(255,255,255,0.15)";
-                        return (
-                          <div key={ci} style={{
-                            width: "100%", padding: "12px 16px", fontSize: 15, fontWeight: 500,
-                            background: bg, color: "white",
-                            border: `2px solid ${border}`, borderRadius: 10, textAlign: "left",
-                          }}>
-                            {ci + 1}. {choice.text}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
+                    )}
+                  </div>
                   </>}
                 </div>
               );
@@ -2385,7 +2481,7 @@ export default function BattleGame({
                                     ref={el => { hintCardsRefs.current[index] = el; }}
                                     className={isRevealing ? "hint-revealing" : undefined}
                                     style={{
-                                      flexShrink: 0, minWidth: 100, position: "relative", display: "flex", flexDirection: "column",
+                                      flexShrink: 0, width: 130, position: "relative", display: "flex", flexDirection: "column",
                                       border: isRevealing
                                         ? "2px solid #FFD700"
                                         : isRevealed ? "2px solid rgba(255,255,255,0.3)" : proximityBorder || "2px solid #FFD700",
@@ -2415,13 +2511,13 @@ export default function BattleGame({
                                           border: "1px dashed rgba(147,197,253,0.3)",
                                           color: "rgba(147,197,253,0.5)",
                                           transition: "all 0.15s",
-                                          marginBottom: 6, flex: 1,
+                                          marginBottom: 6, flex: 1, minHeight: 44,
                                         }}
                                       >
                                         Aa
                                       </button>
                                     ) : (
-                                      <div style={{ marginBottom: 6, flex: 1 }}>
+                                      <div style={{ marginBottom: 6, flex: 1, minHeight: 44 }}>
                                         {learningParts.length > 1
                                           ? <ol style={{ margin: 0, padding: "0 0 0 16px", color: "#93c5fd", fontSize: 12, fontWeight: 500 }}>
                                               {learningParts.map((p, pi) => <li key={pi}>{p}</li>)}
@@ -2467,11 +2563,6 @@ export default function BattleGame({
                                 );
                               })}
                             </div>
-                            {viewedHints.size > 0 && (
-                              <div style={{ fontSize: 12, opacity: 0.5 }}>
-                                Hints used: {viewedHints.size} (-{viewedHints.size * HINT_PENALTY} dmg)
-                              </div>
-                            )}
                           </>
                         )}
                       </div>
@@ -2632,13 +2723,16 @@ export default function BattleGame({
           </div>
 
           {/* RIGHT COLUMN — Battle Log */}
-          <div style={{
-            flex: "0 0 34%",
-            display: "flex",
-            flexDirection: "column",
-            borderLeft: "1px solid rgba(255,255,255,0.08)",
-            overflow: "hidden",
-          }}>
+          <div
+            onMouseEnter={() => { if (defendCountdownMs !== null) setDefendCountdownPaused(true); }}
+            onMouseLeave={() => { if (defendCountdownMs !== null) setDefendCountdownPaused(false); }}
+            style={{
+              flex: "0 0 34%",
+              display: "flex",
+              flexDirection: "column",
+              borderLeft: "1px solid rgba(255,255,255,0.08)",
+              overflow: "hidden",
+            }}>
             <div style={{
               flexShrink: 0,
               padding: "10px 16px",
@@ -2738,6 +2832,28 @@ export default function BattleGame({
                             +{entry.damageDealt} dmg{entry.llmCalled && <span title="Judged by AI" style={{ marginLeft: 4, opacity: 0.6, fontSize: 11 }}>🤖</span>}
                           </span>
                         )}
+                        {isPlayer && !entry.skipped && entry.qualityScore != null && (() => {
+                          const q = entry.qualityScore;
+                          const hue = Math.round((q / 100) * 217);
+                          const fillColor = `hsl(${hue}, 80%, 58%)`;
+                          const totalHints = entry.allHints?.length ?? 0;
+                          const hintsUsed = entry.hintsUsed ?? 0;
+                          const hintPct = totalHints > 0 ? Math.round(((totalHints - hintsUsed) / totalHints) * 100) : null;
+                          return (
+                            <div style={{ display: "flex", flexDirection: "row", alignItems: "center", gap: 3, marginLeft: 2 }}>
+                              {/* Blue→red quality bar */}
+                              <div style={{ width: 56, height: 5, borderRadius: 3, background: "rgba(255,255,255,0.2)", overflow: "hidden" }}>
+                                <div style={{ width: `${q}%`, height: "100%", background: fillColor, borderRadius: 3, transition: "width 0.3s" }} />
+                              </div>
+                              {/* Gold hints bar */}
+                              {hintPct !== null && (
+                                <div style={{ width: 14, height: 5, borderRadius: 3, background: "rgba(255,255,255,0.2)", overflow: "hidden" }}>
+                                  <div style={{ width: `${hintPct}%`, height: "100%", background: "#fbbf24", borderRadius: 3, transition: "width 0.3s" }} />
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })()}
                       </div>
 
                       {/* Wrong attempt: show attempt text + inline feedback instead of native sentence */}

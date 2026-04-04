@@ -308,7 +308,7 @@ def check_trivia_answer(
         "  Use wrong_mood for subjunctive/conditional/imperative mix-ups — always accepted with 0.75 multiplier.\n"
         "  Use register_too_formal when too formal for context. Use register_too_informal when too casual.\n"
         "- corrected_snippet: the minimal corrected word or phrase to replace what the student wrote — NOT the student's original word. null if perfect.\n"
-        f"- feedback_explanation: when feedback_key is set, write ONE to TWO sentences in {fluent.get('name', 'English')} that (1) name the exact word or construction, (2) explain WHY the preferred form is more natural or correct in this context, and (3) briefly contrast it with what the student wrote so they understand the difference. For example, for a tense/mood issue: explain when each form is typically used, not just which one to swap in. For asr_error: explain what was likely misheard. null if feedback_key is null.\n"
+        f"- feedback_explanation: when feedback_key is set, write ONE to TWO sentences in {fluent.get('name', 'English')} structured as: 'You said X, but Y is more natural/correct because Z.' Always name what the student wrote first, then the correct form, then explain why. NEVER describe the student's incorrect form as natural or correct. For asr_error: explain what was likely misheard. null if feedback_key is null.\n"
         "- correction_tokens: when feedback_key is set (and NOT asr_error), produce a WORD-LEVEL inline diff of the student's FULL answer as a JSON array of token objects: [{\"text\": \"...\", \"status\": \"ok\"|\"remove\"|\"add\"}, ...]. "
         "CRITICAL rules: "
         "(1) Every word and space of the student's answer MUST appear in the tokens as 'ok' or 'remove' — do NOT omit any part. "
