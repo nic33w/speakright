@@ -208,6 +208,33 @@ function tokenizeWithHints(
   return result.length ? result : [{ text, hintIndex: null }];
 }
 
+// ── Word-level diff: returns example words tagged matched/different vs user's answer ──
+function diffExampleVsUser(userText: string, exampleText: string): Array<{ word: string; matched: boolean }> {
+  const normalize = (w: string) => w.toLowerCase().replace(/[.,!?;:¿¡"""'']/g, "");
+  const aWords = userText.trim().split(/\s+/).map(normalize);
+  const bWords = exampleText.trim().split(/\s+/);
+  const bNorm = bWords.map(normalize);
+  const m = aWords.length, n = bWords.length;
+  const dp: number[][] = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0));
+  for (let i = 1; i <= m; i++)
+    for (let j = 1; j <= n; j++)
+      dp[i][j] = aWords[i - 1] === bNorm[j - 1] ? dp[i - 1][j - 1] + 1 : Math.max(dp[i - 1][j], dp[i][j - 1]);
+  const result: Array<{ word: string; matched: boolean }> = [];
+  let i = m, j = n;
+  while (j > 0) {
+    if (i > 0 && aWords[i - 1] === bNorm[j - 1]) {
+      result.unshift({ word: bWords[j - 1], matched: true });
+      i--; j--;
+    } else if (i === 0 || dp[i - 1][j] < dp[i][j - 1]) {
+      result.unshift({ word: bWords[j - 1], matched: false });
+      j--;
+    } else {
+      i--;
+    }
+  }
+  return result;
+}
+
 // ── Expanded player log entry: 4-section hover layout ──
 type PlayerLogEntryExpandedProps = {
   entry: CompletedRound;
@@ -257,6 +284,7 @@ function PlayerLogEntryExpanded({ entry, hideLearnText, conversationId, wrongAtt
 
   const isPreview = previewExIdx !== null;
   const displayedText = isPreview ? (examples[previewExIdx!] ?? entry.textLearning ?? "") : (entry.textLearning ?? "");
+  const previewDiff = isPreview && entry.textLearning ? diffExampleVsUser(entry.textLearning, displayedText) : null;
   const feedbackText = entry.skipped ? "Skipped" : entry.damageDealt ? `+${entry.damageDealt} damage` : "";
 
   return (
@@ -347,12 +375,11 @@ function PlayerLogEntryExpanded({ entry, hideLearnText, conversationId, wrongAtt
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
             <div style={{ fontSize: 10, opacity: 0.45, textTransform: "uppercase", letterSpacing: "0.06em" }}>You said</div>
             {examples.length > 0 && (
-              <div style={{ display: "flex", gap: 4 }}>
+              <div style={{ display: "flex", gap: 4 }} onMouseLeave={() => setPreviewExIdx(null)}>
                 {examples.slice(0, 2).map((_, ei) => (
                   <div
                     key={ei}
                     onMouseEnter={() => setPreviewExIdx(ei)}
-                    onMouseLeave={() => setPreviewExIdx(null)}
                     style={{
                       width: 20, height: 20, borderRadius: 4, fontSize: 10, fontWeight: 700,
                       display: "flex", alignItems: "center", justifyContent: "center",
@@ -388,12 +415,11 @@ function PlayerLogEntryExpanded({ entry, hideLearnText, conversationId, wrongAtt
               {isPreview ? `Example ${previewExIdx! + 1}` : "You said"}
             </div>
             {examples.length > 0 && (
-              <div style={{ display: "flex", gap: 4 }}>
+              <div style={{ display: "flex", gap: 4 }} onMouseLeave={() => setPreviewExIdx(null)}>
                 {examples.slice(0, 2).map((_, ei) => (
                   <div
                     key={ei}
                     onMouseEnter={() => setPreviewExIdx(ei)}
-                    onMouseLeave={() => setPreviewExIdx(null)}
                     style={{
                       width: 20, height: 20, borderRadius: 4, fontSize: 10, fontWeight: 700,
                       display: "flex", alignItems: "center", justifyContent: "center",
@@ -410,12 +436,16 @@ function PlayerLogEntryExpanded({ entry, hideLearnText, conversationId, wrongAtt
               </div>
             )}
           </div>
-          <div style={{
-            color: isPreview ? "#93c5fd" : (entry.skipped ? "#fbbf24" : "#86efac"),
-            fontSize: 13, fontStyle: isPreview ? "italic" : "normal",
-            transition: "color 0.15s",
-          }}>
-            {displayedText}
+          <div style={{ fontSize: 13, fontStyle: isPreview ? "italic" : "normal", lineHeight: 1.5 }}>
+            {previewDiff ? (
+              previewDiff.map((tok, ti) => (
+                <span key={ti} style={{ color: tok.matched ? "rgba(255,255,255,0.5)" : "#fbbf24" }}>
+                  {tok.word}{ti < previewDiff.length - 1 ? " " : ""}
+                </span>
+              ))
+            ) : (
+              <span style={{ color: entry.skipped ? "#fbbf24" : "#86efac" }}>{displayedText}</span>
+            )}
           </div>
         </div>
       )}
