@@ -119,6 +119,7 @@ const ENEMY_DAMAGE = 15;
 const DEFEND_COUNTER_DAMAGE = 10;
 
 const FEEDBACK_MAP: Record<string, string> = {
+  perfect: "Sounds natural — perfect answer!",
   asr_error: "Looks like a speech-to-text mishearing — full credit given.",
   missing_minor_words: "Almost perfect — just missing a small word or particle.",
   gender_agreement: "Check the gender agreement — the article or adjective should match the noun.",
@@ -134,6 +135,7 @@ const FEEDBACK_MAP: Record<string, string> = {
 };
 
 const FEEDBACK_COLORS: Record<string, string> = {
+  perfect: "#4ade80",
   asr_error: "#60a5fa",
   missing_minor_words: "#fbbf24",
   gender_agreement: "#fb923c",
@@ -149,6 +151,7 @@ const FEEDBACK_COLORS: Record<string, string> = {
 };
 
 const FEEDBACK_LABELS: Record<string, string> = {
+  perfect: "Perfect",
   asr_error: "STT Error",
   missing_minor_words: "Minor Word",
   gender_agreement: "Gender",
@@ -452,9 +455,11 @@ function PlayerLogEntryExpanded({ entry, hideLearnText, conversationId, wrongAtt
 
       {/* 4. Feedback */}
       {(feedbackText || entry.feedbackExplanation || entry.feedbackKey) && (() => {
-        const tip = entry.feedbackExplanation ?? (entry.feedbackKey ? FEEDBACK_MAP[entry.feedbackKey] : null);
-        const catColor = entry.feedbackKey ? (FEEDBACK_COLORS[entry.feedbackKey] ?? "#94a3b8") : null;
-        const catLabel = entry.feedbackKey ? (FEEDBACK_LABELS[entry.feedbackKey] ?? entry.feedbackKey) : null;
+        const effectiveFeedbackKey = entry.feedbackKey
+          ?? (!entry.llmCalled && entry.qualityScore === 100 ? "perfect" : null);
+        const tip = entry.feedbackExplanation ?? (effectiveFeedbackKey ? FEEDBACK_MAP[effectiveFeedbackKey] : null);
+        const catColor = effectiveFeedbackKey ? (FEEDBACK_COLORS[effectiveFeedbackKey] ?? "#94a3b8") : null;
+        const catLabel = effectiveFeedbackKey ? (FEEDBACK_LABELS[effectiveFeedbackKey] ?? effectiveFeedbackKey) : null;
         return (
           <div style={{ borderTop: "1px solid rgba(255,255,255,0.1)", paddingTop: 7 }}>
             <div style={{ fontSize: 10, opacity: 0.45, marginBottom: 5, textTransform: "uppercase", letterSpacing: "0.06em" }}>Feedback</div>
