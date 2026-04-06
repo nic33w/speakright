@@ -3,6 +3,7 @@ import os
 import json
 import re
 import unicodedata
+import difflib
 from typing import Any, Dict, List, Optional
 
 try:
@@ -122,6 +123,57 @@ def _normalize_for_matching(text: str) -> str:
     # Normalize whitespace
     text = re.sub(r'\s+', ' ', text)
     return text.strip().lower()
+
+def _diff_tokens(original: str, corrected: str) -> List[Dict[str, str]]:
+    """Compute a word-level diff between original and corrected using difflib."""
+    # Split into words, preserving spaces by attaching trailing space to each token
+    def tokenize(text: str) -> List[str]:
+        words = re.split(r'(\s+)', text)
+        # Merge word with following whitespace so spacing is preserved
+        tokens = []
+        i = 0
+        while i < len(words):
+            if words[i] == '':
+                i += 1
+                continue
+            if i + 1 < len(words) and re.match(r'\s+', words[i + 1]):
+                tokens.append(words[i] + words[i + 1])
+                i += 2
+            else:
+                tokens.append(words[i])
+                i += 1
+        return tokens
+
+    orig_tokens = tokenize(original)
+    corr_tokens = tokenize(corrected)
+
+    matcher = difflib.SequenceMatcher(None, orig_tokens, corr_tokens, autojunk=False)
+    result = []
+    for tag, i1, i2, j1, j2 in matcher.get_opcodes():
+        if tag == "equal":
+            for t in orig_tokens[i1:i2]:
+                result.append({"text": t, "status": "ok"})
+        elif tag == "replace":
+            for t in orig_tokens[i1:i2]:
+                result.append({"text": t, "status": "remove"})
+            for t in corr_tokens[j1:j2]:
+                result.append({"text": t, "status": "add"})
+        elif tag == "delete":
+            for t in orig_tokens[i1:i2]:
+                result.append({"text": t, "status": "remove"})
+        elif tag == "insert":
+            for t in corr_tokens[j1:j2]:
+                result.append({"text": t, "status": "add"})
+
+    # Ensure a visible space between remove and add groups so they don't run together
+    spaced = []
+    for i, tok in enumerate(result):
+        spaced.append(tok)
+        if tok["status"] == "remove" and i + 1 < len(result) and result[i + 1]["status"] == "add":
+            if not tok["text"].endswith(" "):
+                spaced.append({"text": " ", "status": "ok"})
+    return spaced
+
 
 def _init_client():
     if MOCK_MODE:
@@ -309,15 +361,7 @@ def check_trivia_answer(
         "  Use register_too_formal when too formal for context. Use register_too_informal when too casual.\n"
         "- corrected_snippet: the minimal corrected word or phrase to replace what the student wrote — NOT the student's original word. null if perfect.\n"
         f"- feedback_explanation: when feedback_key is set, write ONE to TWO sentences in {fluent.get('name', 'English')} structured as: 'You said X, but Y is more natural/correct because Z.' Always name what the student wrote first, then the correct form, then explain why. NEVER describe the student's incorrect form as natural or correct. For asr_error: explain what was likely misheard. null if feedback_key is null.\n"
-        "- correction_tokens: when feedback_key is set (and NOT asr_error), produce a WORD-LEVEL inline diff of the student's FULL answer as a JSON array of token objects: [{\"text\": \"...\", \"status\": \"ok\"|\"remove\"|\"add\"}, ...]. "
-        "CRITICAL rules: "
-        "(1) Every word and space of the student's answer MUST appear in the tokens as 'ok' or 'remove' — do NOT omit any part. "
-        "(2) Only mark the minimum words that need to change — never mark a correct word as 'remove'/'add'. "
-        "(3) For extra/duplicate words the student inserted: mark just the extra word as 'remove', leave the rest as 'ok'. Do NOT also add it back as 'add'. "
-        "Example extra word — student: 'saya akan tidak akan bayar', correct: 'saya tidak akan bayar' → [{\"text\":\"saya \",\"status\":\"ok\"},{\"text\":\"akan \",\"status\":\"remove\"},{\"text\":\"tidak akan bayar\",\"status\":\"ok\"}]. "
-        "Example wrong word — student: 'Tidak bisa menolak sambal.', correct: '...sambalnya.' → [{\"text\":\"Tidak bisa menolak \",\"status\":\"ok\"},{\"text\":\"sambal\",\"status\":\"remove\"},{\"text\":\"sambalnya\",\"status\":\"add\"},{\"text\":\".\",\"status\":\"ok\"}]. "
-        "Example substitution — student: 'itu harga yang baik', correct: 'itu harga terbaik saya' → [{\"text\":\"itu harga \",\"status\":\"ok\"},{\"text\":\"yang baik\",\"status\":\"remove\"},{\"text\":\"terbaik saya\",\"status\":\"add\"}]. "
-        "null if feedback_key is null or asr_error.\n"
+        "- corrected_full_answer: when feedback_key is set (and NOT asr_error), write the student's full answer with ONLY the mistake(s) fixed — keep everything else word-for-word identical to what the student wrote. null if feedback_key is null or asr_error.\n"
         "Return ONLY valid JSON, no prose."
     )
 
@@ -335,7 +379,7 @@ def check_trivia_answer(
         f"Prompt ({learning.get('name','Spanish')}): {json.dumps(english_prompt, ensure_ascii=False)}\n"
         f"{ref_line}\n"
         f"Student's answer: {json.dumps(user_answer, ensure_ascii=False)}\n\n"
-        'Return: {"accepted": bool, "damage_multiplier": float, "feedback_key": string|null, "corrected_snippet": string|null, "feedback_explanation": string|null, "correction_tokens": [{text, status}]|null}'
+        'Return: {"accepted": bool, "damage_multiplier": float, "feedback_key": string|null, "corrected_snippet": string|null, "feedback_explanation": string|null, "corrected_full_answer": string|null}'
     )
 
     full_prompt = system_prompt + "\n\n" + user_prompt
@@ -375,7 +419,15 @@ def check_trivia_answer(
         parsed.setdefault("feedback_key", None)
         parsed.setdefault("corrected_snippet", None)
         parsed.setdefault("feedback_explanation", None)
-        parsed.setdefault("correction_tokens", None)
+        parsed.setdefault("corrected_full_answer", None)
+
+        # Compute correction_tokens algorithmically from user_answer vs corrected_full_answer
+        corrected_full = parsed.get("corrected_full_answer")
+        fk = parsed.get("feedback_key")
+        if corrected_full and fk and fk != "asr_error" and user_answer:
+            parsed["correction_tokens"] = _diff_tokens(user_answer, corrected_full)
+        else:
+            parsed["correction_tokens"] = None
 
         # Enforce consistency: these keys must always result in accepted: true
         # (LLM sometimes ignores the prompt instruction)

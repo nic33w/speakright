@@ -132,6 +132,36 @@ const FEEDBACK_MAP: Record<string, string> = {
   wrong_tense: "The tense used changes or contradicts the intended meaning.",
   wrong_meaning: "The answer doesn't match what was asked.",
 };
+
+const FEEDBACK_COLORS: Record<string, string> = {
+  asr_error: "#60a5fa",
+  missing_minor_words: "#fbbf24",
+  gender_agreement: "#fb923c",
+  register_too_formal: "#a78bfa",
+  register_too_informal: "#c084fc",
+  subtle_meaning_shift: "#fb923c",
+  wrong_mood: "#f97316",
+  word_order: "#fbbf24",
+  unnatural_phrasing: "#f97316",
+  wrong_conjugation: "#f87171",
+  wrong_tense: "#f87171",
+  wrong_meaning: "#ef4444",
+};
+
+const FEEDBACK_LABELS: Record<string, string> = {
+  asr_error: "STT Error",
+  missing_minor_words: "Minor Word",
+  gender_agreement: "Gender",
+  register_too_formal: "Too Formal",
+  register_too_informal: "Too Informal",
+  subtle_meaning_shift: "Meaning Shift",
+  wrong_mood: "Wrong Mood",
+  word_order: "Word Order",
+  unnatural_phrasing: "Unnatural",
+  wrong_conjugation: "Conjugation",
+  wrong_tense: "Wrong Tense",
+  wrong_meaning: "Wrong Meaning",
+};
 const PLAYER_MAX_HP = 100;
 const ENEMY_MAX_HP = 200;
 const PLAYER_PET_EMOJIS = ["🐺", "🦊", "🦅"];
@@ -393,16 +423,34 @@ function PlayerLogEntryExpanded({ entry, hideLearnText, conversationId, wrongAtt
       {/* 4. Feedback */}
       {(feedbackText || entry.feedbackExplanation || entry.feedbackKey) && (() => {
         const tip = entry.feedbackExplanation ?? (entry.feedbackKey ? FEEDBACK_MAP[entry.feedbackKey] : null);
+        const catColor = entry.feedbackKey ? (FEEDBACK_COLORS[entry.feedbackKey] ?? "#94a3b8") : null;
+        const catLabel = entry.feedbackKey ? (FEEDBACK_LABELS[entry.feedbackKey] ?? entry.feedbackKey) : null;
         return (
           <div style={{ borderTop: "1px solid rgba(255,255,255,0.1)", paddingTop: 7 }}>
-            <div style={{ fontSize: 10, opacity: 0.45, marginBottom: 3, textTransform: "uppercase", letterSpacing: "0.06em" }}>Feedback</div>
+            <div style={{ fontSize: 10, opacity: 0.45, marginBottom: 5, textTransform: "uppercase", letterSpacing: "0.06em" }}>Feedback</div>
             {feedbackText && (
-              <div style={{ fontSize: 12, color: entry.skipped ? "#94a3b8" : "#86efac" }}>
+              <div style={{ fontSize: 12, color: entry.skipped ? "#94a3b8" : "#86efac", marginBottom: catLabel ? 5 : 0 }}>
                 {feedbackText}
               </div>
             )}
-            {tip && (
-              <div style={{ fontSize: 12, color: "rgba(255,255,255,0.6)", lineHeight: 1.4, marginTop: feedbackText ? 4 : 0 }}>
+            {catLabel && catColor && (
+              <div style={{ display: "flex", alignItems: "flex-start", gap: 8, flexWrap: "wrap" }}>
+                <span style={{
+                  fontSize: 11, fontWeight: 600, padding: "2px 8px", borderRadius: 999,
+                  background: `${catColor}22`, border: `1px solid ${catColor}66`, color: catColor,
+                  whiteSpace: "nowrap", flexShrink: 0,
+                }}>
+                  {catLabel}
+                </span>
+                {tip && (
+                  <span style={{ fontSize: 12, color: catColor, lineHeight: 1.4, opacity: 0.85 }}>
+                    {tip}
+                  </span>
+                )}
+              </div>
+            )}
+            {!catLabel && tip && (
+              <div style={{ fontSize: 12, color: "rgba(255,255,255,0.6)", lineHeight: 1.4 }}>
                 {tip}
               </div>
             )}
@@ -417,10 +465,12 @@ function PlayerLogEntryExpanded({ entry, hideLearnText, conversationId, wrongAtt
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
             {wrongAttempts.map((wa, wi) => {
               const waTip = wa.feedbackExplanation ?? (wa.feedbackKey ? FEEDBACK_MAP[wa.feedbackKey] : null);
+              const waColor = wa.feedbackKey ? (FEEDBACK_COLORS[wa.feedbackKey] ?? "#94a3b8") : null;
+              const waLabel = wa.feedbackKey ? (FEEDBACK_LABELS[wa.feedbackKey] ?? wa.feedbackKey) : null;
               return (
                 <div key={wi} style={{ background: "rgba(239,68,68,0.1)", borderRadius: 6, padding: "5px 8px" }}>
                   {wa.correctionTokens && wa.correctionTokens.length > 0 ? (
-                    <div style={{ fontSize: 12, lineHeight: 1.6, wordBreak: "break-word", marginBottom: waTip ? 4 : 0 }}>
+                    <div style={{ fontSize: 12, lineHeight: 1.6, wordBreak: "break-word", marginBottom: (waLabel || waTip) ? 4 : 0 }}>
                       {wa.correctionTokens.map((tok, ti) => {
                         if (tok.status === "remove") return (
                           <span key={ti} style={{ color: "#fca5a5", textDecoration: "line-through", textDecorationColor: "#fca5a5" }}>{tok.text}</span>
@@ -432,9 +482,25 @@ function PlayerLogEntryExpanded({ entry, hideLearnText, conversationId, wrongAtt
                       })}
                     </div>
                   ) : (
-                    <div style={{ fontSize: 12, color: "#fca5a5", marginBottom: waTip ? 3 : 0 }}>{wa.textLearning}</div>
+                    <div style={{ fontSize: 12, color: "#fca5a5", marginBottom: (waLabel || waTip) ? 3 : 0 }}>{wa.textLearning}</div>
                   )}
-                  {waTip && (
+                  {waLabel && waColor && (
+                    <div style={{ display: "flex", alignItems: "flex-start", gap: 6, flexWrap: "wrap", marginTop: 3 }}>
+                      <span style={{
+                        fontSize: 10, fontWeight: 600, padding: "1px 6px", borderRadius: 999,
+                        background: `${waColor}22`, border: `1px solid ${waColor}66`, color: waColor,
+                        whiteSpace: "nowrap", flexShrink: 0,
+                      }}>
+                        {waLabel}
+                      </span>
+                      {waTip && (
+                        <span style={{ fontSize: 11, color: waColor, lineHeight: 1.4, opacity: 0.85 }}>
+                          {waTip}
+                        </span>
+                      )}
+                    </div>
+                  )}
+                  {!waLabel && waTip && (
                     <div style={{ fontSize: 11, color: "rgba(255,255,255,0.5)", lineHeight: 1.4 }}>
                       {waTip}
                     </div>
@@ -470,7 +536,7 @@ export default function BattleGame({
   const [viewedHints, setViewedHints] = useState<Set<number>>(new Set());
   const [answerStatus, setAnswerStatus] = useState<"idle" | "checking" | "correct" | "incorrect" | "skipped">("idle");
   const [feedbackMessage, setFeedbackMessage] = useState("");
-  const [lastCheckResult, setLastCheckResult] = useState<{ multiplier: number; feedbackKey: string | null; correctedSnippet: string | null; feedbackExplanation: string | null } | null>(null);
+  const [lastCheckResult, setLastCheckResult] = useState<{ multiplier: number; feedbackKey: string | null; correctedSnippet: string | null; feedbackExplanation: string | null; correctionTokens: Array<{ text: string; status: "ok" | "remove" | "add" }> | null } | null>(null);
   const [conversationHistory, setConversationHistory] = useState<CompletedRound[]>([]);
   const [expandedLogEntry, setExpandedLogEntry] = useState<number | null>(null);
   const [pinnedLogEntries, setPinnedLogEntries] = useState<Set<number>>(new Set());
@@ -1050,6 +1116,7 @@ export default function BattleGame({
         correctionTokens: (lastRejectedData?.correction_tokens as Array<{ text: string; status: "ok" | "remove" | "add" }> | null) ?? null,
         qualityScore: 0,
       }]);
+      setLastCheckResult({ multiplier: 0, feedbackKey: (lastRejectedData?.feedback_key as string | null) ?? null, correctedSnippet: (lastRejectedData?.corrected_snippet as string | null) ?? null, feedbackExplanation: (lastRejectedData?.feedback_explanation as string | null) ?? null, correctionTokens: (lastRejectedData?.correction_tokens as Array<{ text: string; status: "ok" | "remove" | "add" }> | null) ?? null });
       handleIncorrectAnswer("Try again!");
       setBusy(false);
       return;
@@ -1088,7 +1155,7 @@ export default function BattleGame({
       if (data.accepted) {
         await handleCorrectAnswer(opts, undefined, data.damage_multiplier ?? 1.0, data.feedback_key ?? null, data.corrected_snippet ?? null, data.feedback_explanation ?? null, !data.fast_path, data.correction_tokens ?? null);
       } else {
-        setLastCheckResult({ multiplier: 0, feedbackKey: data.feedback_key ?? null, correctedSnippet: data.corrected_snippet ?? null, feedbackExplanation: data.feedback_explanation ?? null });
+        setLastCheckResult({ multiplier: 0, feedbackKey: data.feedback_key ?? null, correctedSnippet: data.corrected_snippet ?? null, feedbackExplanation: data.feedback_explanation ?? null, correctionTokens: data.correction_tokens ?? null });
         setConversationHistory(prev => [...prev, {
           id: pr.id,
           speaker: "player",
@@ -1126,9 +1193,9 @@ export default function BattleGame({
     const rawDamage = calculateDamage(diff, viewedHints.size);
     const damage = Math.max(1, Math.round(rawDamage * damageMultiplier));
 
-    setLastCheckResult({ multiplier: damageMultiplier, feedbackKey, correctedSnippet, feedbackExplanation });
+    setLastCheckResult({ multiplier: damageMultiplier, feedbackKey, correctedSnippet, feedbackExplanation, correctionTokens });
     setAnswerStatus("correct");
-    const label = damageMultiplier >= 1.0 ? "Perfect!" : "Close enough!";
+    const label = (damageMultiplier >= 1.0 && !feedbackKey) ? "Perfect!" : "Close enough!";
     setFeedbackMessage(`${label} ${damage} damage!`);
     setTimerActive(false);
 
@@ -2651,9 +2718,13 @@ export default function BattleGame({
                     ? (m >= 1.0 ? "#86efac" : m >= 0.7 ? "#fbbf24" : "#f97316")
                     : answerStatus === "incorrect" ? "#fca5a5"
                     : "#94a3b8";
+                  const fk = lastCheckResult?.feedbackKey ?? null;
                   const tip = lastCheckResult?.feedbackExplanation
-                    ?? (lastCheckResult?.feedbackKey ? FEEDBACK_MAP[lastCheckResult.feedbackKey] : null);
+                    ?? (fk ? FEEDBACK_MAP[fk] : null);
                   const snippet = lastCheckResult?.correctedSnippet;
+                  const catColor = fk ? (FEEDBACK_COLORS[fk] ?? "#94a3b8") : null;
+                  const catLabel = fk ? (FEEDBACK_LABELS[fk] ?? fk) : null;
+                  const liveDiffTokens = lastCheckResult?.correctionTokens ?? null;
                   return (
                     <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -2666,9 +2737,38 @@ export default function BattleGame({
                           </span>
                         )}
                       </div>
-                      {tip && (
+                      {catLabel && catColor && (
+                        <div style={{ display: "flex", alignItems: "flex-start", gap: 8, flexWrap: "wrap", marginTop: 2 }}>
+                          <span style={{
+                            fontSize: 11, fontWeight: 600, padding: "2px 8px", borderRadius: 999,
+                            background: `${catColor}22`, border: `1px solid ${catColor}66`, color: catColor,
+                            whiteSpace: "nowrap", flexShrink: 0,
+                          }}>
+                            {catLabel}
+                          </span>
+                          {tip && (
+                            <span style={{ fontSize: 12, color: catColor, lineHeight: 1.4, opacity: 0.85 }}>
+                              {tip}{snippet ? <span style={{ fontWeight: 500 }}> → {snippet}</span> : null}
+                            </span>
+                          )}
+                        </div>
+                      )}
+                      {!catLabel && tip && (
                         <div style={{ fontSize: 12, color: "rgba(255,255,255,0.6)", lineHeight: 1.4 }}>
                           {tip}{snippet ? <span style={{ color: mainColor, fontWeight: 500 }}> Try: {snippet}</span> : null}
+                        </div>
+                      )}
+                      {liveDiffTokens && liveDiffTokens.length > 0 && (
+                        <div style={{ fontSize: 13, lineHeight: 1.6, wordBreak: "break-word", marginTop: 4, padding: "6px 10px", background: "rgba(255,255,255,0.04)", borderRadius: 6 }}>
+                          {liveDiffTokens.map((tok, ti) => {
+                            if (tok.status === "remove") return (
+                              <span key={ti} style={{ color: "#fca5a5", textDecoration: "line-through", textDecorationColor: "#fca5a5" }}>{tok.text}</span>
+                            );
+                            if (tok.status === "add") return (
+                              <span key={ti} style={{ color: "#86efac", fontWeight: 500 }}>{tok.text}</span>
+                            );
+                            return <span key={ti} style={{ color: "rgba(255,255,255,0.8)" }}>{tok.text}</span>;
+                          })}
                         </div>
                       )}
                     </div>
@@ -2821,17 +2921,6 @@ export default function BattleGame({
                         {isPlayer && entry.isWrongAttempt && (
                           <span style={{ color: "#fca5a5", fontSize: 11 }}>✗ wrong</span>
                         )}
-                        {isPlayer && !entry.isWrongAttempt && (
-                          <span style={{
-                            width: 7, height: 7, borderRadius: "50%", display: "inline-block", flexShrink: 0,
-                            background: entry.skipped ? "#fbbf24" : "#22c55e",
-                          }} />
-                        )}
-                        {isPlayer && entry.damageDealt && !entry.skipped && !entry.isWrongAttempt && (
-                          <span style={{ color: "#86efac" }}>
-                            +{entry.damageDealt} dmg{entry.llmCalled && <span title="Judged by AI" style={{ marginLeft: 4, opacity: 0.6, fontSize: 11 }}>🤖</span>}
-                          </span>
-                        )}
                         {isPlayer && !entry.skipped && entry.qualityScore != null && (() => {
                           const q = entry.qualityScore;
                           const hue = Math.round((q / 100) * 217);
@@ -2842,18 +2931,23 @@ export default function BattleGame({
                           return (
                             <div style={{ display: "flex", flexDirection: "row", alignItems: "center", gap: 3, marginLeft: 2 }}>
                               {/* Blue→red quality bar */}
-                              <div style={{ width: 56, height: 5, borderRadius: 3, background: "rgba(255,255,255,0.2)", overflow: "hidden" }}>
+                              <div style={{ width: 56, height: 5, borderRadius: 3, background: "rgba(255,255,255,0.2)", overflow: "hidden", border: `1px solid ${fillColor}66` }}>
                                 <div style={{ width: `${q}%`, height: "100%", background: fillColor, borderRadius: 3, transition: "width 0.3s" }} />
                               </div>
                               {/* Gold hints bar */}
                               {hintPct !== null && (
-                                <div style={{ width: 14, height: 5, borderRadius: 3, background: "rgba(255,255,255,0.2)", overflow: "hidden" }}>
+                                <div style={{ width: 14, height: 5, borderRadius: 3, background: "rgba(255,255,255,0.2)", overflow: "hidden", border: "1px solid rgba(251,191,36,0.5)" }}>
                                   <div style={{ width: `${hintPct}%`, height: "100%", background: "#fbbf24", borderRadius: 3, transition: "width 0.3s" }} />
                                 </div>
                               )}
                             </div>
                           );
                         })()}
+                        {isPlayer && entry.damageDealt && !entry.skipped && !entry.isWrongAttempt && (
+                          <span style={{ color: "#86efac" }}>
+                            +{entry.damageDealt} dmg{entry.llmCalled && <span title="Judged by AI" style={{ marginLeft: 4, opacity: 0.6, fontSize: 11 }}>🤖</span>}
+                          </span>
+                        )}
                       </div>
 
                       {/* Wrong attempt: show attempt text + inline feedback instead of native sentence */}
