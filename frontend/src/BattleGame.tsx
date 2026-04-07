@@ -1250,7 +1250,8 @@ export default function BattleGame({
 
     setLastCheckResult({ multiplier: damageMultiplier, feedbackIssues, feedbackKey, correctedSnippet, feedbackExplanation, correctionTokens });
     setAnswerStatus("correct");
-    const label = (damageMultiplier >= 1.0 && !feedbackKey) ? "Perfect!" : "Close enough!";
+    const isPerfect = damageMultiplier >= 1.0 && (!feedbackKey || feedbackKey === "perfect" || feedbackKey === "asr_error");
+    const label = isPerfect ? "Perfect!" : "Close enough!";
     setFeedbackMessage(`${label} ${damage} damage!`);
     setTimerActive(false);
 

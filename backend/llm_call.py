@@ -112,6 +112,17 @@ def _strip_accents(text: str) -> str:
     nfd = unicodedata.normalize('NFD', text)
     return ''.join(char for char in nfd if unicodedata.category(char) != 'Mn')
 
+def _normalize_for_llm(text: str) -> str:
+    """Strip accents, punctuation, and lowercase text before sending to LLM, so the LLM
+    cannot flag accent, punctuation, or capitalization differences as errors."""
+    if not text:
+        return ""
+    text = _strip_accents(text)
+    # Remove punctuation/symbols but keep letters, digits, spaces
+    text = re.sub(r'[^\w\s]', ' ', text)
+    text = re.sub(r'\s+', ' ', text)
+    return text.strip().lower()
+
 def _normalize_for_matching(text: str) -> str:
     """Normalize text for matching: strip accents, remove punctuation, lowercase."""
     if not text:
@@ -144,10 +155,18 @@ def _diff_tokens(original: str, corrected: str) -> List[Dict[str, str]]:
                 i += 1
         return tokens
 
+    def compare_key(tok: str) -> str:
+        """Strip accents and punctuation for comparison, keeping the display text intact."""
+        return _normalize_for_llm(tok).lower()
+
     orig_tokens = tokenize(original)
     corr_tokens = tokenize(corrected)
 
-    matcher = difflib.SequenceMatcher(None, orig_tokens, corr_tokens, autojunk=False)
+    # Use normalized forms for diffing so punctuation/accent differences don't show as errors
+    orig_keys = [compare_key(t) for t in orig_tokens]
+    corr_keys = [compare_key(t) for t in corr_tokens]
+
+    matcher = difflib.SequenceMatcher(None, orig_keys, corr_keys, autojunk=False)
     result = []
     for tag, i1, i2, j1, j2 in matcher.get_opcodes():
         if tag == "equal":
@@ -343,8 +362,8 @@ def check_trivia_answer(
         f"You are a strict but fair {learning_name} language learning judge. {language_style}\n"
         "Evaluate the student's answer against the reference answer.\n\n"
         "Rules:\n"
-        "- NEVER penalize for missing accents, punctuation, or capitalization.\n"
-        "- FIRST, before any other evaluation: the student is using speech-to-text (Wispr). Check if unexpected words are STT mishearings. Common patterns: phonetically similar words (e.g. 'cus'→'jus'), merged or split tokens (e.g. 'Este'→'Es teh', 'S T'→'es teh', 'dise'→'di sini'), or words run together. If correcting the mishearing makes the answer acceptable, IMMEDIATELY set accepted: true, damage_multiplier: 1.0, issues: [{\"feedback_key\": \"asr_error\", \"corrected_snippet\": null, \"feedback_explanation\": \"<explain what was misheard>\"}]. Do NOT add any other issues in this case.\n"
+        "- CRITICAL: NEVER mention, comment on, or penalize accents, punctuation, or capitalization — not even as a side note. Both the student's answer and the reference have had accents and punctuation stripped before you receive them. The student is speaking (speech-to-text) and has no control over accents or punctuation. Do NOT say things like 'you should include the accent' or 'you forgot the exclamation mark'. Any issue that is ONLY about accents or punctuation must be completely ignored.\n"
+        "- FIRST, before any other evaluation: the student is using speech-to-text (Wispr). Accents and punctuation have already been stripped from the student's answer — do NOT penalize for any accent or punctuation difference. Check if unexpected words are STT mishearings. Common patterns: phonetically similar words (e.g. 'cus'→'jus'), merged or split tokens (e.g. 'Este'→'Es teh', 'S T'→'es teh', 'dise'→'di sini', 'esta'→'es ta', 'está'→'es ta' or 'es esta'), or words run together. If correcting the mishearing makes the answer acceptable, IMMEDIATELY set accepted: true, damage_multiplier: 1.0, issues: [{\"feedback_key\": \"asr_error\", \"corrected_snippet\": null, \"feedback_explanation\": \"<explain what was misheard>\"}]. Do NOT add any other issues in this case.\n"
         "- accepted: true if the student demonstrated understanding of the meaning, even if imperfectly expressed. ONLY set accepted: false for wrong conjugation, wrong tense that changes meaning, or completely wrong/missing core meaning.\n"
         "- damage_multiplier: overall severity across ALL issues combined. Use the lowest applicable value:\n"
         "    1.0   → perfect or asr_error only\n"
@@ -379,17 +398,25 @@ def check_trivia_answer(
     # Remove hyphens joining word parts (e.g. "menu-nya" → "menunya") before LLM sees the answer
     user_answer = re.sub(r'(?<=\w)-(?=\w)', '', user_answer)
 
+    # Strip accents and punctuation from the user's answer before sending to the LLM.
+    # The LLM receives accent-free text so it cannot flag accent or punctuation differences
+    # as errors. We keep the original for _diff_tokens / display.
+    user_answer_for_llm = _normalize_for_llm(user_answer)
+
     all_candidates = accepted_translations if accepted_translations else [correct_answer]
-    if len(all_candidates) > 1:
-        refs_str = "\n".join(f"  - {json.dumps(c, ensure_ascii=False)}" for c in all_candidates)
+    # Normalize both reference and user answer: strip accents and punctuation so the LLM
+    # evaluates only vocabulary, grammar, and meaning — not punctuation or accent marks.
+    normalized_candidates = [_normalize_for_llm(c) for c in all_candidates]
+    if len(normalized_candidates) > 1:
+        refs_str = "\n".join(f"  - {json.dumps(c, ensure_ascii=False)}" for c in normalized_candidates)
         ref_line = f"Accepted answers (any of these is correct):\n{refs_str}"
     else:
-        ref_line = f"Reference answer: {json.dumps(all_candidates[0], ensure_ascii=False)}"
+        ref_line = f"Reference answer: {json.dumps(normalized_candidates[0], ensure_ascii=False)}"
 
     user_prompt = (
         f"Prompt ({learning.get('name','Spanish')}): {json.dumps(english_prompt, ensure_ascii=False)}\n"
         f"{ref_line}\n"
-        f"Student's answer: {json.dumps(user_answer, ensure_ascii=False)}\n\n"
+        f"Student's answer: {json.dumps(user_answer_for_llm, ensure_ascii=False)}\n\n"
         'Return: {"accepted": bool, "damage_multiplier": float, "issues": [{"feedback_key": str, "corrected_snippet": str|null, "feedback_explanation": str|null}], "corrected_full_answer": str|null}'
     )
 
