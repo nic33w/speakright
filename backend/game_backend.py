@@ -1609,6 +1609,7 @@ def api_battle_check(req: BattleCheckReq):
         return {
             "accepted": result.get("accepted", False),
             "damage_multiplier": result.get("damage_multiplier", 0.0),
+            "issues": result.get("issues", []),
             "feedback_key": result.get("feedback_key", None),
             "corrected_snippet": result.get("corrected_snippet", None),
             "feedback_explanation": result.get("feedback_explanation", None),

@@ -82,6 +82,12 @@ const CONV_LANGUAGE: Record<string, LangSpec> = {
 
 type Difficulty = "easy" | "medium" | "hard";
 
+type FeedbackIssue = {
+  feedbackKey: string;
+  correctedSnippet?: string | null;
+  feedbackExplanation?: string | null;
+};
+
 type CompletedRound = {
   id: number | string;
   speaker: "player" | "enemy";
@@ -96,6 +102,7 @@ type CompletedRound = {
   acceptedTranslations?: string[];
   skipped?: boolean;
   isWrongAttempt?: boolean;
+  feedbackIssues?: FeedbackIssue[] | null;
   feedbackKey?: string | null;
   correctedSnippet?: string | null;
   feedbackExplanation?: string | null;
@@ -122,6 +129,7 @@ const FEEDBACK_MAP: Record<string, string> = {
   perfect: "Sounds natural — perfect answer!",
   asr_error: "Looks like a speech-to-text mishearing — full credit given.",
   missing_minor_words: "Almost perfect — just missing a small word or particle.",
+  missing_content: "Part of the meaning from the prompt was left out.",
   gender_agreement: "Check the gender agreement — the article or adjective should match the noun.",
   register_too_formal: "Grammatically correct, but a bit too formal for this situation. Aim for a more casual, everyday tone.",
   register_too_informal: "Grammatically correct, but a bit too casual for this situation. Aim for a slightly more neutral tone.",
@@ -138,6 +146,7 @@ const FEEDBACK_COLORS: Record<string, string> = {
   perfect: "#4ade80",
   asr_error: "#60a5fa",
   missing_minor_words: "#fbbf24",
+  missing_content: "#f97316",
   gender_agreement: "#fb923c",
   register_too_formal: "#a78bfa",
   register_too_informal: "#c084fc",
@@ -154,6 +163,7 @@ const FEEDBACK_LABELS: Record<string, string> = {
   perfect: "Perfect",
   asr_error: "STT Error",
   missing_minor_words: "Minor Word",
+  missing_content: "Missing Content",
   gender_agreement: "Gender",
   register_too_formal: "Too Formal",
   register_too_informal: "Too Informal",
@@ -454,41 +464,42 @@ function PlayerLogEntryExpanded({ entry, hideLearnText, conversationId, wrongAtt
       )}
 
       {/* 4. Feedback */}
-      {(feedbackText || entry.feedbackExplanation || entry.feedbackKey) && (() => {
-        const effectiveFeedbackKey = entry.feedbackKey
-          ?? (!entry.llmCalled && entry.qualityScore === 100 ? "perfect" : null);
-        const tip = entry.feedbackExplanation ?? (effectiveFeedbackKey ? FEEDBACK_MAP[effectiveFeedbackKey] : null);
-        const catColor = effectiveFeedbackKey ? (FEEDBACK_COLORS[effectiveFeedbackKey] ?? "#94a3b8") : null;
-        const catLabel = effectiveFeedbackKey ? (FEEDBACK_LABELS[effectiveFeedbackKey] ?? effectiveFeedbackKey) : null;
+      {(feedbackText || entry.feedbackIssues?.length || entry.feedbackKey) && (() => {
+        // Build effective issues list: prefer feedbackIssues array, fall back to single key, or infer "perfect"
+        const effectiveIssues: FeedbackIssue[] = entry.feedbackIssues?.length
+          ? entry.feedbackIssues
+          : entry.feedbackKey
+            ? [{ feedbackKey: entry.feedbackKey, correctedSnippet: entry.correctedSnippet, feedbackExplanation: entry.feedbackExplanation }]
+            : (!entry.llmCalled && entry.qualityScore === 100 ? [{ feedbackKey: "perfect" }] : []);
         return (
           <div style={{ borderTop: "1px solid rgba(255,255,255,0.1)", paddingTop: 7 }}>
             <div style={{ fontSize: 10, opacity: 0.45, marginBottom: 5, textTransform: "uppercase", letterSpacing: "0.06em" }}>Feedback</div>
             {feedbackText && (
-              <div style={{ fontSize: 12, color: entry.skipped ? "#94a3b8" : "#86efac", marginBottom: catLabel ? 5 : 0 }}>
+              <div style={{ fontSize: 12, color: entry.skipped ? "#94a3b8" : "#86efac", marginBottom: effectiveIssues.length ? 5 : 0 }}>
                 {feedbackText}
               </div>
             )}
-            {catLabel && catColor && (
-              <div style={{ display: "flex", alignItems: "flex-start", gap: 8, flexWrap: "wrap" }}>
-                <span style={{
-                  fontSize: 11, fontWeight: 600, padding: "2px 8px", borderRadius: 999,
-                  background: `${catColor}22`, border: `1px solid ${catColor}66`, color: catColor,
-                  whiteSpace: "nowrap", flexShrink: 0,
-                }}>
-                  {catLabel}
-                </span>
-                {tip && (
-                  <span style={{ fontSize: 12, color: catColor, lineHeight: 1.4, opacity: 0.85 }}>
-                    {tip}
+            {effectiveIssues.map((issue, i) => {
+              const tip = issue.feedbackExplanation ?? FEEDBACK_MAP[issue.feedbackKey];
+              const catColor = FEEDBACK_COLORS[issue.feedbackKey] ?? "#94a3b8";
+              const catLabel = FEEDBACK_LABELS[issue.feedbackKey] ?? issue.feedbackKey;
+              return (
+                <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 8, flexWrap: "wrap", marginBottom: i < effectiveIssues.length - 1 ? 5 : 0 }}>
+                  <span style={{
+                    fontSize: 11, fontWeight: 600, padding: "2px 8px", borderRadius: 999,
+                    background: `${catColor}22`, border: `1px solid ${catColor}66`, color: catColor,
+                    whiteSpace: "nowrap", flexShrink: 0,
+                  }}>
+                    {catLabel}
                   </span>
-                )}
-              </div>
-            )}
-            {!catLabel && tip && (
-              <div style={{ fontSize: 12, color: "rgba(255,255,255,0.6)", lineHeight: 1.4 }}>
-                {tip}
-              </div>
-            )}
+                  {tip && (
+                    <span style={{ fontSize: 12, color: catColor, lineHeight: 1.4, opacity: 0.85 }}>
+                      {tip}
+                    </span>
+                  )}
+                </div>
+              );
+            })}
           </div>
         );
       })()}
@@ -499,13 +510,15 @@ function PlayerLogEntryExpanded({ entry, hideLearnText, conversationId, wrongAtt
           <div style={{ fontSize: 10, opacity: 0.45, marginBottom: 5, textTransform: "uppercase", letterSpacing: "0.06em" }}>Previous attempts</div>
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
             {wrongAttempts.map((wa, wi) => {
-              const waTip = wa.feedbackExplanation ?? (wa.feedbackKey ? FEEDBACK_MAP[wa.feedbackKey] : null);
-              const waColor = wa.feedbackKey ? (FEEDBACK_COLORS[wa.feedbackKey] ?? "#94a3b8") : null;
-              const waLabel = wa.feedbackKey ? (FEEDBACK_LABELS[wa.feedbackKey] ?? wa.feedbackKey) : null;
+              const waIssues: FeedbackIssue[] = wa.feedbackIssues?.length
+                ? wa.feedbackIssues
+                : wa.feedbackKey
+                  ? [{ feedbackKey: wa.feedbackKey, correctedSnippet: wa.correctedSnippet, feedbackExplanation: wa.feedbackExplanation }]
+                  : [];
               return (
                 <div key={wi} style={{ background: "rgba(239,68,68,0.1)", borderRadius: 6, padding: "5px 8px" }}>
                   {wa.correctionTokens && wa.correctionTokens.length > 0 ? (
-                    <div style={{ fontSize: 12, lineHeight: 1.6, wordBreak: "break-word", marginBottom: (waLabel || waTip) ? 4 : 0 }}>
+                    <div style={{ fontSize: 12, lineHeight: 1.6, wordBreak: "break-word", marginBottom: waIssues.length ? 4 : 0 }}>
                       {wa.correctionTokens.map((tok, ti) => {
                         if (tok.status === "remove") return (
                           <span key={ti} style={{ color: "#fca5a5", textDecoration: "line-through", textDecorationColor: "#fca5a5" }}>{tok.text}</span>
@@ -517,29 +530,29 @@ function PlayerLogEntryExpanded({ entry, hideLearnText, conversationId, wrongAtt
                       })}
                     </div>
                   ) : (
-                    <div style={{ fontSize: 12, color: "#fca5a5", marginBottom: (waLabel || waTip) ? 3 : 0 }}>{wa.textLearning}</div>
+                    <div style={{ fontSize: 12, color: "#fca5a5", marginBottom: waIssues.length ? 3 : 0 }}>{wa.textLearning}</div>
                   )}
-                  {waLabel && waColor && (
-                    <div style={{ display: "flex", alignItems: "flex-start", gap: 6, flexWrap: "wrap", marginTop: 3 }}>
-                      <span style={{
-                        fontSize: 10, fontWeight: 600, padding: "1px 6px", borderRadius: 999,
-                        background: `${waColor}22`, border: `1px solid ${waColor}66`, color: waColor,
-                        whiteSpace: "nowrap", flexShrink: 0,
-                      }}>
-                        {waLabel}
-                      </span>
-                      {waTip && (
-                        <span style={{ fontSize: 11, color: waColor, lineHeight: 1.4, opacity: 0.85 }}>
-                          {waTip}
+                  {waIssues.map((issue, ii) => {
+                    const waColor = FEEDBACK_COLORS[issue.feedbackKey] ?? "#94a3b8";
+                    const waLabel = FEEDBACK_LABELS[issue.feedbackKey] ?? issue.feedbackKey;
+                    const waTip = issue.feedbackExplanation ?? FEEDBACK_MAP[issue.feedbackKey];
+                    return (
+                      <div key={ii} style={{ display: "flex", alignItems: "flex-start", gap: 6, flexWrap: "wrap", marginTop: 3 }}>
+                        <span style={{
+                          fontSize: 10, fontWeight: 600, padding: "1px 6px", borderRadius: 999,
+                          background: `${waColor}22`, border: `1px solid ${waColor}66`, color: waColor,
+                          whiteSpace: "nowrap", flexShrink: 0,
+                        }}>
+                          {waLabel}
                         </span>
-                      )}
-                    </div>
-                  )}
-                  {!waLabel && waTip && (
-                    <div style={{ fontSize: 11, color: "rgba(255,255,255,0.5)", lineHeight: 1.4 }}>
-                      {waTip}
-                    </div>
-                  )}
+                        {waTip && (
+                          <span style={{ fontSize: 11, color: waColor, lineHeight: 1.4, opacity: 0.85 }}>
+                            {waTip}
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               );
             })}
@@ -571,7 +584,7 @@ export default function BattleGame({
   const [viewedHints, setViewedHints] = useState<Set<number>>(new Set());
   const [answerStatus, setAnswerStatus] = useState<"idle" | "checking" | "correct" | "incorrect" | "skipped">("idle");
   const [feedbackMessage, setFeedbackMessage] = useState("");
-  const [lastCheckResult, setLastCheckResult] = useState<{ multiplier: number; feedbackKey: string | null; correctedSnippet: string | null; feedbackExplanation: string | null; correctionTokens: Array<{ text: string; status: "ok" | "remove" | "add" }> | null } | null>(null);
+  const [lastCheckResult, setLastCheckResult] = useState<{ multiplier: number; feedbackIssues: FeedbackIssue[] | null; feedbackKey: string | null; correctedSnippet: string | null; feedbackExplanation: string | null; correctionTokens: Array<{ text: string; status: "ok" | "remove" | "add" }> | null } | null>(null);
   const [conversationHistory, setConversationHistory] = useState<CompletedRound[]>([]);
   const [expandedLogEntry, setExpandedLogEntry] = useState<number | null>(null);
   const [pinnedLogEntries, setPinnedLogEntries] = useState<Set<number>>(new Set());
@@ -1128,7 +1141,8 @@ export default function BattleGame({
 
           if (data.accepted) {
             setSelectedDifficulty(diff);
-            await handleCorrectAnswer(opts, diff, data.damage_multiplier ?? 1.0, data.feedback_key ?? null, data.corrected_snippet ?? null, data.feedback_explanation ?? null, !data.fast_path, data.correction_tokens ?? null);
+            const fi = ((data.issues ?? []) as Array<{feedback_key: string, corrected_snippet: string|null, feedback_explanation: string|null}>).map(i => ({ feedbackKey: i.feedback_key, correctedSnippet: i.corrected_snippet ?? null, feedbackExplanation: i.feedback_explanation ?? null }));
+            await handleCorrectAnswer(opts, diff, data.damage_multiplier ?? 1.0, data.feedback_key ?? null, data.corrected_snippet ?? null, data.feedback_explanation ?? null, !data.fast_path, data.correction_tokens ?? null, fi.length ? fi : null);
             setBusy(false);
             return;
           }
@@ -1139,19 +1153,21 @@ export default function BattleGame({
       }
 
       // No match in any difficulty — log wrong attempt and show feedback
+      const rejectedIssues = ((lastRejectedData?.issues ?? []) as Array<{feedback_key: string, corrected_snippet: string|null, feedback_explanation: string|null}>).map(i => ({ feedbackKey: i.feedback_key, correctedSnippet: i.corrected_snippet ?? null, feedbackExplanation: i.feedback_explanation ?? null }));
       setConversationHistory(prev => [...prev, {
         id: pr.id,
         speaker: "player",
         textNative: pr.options.easy.native,
         textLearning: userAnswer,
         isWrongAttempt: true,
+        feedbackIssues: rejectedIssues.length ? rejectedIssues : null,
         feedbackKey: (lastRejectedData?.feedback_key as string | null) ?? null,
         correctedSnippet: (lastRejectedData?.corrected_snippet as string | null) ?? null,
         feedbackExplanation: (lastRejectedData?.feedback_explanation as string | null) ?? null,
         correctionTokens: (lastRejectedData?.correction_tokens as Array<{ text: string; status: "ok" | "remove" | "add" }> | null) ?? null,
         qualityScore: 0,
       }]);
-      setLastCheckResult({ multiplier: 0, feedbackKey: (lastRejectedData?.feedback_key as string | null) ?? null, correctedSnippet: (lastRejectedData?.corrected_snippet as string | null) ?? null, feedbackExplanation: (lastRejectedData?.feedback_explanation as string | null) ?? null, correctionTokens: (lastRejectedData?.correction_tokens as Array<{ text: string; status: "ok" | "remove" | "add" }> | null) ?? null });
+      setLastCheckResult({ multiplier: 0, feedbackIssues: rejectedIssues.length ? rejectedIssues : null, feedbackKey: (lastRejectedData?.feedback_key as string | null) ?? null, correctedSnippet: (lastRejectedData?.corrected_snippet as string | null) ?? null, feedbackExplanation: (lastRejectedData?.feedback_explanation as string | null) ?? null, correctionTokens: (lastRejectedData?.correction_tokens as Array<{ text: string; status: "ok" | "remove" | "add" }> | null) ?? null });
       handleIncorrectAnswer("Try again!");
       setBusy(false);
       return;
@@ -1187,16 +1203,19 @@ export default function BattleGame({
       const data = await response.json();
       if (data.token_usage?.cost_cents) setTotalCostCents(prev => prev + data.token_usage.cost_cents);
 
+      const mappedIssues = ((data.issues ?? []) as Array<{feedback_key: string, corrected_snippet: string|null, feedback_explanation: string|null}>).map(i => ({ feedbackKey: i.feedback_key, correctedSnippet: i.corrected_snippet ?? null, feedbackExplanation: i.feedback_explanation ?? null }));
+      const feedbackIssues = mappedIssues.length ? mappedIssues : null;
       if (data.accepted) {
-        await handleCorrectAnswer(opts, undefined, data.damage_multiplier ?? 1.0, data.feedback_key ?? null, data.corrected_snippet ?? null, data.feedback_explanation ?? null, !data.fast_path, data.correction_tokens ?? null);
+        await handleCorrectAnswer(opts, undefined, data.damage_multiplier ?? 1.0, data.feedback_key ?? null, data.corrected_snippet ?? null, data.feedback_explanation ?? null, !data.fast_path, data.correction_tokens ?? null, feedbackIssues);
       } else {
-        setLastCheckResult({ multiplier: 0, feedbackKey: data.feedback_key ?? null, correctedSnippet: data.corrected_snippet ?? null, feedbackExplanation: data.feedback_explanation ?? null, correctionTokens: data.correction_tokens ?? null });
+        setLastCheckResult({ multiplier: 0, feedbackIssues, feedbackKey: data.feedback_key ?? null, correctedSnippet: data.corrected_snippet ?? null, feedbackExplanation: data.feedback_explanation ?? null, correctionTokens: data.correction_tokens ?? null });
         setConversationHistory(prev => [...prev, {
           id: pr.id,
           speaker: "player",
           textNative: opts.native,
           textLearning: userAnswer,
           isWrongAttempt: true,
+          feedbackIssues,
           feedbackKey: data.feedback_key ?? null,
           correctedSnippet: data.corrected_snippet ?? null,
           feedbackExplanation: data.feedback_explanation ?? null,
@@ -1222,13 +1241,14 @@ export default function BattleGame({
     feedbackExplanation: string | null = null,
     llmCalled = false,
     correctionTokens: Array<{ text: string; status: "ok" | "remove" | "add" }> | null = null,
+    feedbackIssues: FeedbackIssue[] | null = null,
   ) {
     const diff = diffOverride ?? selectedDifficulty;
     if (!diff) return;
     const rawDamage = calculateDamage(diff, viewedHints.size);
     const damage = Math.max(1, Math.round(rawDamage * damageMultiplier));
 
-    setLastCheckResult({ multiplier: damageMultiplier, feedbackKey, correctedSnippet, feedbackExplanation, correctionTokens });
+    setLastCheckResult({ multiplier: damageMultiplier, feedbackIssues, feedbackKey, correctedSnippet, feedbackExplanation, correctionTokens });
     setAnswerStatus("correct");
     const label = (damageMultiplier >= 1.0 && !feedbackKey) ? "Perfect!" : "Close enough!";
     setFeedbackMessage(`${label} ${damage} damage!`);
@@ -1294,6 +1314,7 @@ export default function BattleGame({
       difficulty: diff,
       damageDealt: damage,
       llmCalled,
+      feedbackIssues,
       feedbackKey,
       correctedSnippet,
       feedbackExplanation,
@@ -2753,12 +2774,11 @@ export default function BattleGame({
                     ? (m >= 1.0 ? "#86efac" : m >= 0.7 ? "#fbbf24" : "#f97316")
                     : answerStatus === "incorrect" ? "#fca5a5"
                     : "#94a3b8";
-                  const fk = lastCheckResult?.feedbackKey ?? null;
-                  const tip = lastCheckResult?.feedbackExplanation
-                    ?? (fk ? FEEDBACK_MAP[fk] : null);
-                  const snippet = lastCheckResult?.correctedSnippet;
-                  const catColor = fk ? (FEEDBACK_COLORS[fk] ?? "#94a3b8") : null;
-                  const catLabel = fk ? (FEEDBACK_LABELS[fk] ?? fk) : null;
+                  const liveIssues: FeedbackIssue[] = lastCheckResult?.feedbackIssues?.length
+                    ? lastCheckResult.feedbackIssues
+                    : lastCheckResult?.feedbackKey
+                      ? [{ feedbackKey: lastCheckResult.feedbackKey, correctedSnippet: lastCheckResult.correctedSnippet, feedbackExplanation: lastCheckResult.feedbackExplanation }]
+                      : [];
                   const liveDiffTokens = lastCheckResult?.correctionTokens ?? null;
                   return (
                     <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
@@ -2772,27 +2792,28 @@ export default function BattleGame({
                           </span>
                         )}
                       </div>
-                      {catLabel && catColor && (
-                        <div style={{ display: "flex", alignItems: "flex-start", gap: 8, flexWrap: "wrap", marginTop: 2 }}>
-                          <span style={{
-                            fontSize: 11, fontWeight: 600, padding: "2px 8px", borderRadius: 999,
-                            background: `${catColor}22`, border: `1px solid ${catColor}66`, color: catColor,
-                            whiteSpace: "nowrap", flexShrink: 0,
-                          }}>
-                            {catLabel}
-                          </span>
-                          {tip && (
-                            <span style={{ fontSize: 12, color: catColor, lineHeight: 1.4, opacity: 0.85 }}>
-                              {tip}{snippet ? <span style={{ fontWeight: 500 }}> → {snippet}</span> : null}
+                      {liveIssues.map((issue, i) => {
+                        const catColor = FEEDBACK_COLORS[issue.feedbackKey] ?? "#94a3b8";
+                        const catLabel = FEEDBACK_LABELS[issue.feedbackKey] ?? issue.feedbackKey;
+                        const tip = issue.feedbackExplanation ?? FEEDBACK_MAP[issue.feedbackKey];
+                        const snippet = issue.correctedSnippet;
+                        return (
+                          <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 8, flexWrap: "wrap", marginTop: i === 0 ? 2 : 0 }}>
+                            <span style={{
+                              fontSize: 11, fontWeight: 600, padding: "2px 8px", borderRadius: 999,
+                              background: `${catColor}22`, border: `1px solid ${catColor}66`, color: catColor,
+                              whiteSpace: "nowrap", flexShrink: 0,
+                            }}>
+                              {catLabel}
                             </span>
-                          )}
-                        </div>
-                      )}
-                      {!catLabel && tip && (
-                        <div style={{ fontSize: 12, color: "rgba(255,255,255,0.6)", lineHeight: 1.4 }}>
-                          {tip}{snippet ? <span style={{ color: mainColor, fontWeight: 500 }}> Try: {snippet}</span> : null}
-                        </div>
-                      )}
+                            {tip && (
+                              <span style={{ fontSize: 12, color: catColor, lineHeight: 1.4, opacity: 0.85 }}>
+                                {tip}{snippet ? <span style={{ fontWeight: 500 }}> → {snippet}</span> : null}
+                              </span>
+                            )}
+                          </div>
+                        );
+                      })}
                       {liveDiffTokens && liveDiffTokens.length > 0 && (
                         <div style={{ fontSize: 13, lineHeight: 1.6, wordBreak: "break-word", marginTop: 4, padding: "6px 10px", background: "rgba(255,255,255,0.04)", borderRadius: 6 }}>
                           {liveDiffTokens.map((tok, ti) => {
@@ -2990,10 +3011,21 @@ export default function BattleGame({
                         <div>
                           <div style={{ fontSize: 13 }}>{entry.textLearning}</div>
                           {(() => {
-                            const tip = entry.feedbackExplanation ?? (entry.feedbackKey ? FEEDBACK_MAP[entry.feedbackKey] : null);
-                            return tip ? (
-                              <div style={{ fontSize: 11, color: "rgba(255,255,255,0.5)", lineHeight: 1.4, marginTop: 3 }}>
-                                {tip}{entry.correctedSnippet && <span style={{ color: "#fbbf24", fontWeight: 500 }}> Try: {entry.correctedSnippet}</span>}
+                            const inlineIssues: FeedbackIssue[] = entry.feedbackIssues?.length
+                              ? entry.feedbackIssues
+                              : entry.feedbackKey
+                                ? [{ feedbackKey: entry.feedbackKey, correctedSnippet: entry.correctedSnippet, feedbackExplanation: entry.feedbackExplanation }]
+                                : [];
+                            return inlineIssues.length ? (
+                              <div style={{ fontSize: 11, color: "rgba(255,255,255,0.5)", lineHeight: 1.5, marginTop: 3, display: "flex", flexDirection: "column", gap: 2 }}>
+                                {inlineIssues.map((issue, i) => {
+                                  const tip = issue.feedbackExplanation ?? FEEDBACK_MAP[issue.feedbackKey];
+                                  return tip ? (
+                                    <div key={i}>
+                                      {tip}{issue.correctedSnippet && <span style={{ color: "#fbbf24", fontWeight: 500 }}> Try: {issue.correctedSnippet}</span>}
+                                    </div>
+                                  ) : null;
+                                })}
                               </div>
                             ) : null;
                           })()}

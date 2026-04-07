@@ -344,26 +344,35 @@ def check_trivia_answer(
         "Evaluate the student's answer against the reference answer.\n\n"
         "Rules:\n"
         "- NEVER penalize for missing accents, punctuation, or capitalization.\n"
-        "- FIRST, before any other evaluation: the student is using speech-to-text (Wispr). Check if unexpected words are STT mishearings. Common patterns: phonetically similar words (e.g. 'cus'→'jus'), merged or split tokens (e.g. 'Este'→'Es teh', 'S T'→'es teh', 'dise'→'di sini'), or words run together. If correcting the mishearing makes the answer acceptable, IMMEDIATELY set accepted: true, damage_multiplier: 1.0, feedback_key: 'asr_error', and explain in feedback_explanation. Do NOT apply any other feedback_key in this case.\n"
+        "- FIRST, before any other evaluation: the student is using speech-to-text (Wispr). Check if unexpected words are STT mishearings. Common patterns: phonetically similar words (e.g. 'cus'→'jus'), merged or split tokens (e.g. 'Este'→'Es teh', 'S T'→'es teh', 'dise'→'di sini'), or words run together. If correcting the mishearing makes the answer acceptable, IMMEDIATELY set accepted: true, damage_multiplier: 1.0, issues: [{\"feedback_key\": \"asr_error\", \"corrected_snippet\": null, \"feedback_explanation\": \"<explain what was misheard>\"}]. Do NOT add any other issues in this case.\n"
         "- accepted: true if the student demonstrated understanding of the meaning, even if imperfectly expressed. ONLY set accepted: false for wrong conjugation, wrong tense that changes meaning, or completely wrong/missing core meaning.\n"
-        "- damage_multiplier:\n"
-        "    1.0   → feedback_key: perfect — answer is natural, idiomatic, and fully correct; nothing to correct\n"
-        "    1.0   → feedback_key: asr_error — likely STT mishearing, otherwise acceptable\n"
-        "    0.85  → missing_minor_words: dropped a particle, softener, or minor word (e.g. 'saja', 'ya', 'que')\n"
-        "    0.8   → gender_agreement: wrong gender on article/adjective | register_too_formal: too formal for context (e.g. -kah suffix) | register_too_informal: too casual for context (e.g. 'aja' instead of 'saja')\n"
-        "    0.75  → subtle_meaning_shift: slightly different nuance but meaning mostly intact | wrong_mood: used indicative instead of subjunctive/conditional, but meaning clear\n"
-        "    0.7   → word_order: words rearranged, meaning still understandable\n"
-        "    0.6   → unnatural_phrasing: valid grammar but a native speaker would immediately notice\n"
+        "- damage_multiplier: overall severity across ALL issues combined. Use the lowest applicable value:\n"
+        "    1.0   → perfect or asr_error only\n"
+        "    0.85  → missing_minor_words\n"
+        "    0.8   → gender_agreement | register_too_formal | register_too_informal\n"
+        "    0.75  → subtle_meaning_shift | wrong_mood\n"
+        "    0.7   → word_order\n"
+        "    0.6   → unnatural_phrasing | missing_content\n"
         "    0.0   → wrong_conjugation | wrong_tense | wrong_meaning; accepted must be false\n"
-        "- feedback_key: REQUIRED — always set one of:\n"
-        "    perfect | asr_error | missing_minor_words | gender_agreement | register_too_formal | register_too_informal | subtle_meaning_shift | wrong_mood | word_order | unnatural_phrasing | wrong_conjugation | wrong_tense | wrong_meaning\n"
-        "  Use perfect ONLY when the answer is truly natural, idiomatic, and correct with absolutely nothing to improve — a native speaker would say exactly this. Do NOT use perfect if there is even a minor note.\n"
-        "  Use asr_error when the answer appears correct except for a likely STT mishearing.\n"
-        "  Use wrong_mood for subjunctive/conditional/imperative mix-ups — always accepted with 0.75 multiplier.\n"
-        "  Use register_too_formal when too formal for context. Use register_too_informal when too casual.\n"
-        "- corrected_snippet: the minimal corrected word or phrase to replace what the student wrote — NOT the student's original word. null if feedback_key is perfect or asr_error.\n"
-        f"- feedback_explanation: when feedback_key is set (and NOT perfect or asr_error), write ONE to TWO sentences in {fluent.get('name', 'English')} structured as: 'You said X, but Y is more natural/correct because Z.' Always name what the student wrote first, then the correct form, then explain why. NEVER describe the student's incorrect form as natural or correct. For asr_error: explain what was likely misheard. null if feedback_key is perfect.\n"
-        "- corrected_full_answer: when feedback_key is set (and NOT perfect or asr_error), write the student's full answer with ONLY the mistake(s) fixed — keep everything else word-for-word identical to what the student wrote. null if feedback_key is perfect or asr_error.\n"
+        "- issues: REQUIRED — array of ALL problems found, ordered worst-first. Each item: {\"feedback_key\": str, \"corrected_snippet\": str|null, \"feedback_explanation\": str|null}\n"
+        "  If the answer is perfect: [{\"feedback_key\": \"perfect\", \"corrected_snippet\": null, \"feedback_explanation\": null}]\n"
+        "  Report ALL issues — do not limit to one. A sentence can have multiple issues (e.g. unnatural word + missing content).\n"
+        "  feedback_key values:\n"
+        "    perfect: ONLY when answer is truly natural, idiomatic, fully correct — a native speaker would say exactly this. Do NOT use if there is even a minor note.\n"
+        "    asr_error: likely STT mishearing that makes the answer otherwise acceptable.\n"
+        "    missing_minor_words: dropped a particle, softener, or minor word (e.g. 'saja', 'ya', 'que').\n"
+        "    missing_content: student omitted a significant portion of the meaning from the prompt (e.g. left out a whole clause or key detail).\n"
+        "    gender_agreement: wrong gender on article/adjective.\n"
+        "    register_too_formal: too formal for context (e.g. -kah suffix).\n"
+        "    register_too_informal: too casual for context (e.g. 'aja' instead of 'saja').\n"
+        "    subtle_meaning_shift: slightly different nuance but meaning mostly intact.\n"
+        "    wrong_mood: used indicative instead of subjunctive/conditional, but meaning clear.\n"
+        "    word_order: words rearranged, meaning still understandable.\n"
+        "    unnatural_phrasing: valid grammar but a native speaker would immediately notice.\n"
+        "    wrong_conjugation | wrong_tense | wrong_meaning: accepted must be false.\n"
+        "  corrected_snippet per issue: minimal corrected word/phrase. null if perfect or asr_error.\n"
+        f"  feedback_explanation per issue: ONE sentence in {fluent.get('name', 'English')} — 'You said X, but Y is more natural/correct because Z.' null if perfect.\n"
+        "- corrected_full_answer: write the student's full answer with ALL mistakes fixed, keeping all correct parts word-for-word identical. null if issues is [{perfect}] or [{asr_error}].\n"
         "Return ONLY valid JSON, no prose."
     )
 
@@ -381,7 +390,7 @@ def check_trivia_answer(
         f"Prompt ({learning.get('name','Spanish')}): {json.dumps(english_prompt, ensure_ascii=False)}\n"
         f"{ref_line}\n"
         f"Student's answer: {json.dumps(user_answer, ensure_ascii=False)}\n\n"
-        'Return: {"accepted": bool, "damage_multiplier": float, "feedback_key": string|null, "corrected_snippet": string|null, "feedback_explanation": string|null, "corrected_full_answer": string|null}'
+        'Return: {"accepted": bool, "damage_multiplier": float, "issues": [{"feedback_key": str, "corrected_snippet": str|null, "feedback_explanation": str|null}], "corrected_full_answer": str|null}'
     )
 
     full_prompt = system_prompt + "\n\n" + user_prompt
@@ -392,7 +401,7 @@ def check_trivia_answer(
             model=model,
             input=full_prompt,
             temperature=temperature,
-            max_output_tokens=600,
+            max_output_tokens=900,
             timeout=timeout,
         )
 
@@ -418,15 +427,20 @@ def check_trivia_answer(
 
         parsed.setdefault("accepted", False)
         parsed.setdefault("damage_multiplier", 0.0)
-        parsed.setdefault("feedback_key", None)
-        parsed.setdefault("corrected_snippet", None)
-        parsed.setdefault("feedback_explanation", None)
+        parsed.setdefault("issues", [])
         parsed.setdefault("corrected_full_answer", None)
+
+        # Derive legacy single-issue fields from primary (worst) issue for backward compat
+        issues = parsed.get("issues") or []
+        primary = issues[0] if issues else {}
+        parsed["feedback_key"] = primary.get("feedback_key", None)
+        parsed["corrected_snippet"] = primary.get("corrected_snippet", None)
+        parsed["feedback_explanation"] = primary.get("feedback_explanation", None)
 
         # Compute correction_tokens algorithmically from user_answer vs corrected_full_answer
         corrected_full = parsed.get("corrected_full_answer")
-        fk = parsed.get("feedback_key")
-        if corrected_full and fk and fk != "asr_error" and user_answer:
+        primary_fk = parsed["feedback_key"]
+        if corrected_full and primary_fk and primary_fk not in ("asr_error", "perfect") and user_answer:
             parsed["correction_tokens"] = _diff_tokens(user_answer, corrected_full)
         else:
             parsed["correction_tokens"] = None
@@ -437,6 +451,7 @@ def check_trivia_answer(
             "perfect": 1.0,
             "asr_error": 1.0,
             "missing_minor_words": 0.85,
+            "missing_content": 0.6,
             "gender_agreement": 0.8,
             "register_too_formal": 0.8,
             "register_too_informal": 0.8,
@@ -480,8 +495,10 @@ def check_trivia_answer(
         return {
             "accepted": is_correct,
             "damage_multiplier": 1.0 if is_correct else 0.0,
+            "issues": [],
             "feedback_key": None,
             "corrected_snippet": None,
+            "correction_tokens": None,
         }
 
 
