@@ -313,6 +313,7 @@ def check_trivia_answer(
     fluent: Dict[str, Any],
     learning: Dict[str, Any],
     accepted_translations: Optional[List[str]] = None,
+    valid_phrases: Optional[List[str]] = None,
     model: Optional[str] = None,
     temperature: float = 0.15,
     timeout: int = 20,
@@ -387,12 +388,18 @@ def check_trivia_answer(
         "    subtle_meaning_shift: slightly different nuance but meaning mostly intact.\n"
         "    wrong_mood: used indicative instead of subjunctive/conditional, but meaning clear.\n"
         "    word_order: words rearranged, meaning still understandable.\n"
-        "    unnatural_phrasing: valid grammar but a native speaker would immediately notice.\n"
+        "    unnatural_phrasing: ONLY for phrasing that would genuinely sound foreign or awkward to a native speaker — e.g. word-for-word translation from English, textbook constructions nobody actually says, or combinations of correct words that produce a clearly wrong register. Do NOT use for valid regional variants, stylistic preferences, or choosing one natural phrasing over another equally natural one.\n"
         "    wrong_conjugation | wrong_tense | wrong_meaning: accepted must be false.\n"
-        "  corrected_snippet per issue: minimal corrected word/phrase. null if perfect or asr_error.\n"
-        f"  feedback_explanation per issue: ONE sentence in {fluent.get('name', 'English')} — 'You said X, but Y is more natural/correct because Z.' null if perfect.\n"
+        "  corrected_snippet per issue: minimal corrected word/phrase showing the actual fix (wrong word → right word, wrong conjugation → right conjugation, etc.). null if perfect or asr_error. Do NOT produce a corrected_snippet that differs from the student's word only by an accent mark or punctuation — that is not a real error.\n"
+        f"  feedback_explanation per issue: ONE sentence in {fluent.get('name', 'English')} — 'You said X, but Y is more natural/correct because Z.' null if perfect. NEVER mention accents, accent marks, punctuation, exclamation marks, or capitalization in the explanation — the student is speaking and has no control over these.\n"
         "- corrected_full_answer: write the student's full answer with ALL mistakes fixed, keeping all correct parts word-for-word identical. null if issues is [{perfect}] or [{asr_error}].\n"
-        "Return ONLY valid JSON, no prose."
+        + (
+            "- VALID PHRASES: The following words/phrases were explicitly shown to the student as valid vocabulary for this prompt. Do NOT flag any of these as unnatural or incorrect — they are all acceptable: "
+            + ", ".join(f'"{_normalize_for_llm(p)}"' for p in valid_phrases)
+            + "\n"
+            if valid_phrases else ""
+        )
+        + "Return ONLY valid JSON, no prose."
     )
 
     # Remove hyphens joining word parts (e.g. "menu-nya" → "menunya") before LLM sees the answer
