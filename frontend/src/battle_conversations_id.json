@@ -22,6 +22,7 @@
       "speaker": "player",
       "options": {
         "easy": {
+          "scenario": "Order fried rice",
           "native": "I want fried rice.",
           "accepted_translations": [
             "Saya mau nasi goreng.",
@@ -33,6 +34,7 @@
           ]
         },
         "medium": {
+          "scenario": "Ask to see the menu first",
           "native": "Can I see the menu first?",
           "accepted_translations": [
             "Boleh saya lihat menunya dulu?",
@@ -45,6 +47,7 @@
           ]
         },
         "hard": {
+          "scenario": "Ask what they recommend, mentioning you've never tried Indonesian food before",
           "native": "What do you recommend? I've never tried Indonesian food before.",
           "accepted_translations": [
             "Apa yang kamu rekomendasikan? Saya belum pernah makan makanan Indonesia.",
@@ -75,6 +78,7 @@
       "speaker": "player",
       "options": {
         "easy": {
+          "scenario": "Order the fried rice",
           "native": "I'll have the fried rice.",
           "accepted_translations": [
             "Saya mau nasi goreng.",
@@ -86,6 +90,7 @@
           ]
         },
         "medium": {
+          "scenario": "Order the fried noodles politely",
           "native": "I'd like the fried noodles, please.",
           "accepted_translations": [
             "Saya mau mie goreng, tolong.",
@@ -98,6 +103,7 @@
           ]
         },
         "hard": {
+          "scenario": "Order the fried rice and mention you've heard the food here is very good",
           "native": "I'll try the fried rice. I've heard the food here is very good.",
           "accepted_translations": [
             "Saya pesan nasi goreng. Katanya makanan di sini sangat enak.",
@@ -129,6 +135,7 @@
       "speaker": "player",
       "options": {
         "easy": {
+          "scenario": "Say you don't want it spicy",
           "native": "Not spicy, please.",
           "accepted_translations": [
             "Tidak pedas, tolong.",
@@ -140,6 +147,7 @@
           ]
         },
         "medium": {
+          "scenario": "Ask for it a little spicy",
           "native": "A little spicy, please.",
           "accepted_translations": [
             "Pedas sedikit, tolong.",
@@ -152,6 +160,7 @@
           ]
         },
         "hard": {
+          "scenario": "Ask for medium spicy and explain you like spicy food but not too much",
           "native": "Medium spicy please. I like spicy food but not too much.",
           "accepted_translations": [
             "Pedas sedang, tolong. Saya suka pedas tapi tidak terlalu.",
@@ -182,6 +191,7 @@
       "speaker": "player",
       "options": {
         "easy": {
+          "scenario": "Order iced tea",
           "native": "Iced tea, please.",
           "accepted_translations": [
             "Es teh, tolong.",
@@ -193,6 +203,7 @@
           ]
         },
         "medium": {
+          "scenario": "Order orange juice politely",
           "native": "I'd like orange juice, please.",
           "accepted_translations": [
             "Saya mau jus jeruk, tolong.",
@@ -205,6 +216,7 @@
           ]
         },
         "hard": {
+          "scenario": "Order iced tea, ask if it's sweet, and say you prefer not too sweet",
           "native": "Iced tea please. Is it sweet? I prefer not too sweet.",
           "accepted_translations": [
             "Es teh tolong. Apakah manis? Saya lebih suka tidak terlalu manis.",
@@ -236,6 +248,7 @@
       "speaker": "player",
       "options": {
         "easy": {
+          "scenario": "Say thank you",
           "native": "Thank you!",
           "accepted_translations": [
             "Terima kasih!",
@@ -246,6 +259,7 @@
           ]
         },
         "medium": {
+          "scenario": "Thank them and say it smells delicious",
           "native": "Thank you! It smells delicious.",
           "accepted_translations": [
             "Terima kasih! Aromanya enak.",
@@ -257,6 +271,7 @@
           ]
         },
         "hard": {
+          "scenario": "Thank them enthusiastically, say you can't wait to try it, and mention it's your first time here",
           "native": "Thank you so much! I can't wait to try it. This is my first time here.",
           "accepted_translations": [
             "Terima kasih banyak! Saya tidak sabar untuk mencobanya. Ini pertama kali saya ke sini.",

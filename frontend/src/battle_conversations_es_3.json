@@ -22,6 +22,7 @@
       "speaker": "player",
       "options": {
         "easy": {
+          "scenario": "Greet them and say you're their neighbor",
           "native": "Nice to meet you! I'm your neighbor.",
           "accepted_translations": [
             "¡Mucho gusto! Soy tu vecino.",
@@ -33,6 +34,7 @@
           ]
         },
         "medium": {
+          "scenario": "Welcome them and ask how long they've been in the city",
           "native": "Welcome to the building! How long have you been in the city?",
           "accepted_translations": [
             "¡Bienvenida al edificio! ¿Cuánto tiempo llevas en la ciudad?",
@@ -45,6 +47,7 @@
           ]
         },
         "hard": {
+          "scenario": "Welcome them, mention you've lived here three years, and say to knock if they need anything",
           "native": "Welcome! I've been living here for three years, so if you need anything don't hesitate to knock.",
           "accepted_translations": [
             "¡Bienvenida! Llevo tres años viviendo aquí, así que si necesitas algo no dudes en tocar.",
@@ -75,6 +78,7 @@
       "speaker": "player",
       "options": {
         "easy": {
+          "scenario": "Say yes and tell them there's one two blocks away",
           "native": "Yes, there's one two blocks away.",
           "accepted_translations": [
             "Sí, hay uno a dos cuadras.",
@@ -86,6 +90,7 @@
           ]
         },
         "medium": {
+          "scenario": "Tell them there's a great one on the main street that has everything they need",
           "native": "There's a great one on the main street. It has everything you need.",
           "accepted_translations": [
             "Hay uno muy bueno en la calle principal. Tiene todo lo que necesitas.",
@@ -98,6 +103,7 @@
           ]
         },
         "hard": {
+          "scenario": "Explain there are two options — a big one four blocks away and a smaller one nearby that's open late",
           "native": "There are actually two options — a big one four blocks away and a smaller one around the corner that's open late.",
           "accepted_translations": [
             "En realidad hay dos opciones — uno grande a cuatro cuadras y uno más pequeño a la vuelta de la esquina que cierra tarde.",
@@ -130,6 +136,7 @@
       "speaker": "player",
       "options": {
         "easy": {
+          "scenario": "Say yes, there is a gym nearby",
           "native": "Yes, there is a gym nearby.",
           "accepted_translations": [
             "Sí, hay un gimnasio cerca.",
@@ -141,6 +148,7 @@
           ]
         },
         "medium": {
+          "scenario": "Tell them there's one on the main avenue that's affordable and open 24 hours",
           "native": "Yes! There's one on the main avenue, it's not expensive and it's open 24 hours.",
           "accepted_translations": [
             "¡Sí! Hay uno en la avenida principal, no es caro y está abierto las 24 horas.",
@@ -153,6 +161,7 @@
           ]
         },
         "hard": {
+          "scenario": "Describe a good gym two blocks away that's affordable and has group classes if interested",
           "native": "There's a pretty good one two blocks from here. It's affordable and they offer group classes if you're interested.",
           "accepted_translations": [
             "Hay uno bastante bueno a dos cuadras de aquí. Es accesible y ofrecen clases grupales si te interesa.",
@@ -185,6 +194,7 @@
       "speaker": "player",
       "options": {
         "easy": {
+          "scenario": "Say yes, they're very friendly",
           "native": "Yes, they are very friendly.",
           "accepted_translations": [
             "Sí, son muy amables.",
@@ -195,6 +205,7 @@
           ]
         },
         "medium": {
+          "scenario": "Say most of them are great, the building is quiet, and everyone gets along well",
           "native": "Most of them are great. The building is quiet and everyone gets along well.",
           "accepted_translations": [
             "La mayoría son geniales. El edificio es tranquilo y todos se llevan bien.",
@@ -207,6 +218,7 @@
           ]
         },
         "hard": {
+          "scenario": "Describe the mix of neighbors and say you think they'll fit right in",
           "native": "They're a great mix — some young professionals and a few families. I think you'll fit right in.",
           "accepted_translations": [
             "Son un buen grupo — algunos jóvenes profesionistas y algunas familias. Creo que te vas a llevar muy bien con todos.",
@@ -238,6 +250,7 @@
       "speaker": "player",
       "options": {
         "easy": {
+          "scenario": "Enthusiastically accept the dinner invitation",
           "native": "Yes, I'd love that!",
           "accepted_translations": [
             "¡Sí, me encantaría!",
@@ -248,6 +261,7 @@
           ]
         },
         "medium": {
+          "scenario": "Accept enthusiastically and suggest this Friday evening",
           "native": "I'd love to! How about this Friday evening?",
           "accepted_translations": [
             "¡Me encantaría! ¿Qué tal este viernes por la noche?",
@@ -260,6 +274,7 @@
           ]
         },
         "hard": {
+          "scenario": "Say it sounds wonderful and mention a good nearby restaurant you've been wanting to try",
           "native": "That sounds wonderful! I know a really good restaurant nearby that I've been wanting to try.",
           "accepted_translations": [
             "¡Suena genial! Conozco un restaurante muy bueno cerca de aquí que he querido probar.",

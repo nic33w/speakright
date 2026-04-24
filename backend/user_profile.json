@@ -1,0 +1,136 @@
+{
+  "mistake_log": [
+    {
+      "timestamp": "2026-04-17T06:00:59.630691+00:00",
+      "conversation_id": "cafe_encounter",
+      "scenario": "Rave about the coffee and say you wish you'd found this place sooner",
+      "difficulty": "hard",
+      "user_answer": "Este café está maravilloso. Deseo que encontré este lugar antes.",
+      "feedback_keys": [
+        "missing_content",
+        "wrong_conjugation"
+      ],
+      "damage_multiplier": 0.6,
+      "corrected_answer": "nunca habia probado algo tan bueno ojala hubiera descubierto este lugar antes"
+    },
+    {
+      "timestamp": "2026-04-17T06:02:32.869841+00:00",
+      "conversation_id": "cafe_encounter",
+      "scenario": "Agree enthusiastically and insist on paying next time since they always treat you",
+      "difficulty": "hard",
+      "user_answer": "Por supuesto pero ¿yo debería pagar porque siempre pagas?",
+      "feedback_keys": [
+        "missing_content",
+        "subtle_meaning_shift"
+      ],
+      "damage_multiplier": 0.6,
+      "corrected_answer": "por supuesto la proxima vez deberias dejarme pagar porque siempre pagas"
+    },
+    {
+      "timestamp": "2026-04-21T19:16:07.023734+00:00",
+      "conversation_id": "new_neighbor",
+      "scenario": "Describe the mix of neighbors and say you think they'll fit right in",
+      "difficulty": "hard",
+      "user_answer": "Son muy amigables y ¿te gusta la",
+      "issues": [
+        {
+          "feedback_key": "missing_content",
+          "corrected_snippet": "son un buen grupo",
+          "feedback_explanation": "You said 'son muy amigables', but 'son un buen grupo' is needed to describe the mix of neighbors."
+        },
+        {
+          "feedback_key": "missing_content",
+          "corrected_snippet": "algunos jovenes profesionistas y algunas familias creo que te vas a llevar muy bien con todos",
+          "feedback_explanation": "You left out the details about the neighbors being young professionals and families, which is important for the description."
+        }
+      ],
+      "damage_multiplier": 0.6,
+      "corrected_answer": "son un buen grupo algunos jovenes profesionistas y algunas familias creo que te vas a llevar muy bien con todos"
+    },
+    {
+      "timestamp": "2026-04-21T19:49:59.972472+00:00",
+      "conversation_id": "quinceanera_drama",
+      "scenario": "Say he gave her the flowers and a note, but she gave everything back to him in front of everyone without even reading it",
+      "difficulty": "hard",
+      "user_answer": "Le di las flores. Le dió las flores y una nota pero ey, ah, movió todo. Ella le movió todo en frente de todos, sin ni quinceañera. Lo de Gendo.",
+      "issues": [
+        {
+          "feedback_key": "missing_content",
+          "corrected_snippet": "le dio",
+          "feedback_explanation": "You said 'le di' instead of 'le dio', which changes the subject of the action."
+        },
+        {
+          "feedback_key": "unnatural_phrasing",
+          "corrected_snippet": "devolvio",
+          "feedback_explanation": "You used 'movio' instead of 'devolvio', which is not the correct verb for returning something."
+        },
+        {
+          "feedback_key": "missing_minor_words",
+          "corrected_snippet": "sin siquiera leerla",
+          "feedback_explanation": "You omitted 'sin siquiera leerla', which is important for conveying that she didn't read it."
+        }
+      ],
+      "damage_multiplier": 0.6,
+      "corrected_answer": "le dio las flores y una nota pero ella se lo devolvio todo frente a todos sin siquiera leerla"
+    },
+    {
+      "timestamp": "2026-04-21T19:52:11.469923+00:00",
+      "conversation_id": "quinceanera_drama",
+      "scenario": "Say yes, she told him not to come",
+      "difficulty": "easy",
+      "user_answer": "Sí le dijo que no fueron.",
+      "issues": [
+        {
+          "feedback_key": "wrong_conjugation",
+          "corrected_snippet": "fueran",
+          "feedback_explanation": "You said 'fueron', but 'fueran' is correct because it matches the subjunctive mood required here."
+        },
+        {
+          "feedback_key": "missing_content",
+          "corrected_snippet": "que no fuera",
+          "feedback_explanation": "You omitted 'que' which is necessary to connect the clauses properly."
+        }
+      ],
+      "damage_multiplier": 0.6,
+      "corrected_answer": "si le dijo que no fuera"
+    },
+    {
+      "timestamp": "2026-04-21T19:52:24.950665+00:00",
+      "conversation_id": "quinceanera_drama",
+      "scenario": "Say yes, she told him not to come",
+      "difficulty": "easy",
+      "user_answer": "Me dijo que no fuera",
+      "issues": [
+        {
+          "feedback_key": "missing_content",
+          "corrected_snippet": "me dijo que no fuera",
+          "feedback_explanation": "You said 'me dijo que no fuera', but you missed the subject 'ella' which is important for clarity."
+        },
+        {
+          "feedback_key": "wrong_meaning",
+          "corrected_snippet": "le dijo",
+          "feedback_explanation": "You said 'me dijo', but 'le dijo' is correct because it refers to him."
+        }
+      ],
+      "damage_multiplier": 0.6,
+      "corrected_answer": "ella le dijo que no fuera"
+    },
+    {
+      "timestamp": "2026-04-21T19:53:49.215124+00:00",
+      "conversation_id": "quinceanera_drama",
+      "scenario": "Say yes, he brought her a huge cake",
+      "difficulty": "easy",
+      "user_answer": "Si le llevo un pastel grande.",
+      "issues": [
+        {
+          "feedback_key": "missing_minor_words",
+          "corrected_snippet": "enorme",
+          "feedback_explanation": "You said 'grande', but 'enorme' is more natural because it emphasizes the size more."
+        }
+      ],
+      "damage_multiplier": 1.0,
+      "corrected_answer": "si le llevo un pastel enorme"
+    }
+  ],
+  "topics_to_practice": []
+}

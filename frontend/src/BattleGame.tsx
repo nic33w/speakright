@@ -6,12 +6,14 @@ import BATTLE_CONV_MARKET from './battle_conversations_es_2.json';
 import BATTLE_CONV_NEIGHBOR from './battle_conversations_es_3.json';
 import BATTLE_CONV_WARUNG from './battle_conversations_id.json';
 import BATTLE_CONV_BATIK from './battle_conversations_id_2.json';
+import BATTLE_CONV_QUINCEANERA from './battle_conversations_es_4.json';
 
 type LangSpec = { code: string; name: string };
 
 type HintItem = { native: string; learning: string; note?: string };
 
 type DifficultyOption = {
+  scenario?: string;
   native: string;
   accepted_translations: string[];
   hints: HintItem[];
@@ -70,6 +72,7 @@ const ALL_CONVERSATIONS: ConversationData[] = [
   BATTLE_CONV_NEIGHBOR as any,
   BATTLE_CONV_WARUNG as any,
   BATTLE_CONV_BATIK as any,
+  BATTLE_CONV_QUINCEANERA as any,
 ];
 
 const CONV_LANGUAGE: Record<string, LangSpec> = {
@@ -77,7 +80,8 @@ const CONV_LANGUAGE: Record<string, LangSpec> = {
   market_haggle:  { code: "es", name: "Spanish" },
   new_neighbor:   { code: "es", name: "Spanish" },
   warung_order:   { code: "id", name: "Indonesian" },
-  batik_bargain:  { code: "id", name: "Indonesian" },
+  batik_bargain:       { code: "id", name: "Indonesian" },
+  quinceanera_drama:   { code: "es", name: "Spanish" },
 };
 
 type Difficulty = "easy" | "medium" | "hard";
@@ -92,6 +96,7 @@ type CompletedRound = {
   id: number | string;
   speaker: "player" | "enemy";
   textNative: string;
+  textScenario?: string;
   textLearning?: string;
   difficulty?: Difficulty;
   damageDealt?: number;
@@ -305,6 +310,13 @@ function PlayerLogEntryExpanded({ entry, hideLearnText, conversationId, wrongAtt
 
       {/* Sections 1+2: hint hover zone — leaving this area stops audio */}
       <div onMouseLeave={() => { setHoveredHintIdx(null); stopHintAudio(); setPeekText(false); }}>
+
+      {/* 1. Scenario prompt (if present) above the hint-mapped canonical */}
+      {entry.textScenario && (
+        <div style={{ fontSize: 11, opacity: 0.45, fontStyle: "italic", marginBottom: 4 }}>
+          {entry.textScenario}
+        </div>
+      )}
 
       {/* 1. Native sentence with hoverable hint-matched spans */}
       <div style={{ lineHeight: 1.6, fontSize: 13 }}>
@@ -1131,6 +1143,9 @@ export default function BattleGame({
               accepted_translations: opts.accepted_translations,
               valid_phrases: opts.hints?.map(h => h.learning).filter(Boolean),
               prompt_text: opts.native,
+              scenario: opts.scenario,
+              conversation_id: conversation?.conversation_id,
+              difficulty: diff,
               learning: CONV_LANGUAGE[conversation?.conversation_id ?? ""] ?? initialLearning,
               fluent: initialFluent,
             }),
@@ -1159,6 +1174,7 @@ export default function BattleGame({
         id: pr.id,
         speaker: "player",
         textNative: pr.options.easy.native,
+        textScenario: pr.options.easy.scenario,
         textLearning: userAnswer,
         isWrongAttempt: true,
         feedbackIssues: rejectedIssues.length ? rejectedIssues : null,
@@ -1196,6 +1212,9 @@ export default function BattleGame({
           accepted_translations: opts.accepted_translations,
           valid_phrases: opts.hints?.map(h => h.learning).filter(Boolean),
           prompt_text: opts.native,
+          scenario: opts.scenario,
+          conversation_id: conversation?.conversation_id,
+          difficulty: selectedDifficulty,
           learning: CONV_LANGUAGE[conversation?.conversation_id ?? ""] ?? initialLearning,
           fluent: initialFluent,
         }),
@@ -1215,6 +1234,7 @@ export default function BattleGame({
           id: pr.id,
           speaker: "player",
           textNative: opts.native,
+          textScenario: opts.scenario,
           textLearning: userAnswer,
           isWrongAttempt: true,
           feedbackIssues,
@@ -1313,6 +1333,7 @@ export default function BattleGame({
       id: currentRound!.id,
       speaker: "player",
       textNative: opts.native,
+      textScenario: opts.scenario,
       textLearning: transcript.trim(),
       difficulty: diff,
       damageDealt: damage,
@@ -1494,6 +1515,7 @@ export default function BattleGame({
       id: pr.id,
       speaker: "player",
       textNative: opts.native,
+      textScenario: opts.scenario,
       textLearning: opts.accepted_translations[0],
       difficulty: diff,
       damageDealt: 0,
@@ -2159,7 +2181,7 @@ export default function BattleGame({
                               }}>
                                 {diff} ({BASE_DAMAGE[diff]})
                               </span>
-                              <span style={{ fontSize: 14, lineHeight: 1.3 }}>{playerRound.options[diff].native}</span>
+                              <span style={{ fontSize: 14, lineHeight: 1.3 }}>{playerRound.options[diff].scenario ?? playerRound.options[diff].native}</span>
                             </div>
                             <div style={{ display: "flex", gap: 6, overflowX: "auto", paddingBottom: 2, alignItems: "stretch" }}>
                               {hints.map((hint, i) => {
@@ -2728,7 +2750,7 @@ export default function BattleGame({
                               <div style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", color: borderColor, marginBottom: 6 }}>
                                 [{diff === "easy" ? 1 : diff === "medium" ? 2 : 3}] {diff} ({BASE_DAMAGE[diff]} dmg)
                               </div>
-                              <div style={{ fontSize: 14, lineHeight: 1.4 }}>{opt?.native}</div>
+                              <div style={{ fontSize: 14, lineHeight: 1.4 }}>{opt?.scenario ?? opt?.native}</div>
                             </button>
                           );
                         })}
@@ -2745,11 +2767,22 @@ export default function BattleGame({
                             padding: "14px 18px", textAlign: "center",
                           }}>
                             <div style={{ fontSize: 12, opacity: 0.5, marginBottom: 4 }}>
-                              Translate this ({selectedDifficulty}):
+                              {currentOptions.scenario ? `Say this in ${CONV_LANGUAGE[conversation?.conversation_id ?? ""]?.name ?? "the target language"}:` : `Translate this (${selectedDifficulty}):`}
                             </div>
-                            <div style={{ fontSize: 18, fontWeight: 600, lineHeight: 1.4 }}>
-                              {renderSentenceWithHints(currentOptions.native, currentOptions.hints, viewedHints)}
-                            </div>
+                            {currentOptions.scenario ? (
+                              <>
+                                <div style={{ fontSize: 18, fontWeight: 600, lineHeight: 1.4, marginBottom: 8 }}>
+                                  {currentOptions.scenario}
+                                </div>
+                                <div style={{ fontSize: 13, opacity: 0.45, fontStyle: "italic" }}>
+                                  e.g. {renderSentenceWithHints(currentOptions.native, currentOptions.hints, viewedHints)}
+                                </div>
+                              </>
+                            ) : (
+                              <div style={{ fontSize: 18, fontWeight: 600, lineHeight: 1.4 }}>
+                                {renderSentenceWithHints(currentOptions.native, currentOptions.hints, viewedHints)}
+                              </div>
+                            )}
                           </div>
                         )}
                       </div>
@@ -3038,7 +3071,7 @@ export default function BattleGame({
                       {/* Native sentence — hidden when expanded (section 1 of expanded view handles it) */}
                       {(!isPlayer || !isExpanded) && !entry.isWrongAttempt && (
                         <div style={{ display: "flex", alignItems: "baseline", gap: 5 }}>
-                          <span>{entry.textNative}</span>
+                          <span>{entry.textScenario ?? entry.textNative}</span>
                           {!isPlayer && hideLearnText && entry.textLearning && (
                             <span
                               onMouseEnter={() => setPeekLogIdx(i)}

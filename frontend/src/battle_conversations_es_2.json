@@ -22,6 +22,7 @@
       "speaker": "player",
       "options": {
         "easy": {
+          "scenario": "Say yes, you need a gift",
           "native": "Yes, I need a gift.",
           "accepted_translations": [
             "Sí, necesito un regalo.",
@@ -34,6 +35,7 @@
           ]
         },
         "medium": {
+          "scenario": "Say you're looking for a birthday gift for a friend",
           "native": "I'm looking for a birthday gift for my friend.",
           "accepted_translations": [
             "Estoy buscando un regalo de cumpleaños para mi amigo.",
@@ -47,6 +49,7 @@
           ]
         },
         "hard": {
+          "scenario": "Say you want something unique that you can't find in regular stores",
           "native": "I want something unique that you can't find in regular stores.",
           "accepted_translations": [
             "Quiero algo único que no se pueda encontrar en tiendas normales.",
@@ -79,6 +82,7 @@
       "speaker": "player",
       "options": {
         "easy": {
+          "scenario": "Compliment it and ask how much it costs",
           "native": "It's very pretty. How much is it?",
           "accepted_translations": [
             "Es muy bonita. ¿Cuánto cuesta?",
@@ -91,6 +95,7 @@
           ]
         },
         "medium": {
+          "scenario": "Compliment it and ask what material it's made of",
           "native": "It's beautiful! What material is it made of?",
           "accepted_translations": [
             "¡Es hermosa! ¿De qué material está hecha?",
@@ -104,6 +109,7 @@
           ]
         },
         "hard": {
+          "scenario": "Admire the craftsmanship and ask how long it takes to make one",
           "native": "The craftsmanship is incredible! How long does it take you to make one of these?",
           "accepted_translations": [
             "¡La artesanía es increíble! ¿Cuánto tiempo te toma hacer una de estas?",
@@ -136,6 +142,7 @@
       "speaker": "player",
       "options": {
         "easy": {
+          "scenario": "Say it's too expensive",
           "native": "That's too expensive.",
           "accepted_translations": [
             "Eso es muy caro.",
@@ -148,6 +155,7 @@
           ]
         },
         "medium": {
+          "scenario": "Ask for a better price and offer to buy two if they lower it",
           "native": "Could you give me a better price? I'll buy two if you lower it.",
           "accepted_translations": [
             "¿Me podrías dar un mejor precio? Compro dos si lo bajas.",
@@ -162,6 +170,7 @@
           ]
         },
         "hard": {
+          "scenario": "Say you like it but your budget is tight, and offer 120 if you also buy the earrings",
           "native": "I really like it, but my budget is tight. Would you accept 120 if I also buy those earrings?",
           "accepted_translations": [
             "Me gusta mucho, pero mi presupuesto es ajustado. ¿Aceptarías 120 si también compro esos aretes?",
@@ -194,6 +203,7 @@
       "speaker": "player",
       "options": {
         "easy": {
+          "scenario": "Accept the deal",
           "native": "Okay, I'll take it.",
           "accepted_translations": [
             "Bueno, me lo llevo.",
@@ -206,6 +216,7 @@
           ]
         },
         "medium": {
+          "scenario": "Accept the deal and ask if they can wrap it as a gift",
           "native": "Deal! Can you wrap it as a gift, please?",
           "accepted_translations": [
             "¡Trato hecho! ¿Puedes envolverlo como regalo, por favor?",
@@ -219,6 +230,7 @@
           ]
         },
         "hard": {
+          "scenario": "Accept enthusiastically, say your friend will love it, and ask for a business card",
           "native": "You've got yourself a deal! My friend is going to love this. Do you have a business card so I can come back?",
           "accepted_translations": [
             "¡Tienes un trato! A mi amigo le va a encantar esto. ¿Tienes una tarjeta para que pueda volver?",
@@ -250,6 +262,7 @@
       "speaker": "player",
       "options": {
         "easy": {
+          "scenario": "Thank them and say goodbye",
           "native": "Thank you very much! Goodbye!",
           "accepted_translations": [
             "¡Muchas gracias! ¡Adiós!",
@@ -261,6 +274,7 @@
           ]
         },
         "medium": {
+          "scenario": "Thank them and compliment the market",
           "native": "Thanks for everything! This market is amazing.",
           "accepted_translations": [
             "¡Gracias por todo! Este mercado es increíble.",
@@ -273,6 +287,7 @@
           ]
         },
         "hard": {
+          "scenario": "Say it was a pleasure and that you'll recommend their stall to all your friends",
           "native": "It was a pleasure doing business with you! I'll definitely recommend your stall to all my friends.",
           "accepted_translations": [
             "¡Fue un placer hacer negocios contigo! Definitivamente voy a recomendar tu puesto a todos mis amigos.",

@@ -68,6 +68,14 @@ CONVERSATIONS = [
         "hint_voice": "id-ID-ArdiNeural",
         "hint_locale": "id-ID",
     },
+    {
+        "json_path": FRONTEND_SRC / "battle_conversations_es_4.json",
+        "output_dir": FRONTEND_PUBLIC / "battle_audio" / "quinceanera_drama",
+        "enemy_voice": "es-MX-DaliaNeural",
+        "enemy_locale": "es-MX",
+        "hint_voice": "es-MX-JorgeNeural",
+        "hint_locale": "es-MX",
+    },
 ]
 
 

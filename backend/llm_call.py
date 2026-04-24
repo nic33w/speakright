@@ -314,6 +314,7 @@ def check_trivia_answer(
     learning: Dict[str, Any],
     accepted_translations: Optional[List[str]] = None,
     valid_phrases: Optional[List[str]] = None,
+    scenario: Optional[str] = None,
     model: Optional[str] = None,
     temperature: float = 0.15,
     timeout: int = 20,
@@ -359,9 +360,20 @@ def check_trivia_answer(
     language_style = _language_style_instruction(lang_code)
     learning_name = learning.get("name", "Spanish")
 
+    if scenario:
+        eval_context = (
+            f"The student was given a communicative task to express in {learning_name}. "
+            "Evaluate whether: (1) the student achieved the communicative goal described in the task, "
+            "and (2) the language is grammatically correct and natural. "
+            "A canonical example is provided for reference, but other valid phrasings that achieve the same goal should also be accepted — "
+            "do not penalize the student for using a different valid expression."
+        )
+    else:
+        eval_context = "Evaluate the student's answer against the reference answer."
+
     system_prompt = (
         f"You are a strict but fair {learning_name} language learning judge. {language_style}\n"
-        "Evaluate the student's answer against the reference answer.\n\n"
+        f"{eval_context}\n\n"
         "Rules:\n"
         "- CRITICAL: NEVER mention, comment on, or penalize accents, punctuation, or capitalization — not even as a side note. Both the student's answer and the reference have had accents and punctuation stripped before you receive them. The student is speaking (speech-to-text) and has no control over accents or punctuation. Do NOT say things like 'you should include the accent' or 'you forgot the exclamation mark'. Any issue that is ONLY about accents or punctuation must be completely ignored.\n"
         "- FIRST, before any other evaluation: the student is using speech-to-text (Wispr). Accents and punctuation have already been stripped from the student's answer — do NOT penalize for any accent or punctuation difference. Check if unexpected words are STT mishearings. Common patterns: phonetically similar words (e.g. 'cus'→'jus'), merged or split tokens (e.g. 'Este'→'Es teh', 'S T'→'es teh', 'dise'→'di sini', 'esta'→'es ta', 'está'→'es ta' or 'es esta'), or words run together. If correcting the mishearing makes the answer acceptable, IMMEDIATELY set accepted: true, damage_multiplier: 1.0, issues: [{\"feedback_key\": \"asr_error\", \"corrected_snippet\": null, \"feedback_explanation\": \"<explain what was misheard>\"}]. Do NOT add any other issues in this case.\n"
@@ -420,12 +432,20 @@ def check_trivia_answer(
     else:
         ref_line = f"Reference answer: {json.dumps(normalized_candidates[0], ensure_ascii=False)}"
 
-    user_prompt = (
-        f"Prompt ({learning.get('name','Spanish')}): {json.dumps(english_prompt, ensure_ascii=False)}\n"
-        f"{ref_line}\n"
-        f"Student's answer: {json.dumps(user_answer_for_llm, ensure_ascii=False)}\n\n"
-        'Return: {"accepted": bool, "damage_multiplier": float, "issues": [{"feedback_key": str, "corrected_snippet": str|null, "feedback_explanation": str|null}], "corrected_full_answer": str|null}'
-    )
+    if scenario:
+        user_prompt = (
+            f"Task ({learning.get('name','Spanish')}): {json.dumps(scenario, ensure_ascii=False)}\n"
+            f"Canonical example: {json.dumps(normalized_candidates[0], ensure_ascii=False)}\n"
+            f"Student's answer: {json.dumps(user_answer_for_llm, ensure_ascii=False)}\n\n"
+            'Return: {"accepted": bool, "damage_multiplier": float, "issues": [{"feedback_key": str, "corrected_snippet": str|null, "feedback_explanation": str|null}], "corrected_full_answer": str|null}'
+        )
+    else:
+        user_prompt = (
+            f"Prompt ({learning.get('name','Spanish')}): {json.dumps(english_prompt, ensure_ascii=False)}\n"
+            f"{ref_line}\n"
+            f"Student's answer: {json.dumps(user_answer_for_llm, ensure_ascii=False)}\n\n"
+            'Return: {"accepted": bool, "damage_multiplier": float, "issues": [{"feedback_key": str, "corrected_snippet": str|null, "feedback_explanation": str|null}], "corrected_full_answer": str|null}'
+        )
 
     full_prompt = system_prompt + "\n\n" + user_prompt
     _log_debug("BATTLE CHECK - LLM REQUEST", full_prompt)

@@ -22,6 +22,7 @@
       "speaker": "player",
       "options": {
         "easy": {
+          "scenario": "Say yes and ask for a coffee",
           "native": "Yes, I want coffee.",
           "accepted_translations": [
             "Sí, quiero café.",
@@ -34,6 +35,7 @@
           ]
         },
         "medium": {
+          "scenario": "Enthusiastically agree to get a coffee together",
           "native": "Yes, I'd love to grab a coffee with you.",
           "accepted_translations": [
             "Sí, me encantaría tomar un café contigo.",
@@ -47,6 +49,7 @@
           ]
         },
         "hard": {
+          "scenario": "Eagerly agree and mention you've been wanting to try the new cafe on the corner",
           "native": "Of course! I've been wanting to try the new cafe that opened on the corner.",
           "accepted_translations": [
             "¡Por supuesto! He querido probar el nuevo café que abrió en la esquina.",
@@ -80,6 +83,7 @@
       "speaker": "player",
       "options": {
         "easy": {
+          "scenario": "Agree and say let's go",
           "native": "Okay, let's go.",
           "accepted_translations": [
             "Bueno, vamos.",
@@ -92,6 +96,7 @@
           ]
         },
         "medium": {
+          "scenario": "Express enthusiasm and ask if they have good pastries there",
           "native": "Sounds good! Do they have good pastries there?",
           "accepted_translations": [
             "¡Suena bien! ¿Tienen buenos pasteles ahí?",
@@ -106,6 +111,7 @@
           ]
         },
         "hard": {
+          "scenario": "Say it's perfect and express hope that they have outdoor seating since it's a beautiful day",
           "native": "Perfect! I hope they have outdoor seating because it's a beautiful day.",
           "accepted_translations": [
             "¡Perfecto! Espero que tengan mesas afuera porque es un día hermoso.",
@@ -138,6 +144,7 @@
       "speaker": "player",
       "options": {
         "easy": {
+          "scenario": "Order a black coffee",
           "native": "I want a black coffee.",
           "accepted_translations": [
             "Quiero un café negro.",
@@ -149,6 +156,7 @@
           ]
         },
         "medium": {
+          "scenario": "Order a latte with oat milk",
           "native": "I'll have a latte with oat milk, please.",
           "accepted_translations": [
             "Voy a pedir un latte con leche de avena, por favor.",
@@ -163,6 +171,7 @@
           ]
         },
         "hard": {
+          "scenario": "Ask for a recommendation because you're not sure what to get",
           "native": "Could you recommend something? I'm not sure what to get because there are so many options.",
           "accepted_translations": [
             "¿Podrías recomendarme algo? No estoy seguro de qué pedir porque hay tantas opciones.",
@@ -195,6 +204,7 @@
       "speaker": "player",
       "options": {
         "easy": {
+          "scenario": "Compliment the coffee",
           "native": "This coffee is very good.",
           "accepted_translations": [
             "Este café es muy bueno.",
@@ -207,6 +217,7 @@
           ]
         },
         "medium": {
+          "scenario": "Agree the coffee is delicious and ask if they come here often",
           "native": "You're right, this is delicious! Do you come here often?",
           "accepted_translations": [
             "¡Tienes razón, esto está delicioso! ¿Vienes aquí seguido?",
@@ -220,6 +231,7 @@
           ]
         },
         "hard": {
+          "scenario": "Rave about the coffee and say you wish you'd found this place sooner",
           "native": "I've never tasted anything this good! I wish I had discovered this place sooner.",
           "accepted_translations": [
             "¡Nunca había probado algo tan bueno! Ojalá hubiera descubierto este lugar antes.",
@@ -252,6 +264,7 @@
       "speaker": "player",
       "options": {
         "easy": {
+          "scenario": "Agree and say goodbye until next time",
           "native": "Yes, see you next time!",
           "accepted_translations": [
             "Sí, ¡nos vemos la próxima vez!",
@@ -264,6 +277,7 @@
           ]
         },
         "medium": {
+          "scenario": "Enthusiastically agree and suggest meeting next Saturday at the same time",
           "native": "Definitely! How about next Saturday at the same time?",
           "accepted_translations": [
             "¡Definitivamente! ¿Qué tal el próximo sábado a la misma hora?",
@@ -277,6 +291,7 @@
           ]
         },
         "hard": {
+          "scenario": "Agree enthusiastically and insist on paying next time since they always treat you",
           "native": "Absolutely! And next time you should let me pay because you always treat me.",
           "accepted_translations": [
             "¡Por supuesto! Y la próxima vez deberías dejarme pagar porque siempre me invitas.",

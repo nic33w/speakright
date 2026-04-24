@@ -1,5 +1,6 @@
 from dotenv import load_dotenv
 import os
+import json
 import time
 import re
 import hashlib
@@ -1573,6 +1574,44 @@ def get_quiz_pending():
     return {"quiz": pending}
 
 
+# --- Battle Mistake Logging ---
+
+USER_PROFILE_PATH = os.path.join(os.path.dirname(__file__), "user_profile.json")
+
+def _load_user_profile() -> dict:
+    if os.path.exists(USER_PROFILE_PATH):
+        with open(USER_PROFILE_PATH, "r", encoding="utf-8") as f:
+            return json.load(f)
+    return {"mistake_log": [], "topics_to_practice": []}
+
+def _save_user_profile(profile: dict):
+    with open(USER_PROFILE_PATH, "w", encoding="utf-8") as f:
+        json.dump(profile, f, ensure_ascii=False, indent=2)
+
+def _log_battle_mistake(
+    conversation_id: str,
+    scenario: str,
+    difficulty: str,
+    user_answer: str,
+    issues: list,
+    damage_multiplier: float,
+    corrected_answer: Optional[str],
+):
+    from datetime import datetime, timezone
+    profile = _load_user_profile()
+    profile["mistake_log"].append({
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "conversation_id": conversation_id,
+        "scenario": scenario,
+        "difficulty": difficulty,
+        "user_answer": user_answer,
+        "issues": issues,
+        "damage_multiplier": damage_multiplier,
+        "corrected_answer": corrected_answer,
+    })
+    _save_user_profile(profile)
+
+
 # --- Battle Mode Endpoint ---
 
 class BattleCheckReq(BaseModel):
@@ -1582,6 +1621,9 @@ class BattleCheckReq(BaseModel):
     accepted_translations: Optional[List[str]] = None
     valid_phrases: Optional[List[str]] = None
     prompt_text: str
+    scenario: Optional[str] = None
+    conversation_id: Optional[str] = None
+    difficulty: Optional[str] = None
     learning: Optional[LangSpec] = None
     fluent: Optional[LangSpec] = None
 
@@ -1606,12 +1648,30 @@ def api_battle_check(req: BattleCheckReq):
             learning=learning.dict(),
             accepted_translations=req.accepted_translations,
             valid_phrases=req.valid_phrases,
+            scenario=req.scenario,
         )
+
+        # Log mistakes to user profile when there are real issues
+        issues = result.get("issues", [])
+        loggable_issues = [
+            i for i in issues
+            if i.get("feedback_key") not in (None, "perfect", "asr_error")
+        ]
+        if loggable_issues and req.conversation_id and req.difficulty:
+            _log_battle_mistake(
+                conversation_id=req.conversation_id,
+                scenario=req.scenario or req.prompt_text,
+                difficulty=req.difficulty,
+                user_answer=req.user_answer,
+                issues=loggable_issues,
+                damage_multiplier=result.get("damage_multiplier", 0.0),
+                corrected_answer=result.get("corrected_full_answer"),
+            )
 
         return {
             "accepted": result.get("accepted", False),
             "damage_multiplier": result.get("damage_multiplier", 0.0),
-            "issues": result.get("issues", []),
+            "issues": issues,
             "feedback_key": result.get("feedback_key", None),
             "corrected_snippet": result.get("corrected_snippet", None),
             "feedback_explanation": result.get("feedback_explanation", None),

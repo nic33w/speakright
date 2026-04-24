@@ -46,6 +46,7 @@
       "options": {
         "easy": {
           "leads_to_branch": "A",
+          "scenario": "Compliment it and ask if they can lower the price a little",
           "native": "It's nice, but can you lower the price a little?",
           "accepted_translations": [
             "Bagus, tapi bisa turun sedikit harganya?",
@@ -60,6 +61,7 @@
         },
         "medium": {
           "leads_to_branch": "A",
+          "scenario": "Compliment the work but say the price is too high and ask for their best price",
           "native": "Beautiful work! But the price is too high. What's your best price?",
           "accepted_translations": [
             "Indah sekali! Tapi harganya terlalu tinggi. Harga terbaikmu berapa?",
@@ -73,6 +75,7 @@
         },
         "hard": {
           "leads_to_branch": "B",
+          "scenario": "Tell them honestly that the stall next door sells the exact same batik for half the price",
           "native": "Honestly, the stall next door is selling the exact same batik for half that price.",
           "accepted_translations": [
             "Terus terang, kios sebelah jual batik yang sama persis dengan setengah harga itu.",
@@ -123,6 +126,7 @@
       "options": {
         "easy": {
           "leads_to_branch": "B",
+          "scenario": "Compliment his hands but ask if they can still lower the price",
           "native": "Very nice hands. But can you still lower the price?",
           "accepted_translations": [
             "Tangannya bagus sekali. Tapi bisa turun harganya?",
@@ -135,6 +139,7 @@
         },
         "medium": {
           "leads_to_branch": "B",
+          "scenario": "Say you understand but it's still too expensive for you",
           "native": "I understand. But it's still too expensive for me.",
           "accepted_translations": [
             "Saya mengerti. Tapi masih terlalu mahal untuk saya.",
@@ -148,6 +153,7 @@
         },
         "hard": {
           "leads_to_branch": "B",
+          "scenario": "Compliment his hands but firmly say you won't pay more than 100,000",
           "native": "Incredible hands. But I still won't pay more than 100,000.",
           "accepted_translations": [
             "Tangan yang luar biasa. Tapi saya tetap tidak mau bayar lebih dari 100.000.",
@@ -183,6 +189,7 @@
       "speaker": "player",
       "options": {
         "easy": {
+          "scenario": "Offer 100,000",
           "native": "How about 100,000?",
           "accepted_translations": [
             "Bagaimana kalau 100.000?",
@@ -196,6 +203,7 @@
           ]
         },
         "medium": {
+          "scenario": "Offer 100,000 and say that's your best price",
           "native": "I can offer 100,000. That's my best price.",
           "accepted_translations": [
             "Saya tawar 100.000. Itu harga terbaik saya.",
@@ -209,6 +217,7 @@
           ]
         },
         "hard": {
+          "scenario": "Offer 90,000 and say that's your final offer",
           "native": "I'll give you 90,000. Final offer, I won't go higher.",
           "accepted_translations": [
             "Saya kasih 90.000. Penawaran terakhir, tidak bisa lebih.",
@@ -259,6 +268,7 @@
       "options": {
         "easy": {
           "leads_to_branch": "C",
+          "scenario": "Accept the deal",
           "native": "OK, deal! I'll take it.",
           "accepted_translations": [
             "Oke, setuju! Saya ambil.",
@@ -271,6 +281,7 @@
         },
         "medium": {
           "leads_to_branch": "C",
+          "scenario": "Say they convinced you and accept the deal",
           "native": "Fine, you convinced me. I'll take it.",
           "accepted_translations": [
             "Baiklah, kamu berhasil meyakinkan saya. Saya ambil.",
@@ -283,6 +294,7 @@
         },
         "hard": {
           "leads_to_branch": "D",
+          "scenario": "Say you need to think and maybe check the other stalls first",
           "native": "Hmm, I need to think. Maybe I'll check the other stalls first.",
           "accepted_translations": [
             "Hmm, perlu dipikir dulu. Mungkin saya lihat kios lain dulu.",
@@ -330,6 +342,7 @@
       "speaker": "player",
       "options": {
         "easy": {
+          "scenario": "Accept the final deal and thank them",
           "native": "OK, deal! Thank you.",
           "accepted_translations": [
             "Oke, setuju! Terima kasih.",
@@ -341,6 +354,7 @@
           ]
         },
         "medium": {
+          "scenario": "Accept the deal and compliment his bargaining skills",
           "native": "OK deal. You drive a hard bargain, Pak Budi!",
           "accepted_translations": [
             "Oke setuju. Pak Budi memang jago tawar-menawar!",
@@ -351,6 +365,7 @@
           ]
         },
         "hard": {
+          "scenario": "Say they win, admit you can't resist the sambal, and hand over the money",
           "native": "You win, Pak Budi. I can't say no to the sambal. Here's the money.",
           "accepted_translations": [
             "Pak Budi menang. Saya tidak bisa menolak sambalnya. Ini uangnya.",

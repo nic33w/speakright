@@ -1,0 +1,328 @@
+{
+  "conversation_id": "quinceanera_drama",
+  "title": "The Quinceañera Gossip",
+  "enemy_name": "Doña Chisme",
+  "enemy_emoji": "🗣️",
+  "player_emoji": "🕵️",
+  "rounds": [
+    {
+      "id": 1,
+      "speaker": "enemy",
+      "enemy_line_native": "Tell me everything! Did Roberto actually give Lupita flowers at the quinceañera?",
+      "enemy_line_learning": "¡Cuéntame todo! ¿Roberto de verdad le dio flores a Lupita?",
+      "defend_question": {
+        "audio_url": "/battle_audio/quinceanera_drama/round_1.wav",
+        "question": "What does Doña Chisme want to know about Roberto?",
+        "choices": ["If he gave Lupita flowers", "If he showed up without a gift", "If he came to the party at all"],
+        "correct_index": 0
+      }
+    },
+    {
+      "id": 2,
+      "speaker": "player",
+      "options": {
+        "easy": {
+          "scenario": "Doña Chisme is asking if Roberto actually brought flowers. Confirm it.",
+          "native": "Yes, he gave her the flowers.",
+          "accepted_translations": [
+            "Sí, le dio las flores.",
+            "Sí, él le dio las flores.",
+            "Sí, le trajo las flores."
+          ],
+          "hints": [
+            { "native": "he gave her", "learning": "le dio", "note": "le = indirect object pronoun (to her)" },
+            { "native": "the flowers", "learning": "las flores" }
+          ]
+        },
+        "medium": {
+          "scenario": "She got the flowers — confirm that, then hit Doña Chisme with the twist: what Lupita did with them the second she got them.",
+          "native": "He gave them to her but she immediately threw them on the floor.",
+          "accepted_translations": [
+            "Le dio las flores pero ella las tiró al suelo inmediatamente.",
+            "Le dio las flores pero de inmediato las tiró al piso.",
+            "Le dio las flores pero ella las aventó al suelo al instante."
+          ],
+          "hints": [
+            { "native": "he gave them to her", "learning": "le dio las flores / se las dio", "note": "se las dio = gave them to her (double pronoun)" },
+            { "native": "she threw them", "learning": "las tiró / las aventó", "note": "las = direct object (the flowers)" },
+            { "native": "on the floor", "learning": "al suelo / al piso" },
+            { "native": "immediately", "learning": "inmediatamente / de inmediato / al instante" }
+          ]
+        },
+        "hard": {
+          "scenario": "Give Doña Chisme the full scene — the flowers, the note that came with them, and Lupita's very public, very cold response.",
+          "native": "He gave her the flowers and a note, but she gave everything back to him in front of everyone without even reading it.",
+          "accepted_translations": [
+            "Le dio las flores y una nota, pero ella se lo devolvió todo frente a todos sin siquiera leerla.",
+            "Le dio las flores y un papelito, pero ella se lo regresó todo enfrente de todos sin ni leerlo.",
+            "Le dio las flores y una nota, pero se lo devolvió todo sin leerla, frente a todos."
+          ],
+          "hints": [
+            { "native": "he gave her", "learning": "le dio", "note": "le = indirect object (to her)" },
+            { "native": "a note", "learning": "una nota / un papelito" },
+            { "native": "she gave everything back to him", "learning": "se lo devolvió todo / se lo regresó todo", "note": "se lo = gave it back to him (indirect + direct combined)" },
+            { "native": "in front of everyone", "learning": "frente a todos / enfrente de todos" },
+            { "native": "without even reading it", "learning": "sin siquiera leerla / sin ni leerlo" }
+          ]
+        }
+      }
+    },
+    {
+      "id": 3,
+      "speaker": "enemy",
+      "enemy_line_native": "She THREW them?! And did Lupita's mom personally tell Carlos not to come?",
+      "enemy_line_learning": "¿Las TIRÓ?! ¿Y la mamá de Lupita le dijo a Carlos que no fuera?",
+      "defend_question": {
+        "audio_url": "/battle_audio/quinceanera_drama/round_3.wav",
+        "question": "What does Doña Chisme ask about Lupita's mom?",
+        "choices": ["If she told Carlos not to come", "If she invited Carlos herself", "If she sent Carlos a message"],
+        "correct_index": 0
+      }
+    },
+    {
+      "id": 4,
+      "speaker": "player",
+      "options": {
+        "easy": {
+          "scenario": "Doña Chisme guessed that Lupita's mom personally told Carlos not to come. She's right — confirm it.",
+          "native": "Yes, she told him not to come.",
+          "accepted_translations": [
+            "Sí, le dijo que no fuera.",
+            "Sí, ella le dijo que no viniera.",
+            "Sí, le dijo que no fuera a la fiesta."
+          ],
+          "hints": [
+            { "native": "she told him", "learning": "le dijo", "note": "le = indirect object (to him)" },
+            { "native": "not to come", "learning": "que no fuera / que no viniera", "note": "subjunctive after decir + que" }
+          ]
+        },
+        "medium": {
+          "scenario": "Lupita's mom didn't just tell him — she made absolutely sure he got the message. Tell Doña Chisme how.",
+          "native": "She told him not to come and also blocked him on WhatsApp to make it extra clear.",
+          "accepted_translations": [
+            "Le dijo que no fuera y además lo bloqueó en WhatsApp para dejarlo bien claro.",
+            "Le dijo que no viniera y también lo bloqueó en WhatsApp para que quedara claro.",
+            "Le dijo que no fuera, y de paso lo bloqueó en WhatsApp para dejar las cosas claras."
+          ],
+          "hints": [
+            { "native": "she told him not to come", "learning": "le dijo que no fuera / le dijo que no viniera" },
+            { "native": "she also blocked him", "learning": "también lo bloqueó / de paso lo bloqueó", "note": "lo = direct object (him)" },
+            { "native": "on WhatsApp", "learning": "en WhatsApp" },
+            { "native": "to make it clear", "learning": "para dejarlo bien claro / para dejar las cosas claras" }
+          ]
+        },
+        "hard": {
+          "scenario": "Explain the full extent of what Lupita's mom did. She didn't stop at one thing — tell Doña Chisme everything she pulled.",
+          "native": "She not only told him not to come, she also called his mom and explained the whole situation to her so she would deal with him.",
+          "accepted_translations": [
+            "No solo le dijo que no fuera, también llamó a su mamá y le explicó toda la situación para que ella lo controlara.",
+            "No nada más le dijo que no viniera, sino que también le llamó a su mamá y le contó todo para que lo pusiera en orden.",
+            "No solo le dijo que no fuera, también le explicó todo a su mamá para que ella se encargara de él."
+          ],
+          "hints": [
+            { "native": "she not only told him", "learning": "no solo le dijo / no nada más le dijo" },
+            { "native": "not to come", "learning": "que no fuera / que no viniera" },
+            { "native": "she called his mom", "learning": "llamó a su mamá / le llamó a su mamá" },
+            { "native": "and explained it all to her", "learning": "y le explicó toda la situación / y le contó todo", "note": "le = indirect (to her)" },
+            { "native": "so she would deal with him", "learning": "para que lo controlara / para que se encargara de él" }
+          ]
+        }
+      }
+    },
+    {
+      "id": 5,
+      "speaker": "enemy",
+      "enemy_line_native": "His OWN mother?! And Carlos showed up anyway and brought something?",
+      "enemy_line_learning": "¿Su PROPIA mamá?! ¿Y Carlos fue de todas formas y llevó algo?",
+      "defend_question": {
+        "audio_url": "/battle_audio/quinceanera_drama/round_5.wav",
+        "question": "What does Doña Chisme ask about Carlos?",
+        "choices": ["If he showed up and brought something", "If he apologized to Lupita", "If he left before the party started"],
+        "correct_index": 0
+      }
+    },
+    {
+      "id": 6,
+      "speaker": "player",
+      "options": {
+        "easy": {
+          "scenario": "Carlos showed up to the party anyway. Tell Doña Chisme what he brought for Lupita.",
+          "native": "Yes, he brought her a huge cake.",
+          "accepted_translations": [
+            "Sí, le llevó un pastel enorme.",
+            "Sí, le trajo un pastel enorme.",
+            "Sí, él le llevó un pastel grandote."
+          ],
+          "hints": [
+            { "native": "he brought her", "learning": "le llevó / le trajo", "note": "le = indirect object (to her)" },
+            { "native": "a huge cake", "learning": "un pastel enorme / un pastel grandote" }
+          ]
+        },
+        "medium": {
+          "scenario": "Carlos brought something for Lupita. Tell Doña Chisme how she received it — and what she did with it right there on the spot.",
+          "native": "He brought it to her but she didn't accept it and gave it back to him right there.",
+          "accepted_translations": [
+            "Se lo llevó pero ella no lo aceptó y se lo devolvió ahí mismo.",
+            "Le llevó el pastel pero ella no lo aceptó y se lo regresó en ese momento.",
+            "Se lo llevó pero no lo aceptó y se lo devolvió en frente de todos."
+          ],
+          "hints": [
+            { "native": "he brought it to her", "learning": "se lo llevó / le llevó el pastel", "note": "se lo = brought it to her (indirect + direct)" },
+            { "native": "she didn't accept it", "learning": "ella no lo aceptó", "note": "lo = direct object (it/the cake)" },
+            { "native": "she gave it back to him", "learning": "se lo devolvió / se lo regresó", "note": "se lo = gave it back to him" },
+            { "native": "right there", "learning": "ahí mismo / en ese momento" }
+          ]
+        },
+        "hard": {
+          "scenario": "Give Doña Chisme the full cake moment — Carlos bringing it, the whole crowd watching to see what Lupita would do, and what she ended up doing with it instead.",
+          "native": "He brought it to her, everyone waited to see what she'd do, and she gave it to the DJ without even looking at Carlos.",
+          "accepted_translations": [
+            "Se lo llevó, todos esperaban ver qué haría, y ella se lo dio al DJ sin siquiera mirar a Carlos.",
+            "Le llevó el pastel, todos esperaban ver qué iba a hacer, y se lo dio al DJ sin mirar a Carlos.",
+            "Se lo llevó y todo el mundo esperaba ver qué pasaba, pero ella se lo entregó al DJ sin voltear a ver a Carlos."
+          ],
+          "hints": [
+            { "native": "he brought it to her", "learning": "se lo llevó / le llevó el pastel" },
+            { "native": "everyone waited to see", "learning": "todos esperaban ver / todo el mundo esperaba ver" },
+            { "native": "what she'd do", "learning": "qué haría / qué iba a hacer" },
+            { "native": "she gave it to the DJ", "learning": "se lo dio al DJ / se lo entregó al DJ", "note": "se lo = gave it to him (indirect + direct)" },
+            { "native": "without even looking at Carlos", "learning": "sin siquiera mirar a Carlos / sin voltear a ver a Carlos" }
+          ]
+        }
+      }
+    },
+    {
+      "id": 7,
+      "speaker": "enemy",
+      "enemy_line_native": "She gave the CAKE to the DJ?! Did Carlos even tell you what was in that box?",
+      "enemy_line_learning": "¿Le dio el PASTEL al DJ?! ¿Carlos te dijo qué había en esa caja?",
+      "defend_question": {
+        "audio_url": "/battle_audio/quinceanera_drama/round_7.wav",
+        "question": "What does Doña Chisme want to know?",
+        "choices": ["If Carlos told you what was in the box", "If you helped Carlos plan the gift", "If Lupita told Carlos to leave"],
+        "correct_index": 0
+      }
+    },
+    {
+      "id": 8,
+      "speaker": "player",
+      "options": {
+        "easy": {
+          "scenario": "Doña Chisme wants to know if Carlos told you what was in the box. Let her know he didn't say a word to you.",
+          "native": "Carlos didn't tell me anything.",
+          "accepted_translations": [
+            "Carlos no me dijo nada.",
+            "Él no me dijo nada.",
+            "Carlos no me contó nada."
+          ],
+          "hints": [
+            { "native": "Carlos didn't tell me", "learning": "Carlos no me dijo / Carlos no me contó", "note": "me = indirect object (to me)" },
+            { "native": "anything", "learning": "nada" }
+          ]
+        },
+        "medium": {
+          "scenario": "Carlos didn't tell you directly, but you found out anyway. Tell Doña Chisme what was in the box and how you know.",
+          "native": "He didn't tell me anything, but my cousin told me the box had a puppy inside.",
+          "accepted_translations": [
+            "No me dijo nada, pero mi prima me dijo que la caja tenía un cachorro adentro.",
+            "No me contó nada, pero mi primo me contó que dentro de la caja había un perrito.",
+            "No me dijo nada, pero mi prima me avisó que en la caja venía un cachorro."
+          ],
+          "hints": [
+            { "native": "he didn't tell me anything", "learning": "no me dijo nada / no me contó nada" },
+            { "native": "my cousin told me", "learning": "mi prima me dijo / mi primo me contó", "note": "me = indirect object (to me)" },
+            { "native": "the box had a puppy inside", "learning": "la caja tenía un cachorro adentro / dentro de la caja había un perrito" }
+          ]
+        },
+        "hard": {
+          "scenario": "Carlos kept you in the loop, but quietly. Tell Doña Chisme exactly how he shared the secret and what condition he put on it.",
+          "native": "Carlos didn't say anything to me directly, but he showed me a photo on his phone and asked me not to tell anyone.",
+          "accepted_translations": [
+            "Carlos no me dijo nada directamente, pero me mostró una foto en su celular y me pidió que no le dijera a nadie.",
+            "Carlos no me contó nada a mí directamente, pero me enseñó una foto en su teléfono y me pidió que no se lo contara a nadie.",
+            "A mí Carlos no me dijo nada, pero me mostró una foto en el celu y me pidió que no dijera nada."
+          ],
+          "hints": [
+            { "native": "didn't say anything to me directly", "learning": "no me dijo nada directamente / no me contó nada a mí" },
+            { "native": "he showed me a photo", "learning": "me mostró una foto / me enseñó una foto", "note": "me = indirect (to me)" },
+            { "native": "on his phone", "learning": "en su celular / en su teléfono / en el celu" },
+            { "native": "he asked me not to tell anyone", "learning": "me pidió que no le dijera a nadie / me pidió que no se lo contara a nadie", "note": "me = indirect (he asked me); subjunctive after pedir" }
+          ]
+        }
+      }
+    },
+    {
+      "id": 9,
+      "speaker": "enemy",
+      "enemy_line_native": "A puppy in a box at a quinceañera?! Did Lupita at least send you the address for the after-party?",
+      "enemy_line_learning": "¡Un cachorro en una caja en la quinceañera?! ¿Lupita te mandó la dirección del after?",
+      "defend_question": {
+        "audio_url": "/battle_audio/quinceanera_drama/round_9.wav",
+        "question": "What does Doña Chisme ask about the after-party?",
+        "choices": ["If Lupita sent you the address", "If the after-party was cancelled", "If Carlos was invited to the after-party"],
+        "correct_index": 0
+      }
+    },
+    {
+      "id": 10,
+      "speaker": "player",
+      "options": {
+        "easy": {
+          "scenario": "Lupita did send you the after-party address. Tell Doña Chisme.",
+          "native": "Yes, Lupita sent me the address.",
+          "accepted_translations": [
+            "Sí, Lupita me mandó la dirección.",
+            "Sí, Lupita me envió la dirección.",
+            "Sí, me la mandó Lupita."
+          ],
+          "hints": [
+            { "native": "Lupita sent me", "learning": "Lupita me mandó / Lupita me envió", "note": "me = indirect object (to me)" },
+            { "native": "the address", "learning": "la dirección" }
+          ]
+        },
+        "medium": {
+          "scenario": "You got the address — but it accidentally reached someone who definitely wasn't on the guest list. Tell Doña Chisme what happened.",
+          "native": "Yes, she sent it to me, but she accidentally sent it to Carlos too.",
+          "accepted_translations": [
+            "Sí, me la mandó, pero sin querer también se la mandó a Carlos.",
+            "Sí, me la envió, pero por accidente también se la mandó a Carlos.",
+            "Sí, Lupita me la mandó, pero de paso se la mandó a Carlos sin querer."
+          ],
+          "hints": [
+            { "native": "she sent it to me", "learning": "me la mandó / me la envió", "note": "me la = sent it to me (indirect + direct)" },
+            { "native": "but accidentally", "learning": "pero sin querer / pero por accidente" },
+            { "native": "she also sent it to Carlos", "learning": "también se la mandó a Carlos / también se la envió a Carlos", "note": "se la = sent it to him (indirect + direct)" }
+          ]
+        },
+        "hard": {
+          "scenario": "Tell Doña Chisme how you got the address, what you were supposed to do with it, and what went embarrassingly wrong.",
+          "native": "Lupita sent it to me and told me to forward it to my friends, but I accidentally sent it to my mom's WhatsApp group instead.",
+          "accepted_translations": [
+            "Lupita me la mandó y me dijo que se la reenviara a mis amigos, pero sin querer se la mandé al grupo de WhatsApp de mi mamá.",
+            "Lupita me la envió y me pidió que se la mandara a mis amigos, pero por accidente se la reenvié al grupo de mi mamá.",
+            "Me la mandó Lupita y me dijo que se la pasara a mis amigos, pero se la mandé sin querer al grupo de WhatsApp de mi mamá."
+          ],
+          "hints": [
+            { "native": "she sent it to me", "learning": "me la mandó / me la envió", "note": "me la = sent it to me" },
+            { "native": "she told me to forward it", "learning": "me dijo que se la reenviara / me pidió que se la mandara", "note": "se la = forward it to them; subjunctive after decir/pedir" },
+            { "native": "to my friends", "learning": "a mis amigos" },
+            { "native": "I accidentally sent it", "learning": "sin querer se la mandé / por accidente se la reenvié", "note": "se la = sent it to them (to the group)" },
+            { "native": "to my mom's WhatsApp group", "learning": "al grupo de WhatsApp de mi mamá / al grupo de mi mamá" }
+          ]
+        }
+      }
+    },
+    {
+      "id": 11,
+      "speaker": "enemy",
+      "enemy_line_native": "You sent it to your MOM'S group?! I have to call everyone — don't go anywhere!",
+      "enemy_line_learning": "¿SE LO MANDASTE AL GRUPO DE TU MAMÁ?! Tengo que llamarle a todo el mundo — ¡no te vayas!",
+      "defend_question": {
+        "audio_url": "/battle_audio/quinceanera_drama/round_11.wav",
+        "question": "What does Doña Chisme say she needs to do right now?",
+        "choices": ["Call everyone", "Go to the after-party", "Find Carlos"],
+        "correct_index": 0
+      }
+    }
+  ]
+}
