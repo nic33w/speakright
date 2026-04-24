@@ -6,7 +6,7 @@ type LangSpec = { code: string; name: string };
 
 type HomeScreenProps = {
   apiBase?: string;
-  onSelectMode: (mode: 'story' | 'trivia' | 'messenger' | 'guessing' | 'battle' | 'numbers', fluent: LangSpec, learning: LangSpec) => void;
+  onSelectMode: (mode: 'story' | 'trivia' | 'messenger' | 'guessing' | 'battle' | 'numbers' | 'pronounblitz', fluent: LangSpec, learning: LangSpec) => void;
 };
 
 const LANG_OPTIONS: LangSpec[] = [
@@ -475,6 +475,37 @@ export default function HomeScreen({
             </h2>
             <p style={{ fontSize: '14px', opacity: 0.9, lineHeight: '1.5' }}>
               I'll think of something, you ask yes/no questions to guess it!
+            </p>
+          </button>
+
+          {/* Pronoun Blitz Card */}
+          <button
+            onClick={() => onSelectMode('pronounblitz', fluent, learning)}
+            style={{
+              padding: '32px 24px',
+              background: 'linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)',
+              border: 'none',
+              borderRadius: '12px',
+              color: 'white',
+              cursor: 'pointer',
+              transition: 'transform 0.2s, box-shadow 0.2s',
+              boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.transform = 'translateY(-4px)';
+              e.currentTarget.style.boxShadow = '0 8px 24px rgba(0,0,0,0.25)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.transform = 'translateY(0)';
+              e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.15)';
+            }}
+          >
+            <div style={{ fontSize: '48px', marginBottom: '16px' }}>⚡</div>
+            <h2 style={{ fontSize: '24px', fontWeight: 700, marginBottom: '12px' }}>
+              Pronoun Blitz
+            </h2>
+            <p style={{ fontSize: '14px', opacity: 0.9, lineHeight: '1.5' }}>
+              Watch a transfer animation, say the Spanish sentence with object pronouns in preterite!
             </p>
           </button>
 
