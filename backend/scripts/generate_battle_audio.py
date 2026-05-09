@@ -68,6 +68,15 @@ CONVERSATIONS = [
         "hint_voice": "id-ID-ArdiNeural",
         "hint_locale": "id-ID",
     },
+    {
+        "json_path": FRONTEND_SRC / "battle_conversations_es_5.json",
+        "output_dir": FRONTEND_PUBLIC / "battle_audio" / "oficina_chismes",
+        "enemy_voice": "es-MX-DaliaNeural",
+        "enemy_locale": "es-MX",
+        "hint_voice": "es-MX-JorgeNeural",
+        "hint_locale": "es-MX",
+        "generate_enemy_audio": False,
+    },
 ]
 
 
@@ -148,13 +157,16 @@ def generate_hints(output_dir, voice, locale, conv):
     print(f"  Hints done: {generated} generated, {skipped} skipped")
 
 
-def process_conversation(json_path, output_dir, enemy_voice, enemy_locale, hint_voice, hint_locale):
+def process_conversation(json_path, output_dir, enemy_voice, enemy_locale, hint_voice, hint_locale, generate_enemy_audio=True):
     print(f"\nLoading: {json_path.name}")
     with open(json_path, "r", encoding="utf-8") as f:
         conv = json.load(f)
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    generate_enemy_lines(json_path, output_dir, enemy_voice, enemy_locale, conv)
+    if generate_enemy_audio:
+        generate_enemy_lines(json_path, output_dir, enemy_voice, enemy_locale, conv)
+    else:
+        print(f"  Enemy audio: skipped (generate_enemy_audio=False)")
     generate_hints(output_dir, hint_voice, hint_locale, conv)
 
 
@@ -177,6 +189,7 @@ def main():
             conv["enemy_locale"],
             conv["hint_voice"],
             conv["hint_locale"],
+            generate_enemy_audio=conv.get("generate_enemy_audio", True),
         )
 
     print("\n" + "=" * 60)

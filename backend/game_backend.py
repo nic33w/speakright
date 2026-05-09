@@ -3,6 +3,8 @@ import os
 import time
 import re
 import hashlib
+import json
+from datetime import datetime
 from typing import List, Dict, Any, Optional
 from pathlib import Path
 from fastapi.responses import FileResponse
@@ -302,7 +304,9 @@ def api_turn(req: TurnReq):
 @app.get("/api/audio_file/{session}/{filename}")
 def serve_audio(session: str, filename: str):
     # Handle both session_X and messenger_X formats
-    if session.startswith("messenger_"):
+    if session == "cache":
+        path = AUDIO_ROOT / "cache" / filename
+    elif session.startswith("messenger_"):
         path = AUDIO_ROOT / session / filename
     else:
         path = AUDIO_ROOT / f"session_{session}" / filename
@@ -485,8 +489,6 @@ def api_trivia_audio(req: TriviaAudioReq):
 
 # ===== MESSENGER CHAT SYSTEM =====
 # Persona-based adaptive language learning chat (single user, single persona)
-
-import json
 
 # --- Premade Conversations ---
 # In-memory state tracking for premade scripted conversations
@@ -1575,6 +1577,40 @@ def get_quiz_pending():
 
 # --- Battle Mode Endpoint ---
 
+USER_PROFILE_PATH = API_ROOT / "user_profile.json"
+
+
+def _load_user_profile() -> dict:
+    if not USER_PROFILE_PATH.exists():
+        return {"mistake_log": [], "topics_to_practice": []}
+    with open(USER_PROFILE_PATH, "r", encoding="utf-8") as f:
+        return json.load(f)
+
+
+def _save_user_profile(profile: dict):
+    with open(USER_PROFILE_PATH, "w", encoding="utf-8") as f:
+        json.dump(profile, f, ensure_ascii=False, indent=2)
+
+
+def _log_battle_mistake(issues, conversation_id, difficulty, native, user_answer, damage_multiplier, hints_used_count, hints_used_phrases):
+    profile = _load_user_profile()
+    feedback_keys = [issue.get("feedback_key") for issue in issues if issue.get("feedback_key")]
+    entry = {
+        "timestamp": datetime.utcnow().isoformat(),
+        "conversation_id": conversation_id,
+        "difficulty": difficulty,
+        "native": native,
+        "user_answer": user_answer,
+        "feedback_keys": feedback_keys,
+        "issues": issues,
+        "damage_multiplier": damage_multiplier,
+        "hints_used_count": hints_used_count,
+        "hints_used_phrases": hints_used_phrases,
+    }
+    profile["mistake_log"].append(entry)
+    _save_user_profile(profile)
+
+
 class BattleCheckReq(BaseModel):
     session_id: str
     user_answer: str
@@ -1584,6 +1620,10 @@ class BattleCheckReq(BaseModel):
     prompt_text: str
     learning: Optional[LangSpec] = None
     fluent: Optional[LangSpec] = None
+    conversation_id: Optional[str] = None
+    difficulty: Optional[str] = None
+    hints_used_count: int = 0
+    hints_used_phrases: List[Dict[str, str]] = []
 
 
 @app.post("/api/battle/check")
@@ -1608,10 +1648,29 @@ def api_battle_check(req: BattleCheckReq):
             valid_phrases=req.valid_phrases,
         )
 
+        issues = result.get("issues", [])
+
+        # Log mistakes (skip perfect scores and ASR errors)
+        loggable_issues = [i for i in issues if i.get("feedback_key") and i.get("feedback_key") != "asr_error"]
+        if loggable_issues:
+            try:
+                _log_battle_mistake(
+                    issues=issues,
+                    conversation_id=req.conversation_id,
+                    difficulty=req.difficulty,
+                    native=req.prompt_text,
+                    user_answer=req.user_answer,
+                    damage_multiplier=result.get("damage_multiplier", 0.0),
+                    hints_used_count=req.hints_used_count,
+                    hints_used_phrases=req.hints_used_phrases,
+                )
+            except Exception as log_err:
+                print(f"Warning: failed to log battle mistake: {log_err}")
+
         return {
             "accepted": result.get("accepted", False),
             "damage_multiplier": result.get("damage_multiplier", 0.0),
-            "issues": result.get("issues", []),
+            "issues": issues,
             "feedback_key": result.get("feedback_key", None),
             "corrected_snippet": result.get("corrected_snippet", None),
             "feedback_explanation": result.get("feedback_explanation", None),
@@ -1621,6 +1680,97 @@ def api_battle_check(req: BattleCheckReq):
         }
     except Exception as e:
         print("Battle check failed:", e)
+        import traceback
+        traceback.print_exc()
+        return {
+            "accepted": False,
+            "damage_multiplier": 0.0,
+            "feedback_key": None,
+            "corrected_snippet": None,
+            "token_usage": None,
+        }
+
+
+## ── Word Drill endpoints ──────────────────────────────────────────────────────
+
+WORD_PRACTICE_DATA: Optional[Dict[str, Any]] = None
+
+def _load_word_practice_data() -> Dict[str, Any]:
+    data_path = Path(__file__).parent / "word_practice_sentences.json"
+    with open(data_path, "r", encoding="utf-8") as f:
+        return json.load(f)
+
+
+@app.get("/api/worddrill/words")
+def api_worddrill_words():
+    data = _load_word_practice_data()
+    words = [
+        {"key": key, "display": info["display"], "description": info["description"]}
+        for key, info in data.items()
+    ]
+    return {"words": words}
+
+
+class WordDrillSentenceReq(BaseModel):
+    word: str
+    exclude_ids: List[int] = []
+
+
+@app.post("/api/worddrill/sentence")
+def api_worddrill_sentence(req: WordDrillSentenceReq):
+    import random
+    data = _load_word_practice_data()
+    if req.word not in data:
+        raise HTTPException(status_code=404, detail=f"Word '{req.word}' not found")
+
+    sentences = data[req.word]["sentences"]
+    available = [s for s in sentences if s["id"] not in req.exclude_ids]
+    if not available:
+        available = sentences  # reset if all used
+
+    sentence = random.choice(available)
+    return {"sentence": sentence}
+
+
+class WordDrillCheckReq(BaseModel):
+    user_answer: str
+    correct_answer: str
+    accepted_translations: List[str] = []
+    prompt_text: str
+    context: str = ""
+    learning: Optional[LangSpec] = None
+    fluent: Optional[LangSpec] = None
+
+
+@app.post("/api/worddrill/check")
+def api_worddrill_check(req: WordDrillCheckReq):
+    from llm_call import check_trivia_answer
+
+    fluent = req.fluent or LangSpec(code="en", name="English")
+    learning = req.learning or LangSpec(code="es", name="Spanish")
+
+    try:
+        result = check_trivia_answer(
+            user_answer=req.user_answer,
+            correct_answer=req.correct_answer,
+            english_prompt=req.prompt_text,
+            fluent=fluent.dict(),
+            learning=learning.dict(),
+            accepted_translations=req.accepted_translations,
+        )
+        return {
+            "accepted": result.get("accepted", False),
+            "damage_multiplier": result.get("damage_multiplier", 0.0),
+            "issues": result.get("issues", []),
+            "feedback_key": result.get("feedback_key"),
+            "corrected_snippet": result.get("corrected_snippet"),
+            "feedback_explanation": result.get("feedback_explanation"),
+            "correction_tokens": result.get("correction_tokens"),
+            "fast_path": result.get("fast_path", False),
+            "token_usage": result.get("token_usage"),
+        }
+    except Exception as e:
+        print("Word drill check failed:", e)
         import traceback
         traceback.print_exc()
         return {

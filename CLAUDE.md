@@ -223,4 +223,64 @@ Both backends allow these origins:
 - http://127.0.0.1:5173
 
 Add new origins to `allow_origins` list if deploying elsewhere.
+
+## Common Mode Features
+
+All game modes should implement these standard features. Check this section before building any new mode.
+
+### 1. Textarea Input
+- **Auto-focus**: `useEffect` focuses textarea when sentence exists, not busy, answer not yet accepted
+- **Hover-focus**: `onMouseEnter` focuses textarea if not busy/done
+- **Wispr auto-send**: in `useEffect([transcript])`, if `transcript.length - previousLengthRef.current >= 3` AND `transcript.length > 2`, wait 100ms then submit (guard: >700ms since last send)
+- **Manual send**: Enter submits, Shift+Enter inserts newline
+- **Clear button**: clears transcript, re-focuses
+- **Skip button**: shows correct answer, adds to history as skipped, enables Next
+- **Disabled**: when busy OR answerStatus is "correct" or "skipped"
+- **"Checking…" label**: show on submit button while busy=true
+
+### 2. Live Feedback Area (below textarea)
+After each submission:
+- Status icon: ✓ correct (green `#86efac` / gold `#fbbf24` / orange `#f97316` by quality), → skipped (gray), no icon for wrong
+- Feedback message text in matching color
+- **Issue badges**: colored pill spans using `FEEDBACK_COLORS`, `FEEDBACK_LABELS`, `FEEDBACK_MAP` — copy these constants from `BattleGame.tsx`
+- **Correction tokens**: inline diff — removed words in red `#fca5a5` with line-through, added words in bold green `#86efac`, unchanged in `rgba(255,255,255,0.8)`
+- Wrong answers: show feedback then clear textarea and reset to idle so user can retry
+
+### 3. History Log (right column, 34%)
+**Collapsed entry:**
+- Blue bg for correct `rgba(59,130,246,0.25)`, red for wrong attempt `rgba(239,68,68,0.15)`, gray for skipped
+- ✓/✗ status badge + user's answer text (or "→ answer" for skipped)
+- **Blue quality bar**: 5px tall, 56px wide; fill HSL where `hue = (qualityScore/100)*217`, sat 80%, light 58%
+- **Gold hints bar**: shows % of hints NOT used; only display when `allHints?.length > 0`
+- **Hover audio**: on mouseEnter, fetch TTS for the correct answer via `POST /api/trivia/audio {text, locale}` and play it; stop on mouseLeave
+
+**Expanded entry** (250ms hover delay OR click to pin; pinned entries stay expanded):
+1. **Sentence section**: the English prompt; when hints present use `tokenizeWithHints()` to highlight hint-matched words (unrevealed = dashed gold underline, revealed = colored from `HINT_COLORS`)
+2. **You Said**: correction tokens diff (red strikethrough / bold green); numbered buttons [1] [2] for accepted translations — hover a button to preview word-level diff via `diffExampleVsUser()` (unmatched words in gold `#fbbf24`)
+3. **Feedback**: issue badges + explanations (same format as live feedback area)
+4. **Previous attempts** (only on resolved entries): each prior wrong attempt in a red-tinted sub-box with its correction tokens + feedback badges
+
+Wrong attempts are hidden from the main log once the same sentence is resolved (correct/skip) — visible only in the resolved entry's "Previous attempts" section. Auto-scroll history to bottom on new entry.
+
+### 4. Hints System (optional — build capability; show only when hints present)
+Include the hint section only when `currentSentence.hints` is a non-empty array. Omit entirely otherwise.
+
+`HintItem` type: `{ native: string; learning: string; note?: string }`
+
+- Horizontal scrollable row of hint cards (130px wide)
+- Card layout: native text (top), Aa reveal button OR learning text (middle), 🔊 audio button (bottom)
+- **Hover text**: reveals learning text and stays revealed (add index to `viewedHints` Set)
+- **Hover audio**: fetch TTS via `/api/trivia/audio` and play it
+- **Proximity scaling**: `calculateDistance()` + `distanceToOpacity()` (MAX 300px) — closest unrevealed hint gets cyan border + bg glow
+- **Hint highlighting in sentence**: `tokenizeWithHints()` — unrevealed = dashed gold underline, revealed = colored text cycling `HINT_COLORS`
+
+### Constants / functions to copy from BattleGame.tsx into any new mode
+- `FEEDBACK_MAP`, `FEEDBACK_COLORS`, `FEEDBACK_LABELS`
+- `HINT_COLORS` array
+- `normalizeForMatch()`, `checkFuzzyMatch()`
+- `calculateDistance()`, `distanceToOpacity()`
+- `tokenizeWithHints()` (when hints are used)
+- `diffExampleVsUser()` (for "You Said" preview diffs)
+
+---
 - Do no implement new features that I didn't tell you to do. If you'd like to add something we haven't discussed, you must confirm the plan with me.

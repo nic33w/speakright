@@ -1,0 +1,377 @@
+{
+  "mistake_log": [
+    {
+      "timestamp": "2026-04-24T21:14:04.760701",
+      "conversation_id": "oficina_chismes",
+      "difficulty": "medium",
+      "native": "She told me about it yesterday.",
+      "user_answer": "¿Qué dijo ayer?",
+      "feedback_keys": [
+        "missing_content",
+        "missing_minor_words"
+      ],
+      "issues": [
+        {
+          "feedback_key": "missing_content",
+          "corrected_snippet": "me lo dijo",
+          "feedback_explanation": "You said 'que dijo', but 'me lo dijo' is more natural because it includes the subject and object."
+        },
+        {
+          "feedback_key": "missing_minor_words",
+          "corrected_snippet": "ayer",
+          "feedback_explanation": "You omitted 'me lo' which is necessary to convey who was told."
+        }
+      ],
+      "damage_multiplier": 0.6,
+      "hints_used_count": 0,
+      "hints_used_phrases": []
+    },
+    {
+      "timestamp": "2026-04-24T21:15:19.793804",
+      "conversation_id": "oficina_chismes",
+      "difficulty": "medium",
+      "native": "She didn't tell us anything.",
+      "user_answer": "Nos no dijo nada.",
+      "feedback_keys": [
+        "missing_content",
+        "word_order"
+      ],
+      "issues": [
+        {
+          "feedback_key": "missing_content",
+          "corrected_snippet": "ella no",
+          "feedback_explanation": "You said 'nos no', but 'ella no' is more natural because it specifies the subject."
+        },
+        {
+          "feedback_key": "word_order",
+          "corrected_snippet": "nos dijo",
+          "feedback_explanation": "You said 'nos no dijo', but 'nos dijo' is the correct order."
+        }
+      ],
+      "damage_multiplier": 0.6,
+      "hints_used_count": 0,
+      "hints_used_phrases": []
+    },
+    {
+      "timestamp": "2026-04-24T21:16:39.886185",
+      "conversation_id": "oficina_chismes",
+      "difficulty": "medium",
+      "native": "He lent it to her without asking.",
+      "user_answer": "Se lo prestó sin preguntar.",
+      "feedback_keys": [
+        "wrong_conjugation",
+        "missing_content"
+      ],
+      "issues": [
+        {
+          "feedback_key": "wrong_conjugation",
+          "corrected_snippet": "se la presto",
+          "feedback_explanation": "You said 'se lo presto', but 'se la presto' is correct because 'la' refers to the feminine noun."
+        },
+        {
+          "feedback_key": "missing_content",
+          "corrected_snippet": "sin pedir permiso",
+          "feedback_explanation": "You omitted 'sin pedir permiso', which is a key part of the original sentence."
+        }
+      ],
+      "damage_multiplier": 0.6,
+      "hints_used_count": 0,
+      "hints_used_phrases": []
+    },
+    {
+      "timestamp": "2026-04-24T21:19:04.140381",
+      "conversation_id": "oficina_chismes",
+      "difficulty": "medium",
+      "native": "I already told him about it.",
+      "user_answer": "Ya se lo di.",
+      "feedback_keys": [
+        "wrong_conjugation",
+        "missing_content"
+      ],
+      "issues": [
+        {
+          "feedback_key": "wrong_conjugation",
+          "corrected_snippet": "di → dije",
+          "feedback_explanation": "You said 'di', but 'dije' is more correct because it indicates that you already told him in the past."
+        },
+        {
+          "feedback_key": "missing_content",
+          "corrected_snippet": null,
+          "feedback_explanation": "You omitted the part about 'it', which is important for clarity."
+        }
+      ],
+      "damage_multiplier": 0.6,
+      "hints_used_count": 0,
+      "hints_used_phrases": []
+    },
+    {
+      "timestamp": "2026-04-24T23:47:45.024710",
+      "conversation_id": "oficina_chismes",
+      "difficulty": "hard",
+      "native": "I wish she had told us beforehand.",
+      "user_answer": "Ohala, ¿nos hubiere dicho antes?",
+      "feedback_keys": [
+        "wrong_conjugation"
+      ],
+      "issues": [
+        {
+          "feedback_key": "wrong_conjugation",
+          "corrected_snippet": "hubiera",
+          "feedback_explanation": "You said 'hubiere', but 'hubiera' is correct because it is the appropriate past subjunctive form."
+        }
+      ],
+      "damage_multiplier": 0.6,
+      "hints_used_count": 1,
+      "hints_used_phrases": [
+        {
+          "native": "she had told us",
+          "learning": "nos hubiera dicho / nos hubiera avisado"
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-04-25T04:26:49.733792",
+      "conversation_id": "oficina_chismes",
+      "difficulty": "medium",
+      "native": "She told me about it yesterday.",
+      "user_answer": "Melodí, oh ayer.",
+      "feedback_keys": [
+        "missing_content",
+        "asr_error"
+      ],
+      "issues": [
+        {
+          "feedback_key": "missing_content",
+          "corrected_snippet": "me lo dijo",
+          "feedback_explanation": "You said 'melodi', but 'me lo dijo' is more natural/correct because it includes the necessary pronouns and verb."
+        },
+        {
+          "feedback_key": "asr_error",
+          "corrected_snippet": null,
+          "feedback_explanation": "You said 'melodi', but it seems like a mishearing of 'me lo dijo'."
+        }
+      ],
+      "damage_multiplier": 0.6,
+      "hints_used_count": 0,
+      "hints_used_phrases": []
+    },
+    {
+      "timestamp": "2026-04-25T04:27:31.800251",
+      "conversation_id": "oficina_chismes",
+      "difficulty": "medium",
+      "native": "She didn't tell us anything.",
+      "user_answer": "No, no te dije nada.",
+      "feedback_keys": [
+        "missing_content",
+        "wrong_meaning"
+      ],
+      "issues": [
+        {
+          "feedback_key": "missing_content",
+          "corrected_snippet": null,
+          "feedback_explanation": "You said 'no no te dije nada', but 'no nos dijo nada' or 'no nos contó nada' is correct because it needs to refer to 'she' and 'us'."
+        },
+        {
+          "feedback_key": "wrong_meaning",
+          "corrected_snippet": null,
+          "feedback_explanation": "You said 'te dije', but 'nos dijo' is correct because it should be 'us' instead of 'you'."
+        }
+      ],
+      "damage_multiplier": 0.6,
+      "hints_used_count": 0,
+      "hints_used_phrases": []
+    },
+    {
+      "timestamp": "2026-04-25T04:28:08.744789",
+      "conversation_id": "oficina_chismes",
+      "difficulty": "medium",
+      "native": "He lent it to her without asking.",
+      "user_answer": "Se le presta sin pedir.",
+      "feedback_keys": [
+        "wrong_conjugation",
+        "missing_content"
+      ],
+      "issues": [
+        {
+          "feedback_key": "wrong_conjugation",
+          "corrected_snippet": "se la presto",
+          "feedback_explanation": "You said 'se le presta', but 'se la presto' is correct because it refers to lending something to her."
+        },
+        {
+          "feedback_key": "missing_content",
+          "corrected_snippet": "sin preguntar",
+          "feedback_explanation": "You omitted 'sin preguntar', which is a key part of the original sentence."
+        }
+      ],
+      "damage_multiplier": 0.6,
+      "hints_used_count": 0,
+      "hints_used_phrases": []
+    },
+    {
+      "timestamp": "2026-04-25T04:28:21.985330",
+      "conversation_id": "oficina_chismes",
+      "difficulty": "medium",
+      "native": "He lent it to her without asking.",
+      "user_answer": "Sine per ier.",
+      "feedback_keys": [
+        "missing_content",
+        "unnatural_phrasing"
+      ],
+      "issues": [
+        {
+          "feedback_key": "missing_content",
+          "corrected_snippet": "sin pedir permiso",
+          "feedback_explanation": "You said 'sine per ier', but 'sin pedir permiso' is more natural because it conveys the full meaning of lending without asking."
+        },
+        {
+          "feedback_key": "unnatural_phrasing",
+          "corrected_snippet": "sine per ier",
+          "feedback_explanation": "You said 'sine per ier', but this phrase sounds awkward and doesn't match common expressions in Spanish."
+        }
+      ],
+      "damage_multiplier": 0.6,
+      "hints_used_count": 0,
+      "hints_used_phrases": []
+    },
+    {
+      "timestamp": "2026-04-29T23:07:56.746715",
+      "conversation_id": "oficina_chismes",
+      "difficulty": "medium",
+      "native": "She told me about it yesterday.",
+      "user_answer": "Melodi khayal.",
+      "feedback_keys": [
+        "wrong_meaning"
+      ],
+      "issues": [
+        {
+          "feedback_key": "wrong_meaning",
+          "corrected_snippet": null,
+          "feedback_explanation": "You said 'melodi khayal', but 'me lo dijo' or 'me lo contó' is correct because it conveys the meaning of telling."
+        }
+      ],
+      "damage_multiplier": 0.0,
+      "hints_used_count": 0,
+      "hints_used_phrases": []
+    },
+    {
+      "timestamp": "2026-04-29T23:10:35.313580",
+      "conversation_id": "oficina_chismes",
+      "difficulty": "medium",
+      "native": "He lent it to her without asking.",
+      "user_answer": "Le presté sin pedir permiso.",
+      "feedback_keys": [
+        "wrong_conjugation",
+        "missing_content"
+      ],
+      "issues": [
+        {
+          "feedback_key": "wrong_conjugation",
+          "corrected_snippet": "le presté",
+          "feedback_explanation": "You said 'le preste', but 'le presté' is correct because it needs to be in the past tense."
+        },
+        {
+          "feedback_key": "missing_content",
+          "corrected_snippet": "se la",
+          "feedback_explanation": "You omitted 'se la', which is necessary to indicate to whom it was lent."
+        }
+      ],
+      "damage_multiplier": 0.6,
+      "hints_used_count": 1,
+      "hints_used_phrases": [
+        {
+          "native": "without asking",
+          "learning": "sin pedir permiso / sin preguntar"
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-04-29T23:10:55.497347",
+      "conversation_id": "oficina_chismes",
+      "difficulty": "medium",
+      "native": "He lent it to her without asking.",
+      "user_answer": "Se le freste sin pedir un misil.",
+      "feedback_keys": [
+        "wrong_meaning",
+        "missing_content",
+        "asr_error"
+      ],
+      "issues": [
+        {
+          "feedback_key": "wrong_meaning",
+          "corrected_snippet": "se la presto",
+          "feedback_explanation": "You said 'le freste', but 'la presto' is correct because it conveys the intended meaning of lending something."
+        },
+        {
+          "feedback_key": "missing_content",
+          "corrected_snippet": "sin pedir permiso",
+          "feedback_explanation": "You omitted 'sin pedir permiso', which is essential to convey the full meaning of the prompt."
+        },
+        {
+          "feedback_key": "asr_error",
+          "corrected_snippet": "un misil",
+          "feedback_explanation": "You said 'un misil', but it seems like a mishearing of 'permiso'."
+        }
+      ],
+      "damage_multiplier": 0.6,
+      "hints_used_count": 1,
+      "hints_used_phrases": [
+        {
+          "native": "without asking",
+          "learning": "sin pedir permiso / sin preguntar"
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-04-29T23:11:11.304860",
+      "conversation_id": "oficina_chismes",
+      "difficulty": "medium",
+      "native": "He lent it to her without asking.",
+      "user_answer": "Se la presté sin pedir permiso.",
+      "feedback_keys": [
+        "wrong_conjugation",
+        "missing_content"
+      ],
+      "issues": [
+        {
+          "feedback_key": "wrong_conjugation",
+          "corrected_snippet": "presto",
+          "feedback_explanation": "You said 'preste', but 'presto' is correct because it matches the subject."
+        },
+        {
+          "feedback_key": "missing_content",
+          "corrected_snippet": "sin preguntar",
+          "feedback_explanation": "You omitted 'sin preguntar', which is another valid way to express the idea."
+        }
+      ],
+      "damage_multiplier": 0.6,
+      "hints_used_count": 1,
+      "hints_used_phrases": [
+        {
+          "native": "without asking",
+          "learning": "sin pedir permiso / sin preguntar"
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-05-07T00:18:45.556527",
+      "conversation_id": "cafe_encounter",
+      "difficulty": "hard",
+      "native": "Perfect! I hope they have outdoor seating because it's a beautiful day.",
+      "user_answer": "Perfecto, espero que tenga mesas afuera porque es un día hermoso.",
+      "feedback_keys": [
+        "wrong_conjugation"
+      ],
+      "issues": [
+        {
+          "feedback_key": "wrong_conjugation",
+          "corrected_snippet": "tenga → tengan",
+          "feedback_explanation": "You said tenga, but tengan is correct because it matches the plural subject."
+        }
+      ],
+      "damage_multiplier": 0.75,
+      "hints_used_count": 0,
+      "hints_used_phrases": []
+    }
+  ],
+  "topics_to_practice": []
+}

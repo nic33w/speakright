@@ -1,0 +1,264 @@
+{
+  "conversation_id": "oficina_chismes",
+  "title": "Chismes en la Oficina",
+  "enemy_name": "Susana",
+  "enemy_emoji": "🗣️",
+  "player_emoji": "😐",
+  "rounds": [
+    {
+      "id": 1,
+      "speaker": "enemy",
+      "enemy_line_native": "Stop everything! Did you hear? The boss gave Roberto a raise. Just like that!",
+      "enemy_line_learning": "¡Para todo! ¿Lo oíste? El jefe le dio un aumento a Roberto. ¡Así, nada más!"
+    },
+    {
+      "id": 2,
+      "speaker": "player",
+      "options": {
+        "easy": {
+          "native": "He gives everyone raises.",
+          "accepted_translations": [
+            "Les da aumentos a todos.",
+            "Le da aumentos a todo el mundo.",
+            "A todos les da aumentos."
+          ],
+          "hints": [
+            { "native": "He gives", "learning": "Les da / Le da" },
+            { "native": "raises", "learning": "aumentos" },
+            { "native": "to everyone", "learning": "a todos / a todo el mundo" }
+          ]
+        },
+        "medium": {
+          "native": "She told me about it yesterday.",
+          "accepted_translations": [
+            "Me lo dijo ayer.",
+            "Me lo contó ayer.",
+            "Ayer me lo dijo."
+          ],
+          "hints": [
+            { "native": "She told me", "learning": "Me lo dijo / Me lo contó" },
+            { "native": "yesterday", "learning": "ayer" }
+          ]
+        },
+        "hard": {
+          "native": "I doubt he gave it to him without a reason.",
+          "accepted_translations": [
+            "Dudo que se lo haya dado sin razón.",
+            "No creo que se lo haya dado sin motivo.",
+            "Dudo que le haya dado el aumento sin una razón."
+          ],
+          "hints": [
+            { "native": "I doubt", "learning": "Dudo que / No creo que" },
+            { "native": "he gave it to him", "learning": "se lo haya dado" },
+            { "native": "without a reason", "learning": "sin razón / sin motivo" }
+          ]
+        }
+      }
+    },
+    {
+      "id": 3,
+      "speaker": "enemy",
+      "enemy_line_native": "And Marta showed the director her project. Without. Even. Telling. Us.",
+      "enemy_line_learning": "Y Marta le mostró su proyecto al director. Sin. Avisarnos. Siquiera."
+    },
+    {
+      "id": 4,
+      "speaker": "player",
+      "options": {
+        "easy": {
+          "native": "She always shows him her work.",
+          "accepted_translations": [
+            "Siempre le muestra su trabajo.",
+            "Le muestra su trabajo siempre.",
+            "Ella siempre le muestra su trabajo."
+          ],
+          "hints": [
+            { "native": "She always shows", "learning": "Siempre le muestra" },
+            { "native": "him", "learning": "le" },
+            { "native": "her work", "learning": "su trabajo" }
+          ]
+        },
+        "medium": {
+          "native": "She didn't tell us anything.",
+          "accepted_translations": [
+            "No nos dijo nada.",
+            "No nos contó nada.",
+            "Ella no nos dijo nada."
+          ],
+          "hints": [
+            { "native": "She didn't tell us", "learning": "No nos dijo / No nos contó" },
+            { "native": "anything", "learning": "nada" }
+          ]
+        },
+        "hard": {
+          "native": "I wish she had told us beforehand.",
+          "accepted_translations": [
+            "Ojalá nos hubiera dicho antes.",
+            "Ojalá nos hubiera avisado antes.",
+            "Me hubiera gustado que nos dijera antes."
+          ],
+          "hints": [
+            { "native": "I wish", "learning": "Ojalá / Me hubiera gustado que" },
+            { "native": "she had told us", "learning": "nos hubiera dicho / nos hubiera avisado" },
+            { "native": "beforehand", "learning": "antes" }
+          ]
+        }
+      }
+    },
+    {
+      "id": 5,
+      "speaker": "enemy",
+      "enemy_line_native": "Then Pepe lent Lucía his laptop. His PERSONAL laptop. For the whole weekend!",
+      "enemy_line_learning": "Luego Pepe le prestó su laptop a Lucía. Su laptop PERSONAL. ¡Por todo el fin de semana!"
+    },
+    {
+      "id": 6,
+      "speaker": "player",
+      "options": {
+        "easy": {
+          "native": "He lends things to his friends.",
+          "accepted_translations": [
+            "Les presta cosas a sus amigos.",
+            "Le presta cosas a sus amigos.",
+            "A sus amigos les presta cosas."
+          ],
+          "hints": [
+            { "native": "He lends", "learning": "Les presta / Le presta" },
+            { "native": "things", "learning": "cosas" },
+            { "native": "to his friends", "learning": "a sus amigos" }
+          ]
+        },
+        "medium": {
+          "native": "He lent it to her without asking.",
+          "accepted_translations": [
+            "Se la prestó sin pedir permiso.",
+            "Se la prestó sin preguntar.",
+            "Sin pedir permiso se la prestó."
+          ],
+          "hints": [
+            { "native": "He lent it to her", "learning": "Se la prestó" },
+            { "native": "without asking", "learning": "sin pedir permiso / sin preguntar" }
+          ]
+        },
+        "hard": {
+          "native": "I wouldn't lend mine to anyone in this office.",
+          "accepted_translations": [
+            "No le prestaría la mía a nadie en esta oficina.",
+            "Yo no le prestaría la mía a nadie aquí.",
+            "A nadie en esta oficina le prestaría la mía."
+          ],
+          "hints": [
+            { "native": "I wouldn't lend", "learning": "No le prestaría / Yo no prestaría" },
+            { "native": "mine", "learning": "la mía" },
+            { "native": "to anyone", "learning": "a nadie" },
+            { "native": "in this office", "learning": "en esta oficina / aquí" }
+          ]
+        }
+      }
+    },
+    {
+      "id": 7,
+      "speaker": "enemy",
+      "enemy_line_native": "And Carlos — you won't believe this — he sent an email to HR. About the coffee machine.",
+      "enemy_line_learning": "Y Carlos — no lo vas a creer — le mandó un correo a RRHH. Sobre la cafetera."
+    },
+    {
+      "id": 8,
+      "speaker": "player",
+      "options": {
+        "easy": {
+          "native": "He sends us emails every day.",
+          "accepted_translations": [
+            "Nos manda correos todos los días.",
+            "Nos envía correos todos los días.",
+            "Todos los días nos manda correos."
+          ],
+          "hints": [
+            { "native": "He sends us", "learning": "Nos manda / Nos envía" },
+            { "native": "emails", "learning": "correos" },
+            { "native": "every day", "learning": "todos los días" }
+          ]
+        },
+        "medium": {
+          "native": "He sent it to everyone.",
+          "accepted_translations": [
+            "Se lo mandó a todos.",
+            "Se lo envió a todos.",
+            "A todos se lo mandó."
+          ],
+          "hints": [
+            { "native": "He sent it to everyone", "learning": "Se lo mandó a todos / Se lo envió a todos" }
+          ]
+        },
+        "hard": {
+          "native": "It surprises me that he sent it without telling the manager.",
+          "accepted_translations": [
+            "Me sorprende que lo haya mandado sin decirle al jefe.",
+            "Me sorprende que lo haya enviado sin avisarle al jefe.",
+            "Es sorprendente que lo haya mandado sin decirle al gerente."
+          ],
+          "hints": [
+            { "native": "It surprises me that", "learning": "Me sorprende que / Es sorprendente que" },
+            { "native": "he sent it", "learning": "lo haya mandado / lo haya enviado" },
+            { "native": "without telling", "learning": "sin decirle / sin avisarle" },
+            { "native": "the manager", "learning": "al jefe / al gerente" }
+          ]
+        }
+      }
+    },
+    {
+      "id": 9,
+      "speaker": "enemy",
+      "enemy_line_native": "I'm going to tell the director everything. Someone has to speak the truth around here.",
+      "enemy_line_learning": "Le voy a contar todo al director. Alguien tiene que decir la verdad por aquí."
+    },
+    {
+      "id": 10,
+      "speaker": "player",
+      "options": {
+        "easy": {
+          "native": "You tell him everything.",
+          "accepted_translations": [
+            "Le cuentas todo.",
+            "Tú le cuentas todo.",
+            "Le dices todo."
+          ],
+          "hints": [
+            { "native": "You tell him", "learning": "Le cuentas / Le dices" },
+            { "native": "everything", "learning": "todo" }
+          ]
+        },
+        "medium": {
+          "native": "I already told him about it.",
+          "accepted_translations": [
+            "Ya se lo conté.",
+            "Ya se lo dije.",
+            "Ya se lo había contado."
+          ],
+          "hints": [
+            { "native": "I already told him about it", "learning": "Ya se lo conté / Ya se lo dije" }
+          ]
+        },
+        "hard": {
+          "native": "I recommend you think twice before telling him.",
+          "accepted_translations": [
+            "Te recomiendo que lo pienses dos veces antes de decirle.",
+            "Te aconsejo que lo pienses bien antes de contárselo.",
+            "Te sugiero que lo pienses dos veces antes de decírselo al director."
+          ],
+          "hints": [
+            { "native": "I recommend you", "learning": "Te recomiendo que / Te aconsejo que" },
+            { "native": "think twice", "learning": "lo pienses dos veces / lo pienses bien" },
+            { "native": "before telling him", "learning": "antes de decirle / antes de contárselo" }
+          ]
+        }
+      }
+    },
+    {
+      "id": 11,
+      "speaker": "enemy",
+      "enemy_line_native": "Okay, I have to go. But not a word to anyone. You didn't hear this from me. Understood?",
+      "enemy_line_learning": "Bueno, me tengo que ir. Pero ni una palabra a nadie. No me mencionas. ¿Entendido?"
+    }
+  ]
+}

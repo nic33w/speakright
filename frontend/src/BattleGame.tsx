@@ -6,6 +6,7 @@ import BATTLE_CONV_MARKET from './battle_conversations_es_2.json';
 import BATTLE_CONV_NEIGHBOR from './battle_conversations_es_3.json';
 import BATTLE_CONV_WARUNG from './battle_conversations_id.json';
 import BATTLE_CONV_BATIK from './battle_conversations_id_2.json';
+import BATTLE_CONV_OFFICE from './battle_conversations_es_5.json';
 
 type LangSpec = { code: string; name: string };
 
@@ -70,14 +71,16 @@ const ALL_CONVERSATIONS: ConversationData[] = [
   BATTLE_CONV_NEIGHBOR as any,
   BATTLE_CONV_WARUNG as any,
   BATTLE_CONV_BATIK as any,
+  BATTLE_CONV_OFFICE as any,
 ];
 
 const CONV_LANGUAGE: Record<string, LangSpec> = {
-  cafe_encounter: { code: "es", name: "Spanish" },
-  market_haggle:  { code: "es", name: "Spanish" },
-  new_neighbor:   { code: "es", name: "Spanish" },
-  warung_order:   { code: "id", name: "Indonesian" },
-  batik_bargain:  { code: "id", name: "Indonesian" },
+  cafe_encounter:  { code: "es", name: "Spanish" },
+  market_haggle:   { code: "es", name: "Spanish" },
+  new_neighbor:    { code: "es", name: "Spanish" },
+  warung_order:    { code: "id", name: "Indonesian" },
+  batik_bargain:   { code: "id", name: "Indonesian" },
+  oficina_chismes: { code: "es", name: "Spanish" },
 };
 
 type Difficulty = "easy" | "medium" | "hard";
@@ -1198,6 +1201,13 @@ export default function BattleGame({
           prompt_text: opts.native,
           learning: CONV_LANGUAGE[conversation?.conversation_id ?? ""] ?? initialLearning,
           fluent: initialFluent,
+          conversation_id: conversation?.conversation_id ?? null,
+          difficulty: selectedDifficulty,
+          hints_used_count: viewedHints.size,
+          hints_used_phrases: Array.from(viewedHints).map(idx => ({
+            native: opts.hints[idx]?.native ?? "",
+            learning: opts.hints[idx]?.learning ?? "",
+          })),
         }),
       });
 

@@ -7,15 +7,16 @@ import GuessingGame from "./GuessingGame";
 import BattleGame from "./BattleGame";
 import NumberRush from "./NumberRush";
 import PronounBlitz from "./PronounBlitz";
+import WordDrillGame from "./WordDrillGame";
 
 type LangSpec = { code: string; name: string };
 
 function App() {
-  const [currentMode, setCurrentMode] = useState<'home' | 'story' | 'trivia' | 'messenger' | 'guessing' | 'battle' | 'numbers' | 'pronounblitz'>('home');
+  const [currentMode, setCurrentMode] = useState<'home' | 'story' | 'trivia' | 'messenger' | 'guessing' | 'battle' | 'numbers' | 'pronounblitz' | 'worddrill'>('home');
   const [selectedFluent, setSelectedFluent] = useState<LangSpec>({ code: "en", name: "English" });
   const [selectedLearning, setSelectedLearning] = useState<LangSpec>({ code: "es", name: "Spanish" });
 
-  function handleSelectMode(mode: 'story' | 'trivia' | 'messenger' | 'guessing' | 'battle' | 'numbers' | 'pronounblitz', fluent: LangSpec, learning: LangSpec) {
+  function handleSelectMode(mode: 'story' | 'trivia' | 'messenger' | 'guessing' | 'battle' | 'numbers' | 'pronounblitz' | 'worddrill', fluent: LangSpec, learning: LangSpec) {
     setSelectedFluent(fluent);
     setSelectedLearning(learning);
     setCurrentMode(mode);
@@ -81,6 +82,14 @@ function App() {
 
       {currentMode === 'pronounblitz' && (
         <PronounBlitz
+          fluent={selectedFluent}
+          learning={selectedLearning}
+          onBack={handleBack}
+        />
+      )}
+
+      {currentMode === 'worddrill' && (
+        <WordDrillGame
           fluent={selectedFluent}
           learning={selectedLearning}
           onBack={handleBack}

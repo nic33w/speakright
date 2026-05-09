@@ -1,0 +1,237 @@
+{
+  "quedar": {
+    "display": "quedar",
+    "description": "to stay, meet up, fit, be left",
+    "sentences": [
+      {
+        "id": 1,
+        "category": "Meet / arrange plans",
+        "context": "Adam: Did you hang out with anyone yesterday?",
+        "english": "I met up with María",
+        "spanish": "Quedé con María",
+        "accepted_translations": ["Quedé con María"],
+        "hints": []
+      },
+      {
+        "id": 2,
+        "category": "Meet / arrange plans",
+        "context": "Adam: What time are you guys planning to meet tomorrow?",
+        "english": "We agreed to meet at 6",
+        "spanish": "Quedamos a las seis",
+        "accepted_translations": ["Quedamos a las seis", "Quedamos a las 6"],
+        "hints": []
+      },
+      {
+        "id": 3,
+        "category": "Agree on something",
+        "context": "Adam: So what did you guys decide in the end?",
+        "english": "We agreed on that",
+        "spanish": "Quedamos en eso",
+        "accepted_translations": ["Quedamos en eso"],
+        "hints": [
+          { "native": "that", "learning": "eso" }
+        ]
+      },
+      {
+        "id": 4,
+        "category": "Agree on something",
+        "context": "Adam: Did you come to any conclusion or not?",
+        "english": "We didn't agree on anything",
+        "spanish": "No quedamos en nada",
+        "accepted_translations": ["No quedamos en nada"],
+        "hints": [
+          { "native": "anything", "learning": "nada", "note": "use 'nada' after a negative verb" }
+        ]
+      },
+      {
+        "id": 5,
+        "category": "Remain / be left",
+        "context": "Adam: Are there any slices of pizza left?",
+        "english": "There are 3 slices left",
+        "spanish": "Quedan tres rebanadas",
+        "accepted_translations": ["Quedan tres rebanadas"],
+        "hints": [
+          { "native": "slices", "learning": "rebanadas" }
+        ]
+      },
+      {
+        "id": 6,
+        "category": "Remain / be left",
+        "context": "Adam: After buying all that stuff, how much cash do you have now?",
+        "english": "I only have $5 left",
+        "spanish": "Me quedan cinco dólares",
+        "accepted_translations": ["Me quedan cinco dólares", "Me quedan cinco dolares"],
+        "hints": [
+          { "native": "$5", "learning": "cinco dólares" }
+        ]
+      },
+      {
+        "id": 7,
+        "category": "Fit (clothing)",
+        "context": "Adam: How does that jacket fit you?",
+        "english": "It fits me well",
+        "spanish": "Me queda bien",
+        "accepted_translations": ["Me queda bien"],
+        "hints": [
+          { "native": "well", "learning": "bien" }
+        ]
+      },
+      {
+        "id": 8,
+        "category": "Fit (clothing)",
+        "context": "Adam: What about those pants you bought?",
+        "english": "They're too big on me",
+        "spanish": "Me quedan grandes",
+        "accepted_translations": ["Me quedan grandes"],
+        "hints": [
+          { "native": "big", "learning": "grandes", "note": "'too big on me' → just 'grandes' with quedar" }
+        ]
+      },
+      {
+        "id": 9,
+        "category": "Look / appearance",
+        "context": "Adam: Do you like how that hat looks on me?",
+        "english": "It looks good on you",
+        "spanish": "Te queda bien",
+        "accepted_translations": ["Te queda bien"],
+        "hints": [
+          { "native": "good", "learning": "bien" }
+        ]
+      },
+      {
+        "id": 10,
+        "category": "Look / result",
+        "context": "Adam: How did the picture come out?",
+        "english": "It turned out really good",
+        "spanish": "Quedó muy bien",
+        "accepted_translations": ["Quedó muy bien", "Quedo muy bien"],
+        "hints": [
+          { "native": "really", "learning": "muy" }
+        ]
+      },
+      {
+        "id": 11,
+        "category": "End up / turn out",
+        "context": "Adam: How did everything go at the event?",
+        "english": "Everything turned out perfect",
+        "spanish": "Todo quedó perfecto",
+        "accepted_translations": ["Todo quedó perfecto", "Todo quedo perfecto"],
+        "hints": [
+          { "native": "Everything", "learning": "Todo" },
+          { "native": "perfect", "learning": "perfecto" }
+        ]
+      },
+      {
+        "id": 12,
+        "category": "End up / turn out",
+        "context": "Adam: What happened with your test?",
+        "english": "It went badly",
+        "spanish": "Quedó mal",
+        "accepted_translations": ["Quedó mal", "Quedo mal"],
+        "hints": [
+          { "native": "badly", "learning": "mal" }
+        ]
+      },
+      {
+        "id": 13,
+        "category": "Be located",
+        "context": "Adam: Is that new restaurant far from here?",
+        "english": "It's nearby",
+        "spanish": "Queda cerca",
+        "accepted_translations": ["Queda cerca"],
+        "hints": [
+          { "native": "nearby", "learning": "cerca" }
+        ]
+      },
+      {
+        "id": 14,
+        "category": "Be located",
+        "context": "Adam: Where exactly is that gym?",
+        "english": "It's in the city center",
+        "spanish": "Queda en el centro",
+        "accepted_translations": ["Queda en el centro"],
+        "hints": [
+          { "native": "city center", "learning": "el centro" }
+        ]
+      },
+      {
+        "id": 15,
+        "category": "Owe / be indebted",
+        "context": "Adam: Hey, you still haven't paid me back, right?",
+        "english": "I still owe you money",
+        "spanish": "Te quedo debiendo dinero",
+        "accepted_translations": ["Te quedo debiendo dinero"],
+        "hints": [
+          { "native": "owe", "learning": "deber (debiendo)", "note": "quedo + debiendo = still owe" },
+          { "native": "money", "learning": "dinero" }
+        ]
+      },
+      {
+        "id": 16,
+        "category": "Keep / take",
+        "context": "Adam: Which one do you want to choose?",
+        "english": "I'll take this one",
+        "spanish": "Me quedo con este",
+        "accepted_translations": ["Me quedo con este", "Me quedo con éste"],
+        "hints": [
+          { "native": "this one", "learning": "este" }
+        ]
+      },
+      {
+        "id": 17,
+        "category": "Keep / take",
+        "context": "Adam: What happened with the extra cash?",
+        "english": "He kept the money",
+        "spanish": "Se quedó con el dinero",
+        "accepted_translations": ["Se quedó con el dinero", "Se quedo con el dinero", "Se quedó el dinero"],
+        "hints": [
+          { "native": "money", "learning": "el dinero" }
+        ]
+      },
+      {
+        "id": 18,
+        "category": "Stay / remain",
+        "context": "Adam: Are you going out tonight?",
+        "english": "I'm staying home",
+        "spanish": "Me quedo en casa",
+        "accepted_translations": ["Me quedo en casa"],
+        "hints": [
+          { "native": "home", "learning": "en casa" }
+        ]
+      },
+      {
+        "id": 19,
+        "category": "Stay / remain",
+        "context": "Adam: Should I wait here or go with you?",
+        "english": "Stay here",
+        "spanish": "Quédate aquí",
+        "accepted_translations": ["Quédate aquí", "Quedate aquí", "Quédate aqui", "Quedate aqui"],
+        "hints": [
+          { "native": "here", "learning": "aquí" }
+        ]
+      },
+      {
+        "id": 20,
+        "category": "Become (state change)",
+        "context": "Adam: Why didn't you answer my call last night?",
+        "english": "I fell asleep",
+        "spanish": "Me quedé dormido",
+        "accepted_translations": ["Me quedé dormido", "Me quede dormido"],
+        "hints": [
+          { "native": "asleep", "learning": "dormido" }
+        ]
+      },
+      {
+        "id": 21,
+        "category": "Become (state change)",
+        "context": "Adam: How did she react when she heard the news?",
+        "english": "She was surprised",
+        "spanish": "Se quedó sorprendida",
+        "accepted_translations": ["Se quedó sorprendida", "Se quedo sorprendida"],
+        "hints": [
+          { "native": "surprised", "learning": "sorprendida" }
+        ]
+      }
+    ]
+  }
+}
