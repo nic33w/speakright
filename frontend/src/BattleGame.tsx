@@ -1,6 +1,7 @@
 // BattleGame.tsx
 // Battle mode: conversational battle with translation challenges
 import React, { useEffect, useState, useRef } from "react";
+import { normalizeNumberTokens } from "./numUtils";
 import BATTLE_CONV_CAFE from './battle_conversations_es.json';
 import BATTLE_CONV_MARKET from './battle_conversations_es_2.json';
 import BATTLE_CONV_NEIGHBOR from './battle_conversations_es_3.json';
@@ -1019,18 +1020,18 @@ export default function BattleGame({
     }, 100);
   }
 
-  function checkFuzzyMatch(userAnswer: string, acceptedList: string[]): boolean {
+  function checkFuzzyMatch(userAnswer: string, acceptedList: string[]): string | null {
     const normalize = (text: string) =>
-      text.toLowerCase()
+      normalizeNumberTokens(text, initialLearning.code)
+        .toLowerCase()
         .normalize("NFD").replace(/[\u0300-\u036f]/g, "") // strip accents
         .replace(/[—–\u2014\u2013]/g, " ")               // em/en dashes → space
         .replace(/[¡¿!?.,:;"""''()\[\]{}\-]/g, " ")      // common punctuation → space
         .replace(/[^\x00-\x7f]/g, "")                    // remove any remaining non-ASCII
-        .replace(/\s+/g, " ")
-        .trim();
+        .replace(/\s/g, "");
 
     const userNorm = normalize(userAnswer);
-    return acceptedList.some(acc => normalize(acc) === userNorm);
+    return acceptedList.find(acc => normalize(acc) === userNorm) ?? null;
   }
 
   const HINT_COLORS = ["#fbbf24", "#67e8f9", "#86efac", "#c4b5fd", "#f9a8d4", "#fdba74"];
@@ -1111,9 +1112,10 @@ export default function BattleGame({
       // Step 1: fuzzy match across all difficulties
       for (const diff of diffOrder) {
         const opts = pr.options[diff];
-        if (checkFuzzyMatch(userAnswer, opts.accepted_translations)) {
+        const matched = checkFuzzyMatch(userAnswer, opts.accepted_translations);
+        if (matched !== null) {
           setSelectedDifficulty(diff);
-          await handleCorrectAnswer(opts, diff);
+          await handleCorrectAnswer(opts, diff, 1.0, null, null, null, false, null, null, matched);
           setBusy(false);
           return;
         }
@@ -1181,8 +1183,9 @@ export default function BattleGame({
     const opts = pr.options[selectedDifficulty!];
 
     // Step 1: fuzzy match
-    if (checkFuzzyMatch(userAnswer, opts.accepted_translations)) {
-      await handleCorrectAnswer(opts);
+    const matched2 = checkFuzzyMatch(userAnswer, opts.accepted_translations);
+    if (matched2 !== null) {
+      await handleCorrectAnswer(opts, undefined, 1.0, null, null, null, false, null, null, matched2);
       setBusy(false);
       return;
     }
@@ -1254,6 +1257,7 @@ export default function BattleGame({
     llmCalled = false,
     correctionTokens: Array<{ text: string; status: "ok" | "remove" | "add" }> | null = null,
     feedbackIssues: FeedbackIssue[] | null = null,
+    matchedAnswer?: string,
   ) {
     const diff = diffOverride ?? selectedDifficulty;
     if (!diff) return;
@@ -1323,7 +1327,7 @@ export default function BattleGame({
       id: currentRound!.id,
       speaker: "player",
       textNative: opts.native,
-      textLearning: transcript.trim(),
+      textLearning: matchedAnswer ?? transcript.trim(),
       difficulty: diff,
       damageDealt: damage,
       llmCalled,

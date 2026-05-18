@@ -1,6 +1,7 @@
 // TriviaGame.tsx
 // Trivia game where users translate between languages with hint cards
 import React, { useEffect, useState, useRef } from "react";
+import { normalizeNumberTokens } from "./numUtils";
 import SPANISH_TRIVIA_RAW from './spanish_trivia_game.json';
 import ENGLISH_INDONESIAN_TRIVIA_RAW from './english_indonesian_trivia_game.json';
 import INDONESIAN_ENGLISH_TRIVIA_RAW from './indonesian_english_casual_trivia_game.json';
@@ -261,18 +262,16 @@ export default function TriviaGame({
     }, 100);
   }
 
-  function checkFuzzyMatch(userAnswer: string, correctAnswer: string): boolean {
+  function checkFuzzyMatch(userAnswer: string, correctAnswer: string): string | null {
     const normalize = (text: string) => {
-      return text
+      return normalizeNumberTokens(text, initialLearning.code)
         .toLowerCase()
         .normalize('NFD')
         .replace(/[\u0300-\u036f]/g, '') // strip accents
-        .replace(/[^a-z0-9\s]/g, '') // remove ALL non-alphanumeric
-        .replace(/\s+/g, ' ')
-        .trim();
+        .replace(/[^a-z0-9]/g, ''); // remove ALL non-alphanumeric and spaces
     };
 
-    return normalize(userAnswer) === normalize(correctAnswer);
+    return normalize(userAnswer) === normalize(correctAnswer) ? correctAnswer : null;
   }
 
   async function submitAnswer() {
@@ -289,7 +288,7 @@ export default function TriviaGame({
     // STEP 1: Fuzzy match check
     const fuzzyMatch = checkFuzzyMatch(userAnswer, currentSentence.learningText);
 
-    if (fuzzyMatch) {
+    if (fuzzyMatch !== null) {
       // Exact or close match - show green checkmark
       await handleCorrectAnswer(true);
       setBusy(false);

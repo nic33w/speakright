@@ -1,6 +1,7 @@
 // WordDrillGame.tsx
 // Practice specific words/phrases with LLM feedback — follows Common Mode Features spec
 import { useEffect, useRef, useState } from "react";
+import { normalizeNumberTokens } from "./numUtils";
 
 type LangSpec = { code: string; name: string };
 
@@ -118,18 +119,17 @@ const LEARNING_LOCALE: Record<string, string> = { es: "es-MX", id: "id-ID", en: 
 
 // ── Shared helper functions (from BattleGame.tsx) ────────────────────────────
 
-function normalizeForMatch(text: string): string {
-  return text
+function normalizeForMatch(text: string, langCode: string): string {
+  return normalizeNumberTokens(text, langCode)
     .toLowerCase()
     .normalize("NFD").replace(/[̀-ͯ]/g, "")
     .replace(/[¿¡.,!?;:"""'']/g, "")
-    .replace(/\s+/g, " ")
-    .trim();
+    .replace(/\s/g, "");
 }
 
-function checkFuzzyMatch(userAnswer: string, accepted: string[]): boolean {
-  const n = normalizeForMatch(userAnswer);
-  return accepted.some(a => normalizeForMatch(a) === n);
+function checkFuzzyMatch(userAnswer: string, accepted: string[], langCode: string): string | null {
+  const n = normalizeForMatch(userAnswer, langCode);
+  return accepted.find(a => normalizeForMatch(a, langCode) === n) ?? null;
 }
 
 function tokenizeWithHints(
@@ -264,6 +264,7 @@ export default function WordDrillGame({
   const audioCacheRef = useRef<Map<string, string>>(new Map());
   const expandTimerRef = useRef<number | null>(null);
   const autoNextTimerRef = useRef<number | null>(null);
+  const autoNextDurationRef = useRef(1000);
 
   // ── Effects ──────────────────────────────────────────────────────────────
 
@@ -284,11 +285,11 @@ export default function WordDrillGame({
     historyEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [history.length]);
 
-  // Auto-advance to next sentence 1s after a correct answer
+  // Auto-advance to next sentence after a correct answer (1s for perfect, 3s for close enough)
   useEffect(() => {
     if (answerStatus === "correct") {
       const startTime = Date.now();
-      const DURATION = 1000;
+      const DURATION = autoNextDurationRef.current;
       setAutoNextProgress(1.0);
       autoNextTimerRef.current = window.setInterval(() => {
         const remaining = Math.max(0, 1 - (Date.now() - startTime) / DURATION);
@@ -444,8 +445,9 @@ export default function WordDrillGame({
     setBusy(true);
     setAnswerStatus("checking");
 
-    if (checkFuzzyMatch(userAnswer, currentSentence.accepted_translations)) {
-      resolveCorrect(userAnswer, 1.0, null, null, null, null, null, false);
+    const fuzzyMatched = checkFuzzyMatch(userAnswer, currentSentence.accepted_translations, learning.code);
+    if (fuzzyMatched !== null) {
+      resolveCorrect(fuzzyMatched, 1.0, null, null, null, null, null, false);
       setBusy(false);
       return;
     }
@@ -519,6 +521,7 @@ export default function WordDrillGame({
     llmUsed: boolean,
   ) {
     const isPerfect = multiplier >= 1.0 && (!feedbackKey || feedbackKey === "perfect" || feedbackKey === "asr_error");
+    autoNextDurationRef.current = isPerfect ? 1000 : 3000;
     const result: CheckResult = { multiplier, feedbackIssues, feedbackKey, correctedSnippet, feedbackExplanation, correctionTokens };
     setLastCheckResult(result);
     setAnswerStatus("correct");
