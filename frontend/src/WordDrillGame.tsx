@@ -117,6 +117,14 @@ const FEEDBACK_LABELS: Record<string, string> = {
 
 const LEARNING_LOCALE: Record<string, string> = { es: "es-MX", id: "id-ID", en: "en-US" };
 
+function shuffle<T>(arr: T[]): T[] {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
 // ── Shared helper functions (from BattleGame.tsx) ────────────────────────────
 
 function normalizeForMatch(text: string, langCode: string): string {
@@ -228,7 +236,7 @@ export default function WordDrillGame({
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [lastCheckResult, setLastCheckResult] = useState<CheckResult | null>(null);
   const [feedbackMessage, setFeedbackMessage] = useState("");
-  const [usedSentenceIds, setUsedSentenceIds] = useState<number[]>([]);
+  const sentenceQueueRef = useRef<Sentence[]>([]);
   const [loadingSentence, setLoadingSentence] = useState(false);
   const [correctCount, setCorrectCount] = useState(0);
   const [totalCount, setTotalCount] = useState(0);
@@ -394,28 +402,30 @@ export default function WordDrillGame({
 
   // ── Data fetching ─────────────────────────────────────────────────────────
 
-  async function fetchNextSentence(word: string, excludeIds: number[]) {
+  function advanceToNextSentence() {
+    if (sentenceQueueRef.current.length === 0) return;
+    const sentence = sentenceQueueRef.current.shift()!;
+    setCurrentSentence(sentence);
+    setTranscript("");
+    setAnswerStatus("idle");
+    setFeedbackMessage("");
+    setLastCheckResult(null);
+    setViewedHints(new Set());
+    setClosestHintIndex(null);
+    setClosestHintOpacity(0);
+    previousLengthRef.current = 0;
+    hintCardsRefs.current = new Array((sentence.hints ?? []).length).fill(null);
+  }
+
+  async function loadSentencesForWord(word: string) {
     setLoadingSentence(true);
     setBusy(true);
     try {
-      const resp = await fetch(`${apiBase}/api/worddrill/sentence`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ word, exclude_ids: excludeIds }),
-      });
+      const resp = await fetch(`${apiBase}/api/worddrill/sentences/${encodeURIComponent(word)}`);
       if (!resp.ok) throw new Error("Failed");
       const data = await resp.json();
-      setCurrentSentence(data.sentence);
-      setUsedSentenceIds(prev => [...prev, data.sentence.id]);
-      setTranscript("");
-      setAnswerStatus("idle");
-      setFeedbackMessage("");
-      setLastCheckResult(null);
-      setViewedHints(new Set());
-      setClosestHintIndex(null);
-      setClosestHintOpacity(0);
-      previousLengthRef.current = 0;
-      hintCardsRefs.current = new Array((data.sentence.hints ?? []).length).fill(null);
+      sentenceQueueRef.current = shuffle([...data.sentences]);
+      advanceToNextSentence();
     } catch (e) {
       console.error(e);
     } finally {
@@ -427,11 +437,11 @@ export default function WordDrillGame({
   function handleSelectWord(wordKey: string) {
     setSelectedWord(wordKey);
     setHistory([]);
-    setUsedSentenceIds([]);
     setCorrectCount(0);
     setTotalCount(0);
     setPinnedLogEntries(new Set());
-    fetchNextSentence(wordKey, []);
+    sentenceQueueRef.current = [];
+    void loadSentencesForWord(wordKey);
   }
 
   // ── Answer logic ──────────────────────────────────────────────────────────
@@ -522,6 +532,7 @@ export default function WordDrillGame({
   ) {
     const isPerfect = multiplier >= 1.0 && (!feedbackKey || feedbackKey === "perfect" || feedbackKey === "asr_error");
     autoNextDurationRef.current = isPerfect ? 1000 : 3000;
+    void fetchAndPlayAudio(currentSentence!.accepted_translations[0], learningLocale);
     const result: CheckResult = { multiplier, feedbackIssues, feedbackKey, correctedSnippet, feedbackExplanation, correctionTokens };
     setLastCheckResult(result);
     setAnswerStatus("correct");
@@ -578,8 +589,11 @@ export default function WordDrillGame({
 
   function handleNext() {
     if (!selectedWord) return;
-    stopAudio();
-    fetchNextSentence(selectedWord, usedSentenceIds);
+    if (sentenceQueueRef.current.length === 0) {
+      void loadSentencesForWord(selectedWord);
+    } else {
+      advanceToNextSentence();
+    }
   }
 
   // ── Sub-renderers ─────────────────────────────────────────────────────────

@@ -1732,6 +1732,14 @@ def api_worddrill_sentence(req: WordDrillSentenceReq):
     return {"sentence": sentence}
 
 
+@app.get("/api/worddrill/sentences/{word}")
+def api_worddrill_sentences(word: str):
+    data = _load_word_practice_data()
+    if word not in data:
+        raise HTTPException(status_code=404, detail=f"Word '{word}' not found")
+    return {"sentences": data[word]["sentences"]}
+
+
 class WordDrillCheckReq(BaseModel):
     user_answer: str
     correct_answer: str
