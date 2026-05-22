@@ -60,6 +60,23 @@ type WordInfo = {
   description: string;
 };
 
+type UseCase = {
+  id: number;
+  name: string;
+  explanation: string;
+  demo: { context: string; native: string; spanish: string };
+  practice: {
+    context: string;
+    english: string;
+    spanish: string;
+    accepted_translations: string[];
+    hints: HintItem[];
+  };
+};
+
+type UseCaseStatus = "pending" | "correct" | "close" | "skipped";
+type GameMode = "practice" | "learn";
+
 // ── Shared constants (from BattleGame.tsx) ───────────────────────────────────
 
 const HINT_COLORS = ["#fbbf24", "#67e8f9", "#86efac", "#c4b5fd", "#f9a8d4", "#fdba74"];
@@ -138,6 +155,26 @@ function normalizeForMatch(text: string, langCode: string): string {
 function checkFuzzyMatch(userAnswer: string, accepted: string[], langCode: string): string | null {
   const n = normalizeForMatch(userAnswer, langCode);
   return accepted.find(a => normalizeForMatch(a, langCode) === n) ?? null;
+}
+
+// Restores accent marks in LLM correction tokens using the canonical accepted translations.
+function restoreAccentsInTokens(
+  tokens: Array<{ text: string; status: "ok" | "remove" | "add" }>,
+  acceptedTranslations: string[],
+  langCode: string
+): Array<{ text: string; status: "ok" | "remove" | "add" }> {
+  const accentMap = new Map<string, string>();
+  for (const t of acceptedTranslations) {
+    for (const w of t.split(/\s+/)) {
+      const key = normalizeForMatch(w, langCode);
+      if (key && !accentMap.has(key)) accentMap.set(key, w);
+    }
+  }
+  return tokens.map(tok => {
+    if (tok.status === "remove") return tok;
+    const restored = tok.text.replace(/\S+/g, w => accentMap.get(normalizeForMatch(w, langCode)) ?? w);
+    return restored !== tok.text ? { ...tok, text: restored } : tok;
+  });
 }
 
 function tokenizeWithHints(
@@ -260,6 +297,16 @@ export default function WordDrillGame({
   const [pendingAutoSend, setPendingAutoSend] = useState(false);
   const [pendingProgress, setPendingProgress] = useState<number | null>(null);
 
+  // Learn mode state
+  const [gameMode, setGameMode] = useState<GameMode | null>(null);
+  const [learnUsecases, setLearnUsecases] = useState<UseCase[]>([]);
+  const [currentUsecaseIdx, setCurrentUsecaseIdx] = useState(0);
+  const [usecaseStatuses, setUsecaseStatuses] = useState<UseCaseStatus[]>([]);
+  const [hoveredNavIdx, setHoveredNavIdx] = useState<number | null>(null);
+  const [learnComplete, setLearnComplete] = useState(false);
+  const [learnPhase, setLearnPhase] = useState<"explanation" | "demo" | "practice">("explanation");
+  const [showAllPhases, setShowAllPhases] = useState(false);
+
   // ── Refs ─────────────────────────────────────────────────────────────────
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const pendingTimerRef = useRef<number | null>(null);
@@ -274,7 +321,23 @@ export default function WordDrillGame({
   const autoNextTimerRef = useRef<number | null>(null);
   const autoNextDurationRef = useRef(1000);
 
+  // Refs for stale-closure safety in timers
+  const gameModeRef = useRef<GameMode | null>(null);
+  const learnUsecasesRef = useRef<UseCase[]>([]);
+  const currentUsecaseIdxRef = useRef(0);
+  const learnPhaseRef = useRef<"explanation" | "demo" | "practice">("explanation");
+  const showAllPhasesRef = useRef(false);
+  const usecaseStatusesRef = useRef<UseCaseStatus[]>([]);
+
   // ── Effects ──────────────────────────────────────────────────────────────
+
+  // Keep refs in sync with state
+  useEffect(() => { gameModeRef.current = gameMode; }, [gameMode]);
+  useEffect(() => { learnUsecasesRef.current = learnUsecases; }, [learnUsecases]);
+  useEffect(() => { currentUsecaseIdxRef.current = currentUsecaseIdx; }, [currentUsecaseIdx]);
+  useEffect(() => { learnPhaseRef.current = learnPhase; }, [learnPhase]);
+  useEffect(() => { showAllPhasesRef.current = showAllPhases; }, [showAllPhases]);
+  useEffect(() => { usecaseStatusesRef.current = usecaseStatuses; }, [usecaseStatuses]);
 
   useEffect(() => {
     fetch(`${apiBase}/api/worddrill/words`)
@@ -293,9 +356,9 @@ export default function WordDrillGame({
     historyEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [history.length]);
 
-  // Auto-advance to next sentence after a correct answer (1s for perfect, 3s for close enough)
+  // Auto-advance to next sentence/use-case after a correct answer (disabled in learn mode)
   useEffect(() => {
-    if (answerStatus === "correct") {
+    if (answerStatus === "correct" && gameModeRef.current !== "learn") {
       const startTime = Date.now();
       const DURATION = autoNextDurationRef.current;
       setAutoNextProgress(1.0);
@@ -356,6 +419,76 @@ export default function WordDrillGame({
     return () => cancelPendingAutoSend();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [transcript]);
+
+  // Auto-play demo audio when entering demo phase
+  useEffect(() => {
+    if (gameMode === "learn" && learnPhase === "demo") {
+      const uc = learnUsecasesRef.current[currentUsecaseIdxRef.current];
+      if (uc) void fetchAndPlayAudio(uc.demo.spanish, learningLocale);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [learnPhase, gameMode]);
+
+  // Space/Enter advances learn phases (disabled in "practice" so textarea works normally)
+  useEffect(() => {
+    if (gameMode !== "learn" || learnPhase === "practice") return;
+    function onKey(e: KeyboardEvent) {
+      if (e.key !== " " && e.key !== "Enter") return;
+      e.preventDefault();
+      if (showAllPhasesRef.current || learnPhaseRef.current === "demo") {
+        learnPhaseRef.current = "practice";
+        setLearnPhase("practice");
+      } else {
+        learnPhaseRef.current = "demo";
+        setLearnPhase("demo");
+      }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [gameMode, learnPhase]);
+
+  // Space/Enter advances to next use case after a correct/skipped answer in learn mode
+  useEffect(() => {
+    if (gameMode !== "learn" || learnPhase !== "practice") return;
+    if (answerStatus !== "correct" && answerStatus !== "skipped") return;
+    function onKey(e: KeyboardEvent) {
+      if (e.key !== " " && e.key !== "Enter") return;
+      e.preventDefault();
+      handleNext();
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gameMode, learnPhase, answerStatus]);
+
+  // When "Show all" is toggled on, jump to practice phase immediately
+  useEffect(() => {
+    if (showAllPhases && gameMode === "learn" && learnPhaseRef.current !== "practice") {
+      learnPhaseRef.current = "practice";
+      setLearnPhase("practice");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showAllPhases]);
+
+  // Arrow keys navigate between use cases in learn mode
+  useEffect(() => {
+    if (gameMode !== "learn") return;
+    function onKey(e: KeyboardEvent) {
+      if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+      // Don't steal from an active, enabled textarea
+      if (document.activeElement === textareaRef.current && !textareaRef.current?.disabled) return;
+      const delta = e.key === "ArrowRight" ? 1 : -1;
+      const nextIdx = currentUsecaseIdxRef.current + delta;
+      if (nextIdx < 0 || nextIdx >= learnUsecasesRef.current.length) return;
+      e.preventDefault();
+      const alreadyDone = usecaseStatusesRef.current[nextIdx] !== "pending";
+      setLearnComplete(false);
+      navigateToUsecase(nextIdx, alreadyDone || showAllPhasesRef.current);
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gameMode]);
 
   // ── Audio helpers ─────────────────────────────────────────────────────────
 
@@ -434,14 +567,74 @@ export default function WordDrillGame({
     }
   }
 
+  async function loadLearnData(word: string) {
+    setBusy(true);
+    try {
+      const resp = await fetch(`${apiBase}/api/worddrill/usecases/${encodeURIComponent(word)}`);
+      if (!resp.ok) throw new Error("Failed");
+      const data = await resp.json();
+      const usecases: UseCase[] = data.usecases ?? [];
+      learnUsecasesRef.current = usecases;
+      setLearnUsecases(usecases);
+      setUsecaseStatuses(new Array(usecases.length).fill("pending"));
+      currentUsecaseIdxRef.current = 0;
+      setCurrentUsecaseIdx(0);
+      setLearnComplete(false);
+      if (usecases.length > 0) enterUsecase(usecases, 0);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function enterUsecase(usecases: UseCase[], idx: number) {
+    const uc = usecases[idx];
+    setCurrentSentence({
+      id: uc.id,
+      category: uc.name,
+      context: uc.practice.context,
+      english: uc.practice.english,
+      spanish: uc.practice.spanish,
+      accepted_translations: uc.practice.accepted_translations,
+      hints: uc.practice.hints ?? [],
+    });
+    setTranscript("");
+    setAnswerStatus("idle");
+    setFeedbackMessage("");
+    setLastCheckResult(null);
+    setViewedHints(new Set());
+    setClosestHintIndex(null);
+    setClosestHintOpacity(0);
+    previousLengthRef.current = 0;
+    hintCardsRefs.current = new Array((uc.practice.hints ?? []).length).fill(null);
+    learnPhaseRef.current = "explanation";
+    setLearnPhase("explanation");
+    stopAudio();
+  }
+
+  function navigateToUsecase(idx: number, jumpToAll = false) {
+    currentUsecaseIdxRef.current = idx;
+    setCurrentUsecaseIdx(idx);
+    enterUsecase(learnUsecasesRef.current, idx);
+    if (jumpToAll) {
+      learnPhaseRef.current = "practice";
+      setLearnPhase("practice");
+    }
+  }
+
   function handleSelectWord(wordKey: string) {
     setSelectedWord(wordKey);
+    setGameMode(null);
+    gameModeRef.current = null;
     setHistory([]);
     setCorrectCount(0);
     setTotalCount(0);
     setPinnedLogEntries(new Set());
     sentenceQueueRef.current = [];
-    void loadSentencesForWord(wordKey);
+    setCurrentSentence(null);
+    setLearnComplete(false);
+    stopAudio();
   }
 
   // ── Answer logic ──────────────────────────────────────────────────────────
@@ -486,10 +679,15 @@ export default function WordDrillGame({
       const costCents: number = data.token_usage?.cost_cents ?? 0;
       if (costCents > 0) setTotalCostCents(prev => prev + costCents);
 
+      const rawTokens = data.correction_tokens ?? null;
+      const corrTokens = rawTokens
+        ? restoreAccentsInTokens(rawTokens, currentSentence.accepted_translations, learning.code)
+        : null;
+
       if (data.accepted) {
-        resolveCorrect(userAnswer, data.damage_multiplier ?? 1.0, data.feedback_key ?? null, data.corrected_snippet ?? null, data.feedback_explanation ?? null, data.correction_tokens ?? null, feedbackIssues, true);
+        resolveCorrect(userAnswer, data.damage_multiplier ?? 1.0, data.feedback_key ?? null, data.corrected_snippet ?? null, data.feedback_explanation ?? null, corrTokens, feedbackIssues, true);
       } else {
-        const result: CheckResult = { multiplier: 0, feedbackIssues, feedbackKey: data.feedback_key ?? null, correctedSnippet: data.corrected_snippet ?? null, feedbackExplanation: data.feedback_explanation ?? null, correctionTokens: data.correction_tokens ?? null };
+        const result: CheckResult = { multiplier: 0, feedbackIssues, feedbackKey: data.feedback_key ?? null, correctedSnippet: data.corrected_snippet ?? null, feedbackExplanation: data.feedback_explanation ?? null, correctionTokens: corrTokens };
         setLastCheckResult(result);
         setFeedbackMessage("Not quite — try again!");
         setTranscript("");
@@ -540,6 +738,16 @@ export default function WordDrillGame({
     setCorrectCount(c => c + 1);
     setTotalCount(t => t + 1);
 
+    // Update use case status in learn mode
+    if (gameModeRef.current === "learn") {
+      const ucStatus: UseCaseStatus = isPerfect ? "correct" : "close";
+      setUsecaseStatuses(prev => {
+        const next = [...prev];
+        next[currentUsecaseIdxRef.current] = ucStatus;
+        return next;
+      });
+    }
+
     setHistory(prev => [...prev, {
       entryId: `${++entryIdCounter.current}`,
       sentenceId: currentSentence!.id,
@@ -568,6 +776,15 @@ export default function WordDrillGame({
     setLastCheckResult(null);
     setTotalCount(t => t + 1);
 
+    // Update use case status in learn mode
+    if (gameModeRef.current === "learn") {
+      setUsecaseStatuses(prev => {
+        const next = [...prev];
+        next[currentUsecaseIdxRef.current] = "skipped";
+        return next;
+      });
+    }
+
     setHistory(prev => [...prev, {
       entryId: `${++entryIdCounter.current}`,
       sentenceId: currentSentence.id,
@@ -588,6 +805,16 @@ export default function WordDrillGame({
   }
 
   function handleNext() {
+    if (gameModeRef.current === "learn") {
+      const nextIdx = currentUsecaseIdxRef.current + 1;
+      if (nextIdx >= learnUsecasesRef.current.length) {
+        setLearnComplete(true);
+        setAnswerStatus("idle");
+      } else {
+        navigateToUsecase(nextIdx);
+      }
+      return;
+    }
     if (!selectedWord) return;
     if (sentenceQueueRef.current.length === 0) {
       void loadSentencesForWord(selectedWord);
@@ -643,7 +870,6 @@ export default function WordDrillGame({
 
     return (
       <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 8 }}>
-        {/* Section 1: Sentence with hint highlighting */}
         <div>
           <div style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em", opacity: 0.4, marginBottom: 4 }}>Sentence</div>
           <div style={{ fontSize: 13, lineHeight: 1.6 }}>
@@ -670,7 +896,6 @@ export default function WordDrillGame({
           </div>
         </div>
 
-        {/* Section 2: You Said */}
         {!entry.skipped && (
           <div>
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
@@ -705,7 +930,6 @@ export default function WordDrillGame({
           </div>
         )}
 
-        {/* Section 3: Feedback */}
         {entryIssues.length > 0 && (
           <div>
             <div style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em", opacity: 0.4, marginBottom: 4 }}>Feedback</div>
@@ -715,7 +939,6 @@ export default function WordDrillGame({
           </div>
         )}
 
-        {/* Section 4: Previous attempts */}
         {wrongAttempts.length > 0 && (
           <div>
             <div style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em", opacity: 0.4, marginBottom: 6 }}>
@@ -746,6 +969,190 @@ export default function WordDrillGame({
     );
   }
 
+  // ── Shared input/feedback block (used in both practice and learn) ──────────
+
+  function renderPracticeBottom() {
+    const mainColor = answerStatus === "correct"
+      ? ((lastCheckResult?.multiplier ?? 1.0) >= 1.0 ? "#86efac" : (lastCheckResult?.multiplier ?? 0) >= 0.7 ? "#fbbf24" : "#f97316")
+      : answerStatus === "skipped" ? "#94a3b8" : "#fca5a5";
+
+    const liveIssues: FeedbackIssue[] = lastCheckResult?.feedbackIssues?.length
+      ? lastCheckResult.feedbackIssues
+      : lastCheckResult?.feedbackKey
+        ? [{ feedbackKey: lastCheckResult.feedbackKey, correctedSnippet: lastCheckResult.correctedSnippet, feedbackExplanation: lastCheckResult.feedbackExplanation }]
+        : [];
+
+    return (
+      <div style={{
+        flexShrink: 0, padding: "14px 28px 20px",
+        borderTop: "1px solid rgba(255,255,255,0.08)",
+        background: "rgba(0,0,0,0.3)",
+        display: "flex", flexDirection: "column", gap: 10,
+      }}>
+        {(feedbackMessage || liveIssues.length > 0 || lastCheckResult?.correctionTokens) && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+            {feedbackMessage && (
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                {answerStatus === "correct" && <span style={{ fontSize: 18, color: mainColor }}>✓</span>}
+                {answerStatus === "skipped" && <span style={{ fontSize: 16, opacity: 0.6 }}>→</span>}
+                <span style={{ fontSize: 14, fontWeight: 600, color: mainColor }}>{feedbackMessage}</span>
+              </div>
+            )}
+            {liveIssues.length > 0 && (
+              <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                {renderFeedbackBadges(liveIssues)}
+              </div>
+            )}
+            {lastCheckResult?.correctionTokens?.length ? renderCorrectionTokens(lastCheckResult.correctionTokens) : null}
+          </div>
+        )}
+
+        <textarea
+          ref={textareaRef}
+          value={transcript}
+          onChange={e => setTranscript(e.target.value)}
+          onMouseEnter={() => { if (answerStatus === "idle" && !busy) textareaRef.current?.focus(); }}
+          onKeyDown={e => { if (e.key === "Escape") { cancelPendingAutoSend(true); return; } if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); void submitAnswer(); } }}
+          placeholder={`Say or type the ${learning.name} translation…`}
+          disabled={busy || answerStatus === "correct" || answerStatus === "skipped"}
+          autoFocus
+          style={{
+            width: "100%", minHeight: 60, padding: 12, fontSize: 16,
+            border: "2px solid rgba(255,255,255,0.18)", borderRadius: 8,
+            resize: "none", fontFamily: "system-ui, sans-serif",
+            boxSizing: "border-box", background: "rgba(0,0,0,0.4)", color: "white", outline: "none",
+            opacity: (busy || answerStatus === "correct" || answerStatus === "skipped") ? 0.5 : 1,
+          }}
+        />
+
+        <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+          <button onClick={() => { setTranscript(""); textareaRef.current?.focus(); }}
+            disabled={!transcript || busy}
+            style={{ padding: "8px 16px", fontSize: 14, background: "rgba(255,255,255,0.1)", color: "white", border: "1px solid rgba(255,255,255,0.18)", borderRadius: 6, cursor: transcript && !busy ? "pointer" : "not-allowed", opacity: transcript && !busy ? 1 : 0.4 }}>
+            Clear
+          </button>
+          {(answerStatus === "correct" || answerStatus === "skipped") ? (
+            <button
+              onClick={() => {
+                if (autoNextTimerRef.current) { window.clearInterval(autoNextTimerRef.current); autoNextTimerRef.current = null; }
+                setAutoNextProgress(null);
+                handleNext();
+              }}
+              style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 20px", fontSize: 14, fontWeight: 700, background: "linear-gradient(135deg, #8b5cf6, #6d28d9)", color: "white", border: "none", borderRadius: 6, cursor: "pointer" }}
+            >
+              {autoNextProgress !== null && (() => {
+                const r = 10, circ = 2 * Math.PI * r;
+                return (
+                  <svg width={26} height={26} style={{ transform: "rotate(-90deg)", flexShrink: 0 }}>
+                    <circle cx={13} cy={13} r={r} fill="none" stroke="rgba(255,255,255,0.2)" strokeWidth={2.5} />
+                    <circle cx={13} cy={13} r={r} fill="none" stroke="white" strokeWidth={2.5}
+                      strokeDasharray={circ} strokeDashoffset={circ * (1 - autoNextProgress)}
+                      strokeLinecap="round" />
+                  </svg>
+                );
+              })()}
+              {gameModeRef.current === "learn" ? "Next use case →" : "Next →"}
+            </button>
+          ) : (
+            <>
+              <button onClick={handleSkip} disabled={busy}
+                style={{ padding: "8px 16px", fontSize: 14, background: "rgba(255,255,255,0.06)", color: "#94a3b8", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 6, cursor: !busy ? "pointer" : "not-allowed", opacity: !busy ? 1 : 0.35 }}>
+                Skip
+              </button>
+              {pendingAutoSend ? (
+                <button onClick={() => cancelPendingAutoSend(true)}
+                  style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 22px", fontSize: 14, fontWeight: 600, background: "linear-gradient(135deg, #d97706, #b45309)", color: "white", border: "none", borderRadius: 6, cursor: "pointer" }}>
+                  {pendingProgress !== null && (() => {
+                    const r = 10, circ = 2 * Math.PI * r;
+                    return (
+                      <svg width={26} height={26} style={{ transform: "rotate(-90deg)", flexShrink: 0 }}>
+                        <circle cx={13} cy={13} r={r} fill="none" stroke="rgba(255,255,255,0.2)" strokeWidth={2.5} />
+                        <circle cx={13} cy={13} r={r} fill="none" stroke="white" strokeWidth={2.5}
+                          strokeDasharray={circ} strokeDashoffset={circ * (1 - pendingProgress)}
+                          strokeLinecap="round" />
+                      </svg>
+                    );
+                  })()}
+                  Cancel
+                </button>
+              ) : (
+                <button onClick={() => void submitAnswer()} disabled={!transcript || busy}
+                  style={{ padding: "8px 22px", fontSize: 14, fontWeight: 600, background: transcript && !busy ? "linear-gradient(135deg, #3b82f6, #2563eb)" : "rgba(255,255,255,0.1)", color: "white", border: "none", borderRadius: 6, cursor: transcript && !busy ? "pointer" : "not-allowed", opacity: transcript && !busy ? 1 : 0.4 }}>
+                  {busy ? "Checking…" : "Send"}
+                </button>
+              )}
+            </>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  function renderHints() {
+    const hints = currentSentence?.hints ?? [];
+    if (!hints.length) return null;
+    return (
+      <div
+        onMouseMove={handleHintsMouseMove}
+        onMouseLeave={() => { setClosestHintIndex(null); setClosestHintOpacity(0); stopAudio(); }}
+      >
+        <div style={{ fontSize: 11, opacity: 0.4, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>Hints</div>
+        <div style={{ display: "flex", gap: 10, overflowX: "auto", padding: "4px 0" }}>
+          {hints.map((hint, idx) => {
+            const isRevealed = viewedHints.has(idx);
+            const isClosest = closestHintIndex === idx && !isRevealed;
+            const proximityBorder = isClosest ? `2px solid rgba(0,212,255,${Math.max(0.3, closestHintOpacity)})` : undefined;
+            const proximityBg = isClosest ? `rgba(0,212,255,${0.15 * closestHintOpacity})` : undefined;
+            const learningParts = hint.learning.split("/").map(p => p.trim()).filter(Boolean);
+            return (
+              <div key={idx} ref={el => { hintCardsRefs.current[idx] = el; }}
+                style={{
+                  flexShrink: 0, width: 130, display: "flex", flexDirection: "column",
+                  border: isRevealed ? "2px solid rgba(255,255,255,0.3)" : proximityBorder || "2px solid #FFD700",
+                  borderRadius: 8, padding: "8px 12px 6px",
+                  background: isRevealed ? "rgba(255,255,255,0.1)" : proximityBg || "rgba(255,215,0,0.1)",
+                  transition: "all 0.3s ease",
+                  boxShadow: isRevealed ? "none" : "0 2px 8px rgba(255,215,0,0.2)",
+                }}
+              >
+                <div style={{ fontWeight: 600, marginBottom: 6, fontSize: 14, color: isRevealed ? "#9ca3af" : "white" }}>
+                  {hint.native}
+                </div>
+                {isRevealed ? (
+                  <div style={{ marginBottom: 6, flex: 1 }}>
+                    {learningParts.length > 1
+                      ? <ol style={{ margin: 0, padding: "0 0 0 16px", color: "#93c5fd", fontSize: 12, fontWeight: 500 }}>{learningParts.map((p, pi) => <li key={pi}>{p}</li>)}</ol>
+                      : <div style={{ color: "#93c5fd", fontSize: 12, fontWeight: 500 }}>{hint.learning}</div>}
+                    {hint.note && <div style={{ fontSize: 10, fontStyle: "italic", color: "rgba(255,255,255,0.45)", marginTop: 4 }}>{hint.note}</div>}
+                  </div>
+                ) : (
+                  <button
+                    onMouseEnter={() => setViewedHints(prev => new Set([...prev, idx]))}
+                    style={{
+                      width: "100%", padding: "6px 8px", fontSize: 12, borderRadius: 6, cursor: "pointer",
+                      textAlign: "center", fontWeight: 600, marginBottom: 6, flex: 1, minHeight: 44,
+                      background: "rgba(147,197,253,0.08)", border: "1px dashed rgba(147,197,253,0.3)",
+                      color: "rgba(147,197,253,0.5)",
+                    }}
+                  >Aa</button>
+                )}
+                <button
+                  onMouseEnter={() => fetchAndPlayAudio(hint.learning.split("/")[0].trim(), learningLocale)}
+                  onMouseLeave={() => stopAudio()}
+                  style={{
+                    width: "100%", padding: "5px 8px", fontSize: 13, borderRadius: 6, cursor: "pointer",
+                    textAlign: "center", background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.15)",
+                    color: "rgba(255,255,255,0.55)", transition: "all 0.15s",
+                  }}
+                >🔊</button>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
+
   // ── Word selection screen ─────────────────────────────────────────────────
   if (!selectedWord) {
     return (
@@ -764,21 +1171,22 @@ export default function WordDrillGame({
           }}>← Back</button>
         )}
         <h1 style={{ fontSize: 32, fontWeight: 700, marginBottom: 8, textAlign: "center" }}>Word Drill</h1>
-        <p style={{ fontSize: 16, opacity: 0.6, marginBottom: 48, textAlign: "center" }}>Choose a word to practice</p>
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 20, justifyContent: "center", maxWidth: 900 }}>
+        <p style={{ fontSize: 16, opacity: 0.6, marginBottom: 40, textAlign: "center" }}>Choose a word to practice</p>
+        <div style={{ display: "flex", flexDirection: "column", gap: 10, width: "100%", maxWidth: 380 }}>
           {wordList.map(word => (
             <button key={word.key} onClick={() => handleSelectWord(word.key)}
               style={{
-                padding: "28px 36px", background: "rgba(255,255,255,0.06)",
-                border: "2px solid rgba(139,92,246,0.35)", borderRadius: 16,
-                color: "white", cursor: "pointer", textAlign: "center", minWidth: 180,
-                transition: "transform 0.2s, background 0.2s, border-color 0.2s, box-shadow 0.2s",
+                padding: "16px 24px", background: "rgba(255,255,255,0.06)",
+                border: "2px solid rgba(139,92,246,0.35)", borderRadius: 14,
+                color: "white", cursor: "pointer", textAlign: "left", width: "100%",
+                display: "flex", alignItems: "center", gap: 16,
+                transition: "background 0.2s, border-color 0.2s, box-shadow 0.2s",
               }}
-              onMouseEnter={e => { e.currentTarget.style.transform = "translateY(-4px)"; e.currentTarget.style.background = "rgba(139,92,246,0.2)"; e.currentTarget.style.borderColor = "rgba(139,92,246,0.7)"; e.currentTarget.style.boxShadow = "0 8px 30px rgba(139,92,246,0.25)"; }}
-              onMouseLeave={e => { e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.background = "rgba(255,255,255,0.06)"; e.currentTarget.style.borderColor = "rgba(139,92,246,0.35)"; e.currentTarget.style.boxShadow = "none"; }}
+              onMouseEnter={e => { e.currentTarget.style.background = "rgba(139,92,246,0.2)"; e.currentTarget.style.borderColor = "rgba(139,92,246,0.7)"; e.currentTarget.style.boxShadow = "0 4px 20px rgba(139,92,246,0.2)"; }}
+              onMouseLeave={e => { e.currentTarget.style.background = "rgba(255,255,255,0.06)"; e.currentTarget.style.borderColor = "rgba(139,92,246,0.35)"; e.currentTarget.style.boxShadow = "none"; }}
             >
-              <div style={{ fontSize: 30, fontWeight: 800, marginBottom: 10, color: "#c4b5fd" }}>{word.display}</div>
-              <div style={{ fontSize: 13, opacity: 0.65, lineHeight: 1.5 }}>{word.description}</div>
+              <div style={{ fontSize: 22, fontWeight: 800, color: "#c4b5fd", minWidth: 80 }}>{word.display}</div>
+              <div style={{ fontSize: 13, opacity: 0.55, lineHeight: 1.4 }}>{word.description}</div>
             </button>
           ))}
         </div>
@@ -786,7 +1194,425 @@ export default function WordDrillGame({
     );
   }
 
-  // ── Drill screen ──────────────────────────────────────────────────────────
+  const wordInfo = wordList.find(w => w.key === selectedWord);
+
+  // ── Mode selection screen ─────────────────────────────────────────────────
+  if (!gameMode) {
+    return (
+      <div style={{
+        minHeight: "100vh",
+        background: "linear-gradient(135deg, #1e1b4b 0%, #0f172a 100%)",
+        display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+        padding: 40, fontFamily: "system-ui, sans-serif", color: "white",
+      }}>
+        <button onClick={() => setSelectedWord(null)} style={{
+          position: "absolute", top: 20, left: 20,
+          padding: "8px 16px", fontSize: 14,
+          background: "rgba(255,255,255,0.15)", color: "white",
+          border: "1px solid rgba(255,255,255,0.2)", borderRadius: 6, cursor: "pointer",
+        }}>← Words</button>
+
+        <div style={{
+          background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)",
+          borderRadius: 20, padding: "48px 56px", textAlign: "center", maxWidth: 480,
+        }}>
+          <div style={{ fontSize: 44, fontWeight: 800, color: "#c4b5fd", marginBottom: 10 }}>
+            {wordInfo?.display ?? selectedWord}
+          </div>
+          <div style={{ fontSize: 15, opacity: 0.55, marginBottom: 40, lineHeight: 1.5 }}>
+            {wordInfo?.description}
+          </div>
+
+          <div style={{ display: "flex", gap: 16, justifyContent: "center" }}>
+            <button
+              onClick={() => {
+                gameModeRef.current = "learn";
+                setGameMode("learn");
+                void loadLearnData(selectedWord!);
+              }}
+              style={{
+                padding: "18px 32px", fontSize: 16, fontWeight: 700, borderRadius: 12, cursor: "pointer",
+                background: "linear-gradient(135deg, #7c3aed, #5b21b6)",
+                color: "white", border: "2px solid rgba(139,92,246,0.5)",
+                display: "flex", flexDirection: "column", alignItems: "center", gap: 6, minWidth: 140,
+                transition: "transform 0.15s, box-shadow 0.15s",
+              }}
+              onMouseEnter={e => { e.currentTarget.style.transform = "translateY(-2px)"; e.currentTarget.style.boxShadow = "0 8px 24px rgba(124,58,237,0.4)"; }}
+              onMouseLeave={e => { e.currentTarget.style.transform = ""; e.currentTarget.style.boxShadow = ""; }}
+            >
+              <span style={{ fontSize: 22 }}>📖</span>
+              Learn
+              <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.7 }}>Explanations + guided practice</span>
+            </button>
+
+            <button
+              onClick={() => {
+                gameModeRef.current = "practice";
+                setGameMode("practice");
+                void loadSentencesForWord(selectedWord!);
+              }}
+              style={{
+                padding: "18px 32px", fontSize: 16, fontWeight: 700, borderRadius: 12, cursor: "pointer",
+                background: "linear-gradient(135deg, #1d4ed8, #1e40af)",
+                color: "white", border: "2px solid rgba(59,130,246,0.5)",
+                display: "flex", flexDirection: "column", alignItems: "center", gap: 6, minWidth: 140,
+                transition: "transform 0.15s, box-shadow 0.15s",
+              }}
+              onMouseEnter={e => { e.currentTarget.style.transform = "translateY(-2px)"; e.currentTarget.style.boxShadow = "0 8px 24px rgba(29,78,216,0.4)"; }}
+              onMouseLeave={e => { e.currentTarget.style.transform = ""; e.currentTarget.style.boxShadow = ""; }}
+            >
+              <span style={{ fontSize: 22 }}>🎯</span>
+              Practice
+              <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.7 }}>Drill sentences freely</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Learn mode screen ─────────────────────────────────────────────────────
+  if (gameMode === "learn") {
+    const currentUC = learnUsecases[currentUsecaseIdx];
+    const doneCount = usecaseStatuses.filter(s => s !== "pending").length;
+    const hints = currentSentence?.hints ?? [];
+    const hasHints = hints.length > 0;
+
+    return (
+      <div style={{
+        height: "100vh",
+        background: "linear-gradient(135deg, #1e1b4b 0%, #0f172a 100%)",
+        display: "flex", flexDirection: "column",
+        fontFamily: "system-ui, sans-serif", color: "white", overflow: "hidden",
+      }}>
+        {/* Header */}
+        <div style={{
+          flexShrink: 0, background: "rgba(255,255,255,0.07)",
+          padding: "10px 20px", display: "flex", justifyContent: "space-between", alignItems: "center",
+          borderBottom: "1px solid rgba(255,255,255,0.08)",
+        }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <button onClick={() => { stopAudio(); gameModeRef.current = null; setGameMode(null); setLearnComplete(false); }}
+              style={{ padding: "6px 14px", fontSize: 14, background: "rgba(255,255,255,0.12)", color: "white", border: "1px solid rgba(255,255,255,0.2)", borderRadius: 6, cursor: "pointer" }}>
+              ← Back
+            </button>
+            <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>
+              Word Drill: <span style={{ color: "#c4b5fd" }}>{wordInfo?.display ?? selectedWord}</span>
+              <span style={{ fontSize: 14, fontWeight: 400, opacity: 0.5, marginLeft: 10 }}>— Learn</span>
+            </h2>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+            <div style={{ fontSize: 13, opacity: 0.55 }}>{doneCount}/{learnUsecases.length} done</div>
+            {onBack && (
+              <button onClick={() => { stopAudio(); onBack(); }}
+                style={{ padding: "6px 14px", fontSize: 14, background: "rgba(255,255,255,0.08)", color: "white", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 6, cursor: "pointer" }}>
+                Home
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Navigator */}
+        <div style={{
+          flexShrink: 0, padding: "10px 20px",
+          borderBottom: "1px solid rgba(255,255,255,0.08)",
+          background: "rgba(0,0,0,0.15)",
+        }}>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+            {learnUsecases.map((uc, idx) => {
+              const status = usecaseStatuses[idx] ?? "pending";
+              const isCurrent = idx === currentUsecaseIdx && !learnComplete;
+              const chipColor = status === "correct" ? "#86efac"
+                : status === "close" ? "#fbbf24"
+                : status === "skipped" ? "#94a3b8"
+                : null;
+              return (
+                <div key={idx} style={{ position: "relative" }}>
+                  <button
+                    onClick={() => { const alreadyDone = status !== "pending"; setLearnComplete(false); navigateToUsecase(idx, alreadyDone || showAllPhases); }}
+                    onMouseEnter={() => setHoveredNavIdx(idx)}
+                    onMouseLeave={() => setHoveredNavIdx(null)}
+                    style={{
+                      width: 34, height: 34, borderRadius: "50%",
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      fontSize: 13, fontWeight: 700, cursor: "pointer",
+                      background: chipColor ? `${chipColor}22` : "rgba(255,255,255,0.08)",
+                      border: isCurrent
+                        ? `2px solid ${chipColor ?? "rgba(139,92,246,0.9)"}`
+                        : `1px solid ${chipColor ? `${chipColor}55` : "rgba(255,255,255,0.2)"}`,
+                      color: chipColor ?? "rgba(255,255,255,0.45)",
+                      boxShadow: isCurrent ? `0 0 12px ${chipColor ? `${chipColor}44` : "rgba(139,92,246,0.3)"}` : "none",
+                      transition: "all 0.2s",
+                    }}
+                  >
+                    {idx + 1}
+                  </button>
+                  {hoveredNavIdx === idx && (
+                    <div style={{
+                      position: "absolute", bottom: "calc(100% + 6px)", left: "50%", transform: "translateX(-50%)",
+                      background: "#1e293b", border: "1px solid rgba(255,255,255,0.2)", borderRadius: 6,
+                      padding: "5px 10px", fontSize: 11, whiteSpace: "nowrap",
+                      color: "rgba(255,255,255,0.85)", zIndex: 20, pointerEvents: "none",
+                    }}>
+                      {uc.name}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+            <label style={{
+              marginLeft: "auto", display: "flex", alignItems: "center", gap: 6,
+              fontSize: 12, color: "rgba(255,255,255,0.45)", cursor: "pointer", userSelect: "none",
+            }}>
+              <input
+                type="checkbox"
+                checked={showAllPhases}
+                onChange={e => setShowAllPhases(e.target.checked)}
+                style={{ accentColor: "#a78bfa", cursor: "pointer" }}
+              />
+              Show all
+            </label>
+          </div>
+        </div>
+
+        {/* Content */}
+        {learnComplete ? (
+          /* Completion screen */
+          <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 24, padding: 40 }}>
+            <div style={{ fontSize: 36, fontWeight: 800 }}>All use cases complete!</div>
+            <div style={{ display: "flex", gap: 20 }}>
+              {[
+                { label: "Correct", count: usecaseStatuses.filter(s => s === "correct").length, color: "#86efac" },
+                { label: "Close", count: usecaseStatuses.filter(s => s === "close").length, color: "#fbbf24" },
+                { label: "Skipped", count: usecaseStatuses.filter(s => s === "skipped").length, color: "#94a3b8" },
+              ].map(({ label, count, color }) => (
+                <div key={label} style={{
+                  textAlign: "center", padding: "16px 24px",
+                  background: `${color}18`, border: `1px solid ${color}44`, borderRadius: 12,
+                  minWidth: 90,
+                }}>
+                  <div style={{ fontSize: 28, fontWeight: 800, color }}>{count}</div>
+                  <div style={{ fontSize: 12, color, opacity: 0.7 }}>{label}</div>
+                </div>
+              ))}
+            </div>
+            <div style={{ display: "flex", gap: 14, marginTop: 8 }}>
+              <button
+                onClick={() => {
+                  gameModeRef.current = "practice";
+                  setGameMode("practice");
+                  setLearnComplete(false);
+                  void loadSentencesForWord(selectedWord!);
+                }}
+                style={{ padding: "14px 28px", fontSize: 15, fontWeight: 700, borderRadius: 10, cursor: "pointer", background: "linear-gradient(135deg, #1d4ed8, #1e40af)", color: "white", border: "none" }}
+              >
+                Practice this word
+              </button>
+              <button
+                onClick={() => { stopAudio(); setSelectedWord(null); gameModeRef.current = null; setGameMode(null); setLearnComplete(false); }}
+                style={{ padding: "14px 28px", fontSize: 15, fontWeight: 600, borderRadius: 10, cursor: "pointer", background: "rgba(255,255,255,0.1)", color: "white", border: "1px solid rgba(255,255,255,0.2)" }}
+              >
+                Back to word list
+              </button>
+            </div>
+          </div>
+        ) : busy && !currentUC ? (
+          <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", opacity: 0.5, fontSize: 16 }}>
+            Loading…
+          </div>
+        ) : currentUC ? (
+          <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+
+            {/* ── Phase: explanation ── */}
+            {learnPhase === "explanation" && (
+              <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "40px 32px" }}>
+                <div style={{ maxWidth: 620, width: "100%", display: "flex", flexDirection: "column", gap: 20 }}>
+                  <div>
+                    <div style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", color: "#a78bfa", opacity: 0.8, marginBottom: 6 }}>
+                      Use case {currentUsecaseIdx + 1} of {learnUsecases.length}
+                    </div>
+                    <h3 style={{ margin: 0, fontSize: 22, fontWeight: 700 }}>{currentUC.name}</h3>
+                  </div>
+                  <div style={{
+                    fontSize: 16, lineHeight: 1.8, color: "rgba(255,255,255,0.7)",
+                    background: "rgba(255,255,255,0.04)", borderRadius: 12, padding: "20px 24px",
+                    border: "1px solid rgba(255,255,255,0.08)",
+                  }}>
+                    {currentUC.explanation}
+                  </div>
+                  <div style={{ textAlign: "center", fontSize: 13, color: "rgba(255,255,255,0.3)", marginTop: 8 }}>
+                    Press <kbd style={{ padding: "2px 8px", background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.2)", borderRadius: 4, fontSize: 12 }}>Space</kbd> to see example →
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* ── Phase: demo ── */}
+            {learnPhase === "demo" && (
+              <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "40px 32px" }}>
+                <div style={{ maxWidth: 620, width: "100%", display: "flex", flexDirection: "column", gap: 20 }}>
+                  <div>
+                    <div style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", color: "#a78bfa", opacity: 0.8, marginBottom: 6 }}>
+                      Use case {currentUsecaseIdx + 1} of {learnUsecases.length}
+                    </div>
+                    <h3 style={{ margin: 0, fontSize: 22, fontWeight: 700 }}>{currentUC.name}</h3>
+                  </div>
+                  <div style={{
+                    fontSize: 15, lineHeight: 1.75, color: "rgba(255,255,255,0.35)",
+                    background: "rgba(255,255,255,0.02)", borderRadius: 12, padding: "16px 20px",
+                    border: "1px solid rgba(255,255,255,0.05)",
+                  }}>
+                    {currentUC.explanation}
+                  </div>
+                  <div style={{
+                    background: "rgba(139,92,246,0.1)", border: "1px solid rgba(139,92,246,0.3)",
+                    borderRadius: 14, padding: "20px 24px",
+                  }}>
+                    <div style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.07em", color: "#a78bfa", marginBottom: 14 }}>
+                      Example
+                    </div>
+                    {currentUC.demo.context && (
+                      <div style={{ fontSize: 13, color: "rgba(255,255,255,0.45)", fontStyle: "italic", marginBottom: 12 }}>
+                        {currentUC.demo.context}
+                      </div>
+                    )}
+                    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                      <div style={{ fontSize: 16, color: "rgba(255,255,255,0.7)" }}>
+                        <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.06em", marginRight: 10, color: "rgba(255,255,255,0.4)" }}>EN</span>
+                        {currentUC.demo.native}
+                      </div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                        <div
+                          onMouseEnter={() => void fetchAndPlayAudio(currentUC.demo.spanish, learningLocale)}
+                          onMouseLeave={() => stopAudio()}
+                          style={{ fontSize: 20, fontWeight: 700, color: "#c4b5fd", cursor: "pointer", lineHeight: 1.4 }}
+                        >
+                          <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.06em", marginRight: 10, color: "rgba(255,255,255,0.35)" }}>ES</span>
+                          {currentUC.demo.spanish}
+                        </div>
+                        <button
+                          onClick={() => void fetchAndPlayAudio(currentUC.demo.spanish, learningLocale)}
+                          style={{
+                            padding: "5px 12px", fontSize: 15, background: "rgba(255,255,255,0.08)",
+                            border: "1px solid rgba(255,255,255,0.15)", borderRadius: 6, cursor: "pointer", color: "white",
+                            flexShrink: 0,
+                          }}
+                        >🔊</button>
+                      </div>
+                    </div>
+                  </div>
+                  <div style={{ textAlign: "center", fontSize: 13, color: "rgba(255,255,255,0.3)", marginTop: 8 }}>
+                    Press <kbd style={{ padding: "2px 8px", background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.2)", borderRadius: 4, fontSize: 12 }}>Space</kbd> to try it →
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* ── Phase: practice ── */}
+            {learnPhase === "practice" && currentSentence && (
+              <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+                <div style={{ flex: 1, overflowY: "auto", padding: "20px 0 0" }}>
+                  <div style={{ maxWidth: 680, margin: "0 auto", padding: "0 32px", display: "flex", flexDirection: "column", gap: 16 }}>
+
+                    {/* Explanation (dimmed) */}
+                    <div style={{
+                      fontSize: 14, lineHeight: 1.7, color: "rgba(255,255,255,0.3)",
+                      background: "rgba(255,255,255,0.02)", borderRadius: 10, padding: "14px 18px",
+                      border: "1px solid rgba(255,255,255,0.05)",
+                    }}>
+                      {currentUC.explanation}
+                    </div>
+
+                    {/* Demo (dimmed) */}
+                    <div style={{
+                      background: "rgba(139,92,246,0.05)", border: "1px solid rgba(139,92,246,0.15)",
+                      borderRadius: 12, padding: "14px 18px",
+                    }}>
+                      <div style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.07em", color: "rgba(167,139,250,0.5)", marginBottom: 10 }}>
+                        Example
+                      </div>
+                      {currentUC.demo.context && (
+                        <div style={{ fontSize: 12, color: "rgba(255,255,255,0.3)", fontStyle: "italic", marginBottom: 8 }}>
+                          {currentUC.demo.context}
+                        </div>
+                      )}
+                      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                        <div style={{ fontSize: 14, color: "rgba(255,255,255,0.4)" }}>
+                          <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.06em", marginRight: 8, color: "rgba(255,255,255,0.25)" }}>EN</span>
+                          {currentUC.demo.native}
+                        </div>
+                        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                          <div
+                            onMouseEnter={() => void fetchAndPlayAudio(currentUC.demo.spanish, learningLocale)}
+                            onMouseLeave={() => stopAudio()}
+                            style={{ fontSize: 15, fontWeight: 600, color: "rgba(196,181,253,0.5)", cursor: "pointer" }}
+                          >
+                            <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.06em", marginRight: 8, color: "rgba(255,255,255,0.2)" }}>ES</span>
+                            {currentUC.demo.spanish}
+                          </div>
+                          <button
+                            onClick={() => void fetchAndPlayAudio(currentUC.demo.spanish, learningLocale)}
+                            style={{
+                              padding: "3px 8px", fontSize: 12, background: "rgba(255,255,255,0.05)",
+                              border: "1px solid rgba(255,255,255,0.1)", borderRadius: 5, cursor: "pointer",
+                              color: "rgba(255,255,255,0.4)", flexShrink: 0,
+                            }}
+                          >🔊</button>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Divider */}
+                    <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                      <div style={{ flex: 1, height: 1, background: "rgba(255,255,255,0.1)" }} />
+                      <div style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", opacity: 0.4 }}>Your turn</div>
+                      <div style={{ flex: 1, height: 1, background: "rgba(255,255,255,0.1)" }} />
+                    </div>
+
+                    {/* Context */}
+                    <div style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 10, padding: "12px 16px" }}>
+                      <div style={{ fontSize: 12, opacity: 0.45, marginBottom: 4, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>Context</div>
+                      <div style={{ fontSize: 15, opacity: 0.8, lineHeight: 1.5, fontStyle: "italic" }}>{currentSentence.context}</div>
+                    </div>
+
+                    {/* English prompt */}
+                    <div style={{ background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 12, padding: "20px 24px", textAlign: "center" }}>
+                      <div style={{ fontSize: 12, opacity: 0.45, marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600 }}>
+                        Translate to {learning.name}
+                      </div>
+                      <div style={{ fontSize: 22, fontWeight: 700, lineHeight: 1.4 }}>
+                        {tokenizeWithHints(currentSentence.english, hints).map((tok, ti) => {
+                          if (tok.hintIndex === null) return <span key={ti}>{tok.text}</span>;
+                          const isRevealed = viewedHints.has(tok.hintIndex);
+                          return (
+                            <span key={ti} style={{
+                              color: isRevealed ? HINT_COLORS[tok.hintIndex % HINT_COLORS.length] : "inherit",
+                              borderBottom: isRevealed ? "none" : "2px dashed #fbbf24",
+                              cursor: "default",
+                            }}>{tok.text}</span>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* Hints */}
+                    {hasHints && renderHints()}
+
+                    <div style={{ height: 8 }} />
+                  </div>
+                </div>
+
+                {renderPracticeBottom()}
+              </div>
+            )}
+
+          </div>
+        ) : null}
+      </div>
+    );
+  }
+
+  // ── Practice drill screen ─────────────────────────────────────────────────
 
   const resolvedSentenceIds = new Set(history.filter(e => !e.isWrongAttempt).map(e => e.sentenceId));
 
@@ -817,12 +1643,13 @@ export default function WordDrillGame({
         borderBottom: "1px solid rgba(255,255,255,0.08)",
       }}>
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <button onClick={() => { stopAudio(); setSelectedWord(null); setCurrentSentence(null); setHistory([]); }}
+          <button onClick={() => { stopAudio(); gameModeRef.current = null; setGameMode(null); setCurrentSentence(null); setHistory([]); }}
             style={{ padding: "6px 14px", fontSize: 14, background: "rgba(255,255,255,0.12)", color: "white", border: "1px solid rgba(255,255,255,0.2)", borderRadius: 6, cursor: "pointer" }}>
-            ← Words
+            ← Back
           </button>
           <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>
-            Word Drill: <span style={{ color: "#c4b5fd" }}>{wordList.find(w => w.key === selectedWord)?.display ?? selectedWord}</span>
+            Word Drill: <span style={{ color: "#c4b5fd" }}>{wordInfo?.display ?? selectedWord}</span>
+            <span style={{ fontSize: 14, fontWeight: 400, opacity: 0.5, marginLeft: 10 }}>— Practice</span>
           </h2>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
@@ -884,67 +1711,8 @@ export default function WordDrillGame({
                   </div>
                 </div>
 
-                {/* Hints (shown only when present) */}
-                {hasHints && (
-                  <div
-                    onMouseMove={handleHintsMouseMove}
-                    onMouseLeave={() => { setClosestHintIndex(null); setClosestHintOpacity(0); stopAudio(); }}
-                  >
-                    <div style={{ fontSize: 11, opacity: 0.4, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>Hints</div>
-                    <div style={{ display: "flex", gap: 10, overflowX: "auto", padding: "4px 0" }}>
-                      {hints.map((hint, idx) => {
-                        const isRevealed = viewedHints.has(idx);
-                        const isClosest = closestHintIndex === idx && !isRevealed;
-                        const proximityBorder = isClosest ? `2px solid rgba(0,212,255,${Math.max(0.3, closestHintOpacity)})` : undefined;
-                        const proximityBg = isClosest ? `rgba(0,212,255,${0.15 * closestHintOpacity})` : undefined;
-                        const learningParts = hint.learning.split("/").map(p => p.trim()).filter(Boolean);
-                        return (
-                          <div key={idx} ref={el => { hintCardsRefs.current[idx] = el; }}
-                            style={{
-                              flexShrink: 0, width: 130, display: "flex", flexDirection: "column",
-                              border: isRevealed ? "2px solid rgba(255,255,255,0.3)" : proximityBorder || "2px solid #FFD700",
-                              borderRadius: 8, padding: "8px 12px 6px",
-                              background: isRevealed ? "rgba(255,255,255,0.1)" : proximityBg || "rgba(255,215,0,0.1)",
-                              transition: "all 0.3s ease",
-                              boxShadow: isRevealed ? "none" : "0 2px 8px rgba(255,215,0,0.2)",
-                            }}
-                          >
-                            <div style={{ fontWeight: 600, marginBottom: 6, fontSize: 14, color: isRevealed ? "#9ca3af" : "white" }}>
-                              {hint.native}
-                            </div>
-                            {isRevealed ? (
-                              <div style={{ marginBottom: 6, flex: 1 }}>
-                                {learningParts.length > 1
-                                  ? <ol style={{ margin: 0, padding: "0 0 0 16px", color: "#93c5fd", fontSize: 12, fontWeight: 500 }}>{learningParts.map((p, pi) => <li key={pi}>{p}</li>)}</ol>
-                                  : <div style={{ color: "#93c5fd", fontSize: 12, fontWeight: 500 }}>{hint.learning}</div>}
-                                {hint.note && <div style={{ fontSize: 10, fontStyle: "italic", color: "rgba(255,255,255,0.45)", marginTop: 4 }}>{hint.note}</div>}
-                              </div>
-                            ) : (
-                              <button
-                                onMouseEnter={() => setViewedHints(prev => new Set([...prev, idx]))}
-                                style={{
-                                  width: "100%", padding: "6px 8px", fontSize: 12, borderRadius: 6, cursor: "pointer",
-                                  textAlign: "center", fontWeight: 600, marginBottom: 6, flex: 1, minHeight: 44,
-                                  background: "rgba(147,197,253,0.08)", border: "1px dashed rgba(147,197,253,0.3)",
-                                  color: "rgba(147,197,253,0.5)",
-                                }}
-                              >Aa</button>
-                            )}
-                            <button
-                              onMouseEnter={() => fetchAndPlayAudio(hint.learning.split("/")[0].trim(), learningLocale)}
-                              onMouseLeave={() => stopAudio()}
-                              style={{
-                                width: "100%", padding: "5px 8px", fontSize: 13, borderRadius: 6, cursor: "pointer",
-                                textAlign: "center", background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.15)",
-                                color: "rgba(255,255,255,0.55)", transition: "all 0.15s",
-                              }}
-                            >🔊</button>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
+                {/* Hints */}
+                {hasHints && renderHints()}
               </>
             ) : null}
           </div>
@@ -1111,7 +1879,6 @@ export default function WordDrillGame({
                     });
                   }}
                 >
-                  {/* Line 1: status icon + bars + category */}
                   <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                     {entry.skipped ? (
                       <span style={{ fontSize: 12, color: "#94a3b8" }}>→</span>
@@ -1136,10 +1903,8 @@ export default function WordDrillGame({
                     <span style={{ marginLeft: "auto", fontSize: 10, opacity: 0.35, fontWeight: 600, textAlign: "right" }}>{entry.category}</span>
                   </div>
 
-                  {/* Line 2: English prompt */}
                   <div style={{ fontSize: 11, opacity: 0.5, marginTop: 4, fontStyle: "italic" }}>{entry.english}</div>
 
-                  {/* Line 3: Answer with correction tokens (or plain if no diff) */}
                   <div style={{ marginTop: 3, fontWeight: 500, lineHeight: 1.4, fontSize: 13 }}>
                     {entry.skipped ? (
                       <span style={{ color: "#94a3b8" }}>{entry.correctAnswer}</span>
@@ -1158,7 +1923,6 @@ export default function WordDrillGame({
                     )}
                   </div>
 
-                  {/* Expanded content */}
                   {isExpanded && renderExpandedHistoryEntry(entry, wrongAttempts)}
                 </div>
               );

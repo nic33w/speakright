@@ -1740,6 +1740,15 @@ def api_worddrill_sentences(word: str):
     return {"sentences": data[word]["sentences"]}
 
 
+@app.get("/api/worddrill/usecases/{word}")
+def api_worddrill_usecases(word: str):
+    data = _load_word_practice_data()
+    if word not in data:
+        raise HTTPException(status_code=404, detail=f"Word '{word}' not found")
+    usecases = data[word].get("usecases", [])
+    return {"usecases": usecases}
+
+
 class WordDrillCheckReq(BaseModel):
     user_answer: str
     correct_answer: str
