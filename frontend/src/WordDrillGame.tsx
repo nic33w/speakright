@@ -296,6 +296,9 @@ export default function WordDrillGame({
   const [loadingSentence, setLoadingSentence] = useState(false);
   const [correctCount, setCorrectCount] = useState(0);
   const [totalCount, setTotalCount] = useState(0);
+  const [totalSentences, setTotalSentences] = useState(0);
+  const [roundSentencesShown, setRoundSentencesShown] = useState(0);
+  const [hasCompletedRound, setHasCompletedRound] = useState(false);
 
   // Hints state
   const [viewedHints, setViewedHints] = useState<Set<number>>(new Set());
@@ -573,6 +576,7 @@ export default function WordDrillGame({
   function advanceToNextSentence() {
     if (sentenceQueueRef.current.length === 0) return;
     const sentence = sentenceQueueRef.current.shift()!;
+    setRoundSentencesShown(n => n + 1);
     setCurrentSentence(sentence);
     setTranscript("");
     setAnswerStatus("idle");
@@ -593,6 +597,9 @@ export default function WordDrillGame({
       if (!resp.ok) throw new Error("Failed");
       const data = await resp.json();
       sentenceQueueRef.current = shuffle([...data.sentences]);
+      if (totalSentences > 0) setHasCompletedRound(true);
+      setTotalSentences(data.sentences.length);
+      setRoundSentencesShown(0);
       advanceToNextSentence();
     } catch (e) {
       console.error(e);
@@ -676,6 +683,9 @@ export default function WordDrillGame({
     setHistory([]);
     setCorrectCount(0);
     setTotalCount(0);
+    setTotalSentences(0);
+    setRoundSentencesShown(0);
+    setHasCompletedRound(false);
     setPinnedLogEntries(new Set());
     sentenceQueueRef.current = [];
     setCurrentSentence(null);
@@ -1751,7 +1761,24 @@ export default function WordDrillGame({
           </h2>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-          {totalCount > 0 && <div style={{ fontSize: 13, opacity: 0.65 }}>{correctCount}/{totalCount} correct</div>}
+          {totalSentences > 0 && (
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <div style={{ fontSize: 13, fontVariantNumeric: "tabular-nums" }}>
+                <span style={{ fontWeight: 700, color: "#c4b5fd" }}>{roundSentencesShown}</span>
+                <span style={{ opacity: 0.4 }}> / {totalSentences}</span>
+              </div>
+              {hasCompletedRound && (
+                <span style={{
+                  fontSize: 11, fontWeight: 600, padding: "2px 8px", borderRadius: 999,
+                  background: "rgba(134,239,172,0.12)", border: "1px solid rgba(134,239,172,0.3)",
+                  color: "#86efac",
+                }}>
+                  ✓ seen all
+                </span>
+              )}
+            </div>
+          )}
+          {totalCount > 0 && <div style={{ fontSize: 13, opacity: 0.55 }}>{correctCount}/{totalCount} correct</div>}
           {totalCostCents > 0 && <div style={{ fontSize: 12, opacity: 0.45, fontVariantNumeric: "tabular-nums" }}>{totalCostCents.toFixed(2)}¢</div>}
           {onBack && (
             <button onClick={() => { stopAudio(); onBack(); }}
@@ -1761,6 +1788,18 @@ export default function WordDrillGame({
           )}
         </div>
       </div>
+
+      {/* Round progress bar */}
+      {totalSentences > 0 && (
+        <div style={{ height: 4, background: "rgba(255,255,255,0.07)", flexShrink: 0 }}>
+          <div style={{
+            height: "100%",
+            width: `${(roundSentencesShown / totalSentences) * 100}%`,
+            background: "rgba(167,139,250,0.7)",
+            transition: "width 0.4s ease",
+          }} />
+        </div>
+      )}
 
       {/* Body */}
       <div style={{ flex: 1, display: "flex", overflow: "hidden" }}>

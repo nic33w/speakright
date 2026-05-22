@@ -23,6 +23,10 @@
             {
               "native": "let's meet up",
               "learning": "quedamos"
+            },
+            {
+              "native": "at the bar",
+              "learning": "en el bar"
             }
           ]
         }
@@ -47,6 +51,10 @@
             {
               "native": "we agreed to",
               "learning": "quedamos en"
+            },
+            {
+              "native": "call each other",
+              "learning": "llamarnos"
             }
           ]
         }
@@ -93,7 +101,11 @@
           ],
           "hints": [
             {
-              "native": "a bit small on me",
+              "native": "they fit me",
+              "learning": "me quedan"
+            },
+            {
+              "native": "a bit small",
               "learning": "un poco pequeños"
             }
           ]
@@ -118,8 +130,12 @@
           ],
           "hints": [
             {
-              "native": "it turned out / went",
+              "native": "it turned out",
               "learning": "quedó"
+            },
+            {
+              "native": "really well",
+              "learning": "muy bien"
             }
           ]
         }
@@ -141,6 +157,10 @@
             "Queda a la vuelta"
           ],
           "hints": [
+            {
+              "native": "it is located",
+              "learning": "queda"
+            },
             {
               "native": "around the corner",
               "learning": "a la vuelta"
@@ -169,6 +189,10 @@
             {
               "native": "I'll stay here",
               "learning": "me quedo aquí"
+            },
+            {
+              "native": "and wait",
+              "learning": "esperando"
             }
           ]
         }
@@ -217,6 +241,10 @@
           ],
           "hints": [
             {
+              "native": "she ended up",
+              "learning": "se quedó"
+            },
+            {
               "native": "speechless",
               "learning": "sin palabras",
               "note": "lit. 'without words'"
@@ -235,7 +263,16 @@
         "accepted_translations": [
           "Quedé con María"
         ],
-        "hints": []
+        "hints": [
+          {
+            "native": "I met up with",
+            "learning": "quedé con"
+          },
+          {
+            "native": "María",
+            "learning": "María"
+          }
+        ]
       },
       {
         "id": 2,
@@ -247,7 +284,16 @@
           "Quedamos a las seis",
           "Quedamos a las 6"
         ],
-        "hints": []
+        "hints": [
+          {
+            "native": "we agreed to meet",
+            "learning": "quedamos"
+          },
+          {
+            "native": "at 6",
+            "learning": "a las seis"
+          }
+        ]
       },
       {
         "id": 3,
@@ -259,6 +305,10 @@
           "Quedamos en eso"
         ],
         "hints": [
+          {
+            "native": "we agreed on",
+            "learning": "quedamos en"
+          },
           {
             "native": "that",
             "learning": "eso"
@@ -275,6 +325,10 @@
           "No quedamos en nada"
         ],
         "hints": [
+          {
+            "native": "we didn't agree on",
+            "learning": "no quedamos en"
+          },
           {
             "native": "anything",
             "learning": "nada",
@@ -293,6 +347,14 @@
         ],
         "hints": [
           {
+            "native": "there are ... left",
+            "learning": "quedan"
+          },
+          {
+            "native": "3",
+            "learning": "tres"
+          },
+          {
             "native": "slices",
             "learning": "rebanadas"
           }
@@ -310,6 +372,10 @@
         ],
         "hints": [
           {
+            "native": "I only have ... left",
+            "learning": "me quedan"
+          },
+          {
             "native": "$5",
             "learning": "cinco dólares"
           }
@@ -326,6 +392,10 @@
         ],
         "hints": [
           {
+            "native": "it fits me",
+            "learning": "me queda"
+          },
+          {
             "native": "well",
             "learning": "bien"
           }
@@ -341,6 +411,10 @@
           "Me quedan grandes"
         ],
         "hints": [
+          {
+            "native": "they fit me",
+            "learning": "me quedan"
+          },
           {
             "native": "big",
             "learning": "grandes",
@@ -359,6 +433,10 @@
         ],
         "hints": [
           {
+            "native": "it looks / suits",
+            "learning": "te queda"
+          },
+          {
             "native": "good",
             "learning": "bien"
           }
@@ -376,8 +454,16 @@
         ],
         "hints": [
           {
+            "native": "it turned out",
+            "learning": "quedó"
+          },
+          {
             "native": "really",
             "learning": "muy"
+          },
+          {
+            "native": "good",
+            "learning": "bien"
           }
         ]
       },
@@ -393,8 +479,12 @@
         ],
         "hints": [
           {
-            "native": "Everything",
-            "learning": "Todo"
+            "native": "everything",
+            "learning": "todo"
+          },
+          {
+            "native": "turned out",
+            "learning": "quedó"
           },
           {
             "native": "perfect",
@@ -414,6 +504,10 @@
         ],
         "hints": [
           {
+            "native": "it went / turned out",
+            "learning": "quedó"
+          },
+          {
             "native": "badly",
             "learning": "mal"
           }
@@ -429,6 +523,10 @@
           "Queda cerca"
         ],
         "hints": [
+          {
+            "native": "it is located",
+            "learning": "queda"
+          },
           {
             "native": "nearby",
             "learning": "cerca"
@@ -446,6 +544,14 @@
         ],
         "hints": [
           {
+            "native": "it is located",
+            "learning": "queda"
+          },
+          {
+            "native": "in",
+            "learning": "en"
+          },
+          {
             "native": "city center",
             "learning": "el centro"
           }
@@ -462,8 +568,12 @@
         ],
         "hints": [
           {
-            "native": "owe",
-            "learning": "deber (debiendo)",
+            "native": "to you",
+            "learning": "te"
+          },
+          {
+            "native": "I still owe",
+            "learning": "quedo debiendo",
             "note": "quedo + debiendo = still owe"
           },
           {
@@ -484,6 +594,10 @@
         ],
         "hints": [
           {
+            "native": "I'll take / keep",
+            "learning": "me quedo con"
+          },
+          {
             "native": "this one",
             "learning": "este"
           }
@@ -502,6 +616,10 @@
         ],
         "hints": [
           {
+            "native": "he kept",
+            "learning": "se quedó con"
+          },
+          {
             "native": "money",
             "learning": "el dinero"
           }
@@ -517,6 +635,10 @@
           "Me quedo en casa"
         ],
         "hints": [
+          {
+            "native": "I'm staying",
+            "learning": "me quedo"
+          },
           {
             "native": "home",
             "learning": "en casa"
@@ -537,6 +659,10 @@
         ],
         "hints": [
           {
+            "native": "stay",
+            "learning": "quédate"
+          },
+          {
             "native": "here",
             "learning": "aquí"
           }
@@ -554,6 +680,10 @@
         ],
         "hints": [
           {
+            "native": "I fell / ended up",
+            "learning": "me quedé"
+          },
+          {
             "native": "asleep",
             "learning": "dormido"
           }
@@ -570,6 +700,10 @@
           "Se quedo sorprendida"
         ],
         "hints": [
+          {
+            "native": "she ended up / was left",
+            "learning": "se quedó"
+          },
           {
             "native": "surprised",
             "learning": "sorprendida"
@@ -654,6 +788,10 @@
             {
               "native": "it makes me want to",
               "learning": "me dan ganas de"
+            },
+            {
+              "native": "dance",
+              "learning": "bailar"
             }
           ]
         }
@@ -727,6 +865,10 @@
             {
               "native": "hurry up",
               "learning": "date prisa"
+            },
+            {
+              "native": "we're running late",
+              "learning": "que llegamos tarde"
             }
           ]
         }
@@ -1021,6 +1163,10 @@
         ],
         "hints": [
           {
+            "native": "want to / shall we",
+            "learning": "¿vamos a?"
+          },
+          {
             "native": "go for a walk/ride",
             "learning": "dar una vuelta"
           }
@@ -1077,6 +1223,10 @@
           "No te des por vencida"
         ],
         "hints": [
+          {
+            "native": "don't",
+            "learning": "no te"
+          },
           {
             "native": "give up",
             "learning": "darse por vencido"
@@ -1169,6 +1319,10 @@
         ],
         "hints": [
           {
+            "native": "can you give me",
+            "learning": "me das"
+          },
+          {
             "native": "number",
             "learning": "número"
           }
@@ -1213,7 +1367,12 @@
             "¿Qué pasó?",
             "¿Qué paso?"
           ],
-          "hints": []
+          "hints": [
+            {
+              "native": "what happened",
+              "learning": "¿qué pasó?"
+            }
+          ]
         }
       },
       {
@@ -1232,7 +1391,12 @@
           "accepted_translations": [
             "No pasa nada"
           ],
-          "hints": []
+          "hints": [
+            {
+              "native": "no worries",
+              "learning": "no pasa nada"
+            }
+          ]
         }
       },
       {
@@ -1281,6 +1445,10 @@
             {
               "native": "I'll pick you up",
               "learning": "paso por ti"
+            },
+            {
+              "native": "at 8",
+              "learning": "a las ocho"
             }
           ]
         }
@@ -1329,6 +1497,10 @@
           ],
           "hints": [
             {
+              "native": "I know",
+              "learning": "ya sé"
+            },
+            {
               "native": "I went overboard / overdid it",
               "learning": "me pasé"
             }
@@ -1360,6 +1532,10 @@
             {
               "native": "I forgot",
               "learning": "se me olvidó"
+            },
+            {
+              "native": "completely",
+              "learning": "por completo"
             }
           ]
         }
@@ -1381,6 +1557,10 @@
             "Estamos pasando el rato"
           ],
           "hints": [
+            {
+              "native": "we're",
+              "learning": "estamos"
+            },
             {
               "native": "hanging out / killing time",
               "learning": "pasando el rato"
@@ -1431,6 +1611,10 @@
             "¿Está todo bien? ¿Te paso algo?"
           ],
           "hints": [
+            {
+              "native": "is everything okay",
+              "learning": "está todo bien"
+            },
             {
               "native": "did something happen to you",
               "learning": "te pasó algo"
@@ -1513,6 +1697,10 @@
             {
               "native": "I spent the night",
               "learning": "pasé la noche"
+            },
+            {
+              "native": "at Sofía's place",
+              "learning": "en casa de Sofía"
             }
           ]
         }
@@ -1542,6 +1730,10 @@
               "learning": "pasó"
             },
             {
+              "native": "a very hard moment",
+              "learning": "un momento muy difícil"
+            },
+            {
               "native": "difficult",
               "learning": "difícil"
             }
@@ -1560,7 +1752,12 @@
           "¿Qué pasó?",
           "¿Qué paso?"
         ],
-        "hints": []
+        "hints": [
+          {
+            "native": "what happened",
+            "learning": "qué pasó"
+          }
+        ]
       },
       {
         "id": 2,
@@ -1571,7 +1768,12 @@
         "accepted_translations": [
           "¿Qué pasa?"
         ],
-        "hints": []
+        "hints": [
+          {
+            "native": "what's going on",
+            "learning": "qué pasa"
+          }
+        ]
       },
       {
         "id": 3,
@@ -1582,7 +1784,12 @@
         "accepted_translations": [
           "¿Qué te pasa?"
         ],
-        "hints": []
+        "hints": [
+          {
+            "native": "what's the matter with you",
+            "learning": "qué te pasa"
+          }
+        ]
       },
       {
         "id": 4,
@@ -1593,7 +1800,12 @@
         "accepted_translations": [
           "No pasa nada"
         ],
-        "hints": []
+        "hints": [
+          {
+            "native": "no worries",
+            "learning": "no pasa nada"
+          }
+        ]
       },
       {
         "id": 5,
@@ -1643,6 +1855,10 @@
             "native": "I'll pick you up",
             "learning": "paso por ti",
             "note": "lit. 'I'll pass by for you'"
+          },
+          {
+            "native": "at 7",
+            "learning": "a las siete"
           }
         ]
       },
@@ -1750,6 +1966,10 @@
             "learning": "pasamos"
           },
           {
+            "native": "a lot of time",
+            "learning": "mucho tiempo"
+          },
+          {
             "native": "together",
             "learning": "juntos"
           }
@@ -1824,6 +2044,10 @@
         ],
         "hints": [
           {
+            "native": "we're just",
+            "learning": "solo estamos"
+          },
+          {
             "native": "hanging out / killing time",
             "learning": "pasando el rato"
           }
@@ -1861,6 +2085,10 @@
           {
             "native": "I went through",
             "learning": "pasé"
+          },
+          {
+            "native": "a very hard moment",
+            "learning": "un momento muy difícil"
           },
           {
             "native": "hard / difficult",
@@ -1911,6 +2139,10 @@
             {
               "native": "she's coming back",
               "learning": "vuelve"
+            },
+            {
+              "native": "on Friday",
+              "learning": "el viernes"
             }
           ]
         }
@@ -1987,6 +2219,10 @@
               "native": "she became",
               "learning": "se volvió",
               "note": "volverse + adj = to become"
+            },
+            {
+              "native": "very independent",
+              "learning": "muy independiente"
             }
           ]
         }
@@ -2061,6 +2297,10 @@
           ],
           "hints": [
             {
+              "native": "we have to",
+              "learning": "hay que"
+            },
+            {
               "native": "start over",
               "learning": "volver a empezar"
             }
@@ -2086,6 +2326,10 @@
           ],
           "hints": [
             {
+              "native": "is he back",
+              "learning": "volvió"
+            },
+            {
               "native": "yet / already",
               "learning": "ya"
             }
@@ -2104,7 +2348,16 @@
           "Vuelvo ahora",
           "Ahorita vuelvo"
         ],
-        "hints": []
+        "hints": [
+          {
+            "native": "I'll be back",
+            "learning": "vuelvo"
+          },
+          {
+            "native": "right back / now",
+            "learning": "ahora"
+          }
+        ]
       },
       {
         "id": 2,
@@ -2133,7 +2386,16 @@
           "Volví tarde",
           "Volvi tarde"
         ],
-        "hints": []
+        "hints": [
+          {
+            "native": "I got back",
+            "learning": "volví"
+          },
+          {
+            "native": "late",
+            "learning": "tarde"
+          }
+        ]
       },
       {
         "id": 4,
@@ -2144,7 +2406,16 @@
         "accepted_translations": [
           "Vuelve pronto"
         ],
-        "hints": []
+        "hints": [
+          {
+            "native": "come back",
+            "learning": "vuelve"
+          },
+          {
+            "native": "soon",
+            "learning": "pronto"
+          }
+        ]
       },
       {
         "id": 5,
@@ -2175,8 +2446,12 @@
         ],
         "hints": [
           {
-            "native": "late again",
-            "learning": "volviste a llegar tarde"
+            "native": "you were ... again",
+            "learning": "volviste a"
+          },
+          {
+            "native": "to arrive late",
+            "learning": "llegar tarde"
           }
         ]
       },
@@ -2224,6 +2499,10 @@
         ],
         "hints": [
           {
+            "native": "when",
+            "learning": "cuándo"
+          },
+          {
             "native": "seeing her again",
             "learning": "la vuelves a ver"
           }
@@ -2239,7 +2518,16 @@
           "Volvimos a las diez",
           "Volvimos a las 10"
         ],
-        "hints": []
+        "hints": [
+          {
+            "native": "we got back",
+            "learning": "volvimos"
+          },
+          {
+            "native": "at 10",
+            "learning": "a las diez"
+          }
+        ]
       },
       {
         "id": 11,
@@ -2273,6 +2561,10 @@
             "native": "he became",
             "learning": "se volvió",
             "note": "volverse + adj = to become"
+          },
+          {
+            "native": "very",
+            "learning": "muy"
           },
           {
             "native": "serious",
@@ -2418,6 +2710,10 @@
         ],
         "hints": [
           {
+            "native": "is she back",
+            "learning": "volvió"
+          },
+          {
             "native": "yet / already",
             "learning": "ya"
           }
@@ -2450,6 +2746,10 @@
             {
               "native": "put on",
               "learning": "pon"
+            },
+            {
+              "native": "music",
+              "learning": "música"
             }
           ]
         }
@@ -2472,9 +2772,17 @@
           ],
           "hints": [
             {
+              "native": "I need to",
+              "learning": "tengo que"
+            },
+            {
               "native": "put on (clothing)",
               "learning": "ponerme",
               "note": "ponerse = to put on clothing"
+            },
+            {
+              "native": "shoes",
+              "learning": "los zapatos"
             }
           ]
         }
@@ -2496,6 +2804,10 @@
             "Hay que ponernos de acuerdo"
           ],
           "hints": [
+            {
+              "native": "we need to",
+              "learning": "hay que"
+            },
             {
               "native": "agree / get on same page",
               "learning": "ponernos de acuerdo"
@@ -2524,7 +2836,11 @@
             {
               "native": "I got nervous",
               "learning": "me puse nervioso",
-              "note": "ponerse + adj = to get/become"
+              "note": "ponerse + adj = to become/get"
+            },
+            {
+              "native": "very / really",
+              "learning": "muy"
             }
           ]
         }
@@ -2630,6 +2946,10 @@
             {
               "native": "with you",
               "learning": "contigo"
+            },
+            {
+              "native": "later",
+              "learning": "más tarde"
             }
           ]
         }
@@ -2678,8 +2998,16 @@
           ],
           "hints": [
             {
-              "native": "put into practice",
-              "learning": "poner en práctica"
+              "native": "now",
+              "learning": "ahora"
+            },
+            {
+              "native": "we put it",
+              "learning": "lo ponemos"
+            },
+            {
+              "native": "into practice",
+              "learning": "en práctica"
             }
           ]
         }
@@ -2700,6 +3028,10 @@
           {
             "native": "put on",
             "learning": "pon"
+          },
+          {
+            "native": "music",
+            "learning": "música"
           }
         ]
       },
@@ -2713,6 +3045,10 @@
           "¿Puedo poner la tele?"
         ],
         "hints": [
+          {
+            "native": "can I put on",
+            "learning": "puedo poner"
+          },
           {
             "native": "TV",
             "learning": "la tele"
@@ -2812,6 +3148,10 @@
             "native": "I got nervous",
             "learning": "me puse nervioso",
             "note": "ponerse + adj = to become/get"
+          },
+          {
+            "native": "very / really",
+            "learning": "muy"
           }
         ]
       },
@@ -2829,6 +3169,10 @@
           {
             "native": "he got happy",
             "learning": "se puso contento"
+          },
+          {
+            "native": "very / really",
+            "learning": "muy"
           }
         ]
       },
@@ -2888,6 +3232,10 @@
           {
             "native": "things / stuff",
             "learning": "cosas"
+          },
+          {
+            "native": "here",
+            "learning": "aquí"
           }
         ]
       },
@@ -2909,6 +3257,14 @@
           {
             "native": "where",
             "learning": "dónde"
+          },
+          {
+            "native": "to put",
+            "learning": "poner"
+          },
+          {
+            "native": "this",
+            "learning": "esto"
           }
         ]
       },
@@ -2978,8 +3334,16 @@
         ],
         "hints": [
           {
+            "native": "we need to",
+            "learning": "hay que"
+          },
+          {
             "native": "put into practice",
             "learning": "poner en práctica"
+          },
+          {
+            "native": "that",
+            "learning": "eso"
           }
         ]
       },
