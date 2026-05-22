@@ -233,5 +233,917 @@
         ]
       }
     ]
+  },
+  "dar": {
+    "display": "dar",
+    "description": "to give; dar igual/ganas/miedo/asco; darse cuenta/prisa",
+    "sentences": [
+      {
+        "id": 1,
+        "category": "Give (basic)",
+        "context": "Adam: Could you hand something over at the table?",
+        "english": "Can you pass me the water?",
+        "spanish": "¿Me das el agua?",
+        "accepted_translations": ["¿Me das el agua?"],
+        "hints": [
+          { "native": "pass me", "learning": "me das", "note": "dar = to give/pass" },
+          { "native": "water", "learning": "el agua" }
+        ]
+      },
+      {
+        "id": 2,
+        "category": "Give (basic)",
+        "context": "Adam: You mentioned you wanted to stay in touch.",
+        "english": "I'll give you my number",
+        "spanish": "Te doy mi número",
+        "accepted_translations": ["Te doy mi número", "Te doy mi numero"],
+        "hints": [
+          { "native": "I give you", "learning": "te doy" },
+          { "native": "number", "learning": "número" }
+        ]
+      },
+      {
+        "id": 3,
+        "category": "Dar igual (indifference)",
+        "context": "Adam: Would you rather go to the beach or the mountains?",
+        "english": "It doesn't matter to me / I don't care",
+        "spanish": "Me da igual",
+        "accepted_translations": ["Me da igual"],
+        "hints": [
+          { "native": "doesn't matter to me", "learning": "me da igual" }
+        ]
+      },
+      {
+        "id": 4,
+        "category": "Dar igual (indifference)",
+        "context": "Adam: Should we go at 6 or 7?",
+        "english": "Either way / It's the same",
+        "spanish": "Da lo mismo",
+        "accepted_translations": ["Da lo mismo"],
+        "hints": [
+          { "native": "either way / same thing", "learning": "da lo mismo" }
+        ]
+      },
+      {
+        "id": 5,
+        "category": "Dar ganas (feel like doing something)",
+        "context": "Adam: It's such a nice evening. What are you thinking?",
+        "english": "I feel like going out",
+        "spanish": "Me dan ganas de salir",
+        "accepted_translations": ["Me dan ganas de salir"],
+        "hints": [
+          { "native": "I feel like", "learning": "me dan ganas de" },
+          { "native": "going out", "learning": "salir" }
+        ]
+      },
+      {
+        "id": 6,
+        "category": "Dar miedo (to scare)",
+        "context": "Adam: Have you seen that horror movie yet?",
+        "english": "It scares me",
+        "spanish": "Me da miedo",
+        "accepted_translations": ["Me da miedo"],
+        "hints": [
+          { "native": "it scares me", "learning": "me da miedo" }
+        ]
+      },
+      {
+        "id": 7,
+        "category": "Dar asco (to disgust)",
+        "context": "Adam: What do you think of that smell?",
+        "english": "It grosses me out",
+        "spanish": "Me da asco",
+        "accepted_translations": ["Me da asco"],
+        "hints": [
+          { "native": "it grosses me out", "learning": "me da asco" }
+        ]
+      },
+      {
+        "id": 8,
+        "category": "Darse cuenta (to realize)",
+        "context": "Adam: Why didn't you say something sooner?",
+        "english": "I realized too late",
+        "spanish": "Me di cuenta muy tarde",
+        "accepted_translations": ["Me di cuenta muy tarde"],
+        "hints": [
+          { "native": "I realized", "learning": "me di cuenta", "note": "'di' has no accent (monosyllable)" },
+          { "native": "too late", "learning": "muy tarde" }
+        ]
+      },
+      {
+        "id": 9,
+        "category": "Darse cuenta (to realize)",
+        "context": "Adam: Did you see what just happened?",
+        "english": "Did you notice? / Did you realize?",
+        "spanish": "¿Te diste cuenta?",
+        "accepted_translations": ["¿Te diste cuenta?"],
+        "hints": [
+          { "native": "did you notice / realize", "learning": "te diste cuenta" }
+        ]
+      },
+      {
+        "id": 10,
+        "category": "Darse prisa (to hurry)",
+        "context": "Adam: We're going to miss the bus!",
+        "english": "Hurry up",
+        "spanish": "Date prisa",
+        "accepted_translations": ["Date prisa"],
+        "hints": [
+          { "native": "hurry up", "learning": "date prisa", "note": "lit. 'give yourself haste'" }
+        ]
+      },
+      {
+        "id": 11,
+        "category": "Dar una vuelta (go for a walk/ride)",
+        "context": "Adam: The weather is perfect outside today.",
+        "english": "Want to go for a walk?",
+        "spanish": "¿Vamos a dar una vuelta?",
+        "accepted_translations": ["¿Vamos a dar una vuelta?"],
+        "hints": [
+          { "native": "go for a walk/ride", "learning": "dar una vuelta" }
+        ]
+      },
+      {
+        "id": 12,
+        "category": "Dar pena (to feel bad / embarrassed)",
+        "context": "Adam: How did you feel when that happened in front of everyone?",
+        "english": "I feel really bad / I'm so embarrassed",
+        "spanish": "Me da mucha pena",
+        "accepted_translations": ["Me da mucha pena"],
+        "hints": [
+          { "native": "I feel bad / embarrassed", "learning": "me da pena" },
+          { "native": "so much / really", "learning": "mucha" }
+        ]
+      },
+      {
+        "id": 13,
+        "category": "Give thanks",
+        "context": "Adam: My friend helped you out, right?",
+        "english": "Thank him for me",
+        "spanish": "Dale las gracias de mi parte",
+        "accepted_translations": ["Dale las gracias de mi parte"],
+        "hints": [
+          { "native": "thank him", "learning": "dale las gracias" },
+          { "native": "for me", "learning": "de mi parte" }
+        ]
+      },
+      {
+        "id": 14,
+        "category": "Darse por vencido (to give up)",
+        "context": "Adam: This is really hard. Are you going to stop trying?",
+        "english": "Don't give up",
+        "spanish": "No te des por vencido",
+        "accepted_translations": ["No te des por vencido", "No te des por vencida"],
+        "hints": [
+          { "native": "give up", "learning": "darse por vencido" }
+        ]
+      },
+      {
+        "id": 15,
+        "category": "Darse un golpe (to hit yourself)",
+        "context": "Adam: Why are you limping?",
+        "english": "I hit my knee",
+        "spanish": "Me di un golpe en la rodilla",
+        "accepted_translations": ["Me di un golpe en la rodilla"],
+        "hints": [
+          { "native": "I hit / bumped", "learning": "me di un golpe" },
+          { "native": "knee", "learning": "rodilla" }
+        ]
+      },
+      {
+        "id": 16,
+        "category": "Dar vergüenza (to embarrass)",
+        "context": "Adam: Why don't you ever speak up in meetings?",
+        "english": "It embarrasses me / I'm embarrassed",
+        "spanish": "Me da vergüenza",
+        "accepted_translations": ["Me da vergüenza", "Me da verguenza"],
+        "hints": [
+          { "native": "it embarrasses me", "learning": "me da vergüenza" }
+        ]
+      },
+      {
+        "id": 17,
+        "category": "Dar resultado (to work out / pay off)",
+        "context": "Adam: Did the new strategy end up working?",
+        "english": "It worked out / paid off",
+        "spanish": "Dio resultado",
+        "accepted_translations": ["Dio resultado"],
+        "hints": [
+          { "native": "it worked out", "learning": "dio resultado", "note": "'dio' = past tense of dar, no accent on monosyllable" }
+        ]
+      },
+      {
+        "id": 18,
+        "category": "Give (physical)",
+        "context": "Adam: I haven't seen you in so long!",
+        "english": "Give me a hug",
+        "spanish": "Dame un abrazo",
+        "accepted_translations": ["Dame un abrazo"],
+        "hints": [
+          { "native": "give me", "learning": "dame" },
+          { "native": "hug", "learning": "abrazo" }
+        ]
+      },
+      {
+        "id": 19,
+        "category": "Give (contact info)",
+        "context": "Adam: We should keep in touch.",
+        "english": "Can you give me your number?",
+        "spanish": "¿Me das tu número?",
+        "accepted_translations": ["¿Me das tu número?", "¿Me das tu numero?"],
+        "hints": [
+          { "native": "number", "learning": "número" }
+        ]
+      },
+      {
+        "id": 20,
+        "category": "Dar en el clavo (to nail it)",
+        "context": "Adam: You figured out exactly what the problem was!",
+        "english": "You hit the nail on the head / You nailed it",
+        "spanish": "Diste en el clavo",
+        "accepted_translations": ["Diste en el clavo"],
+        "hints": [
+          { "native": "you hit the nail on the head", "learning": "diste en el clavo" }
+        ]
+      }
+    ]
+  },
+  "pasar": {
+    "display": "pasar",
+    "description": "to happen, pass, spend time; pasarlo bien/mal, pasar de largo, no pasa nada",
+    "sentences": [
+      {
+        "id": 1,
+        "category": "What happened",
+        "context": "Adam: You look upset. Is everything okay?",
+        "english": "What happened?",
+        "spanish": "¿Qué pasó?",
+        "accepted_translations": ["¿Qué pasó?", "¿Qué paso?"],
+        "hints": []
+      },
+      {
+        "id": 2,
+        "category": "What's going on",
+        "context": "Adam: You walk in and everyone looks tense.",
+        "english": "What's going on? / What's up?",
+        "spanish": "¿Qué pasa?",
+        "accepted_translations": ["¿Qué pasa?"],
+        "hints": []
+      },
+      {
+        "id": 3,
+        "category": "What's wrong",
+        "context": "Adam: You seem really off today.",
+        "english": "What's the matter with you? / What's wrong?",
+        "spanish": "¿Qué te pasa?",
+        "accepted_translations": ["¿Qué te pasa?"],
+        "hints": []
+      },
+      {
+        "id": 4,
+        "category": "No worries",
+        "context": "Adam: Sorry, I accidentally knocked your drink over.",
+        "english": "No worries / It's fine",
+        "spanish": "No pasa nada",
+        "accepted_translations": ["No pasa nada"],
+        "hints": []
+      },
+      {
+        "id": 5,
+        "category": "Pasarlo bien (have a good time)",
+        "context": "Adam: How was the party last night?",
+        "english": "I had a great time",
+        "spanish": "Lo pasé muy bien",
+        "accepted_translations": ["Lo pasé muy bien", "Lo pase muy bien"],
+        "hints": [
+          { "native": "I had a great time", "learning": "lo pasé muy bien" }
+        ]
+      },
+      {
+        "id": 6,
+        "category": "Pasarlo bien (have a good time)",
+        "context": "Adam: How was the trip with your friends?",
+        "english": "We had a great time",
+        "spanish": "Lo pasamos muy bien",
+        "accepted_translations": ["Lo pasamos muy bien"],
+        "hints": [
+          { "native": "we had a great time", "learning": "lo pasamos muy bien" }
+        ]
+      },
+      {
+        "id": 7,
+        "category": "Pick up / come by",
+        "context": "Adam: Should I meet you there or what?",
+        "english": "I'll pick you up at 7",
+        "spanish": "Paso por ti a las siete",
+        "accepted_translations": ["Paso por ti a las siete", "Paso por ti a las 7"],
+        "hints": [
+          { "native": "I'll pick you up", "learning": "paso por ti", "note": "lit. 'I'll pass by for you'" }
+        ]
+      },
+      {
+        "id": 8,
+        "category": "Come in / go ahead",
+        "context": "Adam: Someone knocks at the door.",
+        "english": "Come in / Go ahead",
+        "spanish": "Pasa adelante",
+        "accepted_translations": ["Pasa adelante", "Pasa"],
+        "hints": [
+          { "native": "come in", "learning": "pasa adelante" }
+        ]
+      },
+      {
+        "id": 9,
+        "category": "Pasar de largo (go past without stopping)",
+        "context": "Adam: Did you find the coffee shop?",
+        "english": "I walked right past it / I missed it",
+        "spanish": "Pasé de largo",
+        "accepted_translations": ["Pasé de largo", "Pase de largo"],
+        "hints": [
+          { "native": "I walked right past it", "learning": "pasé de largo" }
+        ]
+      },
+      {
+        "id": 10,
+        "category": "Pasarse (to overdo it / go too far)",
+        "context": "Adam: You ate like three plates. How do you feel?",
+        "english": "I overdid it / I went too far",
+        "spanish": "Me pasé",
+        "accepted_translations": ["Me pasé", "Me pase"],
+        "hints": [
+          { "native": "I overdid it", "learning": "me pasé" }
+        ]
+      },
+      {
+        "id": 11,
+        "category": "Pasa que (the thing is)",
+        "context": "Adam: Why weren't you at the meeting?",
+        "english": "The thing is, I forgot",
+        "spanish": "Pasa que me olvidé",
+        "accepted_translations": ["Pasa que me olvidé", "Pasa que me olvide"],
+        "hints": [
+          { "native": "the thing is", "learning": "pasa que" },
+          { "native": "I forgot", "learning": "me olvidé" }
+        ]
+      },
+      {
+        "id": 12,
+        "category": "Pasarlo mal (have a rough time)",
+        "context": "Adam: I heard things didn't go well for you.",
+        "english": "I had a rough time / It was really hard",
+        "spanish": "Lo pasé muy mal",
+        "accepted_translations": ["Lo pasé muy mal", "Lo pase muy mal"],
+        "hints": [
+          { "native": "I had a rough time", "learning": "lo pasé muy mal" }
+        ]
+      },
+      {
+        "id": 13,
+        "category": "Spend time",
+        "context": "Adam: Are you two close?",
+        "english": "We spent a lot of time together",
+        "spanish": "Pasamos mucho tiempo juntos",
+        "accepted_translations": ["Pasamos mucho tiempo juntos"],
+        "hints": [
+          { "native": "we spent", "learning": "pasamos" },
+          { "native": "together", "learning": "juntos" }
+        ]
+      },
+      {
+        "id": 14,
+        "category": "Spend the night",
+        "context": "Adam: Did you drive back that same night?",
+        "english": "I spent the night there",
+        "spanish": "Pasé la noche allá",
+        "accepted_translations": ["Pasé la noche allá", "Pase la noche allá", "Pasé la noche alla", "Pase la noche alla"],
+        "hints": [
+          { "native": "I spent the night", "learning": "pasé la noche" },
+          { "native": "there", "learning": "allá" }
+        ]
+      },
+      {
+        "id": 15,
+        "category": "Pasar frío (to be cold)",
+        "context": "Adam: How was the camping trip? Was it cold at night?",
+        "english": "We were really cold / We froze",
+        "spanish": "Pasamos mucho frío",
+        "accepted_translations": ["Pasamos mucho frío", "Pasamos mucho frio"],
+        "hints": [
+          { "native": "we were really cold", "learning": "pasamos mucho frío" }
+        ]
+      },
+      {
+        "id": 16,
+        "category": "Pasar por alto (to overlook)",
+        "context": "Adam: How did that mistake slip through?",
+        "english": "I overlooked it / I missed it",
+        "spanish": "Lo pasé por alto",
+        "accepted_translations": ["Lo pasé por alto", "Lo pase por alto"],
+        "hints": [
+          { "native": "I overlooked it", "learning": "lo pasé por alto" }
+        ]
+      },
+      {
+        "id": 17,
+        "category": "Pasar el rato (hang out / kill time)",
+        "context": "Adam: What are you guys doing right now?",
+        "english": "We're just hanging out / killing time",
+        "spanish": "Solo estamos pasando el rato",
+        "accepted_translations": ["Solo estamos pasando el rato", "Sólo estamos pasando el rato"],
+        "hints": [
+          { "native": "hanging out / killing time", "learning": "pasando el rato" }
+        ]
+      },
+      {
+        "id": 18,
+        "category": "Pasar a buscar (come pick up)",
+        "context": "Adam: How are we getting there?",
+        "english": "I'll come pick you up",
+        "spanish": "Te paso a buscar",
+        "accepted_translations": ["Te paso a buscar"],
+        "hints": [
+          { "native": "I'll come pick you up", "learning": "te paso a buscar" }
+        ]
+      },
+      {
+        "id": 19,
+        "category": "Go through a hard time",
+        "context": "Adam: You seemed really stressed last month.",
+        "english": "I went through a really hard time",
+        "spanish": "Pasé un momento muy difícil",
+        "accepted_translations": ["Pasé un momento muy difícil", "Pase un momento muy difícil", "Pasé un momento muy dificil", "Pase un momento muy dificil"],
+        "hints": [
+          { "native": "I went through", "learning": "pasé" },
+          { "native": "hard / difficult", "learning": "difícil" }
+        ]
+      },
+      {
+        "id": 20,
+        "category": "Did something happen",
+        "context": "Adam: You look like something's wrong.",
+        "english": "Did something happen? / Are you okay?",
+        "spanish": "¿Te pasó algo?",
+        "accepted_translations": ["¿Te pasó algo?", "¿Te paso algo?"],
+        "hints": [
+          { "native": "did something happen to you", "learning": "te pasó algo" }
+        ]
+      }
+    ]
+  },
+  "volver": {
+    "display": "volver",
+    "description": "to return/come back; volver a = do again; volverse = to become",
+    "sentences": [
+      {
+        "id": 1,
+        "category": "Return (coming back soon)",
+        "context": "Adam: Where are you going?",
+        "english": "I'll be right back",
+        "spanish": "Vuelvo ahora",
+        "accepted_translations": ["Vuelvo ahora", "Ahorita vuelvo"],
+        "hints": []
+      },
+      {
+        "id": 2,
+        "category": "Return (asking when)",
+        "context": "Adam: You're heading out on a trip tomorrow?",
+        "english": "When are you coming back?",
+        "spanish": "¿Cuándo vuelves?",
+        "accepted_translations": ["¿Cuándo vuelves?", "¿Cuando vuelves?"],
+        "hints": [
+          { "native": "when", "learning": "cuándo" }
+        ]
+      },
+      {
+        "id": 3,
+        "category": "Return (past)",
+        "context": "Adam: What time did you get home last night?",
+        "english": "I got back late",
+        "spanish": "Volví tarde",
+        "accepted_translations": ["Volví tarde", "Volvi tarde"],
+        "hints": []
+      },
+      {
+        "id": 4,
+        "category": "Return (farewell)",
+        "context": "Adam: I'm leaving now, see you next time!",
+        "english": "Come back soon",
+        "spanish": "Vuelve pronto",
+        "accepted_translations": ["Vuelve pronto"],
+        "hints": []
+      },
+      {
+        "id": 5,
+        "category": "Volver a + infinitive (do again)",
+        "context": "Adam: I told him not to do that. Did he listen?",
+        "english": "He did it again",
+        "spanish": "Lo volvió a hacer",
+        "accepted_translations": ["Lo volvió a hacer", "Lo volvio a hacer"],
+        "hints": [
+          { "native": "he did it again", "learning": "lo volvió a hacer", "note": "volver a + verb = to do something again" }
+        ]
+      },
+      {
+        "id": 6,
+        "category": "Volver a + infinitive (do again)",
+        "context": "Adam: This is the third time this week!",
+        "english": "You were late again",
+        "spanish": "Volviste a llegar tarde",
+        "accepted_translations": ["Volviste a llegar tarde"],
+        "hints": [
+          { "native": "late again", "learning": "volviste a llegar tarde" }
+        ]
+      },
+      {
+        "id": 7,
+        "category": "No volver a (won't do again)",
+        "context": "Adam: You made a mistake. Will you do it again?",
+        "english": "I won't do it again",
+        "spanish": "No lo vuelvo a hacer",
+        "accepted_translations": ["No lo vuelvo a hacer"],
+        "hints": [
+          { "native": "I won't do it again", "learning": "no lo vuelvo a hacer" }
+        ]
+      },
+      {
+        "id": 8,
+        "category": "Try again",
+        "context": "Adam: That didn't work out. What now?",
+        "english": "Let's try again",
+        "spanish": "Vamos a volver a intentarlo",
+        "accepted_translations": ["Vamos a volver a intentarlo"],
+        "hints": [
+          { "native": "let's try again", "learning": "vamos a volver a intentarlo" }
+        ]
+      },
+      {
+        "id": 9,
+        "category": "See again",
+        "context": "Adam: What's going on with you and her?",
+        "english": "When are you seeing her again?",
+        "spanish": "¿Cuándo la vuelves a ver?",
+        "accepted_translations": ["¿Cuándo la vuelves a ver?", "¿Cuando la vuelves a ver?"],
+        "hints": [
+          { "native": "seeing her again", "learning": "la vuelves a ver" }
+        ]
+      },
+      {
+        "id": 10,
+        "category": "Return (time)",
+        "context": "Adam: What time did everyone get back from the concert?",
+        "english": "We got back at 10",
+        "spanish": "Volvimos a las diez",
+        "accepted_translations": ["Volvimos a las diez", "Volvimos a las 10"],
+        "hints": []
+      },
+      {
+        "id": 11,
+        "category": "Volverse loco (go crazy)",
+        "context": "Adam: How's work been lately?",
+        "english": "I'm going crazy / losing my mind",
+        "spanish": "Me estoy volviendo loco",
+        "accepted_translations": ["Me estoy volviendo loco", "Me estoy volviendo loca"],
+        "hints": [
+          { "native": "I'm going crazy", "learning": "me estoy volviendo loco" }
+        ]
+      },
+      {
+        "id": 12,
+        "category": "Volverse (to become)",
+        "context": "Adam: He used to be so laid-back. What happened?",
+        "english": "He became very serious",
+        "spanish": "Se volvió muy serio",
+        "accepted_translations": ["Se volvió muy serio", "Se volvio muy serio"],
+        "hints": [
+          { "native": "he became", "learning": "se volvió", "note": "volverse + adj = to become" },
+          { "native": "serious", "learning": "serio" }
+        ]
+      },
+      {
+        "id": 13,
+        "category": "Volver loco (drive crazy)",
+        "context": "Adam: He keeps doing things that bother you.",
+        "english": "You drive me crazy",
+        "spanish": "Me vuelves loco",
+        "accepted_translations": ["Me vuelves loco", "Me vuelves loca"],
+        "hints": [
+          { "native": "you drive me crazy", "learning": "me vuelves loco" }
+        ]
+      },
+      {
+        "id": 14,
+        "category": "Volver en sí (regain consciousness)",
+        "context": "Adam: What happened after he fainted?",
+        "english": "He came to / He regained consciousness",
+        "spanish": "Volvió en sí",
+        "accepted_translations": ["Volvió en sí", "Volvio en sí", "Volvió en si", "Volvio en si"],
+        "hints": [
+          { "native": "he came to", "learning": "volvió en sí" }
+        ]
+      },
+      {
+        "id": 15,
+        "category": "Start over",
+        "context": "Adam: The whole plan fell through. What are we doing?",
+        "english": "We have to start over",
+        "spanish": "Hay que volver a empezar",
+        "accepted_translations": ["Hay que volver a empezar"],
+        "hints": [
+          { "native": "we have to", "learning": "hay que" },
+          { "native": "start over", "learning": "volver a empezar" }
+        ]
+      },
+      {
+        "id": 16,
+        "category": "Go back to a topic",
+        "context": "Adam: We got sidetracked. What were we talking about?",
+        "english": "Let's go back to that topic",
+        "spanish": "Volvamos sobre ese tema",
+        "accepted_translations": ["Volvamos sobre ese tema"],
+        "hints": [
+          { "native": "let's go back to", "learning": "volvamos sobre" },
+          { "native": "topic", "learning": "tema" }
+        ]
+      },
+      {
+        "id": 17,
+        "category": "Talk again",
+        "context": "Adam: I heard you two had a falling out.",
+        "english": "Did you talk to him again?",
+        "spanish": "¿Volviste a hablar con él?",
+        "accepted_translations": ["¿Volviste a hablar con él?", "¿Volviste a hablar con el?"],
+        "hints": [
+          { "native": "did you talk to him again", "learning": "volviste a hablar con él" }
+        ]
+      },
+      {
+        "id": 18,
+        "category": "Don't want to see again",
+        "context": "Adam: Are you going to patch things up with him?",
+        "english": "I don't want to see him again",
+        "spanish": "No quiero volver a verlo",
+        "accepted_translations": ["No quiero volver a verlo"],
+        "hints": [
+          { "native": "I don't want to see him again", "learning": "no quiero volver a verlo" }
+        ]
+      },
+      {
+        "id": 19,
+        "category": "Back to normal",
+        "context": "Adam: After everything he went through, how is he now?",
+        "english": "He was back to his old self",
+        "spanish": "Volvió a ser el mismo de siempre",
+        "accepted_translations": ["Volvió a ser el mismo de siempre", "Volvio a ser el mismo de siempre"],
+        "hints": [
+          { "native": "back to his old self", "learning": "volvió a ser el mismo de siempre" }
+        ]
+      },
+      {
+        "id": 20,
+        "category": "Return (asking if back yet)",
+        "context": "Adam: I've been waiting for her. Any sign of her?",
+        "english": "Is she back yet?",
+        "spanish": "¿Ya volvió?",
+        "accepted_translations": ["¿Ya volvió?", "¿Ya volvio?"],
+        "hints": [
+          { "native": "yet / already", "learning": "ya" }
+        ]
+      }
+    ]
+  },
+  "poner": {
+    "display": "poner",
+    "description": "to put/place, turn on media; ponerse = put on clothing, to become",
+    "sentences": [
+      {
+        "id": 1,
+        "category": "Put on media (music)",
+        "context": "Adam: It's quiet in here. Can we liven it up?",
+        "english": "Put on some music",
+        "spanish": "Pon música",
+        "accepted_translations": ["Pon música", "Pon musica"],
+        "hints": [
+          { "native": "put on", "learning": "pon" }
+        ]
+      },
+      {
+        "id": 2,
+        "category": "Put on media (TV)",
+        "context": "Adam: You're at a friend's place and want to watch something.",
+        "english": "Can I put on the TV?",
+        "spanish": "¿Puedo poner la tele?",
+        "accepted_translations": ["¿Puedo poner la tele?"],
+        "hints": [
+          { "native": "TV", "learning": "la tele" }
+        ]
+      },
+      {
+        "id": 3,
+        "category": "Ponerse (put on clothing)",
+        "context": "Adam: It's cold outside. You should bundle up.",
+        "english": "Put on your coat",
+        "spanish": "Ponte el abrigo",
+        "accepted_translations": ["Ponte el abrigo"],
+        "hints": [
+          { "native": "put on (clothing)", "learning": "ponte", "note": "ponerse = to put on clothing" },
+          { "native": "coat", "learning": "el abrigo" }
+        ]
+      },
+      {
+        "id": 4,
+        "category": "Ponerse de acuerdo (to agree)",
+        "context": "Adam: We keep making different decisions. This is a mess.",
+        "english": "We need to get on the same page / agree",
+        "spanish": "Hay que ponernos de acuerdo",
+        "accepted_translations": ["Hay que ponernos de acuerdo"],
+        "hints": [
+          { "native": "we need to", "learning": "hay que" },
+          { "native": "agree / get on same page", "learning": "ponernos de acuerdo" }
+        ]
+      },
+      {
+        "id": 5,
+        "category": "Pay attention",
+        "context": "Adam: You keep getting distracted.",
+        "english": "Pay attention",
+        "spanish": "Pon atención",
+        "accepted_translations": ["Pon atención", "Pon atencion"],
+        "hints": [
+          { "native": "pay attention", "learning": "pon atención" }
+        ]
+      },
+      {
+        "id": 6,
+        "category": "Make excuses",
+        "context": "Adam: Did he follow through on what he said?",
+        "english": "He always makes excuses",
+        "spanish": "Siempre pone excusas",
+        "accepted_translations": ["Siempre pone excusas"],
+        "hints": [
+          { "native": "always", "learning": "siempre" },
+          { "native": "makes excuses", "learning": "pone excusas" }
+        ]
+      },
+      {
+        "id": 7,
+        "category": "Ponerse nervioso (to get nervous)",
+        "context": "Adam: How were you before your big presentation?",
+        "english": "I got really nervous",
+        "spanish": "Me puse muy nervioso",
+        "accepted_translations": ["Me puse muy nervioso", "Me puse muy nerviosa"],
+        "hints": [
+          { "native": "I got nervous", "learning": "me puse nervioso", "note": "ponerse + adj = to become/get" }
+        ]
+      },
+      {
+        "id": 8,
+        "category": "Ponerse contento (to get happy)",
+        "context": "Adam: How did he react when you told him the good news?",
+        "english": "He was really happy / He lit up",
+        "spanish": "Se puso muy contento",
+        "accepted_translations": ["Se puso muy contento", "Se puso muy contenta"],
+        "hints": [
+          { "native": "he got happy", "learning": "se puso contento" }
+        ]
+      },
+      {
+        "id": 9,
+        "category": "Poner de mal humor (bad mood)",
+        "context": "Adam: Why do you hate that song so much?",
+        "english": "It puts me in a bad mood",
+        "spanish": "Me pone de mal humor",
+        "accepted_translations": ["Me pone de mal humor"],
+        "hints": [
+          { "native": "bad mood", "learning": "mal humor" },
+          { "native": "it puts me in", "learning": "me pone de" }
+        ]
+      },
+      {
+        "id": 10,
+        "category": "Poner al día (fill in / update)",
+        "context": "Adam: You missed a week. How did you catch up?",
+        "english": "He filled me in / got me up to speed",
+        "spanish": "Me puso al día",
+        "accepted_translations": ["Me puso al día", "Me puso al dia"],
+        "hints": [
+          { "native": "filled me in / up to speed", "learning": "me puso al día" }
+        ]
+      },
+      {
+        "id": 11,
+        "category": "Put (physical placement)",
+        "context": "Adam: Where did you leave your stuff?",
+        "english": "I put my things here",
+        "spanish": "Puse mis cosas aquí",
+        "accepted_translations": ["Puse mis cosas aquí", "Puse mis cosas aqui"],
+        "hints": [
+          { "native": "I put", "learning": "puse", "note": "puse = irregular preterite of poner" },
+          { "native": "things / stuff", "learning": "cosas" }
+        ]
+      },
+      {
+        "id": 12,
+        "category": "Put (physical placement)",
+        "context": "Adam: You're moving into a new place and rearranging.",
+        "english": "I don't know where to put this",
+        "spanish": "No sé dónde poner esto",
+        "accepted_translations": ["No sé dónde poner esto", "No se donde poner esto"],
+        "hints": [
+          { "native": "I don't know", "learning": "no sé" },
+          { "native": "where", "learning": "dónde" }
+        ]
+      },
+      {
+        "id": 13,
+        "category": "Put in charge",
+        "context": "Adam: Who's running the new project?",
+        "english": "They put him in charge",
+        "spanish": "Lo pusieron a cargo",
+        "accepted_translations": ["Lo pusieron a cargo"],
+        "hints": [
+          { "native": "they put him in charge", "learning": "lo pusieron a cargo" }
+        ]
+      },
+      {
+        "id": 14,
+        "category": "Ponerse en el lugar (put yourself in my shoes)",
+        "context": "Adam: I don't think you understand how I feel.",
+        "english": "Put yourself in my shoes",
+        "spanish": "Ponte en mi lugar",
+        "accepted_translations": ["Ponte en mi lugar"],
+        "hints": [
+          { "native": "put yourself in my shoes", "learning": "ponte en mi lugar", "note": "lit. 'put yourself in my place'" }
+        ]
+      },
+      {
+        "id": 15,
+        "category": "Ponerse en contacto (get in touch)",
+        "context": "Adam: Can your manager reach out to me directly?",
+        "english": "I'll get in touch with you",
+        "spanish": "Me pondré en contacto contigo",
+        "accepted_translations": ["Me pondré en contacto contigo", "Me pondre en contacto contigo"],
+        "hints": [
+          { "native": "I'll get in touch", "learning": "me pondré en contacto" },
+          { "native": "with you", "learning": "contigo" }
+        ]
+      },
+      {
+        "id": 16,
+        "category": "Poner en práctica (put into practice)",
+        "context": "Adam: We talked about new ideas. Now what?",
+        "english": "We need to put that into practice",
+        "spanish": "Hay que poner eso en práctica",
+        "accepted_translations": ["Hay que poner eso en práctica", "Hay que poner eso en practica"],
+        "hints": [
+          { "native": "put into practice", "learning": "poner en práctica" }
+        ]
+      },
+      {
+        "id": 17,
+        "category": "Poner la mesa (set the table)",
+        "context": "Adam: Dinner's almost ready. Can someone help out?",
+        "english": "Set the table",
+        "spanish": "Pon la mesa",
+        "accepted_translations": ["Pon la mesa"],
+        "hints": [
+          { "native": "set the table", "learning": "pon la mesa" }
+        ]
+      },
+      {
+        "id": 18,
+        "category": "¿Qué le pongo? (What can I get you?)",
+        "context": "Adam: You're a waiter approaching a customer's table.",
+        "english": "What can I get you?",
+        "spanish": "¿Qué le pongo?",
+        "accepted_translations": ["¿Qué le pongo?", "¿Que le pongo?"],
+        "hints": [
+          { "native": "what can I get you", "learning": "¿qué le pongo?", "note": "common waiter expression" }
+        ]
+      },
+      {
+        "id": 19,
+        "category": "Ponerse a + infinitive (start doing)",
+        "context": "Adam: What happened when you told her the bad news?",
+        "english": "She started crying",
+        "spanish": "Se puso a llorar",
+        "accepted_translations": ["Se puso a llorar"],
+        "hints": [
+          { "native": "she started crying", "learning": "se puso a llorar", "note": "ponerse a + verb = to start doing" },
+          { "native": "to cry", "learning": "llorar" }
+        ]
+      },
+      {
+        "id": 20,
+        "category": "Ponerse de pie (to stand up)",
+        "context": "Adam: What happened when the speaker walked in?",
+        "english": "Everyone stood up",
+        "spanish": "Todos se pusieron de pie",
+        "accepted_translations": ["Todos se pusieron de pie"],
+        "hints": [
+          { "native": "everyone", "learning": "todos" },
+          { "native": "stood up", "learning": "se pusieron de pie" }
+        ]
+      }
+    ]
   }
 }
