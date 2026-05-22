@@ -177,6 +177,25 @@ function restoreAccentsInTokens(
   });
 }
 
+function findUsecaseForCategory(category: string, usecases: UseCase[]): number {
+  const norm = (s: string) =>
+    s.toLowerCase()
+      .normalize("NFD").replace(/[̀-ͯ]/g, "")
+      .replace(/[^a-z0-9]/g, " ").replace(/\s+/g, " ").trim();
+  const sig = (s: string) => norm(s).split(" ").filter(w => w.length > 2);
+  const normCat = norm(category);
+  const catWords = new Set(sig(category));
+  let bestIdx = -1, bestScore = 0;
+  usecases.forEach((uc, i) => {
+    const normUC = norm(uc.name);
+    const direct = normCat.includes(normUC);
+    const overlap = sig(uc.name).filter(w => catWords.has(w)).length;
+    const score = direct ? overlap + 10 : overlap;
+    if (score > bestScore) { bestScore = score; bestIdx = i; }
+  });
+  return bestScore >= 2 ? bestIdx : -1;
+}
+
 function tokenizeWithHints(
   text: string,
   hints: HintItem[]
@@ -306,6 +325,7 @@ export default function WordDrillGame({
   const [learnComplete, setLearnComplete] = useState(false);
   const [learnPhase, setLearnPhase] = useState<"explanation" | "demo" | "practice">("explanation");
   const [showAllPhases, setShowAllPhases] = useState(false);
+  const [canReturnToPractice, setCanReturnToPractice] = useState(false);
 
   // ── Refs ─────────────────────────────────────────────────────────────────
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -328,6 +348,8 @@ export default function WordDrillGame({
   const learnPhaseRef = useRef<"explanation" | "demo" | "practice">("explanation");
   const showAllPhasesRef = useRef(false);
   const usecaseStatusesRef = useRef<UseCaseStatus[]>([]);
+  const learnPracticeEndRef = useRef<HTMLDivElement>(null);
+  const returnToPracticeRef = useRef<{ sentence: Sentence; queue: Sentence[] } | null>(null);
 
   // ── Effects ──────────────────────────────────────────────────────────────
 
@@ -420,11 +442,15 @@ export default function WordDrillGame({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [transcript]);
 
-  // Auto-play demo audio when entering demo phase
+  // Auto-play demo audio when entering demo phase (delayed so the user can read first)
   useEffect(() => {
     if (gameMode === "learn" && learnPhase === "demo") {
       const uc = learnUsecasesRef.current[currentUsecaseIdxRef.current];
-      if (uc) void fetchAndPlayAudio(uc.demo.spanish, learningLocale);
+      if (!uc) return;
+      const timer = window.setTimeout(() => {
+        void fetchAndPlayAudio(uc.demo.spanish, learningLocale);
+      }, 800);
+      return () => window.clearTimeout(timer);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [learnPhase, gameMode]);
@@ -460,6 +486,15 @@ export default function WordDrillGame({
     return () => window.removeEventListener("keydown", onKey);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gameMode, learnPhase, answerStatus]);
+
+  // Scroll to the practice input when entering the practice phase
+  useEffect(() => {
+    if (gameMode === "learn" && learnPhase === "practice") {
+      requestAnimationFrame(() => {
+        learnPracticeEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+      });
+    }
+  }, [learnPhase, gameMode]);
 
   // When "Show all" is toggled on, jump to practice phase immediately
   useEffect(() => {
@@ -567,7 +602,7 @@ export default function WordDrillGame({
     }
   }
 
-  async function loadLearnData(word: string) {
+  async function loadLearnData(word: string, jumpToCategory?: string) {
     setBusy(true);
     try {
       const resp = await fetch(`${apiBase}/api/worddrill/usecases/${encodeURIComponent(word)}`);
@@ -577,10 +612,21 @@ export default function WordDrillGame({
       learnUsecasesRef.current = usecases;
       setLearnUsecases(usecases);
       setUsecaseStatuses(new Array(usecases.length).fill("pending"));
-      currentUsecaseIdxRef.current = 0;
-      setCurrentUsecaseIdx(0);
       setLearnComplete(false);
-      if (usecases.length > 0) enterUsecase(usecases, 0);
+      if (usecases.length > 0) {
+        let targetIdx = 0;
+        if (jumpToCategory) {
+          const found = findUsecaseForCategory(jumpToCategory, usecases);
+          if (found !== -1) targetIdx = found;
+        }
+        currentUsecaseIdxRef.current = targetIdx;
+        setCurrentUsecaseIdx(targetIdx);
+        enterUsecase(usecases, targetIdx);
+        if (jumpToCategory) {
+          learnPhaseRef.current = "practice";
+          setLearnPhase("practice");
+        }
+      }
     } catch (e) {
       console.error(e);
     } finally {
@@ -634,6 +680,52 @@ export default function WordDrillGame({
     sentenceQueueRef.current = [];
     setCurrentSentence(null);
     setLearnComplete(false);
+    returnToPracticeRef.current = null;
+    setCanReturnToPractice(false);
+    stopAudio();
+  }
+
+  function handleLearnThis() {
+    if (!currentSentence || !selectedWord) return;
+    returnToPracticeRef.current = {
+      sentence: currentSentence,
+      queue: [...sentenceQueueRef.current],
+    };
+    setCanReturnToPractice(true);
+    stopAudio();
+
+    const category = currentSentence.category;
+    gameModeRef.current = "learn";
+    setGameMode("learn");
+
+    if (learnUsecasesRef.current.length > 0) {
+      const idx = findUsecaseForCategory(category, learnUsecasesRef.current);
+      const targetIdx = idx !== -1 ? idx : 0;
+      navigateToUsecase(targetIdx, true);
+    } else {
+      void loadLearnData(selectedWord, category);
+    }
+  }
+
+  function handleReturnToPractice() {
+    const saved = returnToPracticeRef.current;
+    if (!saved) return;
+    returnToPracticeRef.current = null;
+    setCanReturnToPractice(false);
+
+    gameModeRef.current = "practice";
+    setGameMode("practice");
+    setCurrentSentence(saved.sentence);
+    sentenceQueueRef.current = saved.queue;
+    setTranscript("");
+    setAnswerStatus("idle");
+    setFeedbackMessage("");
+    setLastCheckResult(null);
+    setViewedHints(new Set());
+    setClosestHintIndex(null);
+    setClosestHintOpacity(0);
+    previousLengthRef.current = 0;
+    hintCardsRefs.current = new Array((saved.sentence.hints ?? []).length).fill(null);
     stopAudio();
   }
 
@@ -1292,10 +1384,16 @@ export default function WordDrillGame({
           borderBottom: "1px solid rgba(255,255,255,0.08)",
         }}>
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            <button onClick={() => { stopAudio(); gameModeRef.current = null; setGameMode(null); setLearnComplete(false); }}
+            <button onClick={() => { stopAudio(); gameModeRef.current = null; setGameMode(null); setLearnComplete(false); returnToPracticeRef.current = null; setCanReturnToPractice(false); }}
               style={{ padding: "6px 14px", fontSize: 14, background: "rgba(255,255,255,0.12)", color: "white", border: "1px solid rgba(255,255,255,0.2)", borderRadius: 6, cursor: "pointer" }}>
               ← Back
             </button>
+            {canReturnToPractice && (
+              <button onClick={handleReturnToPractice}
+                style={{ padding: "6px 14px", fontSize: 13, fontWeight: 600, background: "rgba(59,130,246,0.2)", color: "#93c5fd", border: "1px solid rgba(59,130,246,0.4)", borderRadius: 6, cursor: "pointer" }}>
+                ← Back to practice
+              </button>
+            )}
             <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>
               Word Drill: <span style={{ color: "#c4b5fd" }}>{wordInfo?.display ?? selectedWord}</span>
               <span style={{ fontSize: 14, fontWeight: 400, opacity: 0.5, marginLeft: 10 }}>— Learn</span>
@@ -1598,7 +1696,7 @@ export default function WordDrillGame({
                     {/* Hints */}
                     {hasHints && renderHints()}
 
-                    <div style={{ height: 8 }} />
+                    <div ref={learnPracticeEndRef} style={{ height: 8 }} />
                   </div>
                 </div>
 
@@ -1675,7 +1773,7 @@ export default function WordDrillGame({
             ) : currentSentence ? (
               <>
                 {/* Category */}
-                <div>
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                   <span style={{
                     fontSize: 11, fontWeight: 600, padding: "3px 10px", borderRadius: 999,
                     background: "rgba(139,92,246,0.2)", border: "1px solid rgba(139,92,246,0.4)",
@@ -1683,6 +1781,16 @@ export default function WordDrillGame({
                   }}>
                     {currentSentence.category}
                   </span>
+                  <button
+                    onClick={handleLearnThis}
+                    style={{
+                      fontSize: 11, padding: "3px 10px", borderRadius: 999,
+                      background: "rgba(167,139,250,0.15)", border: "1px solid rgba(167,139,250,0.4)",
+                      color: "#c4b5fd", cursor: "pointer", fontWeight: 600,
+                    }}
+                  >
+                    📖 Learn this
+                  </button>
                 </div>
 
                 {/* Context */}
