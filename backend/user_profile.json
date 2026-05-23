@@ -371,6 +371,46 @@
       "damage_multiplier": 0.75,
       "hints_used_count": 0,
       "hints_used_phrases": []
+    },
+    {
+      "timestamp": "2026-05-23T04:51:55.559048",
+      "conversation_id": "trivia2_spotlight_quedar",
+      "difficulty": "easy",
+      "native": "Translate using the word 'quedar': We agreed to meet at 6",
+      "user_answer": "Cerramos a las 6:00.",
+      "feedback_keys": [
+        "wrong_meaning"
+      ],
+      "issues": [
+        {
+          "feedback_key": "wrong_meaning",
+          "corrected_snippet": "quedamos",
+          "feedback_explanation": "You said 'cerramos', but 'quedamos' is correct because it means 'we agreed to meet'."
+        }
+      ],
+      "damage_multiplier": 0.0,
+      "hints_used_count": 0,
+      "hints_used_phrases": []
+    },
+    {
+      "timestamp": "2026-05-23T04:55:40.304518",
+      "conversation_id": "trivia2_spotlight_quedar",
+      "difficulty": "easy",
+      "native": "Translate: I stay",
+      "user_answer": "i stay",
+      "feedback_keys": [
+        "wrong_meaning"
+      ],
+      "issues": [
+        {
+          "feedback_key": "wrong_meaning",
+          "corrected_snippet": "me quedo",
+          "feedback_explanation": "You said 'i stay', but 'me quedo' is correct because it translates the phrase into Spanish."
+        }
+      ],
+      "damage_multiplier": 0.0,
+      "hints_used_count": 0,
+      "hints_used_phrases": []
     }
   ],
   "topics_to_practice": []
