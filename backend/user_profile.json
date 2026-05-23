@@ -563,6 +563,26 @@
       "damage_multiplier": 0.6,
       "hints_used_count": 0,
       "hints_used_phrases": []
+    },
+    {
+      "timestamp": "2026-05-23T19:10:51.711869",
+      "conversation_id": "trivia2_blitz_volver",
+      "difficulty": "medium",
+      "native": "Translate using the word 'volver': When are you seeing her again?",
+      "user_answer": "¿Cuándo vuelves a verla?",
+      "feedback_keys": [
+        "missing_content"
+      ],
+      "issues": [
+        {
+          "feedback_key": "missing_content",
+          "corrected_snippet": "cuando la vuelves a ver",
+          "feedback_explanation": "You said 'cuando vuelves a verla', but 'cuando la vuelves a ver' is more natural because it includes the necessary pronoun."
+        }
+      ],
+      "damage_multiplier": 0.6,
+      "hints_used_count": 0,
+      "hints_used_phrases": []
     }
   ],
   "topics_to_practice": []

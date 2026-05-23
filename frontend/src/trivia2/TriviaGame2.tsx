@@ -105,7 +105,7 @@ const BOTS: Omit<Player, "score">[] = [
 ];
 
 const HUMAN_PLAYER: Omit<Player, "score"> = {
-  id: "human", name: "You", isHuman: true, accuracy: 0, responseRange: [0, 0], initials: "YO", color: "#a78bfa",
+  id: "human", name: "You", isHuman: true, accuracy: 0, responseRange: [0, 0], initials: ":P", color: "#ffd500ff",
 };
 
 const FEEDBACK_MAP: Record<string, string> = {
@@ -311,7 +311,7 @@ function Avatar({ player, size = 40 }: { player: Pick<Player, "initials" | "colo
       <img
         src={player.image}
         alt={player.name}
-        style={{ width: size * 2, height: size * 2, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }}
+        style={{ width: size * 2, height: size * 2, borderRadius: "50%", objectFit: "cover", flexShrink: 0, border: `3px solid ${player.color}` }}
       />
     );
   }
@@ -320,6 +320,7 @@ function Avatar({ player, size = 40 }: { player: Pick<Player, "initials" | "colo
       width: size * 2, height: size * 2, borderRadius: "50%",
       background: player.color, display: "flex", alignItems: "center", justifyContent: "center",
       fontSize: size * 0.64, fontWeight: 700, color: "#fff", flexShrink: 0,
+      border: `3px solid ${player.color}`,
     }}>
       {player.initials}
     </div>
