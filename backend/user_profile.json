@@ -537,6 +537,32 @@
       "damage_multiplier": 0.0,
       "hints_used_count": 0,
       "hints_used_phrases": []
+    },
+    {
+      "timestamp": "2026-05-23T07:09:28.314332",
+      "conversation_id": "trivia2_free_volver",
+      "difficulty": "easy",
+      "native": "I'll be right back",
+      "user_answer": "Ya volveré.",
+      "feedback_keys": [
+        "wrong_conjugation",
+        "missing_content"
+      ],
+      "issues": [
+        {
+          "feedback_key": "wrong_conjugation",
+          "corrected_snippet": "vuelvo",
+          "feedback_explanation": "You said 'volere', but 'vuelvo' is correct because it indicates the action is happening now."
+        },
+        {
+          "feedback_key": "missing_content",
+          "corrected_snippet": "ahora",
+          "feedback_explanation": "You omitted 'ahora', which is important to convey the immediacy of the return."
+        }
+      ],
+      "damage_multiplier": 0.6,
+      "hints_used_count": 0,
+      "hints_used_phrases": []
     }
   ],
   "topics_to_practice": []

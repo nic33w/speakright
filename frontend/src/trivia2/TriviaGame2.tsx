@@ -654,7 +654,7 @@ export default function TriviaGame2({
 
   // UI refs
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const historyBottomRef = useRef<HTMLDivElement>(null);
+  const historyColumnRef = useRef<HTMLDivElement>(null);
   const previousLengthRef = useRef(0);
   const lastSentRef = useRef(0);
   const pendingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -669,10 +669,17 @@ export default function TriviaGame2({
   useEffect(() => { roundIndexRef.current = roundIndex; }, [roundIndex]);
   useEffect(() => { spotlightWordsRef.current = spotlightWords; }, [spotlightWords]);
 
-  // Scroll history
+  // Scroll history column (not the page)
   useEffect(() => {
-    historyBottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (historyColumnRef.current) {
+      historyColumnRef.current.scrollTop = historyColumnRef.current.scrollHeight;
+    }
   }, [history.length]);
+
+  // Scroll page to top on every phase change
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [phase]);
 
   // Autofocus textarea
   useEffect(() => {
@@ -1615,11 +1622,10 @@ export default function TriviaGame2({
           {/* Right: bot cards + history */}
           <div style={{ flex: "0 0 34%", display: "flex", flexDirection: "column", gap: 12, overflow: "hidden" }}>
             {renderBotCards(questionStateRef.current.botStates)}
-            <div style={{ flex: 1, overflowY: "auto", marginTop: 8 }}>
+            <div ref={historyColumnRef} style={{ flex: 1, overflowY: "auto", marginTop: 8 }}>
               {history.map(entry => (
                 <HistoryEntry key={entry.entryId} entry={entry} players={players} apiBase={apiBase} locale={locale} />
               ))}
-              <div ref={historyBottomRef} />
             </div>
           </div>
         </div>
@@ -1726,11 +1732,10 @@ export default function TriviaGame2({
           </div>
 
           {/* History */}
-          <div style={{ flex: "0 0 34%", overflowY: "auto" }}>
+          <div ref={historyColumnRef} style={{ flex: "0 0 34%", overflowY: "auto" }}>
             {history.map(entry => (
               <HistoryEntry key={entry.entryId} entry={entry} players={players} apiBase={apiBase} locale={locale} />
             ))}
-            <div ref={historyBottomRef} />
           </div>
         </div>
       </div>
