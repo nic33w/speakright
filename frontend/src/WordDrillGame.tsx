@@ -20,6 +20,7 @@ type CheckResult = {
   correctedSnippet: string | null;
   feedbackExplanation: string | null;
   correctionTokens: Array<{ text: string; status: "ok" | "remove" | "add" }> | null;
+  userAnswer?: string;
 };
 
 type Sentence = {
@@ -305,6 +306,14 @@ export default function WordDrillGame({
   const [closestHintIndex, setClosestHintIndex] = useState<number | null>(null);
   const [closestHintOpacity, setClosestHintOpacity] = useState<number>(0);
 
+  // Grammar chat state
+  const [chatOpen, setChatOpen] = useState(false);
+  const [chatMessages, setChatMessages] = useState<{ role: "user" | "ai"; text: string }[]>([]);
+  const [chatInput, setChatInput] = useState("");
+  const [chatBusy, setChatBusy] = useState(false);
+  const chatBottomRef = useRef<HTMLDivElement>(null);
+  const chatInputRef = useRef<HTMLTextAreaElement>(null);
+
   // History log state
   const [expandedLogEntry, setExpandedLogEntry] = useState<number | null>(null);
   const [pinnedLogEntries, setPinnedLogEntries] = useState<Set<number>>(new Set());
@@ -531,6 +540,45 @@ export default function WordDrillGame({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gameMode]);
 
+  // ── Grammar chat ──────────────────────────────────────────────────────────
+
+  async function sendChat() {
+    if (!chatInput.trim() || chatBusy) return;
+    const userMsg = chatInput.trim();
+    setChatInput("");
+    const nextMessages = [...chatMessages, { role: "user" as const, text: userMsg }];
+    setChatMessages(nextMessages);
+    setChatBusy(true);
+    setTimeout(() => chatBottomRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
+    try {
+      const resp = await fetch(`${apiBase}/api/worddrill/chat`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          messages: nextMessages.map(m => ({ role: m.role === "ai" ? "assistant" : "user", content: m.text })),
+          context: {
+            english: currentSentence?.english ?? "",
+            correct_answer: currentSentence?.accepted_translations?.[0] ?? "",
+            user_answer: lastCheckResult?.userAnswer ?? "",
+            feedback_key: lastCheckResult?.feedbackKey ?? "",
+            feedback_explanation: lastCheckResult?.feedbackExplanation ?? "",
+            word_key: selectedWord ?? "",
+            learning_lang: learning.name,
+            fluent_lang: fluent.name,
+          },
+        }),
+      });
+      const data = await resp.json();
+      setChatMessages(prev => [...prev, { role: "ai", text: data.reply ?? "" }]);
+      setTimeout(() => chatBottomRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
+    } catch {
+      setChatMessages(prev => [...prev, { role: "ai", text: "Sorry, something went wrong. Please try again." }]);
+    } finally {
+      setChatBusy(false);
+      setTimeout(() => chatInputRef.current?.focus(), 50);
+    }
+  }
+
   // ── Audio helpers ─────────────────────────────────────────────────────────
 
   function stopAudio() {
@@ -588,6 +636,8 @@ export default function WordDrillGame({
     setViewedHints(new Set());
     setClosestHintIndex(null);
     setClosestHintOpacity(0);
+    setChatMessages([]);
+    setChatOpen(false);
     previousLengthRef.current = 0;
     hintCardsRefs.current = new Array((sentence.hints ?? []).length).fill(null);
   }
@@ -792,7 +842,7 @@ export default function WordDrillGame({
       if (data.accepted) {
         resolveCorrect(userAnswer, data.damage_multiplier ?? 1.0, data.feedback_key ?? null, data.corrected_snippet ?? null, data.feedback_explanation ?? null, corrTokens, feedbackIssues, true);
       } else {
-        const result: CheckResult = { multiplier: 0, feedbackIssues, feedbackKey: data.feedback_key ?? null, correctedSnippet: data.corrected_snippet ?? null, feedbackExplanation: data.feedback_explanation ?? null, correctionTokens: corrTokens };
+        const result: CheckResult = { multiplier: 0, feedbackIssues, feedbackKey: data.feedback_key ?? null, correctedSnippet: data.corrected_snippet ?? null, feedbackExplanation: data.feedback_explanation ?? null, correctionTokens: corrTokens, userAnswer };
         setLastCheckResult(result);
         setFeedbackMessage("Not quite — try again!");
         setTranscript("");
@@ -836,7 +886,7 @@ export default function WordDrillGame({
     const isPerfect = multiplier >= 1.0 && (!feedbackKey || feedbackKey === "perfect" || feedbackKey === "asr_error");
     autoNextDurationRef.current = isPerfect ? 1000 : 3000;
     void fetchAndPlayAudio(currentSentence!.accepted_translations[0], learningLocale);
-    const result: CheckResult = { multiplier, feedbackIssues, feedbackKey, correctedSnippet, feedbackExplanation, correctionTokens };
+    const result: CheckResult = { multiplier, feedbackIssues, feedbackKey, correctedSnippet, feedbackExplanation, correctionTokens, userAnswer };
     setLastCheckResult(result);
     setAnswerStatus("correct");
     setFeedbackMessage(isPerfect ? "Perfect!" : "Close enough!");
@@ -1074,6 +1124,146 @@ export default function WordDrillGame({
     );
   }
 
+  // ── Floating grammar chat (Messenger style) ──────────────────────────────
+
+  function renderChat() {
+    if (!currentSentence) return null;
+    return (
+      <>
+        {/* Floating chat bubble */}
+        <button
+          onClick={() => { setChatOpen(o => !o); if (!chatOpen) setTimeout(() => chatInputRef.current?.focus(), 80); }}
+          style={{
+            position: "fixed", bottom: 88, right: 24, zIndex: 101,
+            width: 52, height: 52, borderRadius: "50%",
+            background: chatOpen ? "#4c1d95" : "linear-gradient(135deg, #7c3aed, #5b21b6)",
+            border: "none", cursor: "pointer", color: "white",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            fontSize: chatOpen ? 18 : 22,
+            boxShadow: "0 4px 16px rgba(124,58,237,0.5)",
+            transition: "all 0.2s",
+          }}
+        >
+          {chatOpen ? "✕" : "💬"}
+        </button>
+
+        {/* Chat panel — floating above the button */}
+        {chatOpen && (
+          <div style={{
+            position: "fixed", bottom: 152, right: 24, zIndex: 100,
+            width: 340, height: 500,
+            background: "#1e293b",
+            borderRadius: 16, border: "1px solid rgba(255,255,255,0.12)",
+            boxShadow: "0 8px 32px rgba(0,0,0,0.5)",
+            display: "flex", flexDirection: "column",
+            fontFamily: "system-ui, sans-serif", overflow: "hidden",
+          }}>
+            {/* Header */}
+            <div style={{
+              flexShrink: 0, padding: "12px 16px",
+              borderBottom: "1px solid rgba(255,255,255,0.1)",
+              background: "rgba(0,0,0,0.2)",
+            }}>
+              <span style={{ fontWeight: 700, fontSize: 14, color: "#a78bfa" }}>💬 Grammar Chat</span>
+            </div>
+
+            {/* Context summary */}
+            <div style={{
+              flexShrink: 0, padding: "8px 14px",
+              borderBottom: "1px solid rgba(255,255,255,0.08)",
+              background: "rgba(0,0,0,0.15)",
+            }}>
+              <div style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em", color: "rgba(255,255,255,0.3)", marginBottom: 3 }}>
+                Current exercise
+              </div>
+              <div style={{ fontSize: 12, color: "rgba(255,255,255,0.6)", lineHeight: 1.5 }}>
+                <span style={{ color: "rgba(255,255,255,0.4)" }}>EN </span>{currentSentence.english}
+              </div>
+              <div style={{ fontSize: 12, color: "#86efac", lineHeight: 1.5, marginTop: 1 }}>
+                <span style={{ color: "rgba(134,239,172,0.5)" }}>ES </span>{currentSentence.accepted_translations[0]}
+              </div>
+              {lastCheckResult?.userAnswer && (
+                <div style={{ fontSize: 12, color: "#fca5a5", lineHeight: 1.5, marginTop: 1 }}>
+                  <span style={{ color: "rgba(252,165,165,0.5)" }}>You </span>{lastCheckResult.userAnswer}
+                </div>
+              )}
+            </div>
+
+            {/* Message list */}
+            <div style={{ flex: 1, overflowY: "auto", padding: "12px 14px", display: "flex", flexDirection: "column", gap: 10 }}>
+              {chatMessages.length === 0 && (
+                <div style={{ fontSize: 13, color: "rgba(255,255,255,0.3)", textAlign: "center", marginTop: 20, lineHeight: 1.7 }}>
+                  Ask why an answer is correct,<br />how a grammar rule works,<br />or for more examples.
+                </div>
+              )}
+              {chatMessages.map((msg, i) => (
+                <div key={i} style={{
+                  alignSelf: msg.role === "user" ? "flex-end" : "flex-start",
+                  maxWidth: "90%",
+                  background: msg.role === "user" ? "rgba(139,92,246,0.25)" : "rgba(255,255,255,0.08)",
+                  border: msg.role === "user" ? "1px solid rgba(139,92,246,0.4)" : "1px solid rgba(255,255,255,0.1)",
+                  borderRadius: msg.role === "user" ? "12px 12px 4px 12px" : "12px 12px 12px 4px",
+                  padding: "8px 12px", fontSize: 13, lineHeight: 1.5,
+                  color: msg.role === "user" ? "#c4b5fd" : "rgba(255,255,255,0.88)",
+                  wordBreak: "break-word",
+                }}>
+                  {msg.text}
+                </div>
+              ))}
+              {chatBusy && (
+                <div style={{
+                  alignSelf: "flex-start",
+                  background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.1)",
+                  borderRadius: "12px 12px 12px 4px",
+                  padding: "8px 14px", fontSize: 13, color: "rgba(255,255,255,0.4)",
+                }}>…</div>
+              )}
+              <div ref={chatBottomRef} />
+            </div>
+
+            {/* Input row */}
+            <div style={{
+              flexShrink: 0, padding: "10px 14px",
+              borderTop: "1px solid rgba(255,255,255,0.1)",
+              display: "flex", gap: 8, alignItems: "flex-end",
+            }}>
+              <textarea
+                ref={chatInputRef}
+                value={chatInput}
+                onChange={e => setChatInput(e.target.value)}
+                onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); void sendChat(); } }}
+                placeholder="Ask a grammar question…"
+                disabled={chatBusy}
+                rows={2}
+                style={{
+                  flex: 1, padding: "8px 12px", fontSize: 13,
+                  background: "rgba(255,255,255,0.07)", color: "white",
+                  border: "1px solid rgba(255,255,255,0.15)", borderRadius: 20,
+                  resize: "none", fontFamily: "system-ui, sans-serif",
+                  outline: "none", boxSizing: "border-box",
+                  opacity: chatBusy ? 0.5 : 1,
+                }}
+              />
+              <button
+                onClick={() => void sendChat()}
+                disabled={chatBusy || !chatInput.trim()}
+                style={{
+                  width: 36, height: 36, borderRadius: "50%", flexShrink: 0,
+                  background: chatInput.trim() && !chatBusy ? "linear-gradient(135deg, #7c3aed, #5b21b6)" : "rgba(255,255,255,0.1)",
+                  color: "white", border: "none",
+                  cursor: chatInput.trim() && !chatBusy ? "pointer" : "not-allowed",
+                  opacity: chatInput.trim() && !chatBusy ? 1 : 0.45,
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  fontSize: 16,
+                }}
+              >➤</button>
+            </div>
+          </div>
+        )}
+      </>
+    );
+  }
+
   // ── Shared input/feedback block (used in both practice and learn) ──────────
 
   function renderPracticeBottom() {
@@ -1118,7 +1308,7 @@ export default function WordDrillGame({
           onChange={e => setTranscript(e.target.value)}
           onMouseEnter={() => { if (answerStatus === "idle" && !busy) textareaRef.current?.focus(); }}
           onKeyDown={e => { if (e.key === "Escape") { cancelPendingAutoSend(true); return; } if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); void submitAnswer(); } }}
-          placeholder={`Say or type the ${learning.name} translation…`}
+          placeholder={`Hold CTRL + WIN to say the ${learning.name} translation…`}
           disabled={busy || answerStatus === "correct" || answerStatus === "skipped"}
           autoFocus
           style={{
@@ -1719,7 +1909,8 @@ export default function WordDrillGame({
 
           </div>
         ) : null}
-      </div>
+      {renderChat()}
+    </div>
     );
   }
 
@@ -1901,7 +2092,7 @@ export default function WordDrillGame({
                 onChange={e => setTranscript(e.target.value)}
                 onMouseEnter={() => { if (answerStatus === "idle" && !busy) textareaRef.current?.focus(); }}
                 onKeyDown={e => { if (e.key === "Escape") { cancelPendingAutoSend(true); return; } if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); void submitAnswer(); } }}
-                placeholder={`Say or type the ${learning.name} translation…`}
+                placeholder={`Hold CTRL + WIN to say the ${learning.name} translation…`}
                 disabled={busy || answerStatus === "correct" || answerStatus === "skipped"}
                 autoFocus
                 style={{
@@ -2082,6 +2273,8 @@ export default function WordDrillGame({
         </div>
 
       </div>
+
+      {renderChat()}
     </div>
   );
 }

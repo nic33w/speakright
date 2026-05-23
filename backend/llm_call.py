@@ -365,6 +365,7 @@ def check_trivia_answer(
         "Rules:\n"
         "- CRITICAL: NEVER mention, comment on, or penalize accents, punctuation, or capitalization — not even as a side note. Both the student's answer and the reference have had accents and punctuation stripped before you receive them. The student is speaking (speech-to-text) and has no control over accents or punctuation. Do NOT say things like 'you should include the accent' or 'you forgot the exclamation mark'. Any issue that is ONLY about accents or punctuation must be completely ignored.\n"
         "- FIRST, before any other evaluation: the student is using speech-to-text (Wispr). Accents and punctuation have already been stripped from the student's answer — do NOT penalize for any accent or punctuation difference. Check if unexpected words are STT mishearings. Common patterns: phonetically similar words (e.g. 'cus'→'jus'), merged or split tokens (e.g. 'Este'→'Es teh', 'S T'→'es teh', 'dise'→'di sini', 'esta'→'es ta', 'está'→'es ta' or 'es esta'), or words run together. If correcting the mishearing makes the answer acceptable, IMMEDIATELY set accepted: true, damage_multiplier: 1.0, issues: [{\"feedback_key\": \"asr_error\", \"corrected_snippet\": null, \"feedback_explanation\": \"<explain what was misheard>\"}]. Do NOT add any other issues in this case.\n"
+        "- PRIMARY RULE: First ask 'Is the student's answer a correct, natural translation of the English prompt?' — not 'Does it match the reference answer?' The reference answer is just one valid option; other equally valid phrasings exist. If the student's answer correctly and naturally expresses the English prompt, mark it perfect even if it differs from the reference.\n"
         "- accepted: true if the student demonstrated understanding of the meaning, even if imperfectly expressed. ONLY set accepted: false for wrong conjugation, wrong tense that changes meaning, or completely wrong/missing core meaning.\n"
         "- damage_multiplier: overall severity across ALL issues combined. Use the lowest applicable value:\n"
         "    1.0   → perfect or asr_error only\n"
@@ -378,20 +379,25 @@ def check_trivia_answer(
         "  If the answer is perfect: [{\"feedback_key\": \"perfect\", \"corrected_snippet\": null, \"feedback_explanation\": null}]\n"
         "  Report ALL issues — do not limit to one. A sentence can have multiple issues (e.g. unnatural word + missing content).\n"
         "  feedback_key values:\n"
-        "    perfect: ONLY when answer is truly natural, idiomatic, fully correct — a native speaker would say exactly this. Do NOT use if there is even a minor note.\n"
+        "    perfect: Use whenever the student's answer is a correct, natural translation of the English prompt — a native speaker could say this. This includes valid phrasings that differ from the reference answer. Do NOT downgrade to subtle_meaning_shift just because the phrasing is different from the reference.\n"
         "    asr_error: likely STT mishearing that makes the answer otherwise acceptable.\n"
         "    missing_minor_words: dropped a particle, softener, or minor word (e.g. 'saja', 'ya', 'que').\n"
         "    missing_content: student omitted a significant portion of the meaning from the prompt (e.g. left out a whole clause or key detail).\n"
         "    gender_agreement: wrong gender on article/adjective.\n"
         "    register_too_formal: too formal for context (e.g. -kah suffix).\n"
         "    register_too_informal: too casual for context (e.g. 'aja' instead of 'saja').\n"
-        "    subtle_meaning_shift: slightly different nuance but meaning mostly intact.\n"
+        "    subtle_meaning_shift: ONLY when the student's phrasing shifts the meaning relative to what the English prompt specifically asked for — e.g. the English says 'one must' (general obligation) but the student said 'we have to' (personal obligation) and that distinction genuinely matters for the prompt. Do NOT use this just because the student picked a different-but-equally-valid phrasing.\n"
         "    wrong_mood: used indicative instead of subjunctive/conditional, but meaning clear.\n"
         "    word_order: words rearranged, meaning still understandable.\n"
         "    unnatural_phrasing: ONLY for phrasing that would genuinely sound foreign or awkward to a native speaker — e.g. word-for-word translation from English, textbook constructions nobody actually says, or combinations of correct words that produce a clearly wrong register. Do NOT use for valid regional variants, stylistic preferences, or choosing one natural phrasing over another equally natural one.\n"
         "    wrong_conjugation | wrong_tense | wrong_meaning: accepted must be false.\n"
         "  corrected_snippet per issue: minimal corrected word/phrase showing the actual fix (wrong word → right word, wrong conjugation → right conjugation, etc.). null if perfect or asr_error. Do NOT produce a corrected_snippet that differs from the student's word only by an accent mark or punctuation — that is not a real error.\n"
-        f"  feedback_explanation per issue: ONE sentence in {fluent.get('name', 'English')} — 'You said X, but Y is more natural/correct because Z.' null if perfect. NEVER mention accents, accent marks, punctuation, exclamation marks, or capitalization in the explanation — the student is speaking and has no control over these.\n"
+        f"  feedback_explanation per issue: ONE sentence in {fluent.get('name', 'English')}. Rules:\n"
+        f"    - For subtle_meaning_shift: acknowledge the student's answer is also valid, then name the specific nuance difference. E.g. 'That also works — the reference says X which more specifically conveys [nuance].' Never say the student's answer 'is unnatural' or 'is less natural' if it is actually a natural phrase.\n"
+        f"    - For unnatural_phrasing: only use this if you can state a specific, concrete reason it sounds awkward. E.g. 'X is understandable but sounds like a word-for-word translation — a native speaker would say Y instead.' Do NOT say something is unnatural just because the reference uses a different phrasing.\n"
+        f"    - For other issues: describe the specific problem and what the fix is.\n"
+        f"    - NEVER say 'X is more natural than Y' if Y is also natural. NEVER mention accents, accent marks, punctuation, exclamation marks, or capitalization.\n"
+        f"    null if perfect.\n"
         "- corrected_full_answer: write the student's full answer with ALL mistakes fixed, keeping all correct parts word-for-word identical. null if issues is [{perfect}] or [{asr_error}].\n"
         + (
             "- VALID PHRASES: The following words/phrases were explicitly shown to the student as valid vocabulary for this prompt. Do NOT flag any of these as unnatural or incorrect — they are all acceptable: "
@@ -761,6 +767,77 @@ def call_llm_for_messenger(
                 "cost_cents": 0.0
             }
         }
+
+
+def call_llm_for_grammar_chat(
+    context: dict,
+    messages: list,
+    model: Optional[str] = None,
+    temperature: float = 0.3,
+    timeout: int = 30,
+) -> str:
+    """
+    Multi-turn grammar tutor chat grounded in the current exercise context.
+    Returns the AI reply as a plain string.
+    """
+    model = model or DEFAULT_MODEL
+    client = _init_client()
+
+    if client is None:
+        return "I can't explain right now (mock mode is on), but the key rule is: with verbs like 'gustar' and 'dar ganas de', the indirect object pronoun (me, te, le…) marks *who* has the feeling and is almost always required."
+
+    learning_lang = context.get("learning_lang", "Spanish")
+    fluent_lang = context.get("fluent_lang", "English")
+    word_key = context.get("word_key", "")
+    english = context.get("english", "")
+    correct_answer = context.get("correct_answer", "")
+    user_answer = context.get("user_answer", "")
+    feedback_key = context.get("feedback_key", "")
+    feedback_explanation = context.get("feedback_explanation", "")
+
+    system_prompt = f"""You are a friendly {learning_lang} grammar tutor. \
+The learner is a native {fluent_lang} speaker practicing {learning_lang}.
+Keep all explanations in {fluent_lang} unless asked otherwise.
+Be concise (2–4 sentences per reply). Use examples in {learning_lang} with {fluent_lang} translations.
+
+Current exercise:
+  Word / verb being practiced: {word_key}
+  English prompt: {english}
+  Learner's answer: {user_answer}
+  Correct answer: {correct_answer}
+  Issue detected: {feedback_key}{(" — " + feedback_explanation) if feedback_explanation else ""}
+
+Answer the learner's question based on this context."""
+
+    # Format conversation history as a single string
+    history_lines = []
+    for msg in messages:
+        role_label = "Student" if msg.get("role") == "user" else "Tutor"
+        history_lines.append(f"{role_label}: {msg.get('content', '')}")
+    history_lines.append("Tutor:")
+    full_prompt = system_prompt + "\n\n" + "\n\n".join(history_lines)
+
+    try:
+        resp = client.responses.create(
+            model=model,
+            input=full_prompt,
+            temperature=temperature,
+            max_output_tokens=400,
+            timeout=timeout,
+        )
+        if hasattr(resp, "output_text") and resp.output_text:
+            return resp.output_text.strip()
+        out = getattr(resp, "output", None)
+        if out:
+            for item in out:
+                content = (item.get("content") or []) if isinstance(item, dict) else []
+                for c in content:
+                    if isinstance(c, dict) and c.get("text"):
+                        return c["text"].strip()
+        return "Sorry, I couldn't generate a response."
+    except Exception as e:
+        print("Grammar chat LLM error:", e)
+        return "Sorry, something went wrong. Please try again."
 
 
 def call_llm_to_pick_secret(

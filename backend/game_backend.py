@@ -1799,6 +1799,28 @@ def api_worddrill_check(req: WordDrillCheckReq):
         }
 
 
+class GrammarChatMessage(BaseModel):
+    role: str  # "user" or "assistant"
+    content: str
+
+class GrammarChatReq(BaseModel):
+    messages: List[GrammarChatMessage]
+    context: Dict[str, Any]
+
+@app.post("/api/worddrill/chat")
+def api_worddrill_chat(req: GrammarChatReq):
+    from llm_call import call_llm_for_grammar_chat
+    try:
+        reply = call_llm_for_grammar_chat(
+            context=req.context,
+            messages=[{"role": m.role, "content": m.content} for m in req.messages],
+        )
+        return {"reply": reply}
+    except Exception as e:
+        print("Grammar chat error:", e)
+        return {"reply": "Sorry, something went wrong. Please try again."}
+
+
 @app.get("/api/quiz/stats")
 def get_quiz_stats():
     """Get quiz statistics."""
