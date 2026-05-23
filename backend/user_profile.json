@@ -411,6 +411,132 @@
       "damage_multiplier": 0.0,
       "hints_used_count": 0,
       "hints_used_phrases": []
+    },
+    {
+      "timestamp": "2026-05-23T06:28:25.746462",
+      "conversation_id": "trivia2_spotlight_quedar",
+      "difficulty": "easy",
+      "native": "Translate using the word 'quedar': There are 3 slices left",
+      "user_answer": "Revanadas.",
+      "feedback_keys": [
+        "missing_content"
+      ],
+      "issues": [
+        {
+          "feedback_key": "missing_content",
+          "corrected_snippet": "quedan tres rebanadas",
+          "feedback_explanation": "You said 'revanadas', but 'quedan tres rebanadas' is more natural because it includes the verb and the quantity."
+        }
+      ],
+      "damage_multiplier": 0.6,
+      "hints_used_count": 0,
+      "hints_used_phrases": []
+    },
+    {
+      "timestamp": "2026-05-23T06:28:38.782357",
+      "conversation_id": "trivia2_spotlight_quedar",
+      "difficulty": "easy",
+      "native": "Translate using the word 'quedar': I met up with María",
+      "user_answer": "Quedamos con María.",
+      "feedback_keys": [
+        "wrong_conjugation"
+      ],
+      "issues": [
+        {
+          "feedback_key": "wrong_conjugation",
+          "corrected_snippet": "quede",
+          "feedback_explanation": "You said 'quedamos', but 'quede' is correct because it refers to a singular meeting with María."
+        }
+      ],
+      "damage_multiplier": 0.0,
+      "hints_used_count": 0,
+      "hints_used_phrases": []
+    },
+    {
+      "timestamp": "2026-05-23T06:30:09.183805",
+      "conversation_id": "trivia2_spotlight_quedar",
+      "difficulty": "hard",
+      "native": "Translate using the word 'quedar': I'll take this one",
+      "user_answer": "Me quiero a éste.",
+      "feedback_keys": [
+        "wrong_meaning"
+      ],
+      "issues": [
+        {
+          "feedback_key": "wrong_meaning",
+          "corrected_snippet": null,
+          "feedback_explanation": "You said 'me quiero a este', but 'me quedo con este' is correct because it means 'I'll take this one' instead of 'I love this one'."
+        }
+      ],
+      "damage_multiplier": 0.6,
+      "hints_used_count": 0,
+      "hints_used_phrases": []
+    },
+    {
+      "timestamp": "2026-05-23T06:30:18.447055",
+      "conversation_id": "trivia2_spotlight_quedar",
+      "difficulty": "hard",
+      "native": "Translate using the word 'quedar': I'll take this one",
+      "user_answer": "Me quedaré aquí.",
+      "feedback_keys": [
+        "wrong_conjugation",
+        "wrong_meaning"
+      ],
+      "issues": [
+        {
+          "feedback_key": "wrong_conjugation",
+          "corrected_snippet": "quedaré",
+          "feedback_explanation": "You said 'quedare', but 'quedaré' is the correct conjugation for the future tense."
+        },
+        {
+          "feedback_key": "wrong_meaning",
+          "corrected_snippet": "me quedo con este",
+          "feedback_explanation": "You said 'aquí', but 'con este' is needed to convey the meaning of taking this one."
+        }
+      ],
+      "damage_multiplier": 0.0,
+      "hints_used_count": 0,
+      "hints_used_phrases": []
+    },
+    {
+      "timestamp": "2026-05-23T06:30:26.021261",
+      "conversation_id": "trivia2_spotlight_quedar",
+      "difficulty": "hard",
+      "native": "Translate using the word 'quedar': I'll take this one",
+      "user_answer": "¿Dónde estás?",
+      "feedback_keys": [
+        "wrong_meaning"
+      ],
+      "issues": [
+        {
+          "feedback_key": "wrong_meaning",
+          "corrected_snippet": null,
+          "feedback_explanation": "You said 'donde estas', but 'me quedo con este' is correct because it translates to 'I'll take this one'."
+        }
+      ],
+      "damage_multiplier": 0.0,
+      "hints_used_count": 0,
+      "hints_used_phrases": []
+    },
+    {
+      "timestamp": "2026-05-23T06:56:58.537798",
+      "conversation_id": "trivia2_spotlight_quedar",
+      "difficulty": "easy",
+      "native": "Translate using the word 'quedar': I met up with María",
+      "user_answer": "¿Qué haré con María?",
+      "feedback_keys": [
+        "wrong_meaning"
+      ],
+      "issues": [
+        {
+          "feedback_key": "wrong_meaning",
+          "corrected_snippet": "quede con maria",
+          "feedback_explanation": "You said 'que hare con maria', but 'quede con maria' is correct because it means 'I met up with María'."
+        }
+      ],
+      "damage_multiplier": 0.0,
+      "hints_used_count": 0,
+      "hints_used_phrases": []
     }
   ],
   "topics_to_practice": []

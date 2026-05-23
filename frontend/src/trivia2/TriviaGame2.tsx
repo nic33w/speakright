@@ -99,9 +99,9 @@ type TriviaGame2Props = {
 };
 
 const BOTS: Omit<Player, "score">[] = [
-  { id: "bot1", name: "Darácula (Rápida)",     isHuman: false, accuracy: 0.60, responseRange: [2,  5],  initials: "R", color: "#f87171", image: "/bots/rapida.png"     },
-  { id: "bot2", name: "Professor Ratus (Equilibrio)", isHuman: false, accuracy: 0.80, responseRange: [5,  9],  initials: "E", color: "#60a5fa", image: "/bots/equilibrio.png" },
-  { id: "bot3", name: "Tigasaur (Preciso)",    isHuman: false, accuracy: 0.92, responseRange: [10, 16], initials: "P", color: "#34d399", image: "/bots/preciso.png"    },
+  { id: "bot1_Rápida", name: "Darácula",     isHuman: false, accuracy: 0.60, responseRange: [2,  5],  initials: "R", color: "#f87171", image: "/bots/rapida.png"     },
+  { id: "bot2_Equilibrio", name: "Professor Ratus", isHuman: false, accuracy: 0.80, responseRange: [5,  9],  initials: "E", color: "#60a5fa", image: "/bots/equilibrio.png" },
+  { id: "bot3_Preciso", name: "Tigasaur",    isHuman: false, accuracy: 0.92, responseRange: [10, 16], initials: "P", color: "#34d399", image: "/bots/preciso.png"    },
 ];
 
 const HUMAN_PLAYER: Omit<Player, "score"> = {
@@ -311,15 +311,15 @@ function Avatar({ player, size = 40 }: { player: Pick<Player, "initials" | "colo
       <img
         src={player.image}
         alt={player.name}
-        style={{ width: size, height: size, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }}
+        style={{ width: size * 2, height: size * 2, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }}
       />
     );
   }
   return (
     <div style={{
-      width: size, height: size, borderRadius: "50%",
+      width: size * 2, height: size * 2, borderRadius: "50%",
       background: player.color, display: "flex", alignItems: "center", justifyContent: "center",
-      fontSize: size * 0.32, fontWeight: 700, color: "#fff", flexShrink: 0,
+      fontSize: size * 0.64, fontWeight: 700, color: "#fff", flexShrink: 0,
     }}>
       {player.initials}
     </div>
@@ -627,6 +627,8 @@ export default function TriviaGame2({
   const [timerActive, setTimerActive] = useState(false);
   const [liveResult, setLiveResult] = useState<PlayerResult | null>(null);
   const [liveRejected, setLiveRejected] = useState(false);
+  const [pendingAutoSend, setPendingAutoSend] = useState(false);
+  const [pendingProgress, setPendingProgress] = useState<number | null>(null);
 
   // Hint state
   const [viewedHints, setViewedHints] = useState<Set<number>>(new Set());
@@ -655,7 +657,7 @@ export default function TriviaGame2({
   const historyBottomRef = useRef<HTMLDivElement>(null);
   const previousLengthRef = useRef(0);
   const lastSentRef = useRef(0);
-  const autoSendTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const currentRoundType = roundTypes[roundIndex] ?? "spotlight";
   const currentQuestion = questions[qIdx] ?? null;
   const locale = learning.code === "id" ? "id-ID" : "es-MX";
@@ -697,19 +699,44 @@ export default function TriviaGame2({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [timerActive, qIdx]);
 
+  function cancelPendingAutoSend(clearText = false) {
+    if (pendingTimerRef.current) { clearInterval(pendingTimerRef.current); pendingTimerRef.current = null; }
+    setPendingAutoSend(false);
+    setPendingProgress(null);
+    if (clearText) { setTranscript(""); previousLengthRef.current = 0; setTimeout(() => textareaRef.current?.focus(), 50); }
+  }
+
+  function startPendingAutoSend(currentTranscript: string, duration = 2000) {
+    cancelPendingAutoSend();
+    const startTime = Date.now();
+    setPendingAutoSend(true);
+    setPendingProgress(1.0);
+    pendingTimerRef.current = setInterval(() => {
+      const remaining = Math.max(0, 1 - (Date.now() - startTime) / duration);
+      setPendingProgress(remaining);
+      if (remaining <= 0) {
+        clearInterval(pendingTimerRef.current!);
+        pendingTimerRef.current = null;
+        setPendingAutoSend(false);
+        setPendingProgress(null);
+        if (currentTranscript.trim()) submitAnswer(currentTranscript);
+      }
+    }, 30);
+  }
+
   // Wispr auto-send
   useEffect(() => {
+    cancelPendingAutoSend();
     if (phase !== "question" || busy || questionStateRef.current.ended) return;
     const delta = transcript.length - previousLengthRef.current;
-    if (delta >= 3 && transcript.length > 2) {
-      if (autoSendTimer.current) clearTimeout(autoSendTimer.current);
-      autoSendTimer.current = setTimeout(() => {
-        if (Date.now() - lastSentRef.current > 700 && transcript.trim().length > 0) {
-          submitAnswer(transcript);
-        }
-      }, 1000);
+    if (delta >= 3 && transcript.length > 2 && Date.now() - lastSentRef.current > 700) {
+      const q = questionsRef.current[qIdxRef.current];
+      const isMatch = q ? checkFuzzyMatch(transcript.trim(), q.sentence.accepted_translations, learning.code) !== null : false;
+      startPendingAutoSend(transcript, isMatch ? 1000 : 2000);
     }
     previousLengthRef.current = transcript.length;
+    return () => cancelPendingAutoSend();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [transcript]);
 
   // ── Fetch words ──
@@ -1274,16 +1301,16 @@ export default function TriviaGame2({
   if (phase === "lobby") {
     return (
       <div style={containerStyle}>
-        <div style={{ maxWidth: 500, margin: "0 auto", textAlign: "center" }}>
+        <div style={{ maxWidth: 720, margin: "0 auto", textAlign: "center" }}>
           <button onClick={onBack} style={backBtnStyle}>← Back</button>
           <h1 style={{ fontSize: 28, fontWeight: 700, marginBottom: 8 }}>Word Showdown</h1>
           <p style={{ color: "rgba(255,255,255,0.6)", marginBottom: 32 }}>vs Bots — 3 Rounds · 15 Questions</p>
 
-          <div style={{ display: "flex", justifyContent: "center", gap: 16, marginBottom: 32, flexWrap: "wrap" }}>
+          <div style={{ display: "flex", justifyContent: "center", gap: 24, marginBottom: 32, flexWrap: "nowrap" }}>
             {[{ ...HUMAN_PLAYER, score: 0 }, ...BOTS.map(b => ({ ...b, score: 0 }))].map(p => (
-              <div key={p.id} style={{ textAlign: "center" }}>
+              <div key={p.id} style={{ textAlign: "center", minWidth: 0, flex: "0 0 auto" }}>
                 <Avatar player={p} size={52} />
-                <div style={{ fontSize: 12, marginTop: 6, color: "rgba(255,255,255,0.8)" }}>{p.name}</div>
+                <div style={{ fontSize: 12, marginTop: 6, color: "rgba(255,255,255,0.8)", maxWidth: 120, margin: "6px auto 0" }}>{p.name}</div>
                 {!p.isHuman && (
                   <div style={{ fontSize: 10, color: "rgba(255,255,255,0.4)" }}>
                     {Math.round((p as any).accuracy * 100)}% acc
@@ -1530,6 +1557,7 @@ export default function TriviaGame2({
                 value={transcript}
                 onChange={e => setTranscript(e.target.value)}
                 onKeyDown={e => {
+                  if (e.key === "Escape") { cancelPendingAutoSend(true); return; }
                   if (e.key === "Enter" && !e.shiftKey) {
                     e.preventDefault();
                     if (!busy && !questionStateRef.current.ended && transcript.trim()) submitAnswer(transcript);
@@ -1568,6 +1596,16 @@ export default function TriviaGame2({
                   Skip →
                 </button>
               </div>
+              {pendingAutoSend && (
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 6 }}>
+                  <div style={{ flex: 1, height: 3, background: "rgba(255,255,255,0.1)", borderRadius: 2, overflow: "hidden" }}>
+                    <div style={{ width: `${(pendingProgress ?? 0) * 100}%`, height: "100%", background: "#a78bfa", borderRadius: 2 }} />
+                  </div>
+                  <span style={{ fontSize: 11, color: "rgba(255,255,255,0.4)", whiteSpace: "nowrap" }}>
+                    Sending… <kbd style={{ fontSize: 10, background: "rgba(255,255,255,0.1)", padding: "1px 5px", borderRadius: 3, border: "1px solid rgba(255,255,255,0.2)" }}>Esc</kbd> to cancel
+                  </span>
+                </div>
+              )}
             </div>
 
             {/* Live feedback */}
