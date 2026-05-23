@@ -411,9 +411,9 @@ export default function WordDrillGame({
     if (clearText) { setTranscript(""); textareaRef.current?.focus(); }
   }
 
-  function startPendingAutoSend() {
+  function startPendingAutoSend(duration = 2000) {
     cancelPendingAutoSend();
-    const DURATION = 2000;
+    const DURATION = duration;
     const startTime = Date.now();
     setPendingAutoSend(true);
     setPendingProgress(1.0);
@@ -437,7 +437,10 @@ export default function WordDrillGame({
     if (transcript.length > 2 && answerStatus === "idle" && !busy) {
       const increase = transcript.length - previousLengthRef.current;
       if (increase >= 3 && Date.now() - lastSentRef.current > 700) {
-        startPendingAutoSend();
+        const isMatch = currentSentence
+          ? checkFuzzyMatch(transcript.trim(), currentSentence.accepted_translations, learning.code) !== null
+          : false;
+        startPendingAutoSend(isMatch ? 1000 : 2000);
       }
     }
     previousLengthRef.current = transcript.length;

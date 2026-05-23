@@ -251,6 +251,39 @@
             }
           ]
         }
+      },
+      {
+        "id": 10,
+        "name": "Quedar debiendo (to owe)",
+        "explanation": "Use 'quedar debiendo' to say someone still owes something after an interaction — more specific than just 'deber.' 'Me quedó debiendo' = 'he still owes me.' Common after splitting bills or lending money.",
+        "demo": {
+          "context": "A: Did he ever pay you back?",
+          "native": "No, he still owes me.",
+          "spanish": "No, me quedó debiendo."
+        },
+        "practice": {
+          "context": "Adam: Hey, I thought you were going to pay for the coffee.",
+          "english": "Sorry, I still owe you.",
+          "spanish": "Perdón, te quedo debiendo",
+          "accepted_translations": [
+            "Perdón, te quedo debiendo",
+            "Te quedo debiendo"
+          ],
+          "hints": [
+            {
+              "native": "sorry",
+              "learning": "perdón"
+            },
+            {
+              "native": "to you",
+              "learning": "te"
+            },
+            {
+              "native": "I still owe",
+              "learning": "quedo debiendo"
+            }
+          ]
+        }
       }
     ],
     "sentences": [
@@ -297,7 +330,7 @@
       },
       {
         "id": 3,
-        "category": "Agree on something",
+        "category": "Agree on a plan",
         "context": "Adam: So what did you guys decide in the end?",
         "english": "We agreed on that",
         "spanish": "Quedamos en eso",
@@ -317,7 +350,7 @@
       },
       {
         "id": 4,
-        "category": "Agree on something",
+        "category": "Agree on a plan",
         "context": "Adam: Did you come to any conclusion or not?",
         "english": "We didn't agree on anything",
         "spanish": "No quedamos en nada",
@@ -424,7 +457,7 @@
       },
       {
         "id": 9,
-        "category": "Look / appearance",
+        "category": "Fit / suit clothing",
         "context": "Adam: Do you like how that hat looks on me?",
         "english": "It looks good on you",
         "spanish": "Te queda bien",
@@ -444,7 +477,7 @@
       },
       {
         "id": 10,
-        "category": "Look / result",
+        "category": "Turn out / end up",
         "context": "Adam: How did the picture come out?",
         "english": "It turned out really good",
         "spanish": "Quedó muy bien",
@@ -559,7 +592,7 @@
       },
       {
         "id": 15,
-        "category": "Owe / be indebted",
+        "category": "Quedar debiendo (to owe)",
         "context": "Adam: Hey, you still haven't paid me back, right?",
         "english": "I still owe you money",
         "spanish": "Te quedo debiendo dinero",
@@ -969,12 +1002,40 @@
             }
           ]
         }
+      },
+      {
+        "id": 11,
+        "name": "Darse un golpe (to hit yourself)",
+        "explanation": "'Darse un golpe' means to accidentally hit or bump yourself. 'Me di un golpe en la cabeza' = 'I hit my head.' It's the natural phrase for any accidental knock or bump against something.",
+        "demo": {
+          "context": "A: Why are you rubbing your elbow?",
+          "native": "I bumped it on the door.",
+          "spanish": "Me di un golpe en la puerta."
+        },
+        "practice": {
+          "context": "Adam: What happened? Are you okay?",
+          "english": "I hit my head.",
+          "spanish": "Me di un golpe en la cabeza",
+          "accepted_translations": [
+            "Me di un golpe en la cabeza"
+          ],
+          "hints": [
+            {
+              "native": "I hit / bumped",
+              "learning": "me di un golpe"
+            },
+            {
+              "native": "my head",
+              "learning": "en la cabeza"
+            }
+          ]
+        }
       }
     ],
     "sentences": [
       {
         "id": 1,
-        "category": "Give (basic)",
+        "category": "Give / pass something",
         "context": "Adam: Could you hand something over at the table?",
         "english": "Can you pass me the water?",
         "spanish": "¿Me das el agua?",
@@ -995,7 +1056,7 @@
       },
       {
         "id": 2,
-        "category": "Give (basic)",
+        "category": "Give / pass something",
         "context": "Adam: You mentioned you wanted to stay in touch.",
         "english": "I'll give you my number",
         "spanish": "Te doy mi número",
@@ -1194,7 +1255,7 @@
       },
       {
         "id": 13,
-        "category": "Give thanks",
+        "category": "Give / pass something",
         "context": "Adam: My friend helped you out, right?",
         "english": "Thank him for me",
         "spanish": "Dale las gracias de mi parte",
@@ -1255,7 +1316,7 @@
       },
       {
         "id": 16,
-        "category": "Dar vergüenza (to embarrass)",
+        "category": "Dar pena / vergüenza (to embarrass)",
         "context": "Adam: Why don't you ever speak up in meetings?",
         "english": "It embarrasses me / I'm embarrassed",
         "spanish": "Me da vergüenza",
@@ -1289,7 +1350,7 @@
       },
       {
         "id": 18,
-        "category": "Give (physical)",
+        "category": "Give / pass something",
         "context": "Adam: I haven't seen you in so long!",
         "english": "Give me a hug",
         "spanish": "Dame un abrazo",
@@ -1309,7 +1370,7 @@
       },
       {
         "id": 19,
-        "category": "Give (contact info)",
+        "category": "Give / pass something",
         "context": "Adam: We should keep in touch.",
         "english": "Can you give me your number?",
         "spanish": "¿Me das tu número?",
@@ -2361,7 +2422,7 @@
       },
       {
         "id": 2,
-        "category": "Return (asking when)",
+        "category": "Come back / return (asking when)",
         "context": "Adam: You're heading out on a trip tomorrow?",
         "english": "When are you coming back?",
         "spanish": "¿Cuándo vuelves?",
@@ -2378,7 +2439,7 @@
       },
       {
         "id": 3,
-        "category": "Return (past)",
+        "category": "Come back / return (past)",
         "context": "Adam: What time did you get home last night?",
         "english": "I got back late",
         "spanish": "Volví tarde",
@@ -2399,7 +2460,7 @@
       },
       {
         "id": 4,
-        "category": "Return (farewell)",
+        "category": "Come back / return (farewell)",
         "context": "Adam: I'm leaving now, see you next time!",
         "english": "Come back soon",
         "spanish": "Vuelve pronto",
@@ -2473,7 +2534,7 @@
       },
       {
         "id": 8,
-        "category": "Try again",
+        "category": "Volver a + infinitive (try again)",
         "context": "Adam: That didn't work out. What now?",
         "english": "Let's try again",
         "spanish": "Vamos a volver a intentarlo",
@@ -2489,7 +2550,7 @@
       },
       {
         "id": 9,
-        "category": "See again",
+        "category": "Volver a + infinitive (see again)",
         "context": "Adam: What's going on with you and her?",
         "english": "When are you seeing her again?",
         "spanish": "¿Cuándo la vuelves a ver?",
@@ -2510,7 +2571,7 @@
       },
       {
         "id": 10,
-        "category": "Return (time)",
+        "category": "Come back / return (time)",
         "context": "Adam: What time did everyone get back from the concert?",
         "english": "We got back at 10",
         "spanish": "Volvimos a las diez",
@@ -2548,7 +2609,7 @@
       },
       {
         "id": 12,
-        "category": "Volverse (to become)",
+        "category": "Volverse + adjective (to become)",
         "context": "Adam: He used to be so laid-back. What happened?",
         "english": "He became very serious",
         "spanish": "Se volvió muy serio",
@@ -2574,7 +2635,7 @@
       },
       {
         "id": 13,
-        "category": "Volver loco (drive crazy)",
+        "category": "Volverse loco (drive crazy)",
         "context": "Adam: He keeps doing things that bother you.",
         "english": "You drive me crazy",
         "spanish": "Me vuelves loco",
@@ -2610,7 +2671,7 @@
       },
       {
         "id": 15,
-        "category": "Start over",
+        "category": "Volver a empezar (start over)",
         "context": "Adam: The whole plan fell through. What are we doing?",
         "english": "We have to start over",
         "spanish": "Hay que volver a empezar",
@@ -2630,7 +2691,7 @@
       },
       {
         "id": 16,
-        "category": "Go back to a topic",
+        "category": "Come back / return (go back to topic)",
         "context": "Adam: We got sidetracked. What were we talking about?",
         "english": "Let's go back to that topic",
         "spanish": "Volvamos sobre ese tema",
@@ -2650,7 +2711,7 @@
       },
       {
         "id": 17,
-        "category": "Talk again",
+        "category": "Volver a + infinitive (talk again)",
         "context": "Adam: I heard you two had a falling out.",
         "english": "Did you talk to him again?",
         "spanish": "¿Volviste a hablar con él?",
@@ -2667,7 +2728,7 @@
       },
       {
         "id": 18,
-        "category": "Don't want to see again",
+        "category": "No volver a (don't want to see again)",
         "context": "Adam: Are you going to patch things up with him?",
         "english": "I don't want to see him again",
         "spanish": "No quiero volver a verlo",
@@ -2683,7 +2744,7 @@
       },
       {
         "id": 19,
-        "category": "Back to normal",
+        "category": "Volver en sí (back to normal)",
         "context": "Adam: After everything he went through, how is he now?",
         "english": "He was back to his old self",
         "spanish": "Volvió a ser el mismo de siempre",
@@ -3011,6 +3072,114 @@
             }
           ]
         }
+      },
+      {
+        "id": 11,
+        "name": "Poner (put / place)",
+        "explanation": "The core meaning of 'poner' is to put or place something somewhere. 'Ponlo en la mesa' = 'put it on the table.' It's the default verb for physically placing objects — more active than 'estar' or 'quedar.'",
+        "demo": {
+          "context": "A: Where should I put the groceries?",
+          "native": "Just put them on the counter.",
+          "spanish": "Ponlos en el mostrador."
+        },
+        "practice": {
+          "context": "Adam: Where do you want this?",
+          "english": "Put it on the table.",
+          "spanish": "Ponlo en la mesa",
+          "accepted_translations": [
+            "Ponlo en la mesa"
+          ],
+          "hints": [
+            {
+              "native": "put it",
+              "learning": "ponlo"
+            },
+            {
+              "native": "on the table",
+              "learning": "en la mesa"
+            }
+          ]
+        }
+      },
+      {
+        "id": 12,
+        "name": "Poner a cargo (put in charge)",
+        "explanation": "Use 'poner a alguien a cargo' to say someone is being given responsibility or authority. 'Me pusieron a cargo' = 'they put me in charge.' It implies a formal assignment — much more natural than 'hacer responsable.'",
+        "demo": {
+          "context": "A: Who's running the project now?",
+          "native": "They put María in charge.",
+          "spanish": "Pusieron a María a cargo."
+        },
+        "practice": {
+          "context": "Adam: Who's going to lead the new team?",
+          "english": "They put him in charge.",
+          "spanish": "Lo pusieron a cargo",
+          "accepted_translations": [
+            "Lo pusieron a cargo"
+          ],
+          "hints": [
+            {
+              "native": "they put him",
+              "learning": "lo pusieron"
+            },
+            {
+              "native": "in charge",
+              "learning": "a cargo"
+            }
+          ]
+        }
+      },
+      {
+        "id": 13,
+        "name": "Poner la mesa / excusas / atención",
+        "explanation": "'Poner' appears in several fixed collocations: 'poner la mesa' (set the table), 'poner excusas' (make excuses), 'poner atención' (pay attention). Just like English has 'set the table' and 'make excuses,' Spanish uses 'poner' for all three.",
+        "demo": {
+          "context": "A: Help me get dinner ready.",
+          "native": "I'll set the table.",
+          "spanish": "Pongo la mesa."
+        },
+        "practice": {
+          "context": "Adam: Stop coming up with reasons. Just do it.",
+          "english": "Stop making excuses.",
+          "spanish": "Deja de poner excusas",
+          "accepted_translations": [
+            "Deja de poner excusas"
+          ],
+          "hints": [
+            {
+              "native": "stop",
+              "learning": "deja de"
+            },
+            {
+              "native": "making excuses",
+              "learning": "poner excusas"
+            }
+          ]
+        }
+      },
+      {
+        "id": 14,
+        "name": "¿Qué le pongo? (What can I get you?)",
+        "explanation": "When a server asks what you'd like to order, they say '¿Qué le pongo?' — literally 'what shall I put for you?' This is the standard server phrase across Latin America, far more common than '¿Qué quiere ordenar?' in casual settings.",
+        "demo": {
+          "context": "A: [Server approaches your table]",
+          "native": "What can I get you?",
+          "spanish": "¿Qué le pongo?"
+        },
+        "practice": {
+          "context": "Adam: [You're the server. A customer sits down.]",
+          "english": "What can I get you?",
+          "spanish": "¿Qué le pongo?",
+          "accepted_translations": [
+            "¿Qué le pongo?"
+          ],
+          "hints": [
+            {
+              "native": "what can I get you",
+              "learning": "¿qué le pongo?"
+            }
+          ]
+        }
       }
     ],
     "sentences": [
@@ -3057,7 +3226,7 @@
       },
       {
         "id": 3,
-        "category": "Ponerse (put on clothing)",
+        "category": "Ponerse ropa (put on clothing)",
         "context": "Adam: It's cold outside. You should bundle up.",
         "english": "Put on your coat",
         "spanish": "Ponte el abrigo",
@@ -3098,7 +3267,7 @@
       },
       {
         "id": 5,
-        "category": "Pay attention",
+        "category": "Poner atención (pay attention)",
         "context": "Adam: You keep getting distracted.",
         "english": "Pay attention",
         "spanish": "Pon atención",
@@ -3115,7 +3284,7 @@
       },
       {
         "id": 6,
-        "category": "Make excuses",
+        "category": "Poner excusas (make excuses)",
         "context": "Adam: Did he follow through on what he said?",
         "english": "He always makes excuses",
         "spanish": "Siempre pone excusas",
@@ -3135,7 +3304,7 @@
       },
       {
         "id": 7,
-        "category": "Ponerse nervioso (to get nervous)",
+        "category": "Ponerse + adjective (get nervous)",
         "context": "Adam: How were you before your big presentation?",
         "english": "I got really nervous",
         "spanish": "Me puse muy nervioso",
@@ -3157,7 +3326,7 @@
       },
       {
         "id": 8,
-        "category": "Ponerse contento (to get happy)",
+        "category": "Ponerse + adjective (get happy)",
         "context": "Adam: How did he react when you told him the good news?",
         "english": "He was really happy / He lit up",
         "spanish": "Se puso muy contento",
@@ -3215,7 +3384,7 @@
       },
       {
         "id": 11,
-        "category": "Put (physical placement)",
+        "category": "Poner (put / place)",
         "context": "Adam: Where did you leave your stuff?",
         "english": "I put my things here",
         "spanish": "Puse mis cosas aquí",
@@ -3241,7 +3410,7 @@
       },
       {
         "id": 12,
-        "category": "Put (physical placement)",
+        "category": "Poner (put / place)",
         "context": "Adam: You're moving into a new place and rearranging.",
         "english": "I don't know where to put this",
         "spanish": "No sé dónde poner esto",
@@ -3270,7 +3439,7 @@
       },
       {
         "id": 13,
-        "category": "Put in charge",
+        "category": "Poner a cargo (put in charge)",
         "context": "Adam: Who's running the new project?",
         "english": "They put him in charge",
         "spanish": "Lo pusieron a cargo",
@@ -3404,7 +3573,7 @@
       },
       {
         "id": 20,
-        "category": "Ponerse de pie (to stand up)",
+        "category": "Ponerse + adjective (stand up)",
         "context": "Adam: What happened when the speaker walked in?",
         "english": "Everyone stood up",
         "spanish": "Todos se pusieron de pie",
