@@ -35,6 +35,7 @@ type Player = {
   score: number;
   initials: string;
   color: string;
+  image?: string;
 };
 
 type TriviaQuestion = {
@@ -65,6 +66,11 @@ type PlayerResult = {
   correctedSnippet: string | null;
 };
 
+type WrongAttempt = {
+  correctionTokens: Array<{ text: string; status: "ok" | "remove" | "add" }> | null;
+  feedbackIssues: FeedbackIssue[] | null;
+};
+
 type QuestionHistoryEntry = {
   entryId: string;
   question: TriviaQuestion;
@@ -73,6 +79,7 @@ type QuestionHistoryEntry = {
   playerResult: PlayerResult | null;
   botStates: BotState[];
   hintsRevealed: number[];
+  wrongAttempts: WrongAttempt[];
 };
 
 type QuestionState = {
@@ -81,6 +88,7 @@ type QuestionState = {
   hintsRevealed: number[];
   ended: boolean;
   attemptCount: number;
+  wrongAttempts: WrongAttempt[];
 };
 
 type TriviaGame2Props = {
@@ -91,9 +99,9 @@ type TriviaGame2Props = {
 };
 
 const BOTS: Omit<Player, "score">[] = [
-  { id: "bot1", name: "Rápida", isHuman: false, accuracy: 0.60, responseRange: [2, 5], initials: "R", color: "#f87171" },
-  { id: "bot2", name: "Equilibrio", isHuman: false, accuracy: 0.80, responseRange: [5, 9], initials: "E", color: "#60a5fa" },
-  { id: "bot3", name: "Preciso", isHuman: false, accuracy: 0.92, responseRange: [10, 16], initials: "P", color: "#34d399" },
+  { id: "bot1", name: "Darácula (Rápida)",     isHuman: false, accuracy: 0.60, responseRange: [2,  5],  initials: "R", color: "#f87171", image: "/bots/rapida.png"     },
+  { id: "bot2", name: "Professor Ratus (Equilibrio)", isHuman: false, accuracy: 0.80, responseRange: [5,  9],  initials: "E", color: "#60a5fa", image: "/bots/equilibrio.png" },
+  { id: "bot3", name: "Tigasaur (Preciso)",    isHuman: false, accuracy: 0.92, responseRange: [10, 16], initials: "P", color: "#34d399", image: "/bots/preciso.png"    },
 ];
 
 const HUMAN_PLAYER: Omit<Player, "score"> = {
@@ -297,7 +305,16 @@ function initPlayers(): Player[] {
 }
 
 // ── Avatar ──
-function Avatar({ player, size = 40 }: { player: Pick<Player, "initials" | "color" | "name">; size?: number }) {
+function Avatar({ player, size = 40 }: { player: Pick<Player, "initials" | "color" | "name" | "image">; size?: number }) {
+  if (player.image) {
+    return (
+      <img
+        src={player.image}
+        alt={player.name}
+        style={{ width: size, height: size, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }}
+      />
+    );
+  }
   return (
     <div style={{
       width: size, height: size, borderRadius: "50%",
@@ -411,6 +428,14 @@ function HistoryEntry({
             <div style={{ width: `${qualityScore}%`, height: "100%", borderRadius: 3, background: `hsl(${hue},80%,58%)` }} />
           </div>
         )}
+        {hints.length > 0 && (
+          <div style={{ width: 56, height: 5, borderRadius: 3, background: "rgba(255,255,255,0.1)", flexShrink: 0 }}>
+            <div style={{
+              width: `${((hints.length - entry.hintsRevealed.length) / hints.length) * 100}%`,
+              height: "100%", borderRadius: 3, background: "#fbbf24",
+            }} />
+          </div>
+        )}
       </div>
 
       {/* Expanded view */}
@@ -511,6 +536,38 @@ function HistoryEntry({
                   </div>
                 );
               })}
+            </div>
+          )}
+
+          {/* Previous attempts */}
+          {entry.wrongAttempts.length > 0 && (
+            <div style={{ marginBottom: 8 }}>
+              <div style={{ fontSize: 10, opacity: 0.45, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 }}>Previous attempts</div>
+              {entry.wrongAttempts.map((attempt, i) => (
+                <div key={i} style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)", borderRadius: 6, padding: "6px 8px", marginBottom: 4 }}>
+                  {attempt.correctionTokens && (
+                    <div style={{ fontSize: 12, marginBottom: 3, lineHeight: 1.4 }}>
+                      {attempt.correctionTokens.map((tok, j) => {
+                        if (tok.status === "remove") return <span key={j} style={{ color: "#fca5a5", textDecoration: "line-through" }}>{tok.text}</span>;
+                        if (tok.status === "add") return <span key={j} style={{ color: "#86efac" }}>{tok.text}</span>;
+                        return <span key={j} style={{ color: "rgba(255,255,255,0.7)" }}>{tok.text}</span>;
+                      })}
+                    </div>
+                  )}
+                  <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+                    {attempt.feedbackIssues?.map((issue, j) => {
+                      const color = FEEDBACK_COLORS[issue.feedbackKey] ?? "#94a3b8";
+                      const label = FEEDBACK_LABELS[issue.feedbackKey] ?? issue.feedbackKey;
+                      return (
+                        <span key={j} style={{
+                          fontSize: 10, fontWeight: 600, padding: "1px 6px", borderRadius: 999,
+                          background: `${color}22`, border: `1px solid ${color}55`, color,
+                        }}>{label}</span>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
             </div>
           )}
 
@@ -759,6 +816,7 @@ export default function TriviaGame2({
       hintsRevealed: [],
       ended: false,
       attemptCount: 0,
+      wrongAttempts: [],
     };
     firstCorrectTimeRef.current = null;
 
@@ -822,8 +880,18 @@ export default function TriviaGame2({
     questionStateRef.current = { ...qState, ended: true };
     setTimerActive(false);
     setBusy(false);
+    finalizeQuestion(null);
+  }
 
-    // Finalize — no player result
+  function handleSkip() {
+    const qState = questionStateRef.current;
+    if (qState.ended) return;
+    questionStateRef.current = { ...qState, ended: true };
+    if (timerIntervalRef.current) { clearInterval(timerIntervalRef.current); timerIntervalRef.current = null; }
+    setTimerActive(false);
+    setBusy(false);
+    botTimerRefs.current.forEach(t => clearTimeout(t));
+    botTimerRefs.current = [];
     finalizeQuestion(null);
   }
 
@@ -845,6 +913,7 @@ export default function TriviaGame2({
       playerResult,
       botStates: qState.botStates,
       hintsRevealed: [...qState.hintsRevealed],
+      wrongAttempts: [...qState.wrongAttempts],
     };
     setHistory(prev => [...prev, entry]);
 
@@ -931,6 +1000,11 @@ export default function TriviaGame2({
           feedbackKey: issues[0]?.feedbackKey ?? null,
           correctedSnippet: data.corrected_snippet ?? null,
         };
+        const newWrongAttempts = [...questionStateRef.current.wrongAttempts, {
+          correctionTokens: data.correction_tokens ?? null,
+          feedbackIssues: issues,
+        }];
+        questionStateRef.current = { ...questionStateRef.current, wrongAttempts: newWrongAttempts };
         setLiveResult(rejResult);
         setLiveRejected(true);
         setBusy(false);
@@ -1305,7 +1379,7 @@ export default function TriviaGame2({
 
         <div style={{ display: "flex", gap: 16, height: "calc(100vh - 80px)" }}>
           {/* Left: question + input */}
-          <div style={{ flex: "0 0 66%", display: "flex", flexDirection: "column", overflow: "hidden" }}>
+          <div style={{ flex: "0 0 66%", display: "flex", flexDirection: "column", overflowY: "auto" }}>
             {/* Header: round / question info */}
             <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
               <button onClick={onBack} style={{ ...backBtnStyle, marginBottom: 0 }}>←</button>
@@ -1355,25 +1429,99 @@ export default function TriviaGame2({
             )}
 
             {/* English sentence */}
-            <div style={{ fontSize: 18, fontWeight: 500, lineHeight: 1.5, marginBottom: 14, color: "rgba(255,255,255,0.9)" }}>
-              {hints.length > 0
-                ? tokenizeWithHints(currentQuestion.sentence.english, hints).map((tok, i) => {
-                    if (tok.hintIndex === null) return <span key={i}>{tok.text}</span>;
-                    const revealed = viewedHints.has(tok.hintIndex);
-                    return (
-                      <span
-                        key={i}
-                        style={{
+            <div style={{ background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 10, padding: "16px 20px", marginBottom: 12 }}>
+              <div style={{ fontSize: 12, opacity: 0.4, marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600 }}>
+                Translate to {learning.name}
+              </div>
+              <div style={{ fontSize: 20, fontWeight: 600, lineHeight: 1.5, color: "rgba(255,255,255,0.95)" }}>
+                {hints.length > 0
+                  ? tokenizeWithHints(currentQuestion.sentence.english, hints).map((tok, i) => {
+                      if (tok.hintIndex === null) return <span key={i}>{tok.text}</span>;
+                      const revealed = viewedHints.has(tok.hintIndex);
+                      return (
+                        <span key={i} style={{
                           color: revealed ? HINT_COLORS[tok.hintIndex % HINT_COLORS.length] : "inherit",
-                          borderBottom: revealed ? "none" : "1px dashed #fbbf24",
+                          borderBottom: revealed ? "none" : "2px dashed #fbbf24",
+                          cursor: "default",
+                        }}>{tok.text}</span>
+                      );
+                    })
+                  : currentQuestion.sentence.english}
+              </div>
+            </div>
+
+            {/* Hints — positioned right below sentence, same as WordDrillGame */}
+            {hints.length > 0 && (
+              <div
+                style={{ marginBottom: 12 }}
+                onMouseMove={handleHintsMouseMove}
+                onMouseLeave={() => { setClosestHintIndex(null); setClosestHintOpacity(0); if (hintAudio) { hintAudio.pause(); setHintAudio(null); } }}
+              >
+                <div style={{ fontSize: 11, opacity: 0.4, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>Hints</div>
+                <div style={{ display: "flex", gap: 10, overflowX: "auto", padding: "4px 0" }}>
+                  {hints.map((hint, idx) => {
+                    const isRevealed = viewedHints.has(idx);
+                    const isClosest = closestHintIndex === idx && !isRevealed;
+                    const learningParts = hint.learning.split("/").map(p => p.trim()).filter(Boolean);
+                    return (
+                      <div
+                        key={idx}
+                        ref={el => { hintCardsRefs.current[idx] = el; }}
+                        style={{
+                          flexShrink: 0, width: 130, display: "flex", flexDirection: "column",
+                          border: isRevealed
+                            ? "2px solid rgba(255,255,255,0.3)"
+                            : isClosest
+                            ? `2px solid rgba(0,212,255,${Math.max(0.3, closestHintOpacity)})`
+                            : "2px solid #FFD700",
+                          borderRadius: 8, padding: "8px 12px 6px",
+                          background: isRevealed
+                            ? "rgba(255,255,255,0.1)"
+                            : isClosest
+                            ? `rgba(0,212,255,${0.15 * closestHintOpacity})`
+                            : "rgba(255,215,0,0.1)",
+                          boxShadow: isRevealed || isClosest ? "none" : "0 2px 8px rgba(255,215,0,0.2)",
+                          transition: "all 0.3s ease",
                         }}
                       >
-                        {tok.text}
-                      </span>
+                        <div style={{ fontWeight: 600, marginBottom: 6, fontSize: 14, color: isRevealed ? "#9ca3af" : "white" }}>
+                          {hint.native}
+                        </div>
+                        {isRevealed ? (
+                          <div style={{ marginBottom: 6, flex: 1 }}>
+                            {learningParts.length > 1
+                              ? <ol style={{ margin: 0, padding: "0 0 0 16px", color: "#93c5fd", fontSize: 12, fontWeight: 500 }}>
+                                  {learningParts.map((p, pi) => <li key={pi}>{p}</li>)}
+                                </ol>
+                              : <div style={{ color: "#93c5fd", fontSize: 12, fontWeight: 500 }}>{hint.learning}</div>}
+                            {hint.note && <div style={{ fontSize: 10, fontStyle: "italic", color: "rgba(255,255,255,0.45)", marginTop: 4 }}>{hint.note}</div>}
+                          </div>
+                        ) : (
+                          <button
+                            onMouseEnter={() => { revealHint(idx); }}
+                            style={{
+                              width: "100%", padding: "6px 8px", fontSize: 12, borderRadius: 6, cursor: "pointer",
+                              textAlign: "center", fontWeight: 600, marginBottom: 6, flex: 1, minHeight: 44,
+                              background: "rgba(147,197,253,0.08)", border: "1px dashed rgba(147,197,253,0.3)",
+                              color: "rgba(147,197,253,0.5)",
+                            }}
+                          >Aa</button>
+                        )}
+                        <button
+                          onMouseEnter={() => { revealHint(idx); playHintAudio(hint); }}
+                          onMouseLeave={() => { if (hintAudio) { hintAudio.pause(); setHintAudio(null); } }}
+                          style={{
+                            width: "100%", padding: "5px 8px", fontSize: 13, borderRadius: 6, cursor: "pointer",
+                            textAlign: "center", background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.15)",
+                            color: "rgba(255,255,255,0.55)", transition: "all 0.15s",
+                          }}
+                        >🔊</button>
+                      </div>
                     );
-                  })
-                : currentQuestion.sentence.english}
-            </div>
+                  })}
+                </div>
+              </div>
+            )}
 
             {/* Textarea + buttons */}
             <div style={{ marginBottom: 12 }}>
@@ -1412,51 +1560,18 @@ export default function TriviaGame2({
                 >
                   Clear
                 </button>
+                <button
+                  onClick={handleSkip}
+                  disabled={questionStateRef.current.ended}
+                  style={{ ...ghostBtnStyle, padding: "8px 14px", fontSize: 13, color: "rgba(255,255,255,0.45)", marginLeft: "auto" }}
+                >
+                  Skip →
+                </button>
               </div>
             </div>
 
             {/* Live feedback */}
             {renderLiveResult()}
-
-            {/* Hints */}
-            {hints.length > 0 && (
-              <div
-                style={{ marginTop: "auto", paddingTop: 12 }}
-                onMouseMove={handleHintsMouseMove}
-                onMouseLeave={() => { setClosestHintIndex(null); setClosestHintOpacity(0); if (hintAudio) { hintAudio.pause(); setHintAudio(null); } }}
-              >
-                <div style={{ fontSize: 11, color: "rgba(255,255,255,0.35)", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.06em" }}>Hints</div>
-                <div style={{ display: "flex", gap: 8, overflowX: "auto", paddingBottom: 4 }}>
-                  {hints.map((hint, idx) => {
-                    const isRevealed = viewedHints.has(idx);
-                    const isClosest = closestHintIndex === idx && !isRevealed;
-                    return (
-                      <div
-                        key={idx}
-                        ref={el => { hintCardsRefs.current[idx] = el; }}
-                        style={{
-                          flexShrink: 0, width: 130, padding: "8px 10px", borderRadius: 8,
-                          background: isClosest ? "rgba(6,182,212,0.1)" : "rgba(255,255,255,0.05)",
-                          border: `1px solid ${isClosest ? `rgba(6,182,212,${closestHintOpacity * 0.6})` : "rgba(255,255,255,0.1)"}`,
-                          boxShadow: isClosest ? `0 0 ${Math.round(closestHintOpacity * 12)}px rgba(6,182,212,${closestHintOpacity * 0.25})` : "none",
-                          transition: "border-color 0.2s, box-shadow 0.2s, background 0.2s",
-                          cursor: "default",
-                        }}
-                        onMouseEnter={() => { revealHint(idx); playHintAudio(hint); }}
-                      >
-                        <div style={{ fontSize: 11, color: "rgba(255,255,255,0.5)", marginBottom: 4 }}>{hint.native}</div>
-                        <div style={{ fontSize: 13, color: isRevealed ? HINT_COLORS[idx % HINT_COLORS.length] : "rgba(255,255,255,0.15)", fontWeight: 600 }}>
-                          {isRevealed ? hint.learning : "Aa"}
-                        </div>
-                        {hint.note && isRevealed && (
-                          <div style={{ fontSize: 10, color: "rgba(255,255,255,0.35)", marginTop: 3, fontStyle: "italic" }}>{hint.note}</div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
           </div>
 
           {/* Right: bot cards + history */}
@@ -1552,6 +1667,17 @@ export default function TriviaGame2({
                     return <span key={i} style={{ color: "rgba(255,255,255,0.8)" }}>{tok.text}</span>;
                   })}
                 </div>
+              </div>
+            )}
+
+            {/* Correct answer when skipped/expired */}
+            {!pr && (
+              <div style={{ marginBottom: 14, padding: "10px 14px", background: "rgba(134,239,172,0.07)", border: "1px solid rgba(134,239,172,0.2)", borderRadius: 8 }}>
+                <div style={{ fontSize: 11, color: "rgba(255,255,255,0.4)", marginBottom: 6, textTransform: "uppercase" }}>Correct answer</div>
+                <div style={{ fontSize: 15, color: "#86efac", marginBottom: 4 }}>{currentQuestion.sentence.spanish}</div>
+                {currentQuestion.sentence.accepted_translations.filter(t => t !== currentQuestion.sentence.spanish).slice(0, 2).map((t, i) => (
+                  <div key={i} style={{ fontSize: 13, color: "rgba(255,255,255,0.45)", marginTop: 3 }}>{t}</div>
+                ))}
               </div>
             )}
 
