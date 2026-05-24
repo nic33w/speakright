@@ -1617,6 +1617,7 @@ class BattleCheckReq(BaseModel):
     correct_answer: str
     accepted_translations: Optional[List[str]] = None
     valid_phrases: Optional[List[str]] = None
+    required_word: Optional[str] = None
     prompt_text: str
     learning: Optional[LangSpec] = None
     fluent: Optional[LangSpec] = None
@@ -1646,6 +1647,7 @@ def api_battle_check(req: BattleCheckReq):
             learning=learning.dict(),
             accepted_translations=req.accepted_translations,
             valid_phrases=req.valid_phrases,
+            required_vocab=req.required_word,
         )
 
         issues = result.get("issues", [])

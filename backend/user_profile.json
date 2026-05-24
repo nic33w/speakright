@@ -583,6 +583,304 @@
       "damage_multiplier": 0.6,
       "hints_used_count": 0,
       "hints_used_phrases": []
+    },
+    {
+      "timestamp": "2026-05-24T00:07:48.542962",
+      "conversation_id": "trivia2_spotlight_volver",
+      "difficulty": "easy",
+      "native": "Translate using the word 'volver': I'll be right back",
+      "user_answer": "ya volvere",
+      "feedback_keys": [
+        "missing_target_word"
+      ],
+      "issues": [
+        {
+          "feedback_key": "missing_target_word",
+          "corrected_snippet": null,
+          "feedback_explanation": "Your answer is correct, but this exercise requires you to use 'volver' — the word being practiced here."
+        }
+      ],
+      "damage_multiplier": 0.0,
+      "hints_used_count": 0,
+      "hints_used_phrases": []
+    },
+    {
+      "timestamp": "2026-05-24T00:08:33.017152",
+      "conversation_id": "trivia2_spotlight_volver",
+      "difficulty": "medium",
+      "native": "Translate using the word 'volver': Let's try again",
+      "user_answer": "vamos a volver",
+      "feedback_keys": [
+        "missing_content"
+      ],
+      "issues": [
+        {
+          "feedback_key": "missing_content",
+          "corrected_snippet": "vamos a volver a intentarlo",
+          "feedback_explanation": "Your answer is correct, but you omitted the part that means 'to try again'."
+        }
+      ],
+      "damage_multiplier": 0.6,
+      "hints_used_count": 0,
+      "hints_used_phrases": []
+    },
+    {
+      "timestamp": "2026-05-24T00:09:59.740843",
+      "conversation_id": "trivia2_spotlight_volver",
+      "difficulty": "medium",
+      "native": "Translate using the word 'volver': When are you seeing her again?",
+      "user_answer": "cuando volves a verla",
+      "feedback_keys": [
+        "missing_target_word"
+      ],
+      "issues": [
+        {
+          "feedback_key": "missing_target_word",
+          "corrected_snippet": null,
+          "feedback_explanation": "Your answer is correct, but this exercise requires you to use 'volver' — the word being practiced here."
+        }
+      ],
+      "damage_multiplier": 0.0,
+      "hints_used_count": 0,
+      "hints_used_phrases": []
+    },
+    {
+      "timestamp": "2026-05-24T00:10:12.878583",
+      "conversation_id": "trivia2_spotlight_volver",
+      "difficulty": "medium",
+      "native": "Translate using the word 'volver': When are you seeing her again?",
+      "user_answer": "cuado vuelves a verla",
+      "feedback_keys": [
+        "missing_target_word"
+      ],
+      "issues": [
+        {
+          "feedback_key": "missing_target_word",
+          "corrected_snippet": null,
+          "feedback_explanation": "Your answer is correct, but this exercise requires you to use 'volver' — the word being practiced here."
+        }
+      ],
+      "damage_multiplier": 0.0,
+      "hints_used_count": 0,
+      "hints_used_phrases": []
+    },
+    {
+      "timestamp": "2026-05-24T00:11:13.972403",
+      "conversation_id": "trivia2_free_dar",
+      "difficulty": "easy",
+      "native": "Can you pass me the water?",
+      "user_answer": "me puedes pasar el agua",
+      "feedback_keys": [
+        "perfect"
+      ],
+      "issues": [
+        {
+          "feedback_key": "perfect",
+          "corrected_snippet": null,
+          "feedback_explanation": null
+        }
+      ],
+      "damage_multiplier": 1.0,
+      "hints_used_count": 0,
+      "hints_used_phrases": []
+    },
+    {
+      "timestamp": "2026-05-24T00:13:22.932711",
+      "conversation_id": "trivia2_blitz_dar",
+      "difficulty": "easy",
+      "native": "Translate using the word 'dar': I feel like going out",
+      "user_answer": "me da ganas de salir",
+      "feedback_keys": [
+        "wrong_conjugation"
+      ],
+      "issues": [
+        {
+          "feedback_key": "wrong_conjugation",
+          "corrected_snippet": "me dan ganas de salir",
+          "feedback_explanation": "The subject-verb agreement is incorrect; it should be 'me dan' instead of 'me da' to match the plural subject."
+        }
+      ],
+      "damage_multiplier": 0.0,
+      "hints_used_count": 0,
+      "hints_used_phrases": []
+    },
+    {
+      "timestamp": "2026-05-24T00:14:30.710740",
+      "conversation_id": "trivia2_blitz_dar",
+      "difficulty": "hard",
+      "native": "Translate using the word 'dar': Thank him for me",
+      "user_answer": "date gracias en mi parte",
+      "feedback_keys": [
+        "missing_target_word"
+      ],
+      "issues": [
+        {
+          "feedback_key": "missing_target_word",
+          "corrected_snippet": null,
+          "feedback_explanation": "Your answer is correct, but this exercise requires you to use 'dar' — the word being practiced here."
+        }
+      ],
+      "damage_multiplier": 0.0,
+      "hints_used_count": 0,
+      "hints_used_phrases": []
+    },
+    {
+      "timestamp": "2026-05-24T00:22:23.589557",
+      "conversation_id": "trivia2_free_poner",
+      "difficulty": "medium",
+      "native": "It puts me in a bad mood",
+      "user_answer": "me pone malo humor",
+      "feedback_keys": [
+        "gender_agreement",
+        "word_order"
+      ],
+      "issues": [
+        {
+          "feedback_key": "gender_agreement",
+          "corrected_snippet": "malo humor → mal humor",
+          "feedback_explanation": "The adjective 'malo' should agree in gender with 'humor', which is masculine, so it should be 'mal'."
+        },
+        {
+          "feedback_key": "word_order",
+          "corrected_snippet": "malo humor → humor malo",
+          "feedback_explanation": "The correct phrase is 'de mal humor', which places 'mal' before 'humor'."
+        }
+      ],
+      "damage_multiplier": 0.6,
+      "hints_used_count": 0,
+      "hints_used_phrases": []
+    },
+    {
+      "timestamp": "2026-05-24T00:22:50.039685",
+      "conversation_id": "trivia2_free_poner",
+      "difficulty": "medium",
+      "native": "I put my things here",
+      "user_answer": "pongo mis cosas aqui",
+      "feedback_keys": [
+        "wrong_tense",
+        "missing_content"
+      ],
+      "issues": [
+        {
+          "feedback_key": "wrong_tense",
+          "corrected_snippet": "pongo → puse",
+          "feedback_explanation": "You used the present tense 'pongo' instead of the past tense 'puse', which changes the meaning of the sentence."
+        },
+        {
+          "feedback_key": "missing_content",
+          "corrected_snippet": null,
+          "feedback_explanation": "The core action is present, but the past tense is necessary to accurately convey the meaning."
+        }
+      ],
+      "damage_multiplier": 0.6,
+      "hints_used_count": 0,
+      "hints_used_phrases": []
+    },
+    {
+      "timestamp": "2026-05-24T00:23:25.573095",
+      "conversation_id": "trivia2_free_poner",
+      "difficulty": "hard",
+      "native": "They put him in charge",
+      "user_answer": "lo pusieron de cargo",
+      "feedback_keys": [
+        "subtle_meaning_shift"
+      ],
+      "issues": [
+        {
+          "feedback_key": "subtle_meaning_shift",
+          "corrected_snippet": "a cargo",
+          "feedback_explanation": "Your answer is understandable, but 'de cargo' suggests a different nuance than 'a cargo', which specifically means 'in charge'."
+        }
+      ],
+      "damage_multiplier": 0.75,
+      "hints_used_count": 0,
+      "hints_used_phrases": []
+    },
+    {
+      "timestamp": "2026-05-24T00:24:03.722186",
+      "conversation_id": "trivia2_blitz_quedar",
+      "difficulty": "medium",
+      "native": "Translate using the word 'quedar': It looks good on you",
+      "user_answer": "te quedan bien",
+      "feedback_keys": [
+        "missing_target_word"
+      ],
+      "issues": [
+        {
+          "feedback_key": "missing_target_word",
+          "corrected_snippet": null,
+          "feedback_explanation": "Your answer is correct, but this exercise requires you to use 'quedar' — the word being practiced here."
+        }
+      ],
+      "damage_multiplier": 0.0,
+      "hints_used_count": 0,
+      "hints_used_phrases": []
+    },
+    {
+      "timestamp": "2026-05-24T00:24:27.425483",
+      "conversation_id": "trivia2_blitz_quedar",
+      "difficulty": "medium",
+      "native": "Translate using the word 'quedar': Everything turned out perfect",
+      "user_answer": "todo se quedo perfecto",
+      "feedback_keys": [
+        "wrong_conjugation",
+        "missing_target_word"
+      ],
+      "issues": [
+        {
+          "feedback_key": "wrong_conjugation",
+          "corrected_snippet": "quedo",
+          "feedback_explanation": "You used the wrong conjugation; it should be 'quedó' instead of 'se quedó'."
+        },
+        {
+          "feedback_key": "missing_target_word",
+          "corrected_snippet": null,
+          "feedback_explanation": "Your answer is correct, but this exercise requires you to use 'quedar' — the word being practiced here."
+        }
+      ],
+      "damage_multiplier": 0.0,
+      "hints_used_count": 0,
+      "hints_used_phrases": []
+    },
+    {
+      "timestamp": "2026-05-24T01:03:55.323893",
+      "conversation_id": "trivia2_free_dar",
+      "difficulty": "easy",
+      "native": "Either way / It's the same",
+      "user_answer": "me da igual",
+      "feedback_keys": [
+        "perfect"
+      ],
+      "issues": [
+        {
+          "feedback_key": "perfect",
+          "corrected_snippet": null,
+          "feedback_explanation": null
+        }
+      ],
+      "damage_multiplier": 1.0,
+      "hints_used_count": 0,
+      "hints_used_phrases": []
+    },
+    {
+      "timestamp": "2026-05-24T01:05:06.523956",
+      "conversation_id": "trivia2_free_dar",
+      "difficulty": "hard",
+      "native": "It embarrasses me / I'm embarrassed",
+      "user_answer": "me da pena",
+      "feedback_keys": [
+        "missing_content"
+      ],
+      "issues": [
+        {
+          "feedback_key": "missing_content",
+          "corrected_snippet": "me da verguenza",
+          "feedback_explanation": "The core verb is present, but 'pena' is not the exact translation for 'embarrassment' as intended; 'verguenza' is the correct term."
+        }
+      ],
+      "damage_multiplier": 0.6,
+      "hints_used_count": 0,
+      "hints_used_phrases": []
     }
   ],
   "topics_to_practice": []

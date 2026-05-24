@@ -123,6 +123,7 @@ const FEEDBACK_MAP: Record<string, string> = {
   wrong_conjugation: "The verb is conjugated incorrectly.",
   wrong_tense: "The tense used changes or contradicts the intended meaning.",
   wrong_meaning: "The answer doesn't match what was asked.",
+  missing_target_word: "Your answer is correct, but you need to use the required word for this exercise.",
 };
 
 const FEEDBACK_COLORS: Record<string, string> = {
@@ -140,6 +141,7 @@ const FEEDBACK_COLORS: Record<string, string> = {
   wrong_conjugation: "#f87171",
   wrong_tense: "#f87171",
   wrong_meaning: "#ef4444",
+  missing_target_word: "#a78bfa",
 };
 
 const FEEDBACK_LABELS: Record<string, string> = {
@@ -157,6 +159,7 @@ const FEEDBACK_LABELS: Record<string, string> = {
   wrong_conjugation: "Conjugation",
   wrong_tense: "Wrong Tense",
   wrong_meaning: "Wrong Meaning",
+  missing_target_word: "Wrong Word",
 };
 
 const HINT_COLORS = ["#f472b6", "#fb923c", "#a78bfa", "#34d399", "#60a5fa", "#fbbf24"];
@@ -682,6 +685,22 @@ export default function TriviaGame2({
     window.scrollTo(0, 0);
   }, [phase]);
 
+  // Enter key advances resolution/scoreboard screens
+  // Delay activation so the Enter that submitted the answer doesn't immediately advance
+  useEffect(() => {
+    if (phase !== "resolution" && phase !== "scoreboard") return;
+    let ready = false;
+    const arm = setTimeout(() => { ready = true; }, 400);
+    const handler = (e: KeyboardEvent) => {
+      if (!ready || e.key !== "Enter") return;
+      e.preventDefault();
+      if (phase === "resolution") handleNextQuestion();
+      else handleNextRound();
+    };
+    window.addEventListener("keydown", handler);
+    return () => { clearTimeout(arm); window.removeEventListener("keydown", handler); };
+  }, [phase]);
+
   // Autofocus textarea
   useEffect(() => {
     if (phase === "question" && currentQuestion && !busy && !questionStateRef.current.ended) {
@@ -998,6 +1017,7 @@ export default function TriviaGame2({
           correct_answer: q.sentence.spanish,
           accepted_translations: q.sentence.accepted_translations,
           prompt_text: promptText,
+          required_word: rt !== "free" ? sw ?? q.wordTag : undefined,
           learning,
           fluent,
           conversation_id: `trivia2_${rt}_${q.wordTag}`,
@@ -1450,15 +1470,27 @@ export default function TriviaGame2({
               </div>
             )}
 
-            {/* Spotlight word chip */}
+            {/* Required word banner */}
             {rt !== "free" && (
-              <div style={{ marginBottom: 8 }}>
+              <div style={{
+                marginBottom: 10,
+                padding: "10px 16px",
+                borderRadius: 10,
+                background: "rgba(167,139,250,0.12)",
+                border: "1px solid rgba(167,139,250,0.45)",
+                display: "flex", alignItems: "center", gap: 10,
+              }}>
+                <span style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "rgba(167,139,250,0.7)" }}>
+                  Required word
+                </span>
                 <span style={{
-                  fontSize: 11, padding: "2px 10px", borderRadius: 999,
-                  background: "rgba(167,139,250,0.15)", border: "1px solid rgba(167,139,250,0.35)",
-                  color: "#a78bfa", fontWeight: 600,
+                  fontSize: 18, fontWeight: 800, color: "#c4b5fd",
+                  letterSpacing: "0.02em",
                 }}>
-                  Use: {spotlightWords[rt === "blitz" ? spotlightWords.length - 1 : 0] ?? currentQuestion.wordTag}
+                  {spotlightWords[rt === "blitz" ? spotlightWords.length - 1 : 0] ?? currentQuestion.wordTag}
+                </span>
+                <span style={{ fontSize: 12, color: "rgba(167,139,250,0.55)", marginLeft: "auto" }}>
+                  must appear in your answer
                 </span>
               </div>
             )}

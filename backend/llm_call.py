@@ -314,6 +314,7 @@ def check_trivia_answer(
     learning: Dict[str, Any],
     accepted_translations: Optional[List[str]] = None,
     valid_phrases: Optional[List[str]] = None,
+    required_vocab: Optional[str] = None,
     model: Optional[str] = None,
     temperature: float = 0.15,
     timeout: int = 20,
@@ -366,7 +367,7 @@ def check_trivia_answer(
         "- CRITICAL: NEVER mention, comment on, or penalize accents, punctuation, or capitalization — not even as a side note. Both the student's answer and the reference have had accents and punctuation stripped before you receive them. The student is speaking (speech-to-text) and has no control over accents or punctuation. Do NOT say things like 'you should include the accent' or 'you forgot the exclamation mark'. Any issue that is ONLY about accents or punctuation must be completely ignored.\n"
         "- FIRST, before any other evaluation: the student is using speech-to-text (Wispr). Accents and punctuation have already been stripped from the student's answer — do NOT penalize for any accent or punctuation difference. Check if unexpected words are STT mishearings. Common patterns: phonetically similar words (e.g. 'cus'→'jus'), merged or split tokens (e.g. 'Este'→'Es teh', 'S T'→'es teh', 'dise'→'di sini', 'esta'→'es ta', 'está'→'es ta' or 'es esta'), or words run together. If correcting the mishearing makes the answer acceptable, IMMEDIATELY set accepted: true, damage_multiplier: 1.0, issues: [{\"feedback_key\": \"asr_error\", \"corrected_snippet\": null, \"feedback_explanation\": \"<explain what was misheard>\"}]. Do NOT add any other issues in this case.\n"
         "- PRIMARY RULE: First ask 'Is the student's answer a correct, natural translation of the English prompt?' — not 'Does it match the reference answer?' The reference answer is just one valid option; other equally valid phrasings exist. If the student's answer correctly and naturally expresses the English prompt, mark it perfect even if it differs from the reference.\n"
-        "- accepted: true if the student demonstrated understanding of the meaning, even if imperfectly expressed. ONLY set accepted: false for wrong conjugation, wrong tense that changes meaning, or completely wrong/missing core meaning.\n"
+        "- accepted: true if the student demonstrated understanding of the meaning, even if imperfectly expressed. Set accepted: false for: wrong conjugation, wrong tense that changes meaning, completely wrong meaning, or core verb/primary action entirely absent from the answer.\n"
         "- damage_multiplier: overall severity across ALL issues combined. Use the lowest applicable value:\n"
         "    1.0   → perfect or asr_error only\n"
         "    0.85  → missing_minor_words\n"
@@ -382,7 +383,7 @@ def check_trivia_answer(
         "    perfect: Use whenever the student's answer is a correct, natural translation of the English prompt — a native speaker could say this. This includes valid phrasings that differ from the reference answer. Do NOT downgrade to subtle_meaning_shift just because the phrasing is different from the reference.\n"
         "    asr_error: likely STT mishearing that makes the answer otherwise acceptable.\n"
         "    missing_minor_words: dropped a particle, softener, or minor word (e.g. 'saja', 'ya', 'que').\n"
-        "    missing_content: student omitted a significant portion of the meaning from the prompt (e.g. left out a whole clause or key detail).\n"
+        "    missing_content: student omitted a secondary detail — a qualifier, supporting clause, or minor element — but the core verb and primary action ARE present. accepted: true, damage 0.6. Do NOT use this when the core verb is missing.\n"
         "    gender_agreement: wrong gender on article/adjective.\n"
         "    register_too_formal: too formal for context (e.g. -kah suffix).\n"
         "    register_too_informal: too casual for context (e.g. 'aja' instead of 'saja').\n"
@@ -390,7 +391,8 @@ def check_trivia_answer(
         "    wrong_mood: used indicative instead of subjunctive/conditional, but meaning clear.\n"
         "    word_order: words rearranged, meaning still understandable.\n"
         "    unnatural_phrasing: ONLY for phrasing that would genuinely sound foreign or awkward to a native speaker — e.g. word-for-word translation from English, textbook constructions nobody actually says, or combinations of correct words that produce a clearly wrong register. Do NOT use for valid regional variants, stylistic preferences, or choosing one natural phrasing over another equally natural one.\n"
-        "    wrong_conjugation | wrong_tense | wrong_meaning: accepted must be false.\n"
+        "    wrong_conjugation | wrong_tense: accepted must be false.\n"
+        "    wrong_meaning: use this — not missing_content — when the student omitted the core verb or primary action entirely, making the answer incomplete in meaning. E.g. 'vamos a volver' for 'let's try again' (answer: 'vamos a volver a intentarlo') — the verb 'intentar' is completely absent, so the answer doesn't express 'try'. accepted must be false.\n"
         "  corrected_snippet per issue: minimal corrected word/phrase showing the actual fix (wrong word → right word, wrong conjugation → right conjugation, etc.). null if perfect or asr_error. Do NOT produce a corrected_snippet that differs from the student's word only by an accent mark or punctuation — that is not a real error.\n"
         f"  feedback_explanation per issue: ONE sentence in {fluent.get('name', 'English')}. Rules:\n"
         f"    - For subtle_meaning_shift: acknowledge the student's answer is also valid, then name the specific nuance difference. E.g. 'That also works — the reference says X which more specifically conveys [nuance].' Never say the student's answer 'is unnatural' or 'is less natural' if it is actually a natural phrase.\n"
@@ -404,6 +406,13 @@ def check_trivia_answer(
             + ", ".join(f'"{_normalize_for_llm(p)}"' for p in valid_phrases)
             + "\n"
             if valid_phrases else ""
+        )
+        + (
+            f"- REQUIRED VOCABULARY: The student MUST use the word \"{required_vocab}\" (or a conjugated/inflected form of it) in their answer. "
+            f"If their answer is otherwise correct but does not contain \"{required_vocab}\" or a recognizable conjugation of it, "
+            f"set accepted: false, damage_multiplier: 0.0, issues: [{{\"feedback_key\": \"missing_target_word\", \"corrected_snippet\": null, "
+            f"\"feedback_explanation\": \"Your answer is correct, but this exercise requires you to use '{required_vocab}' — the word being practiced here.\"}}]\n"
+            if required_vocab else ""
         )
         + "Return ONLY valid JSON, no prose."
     )
