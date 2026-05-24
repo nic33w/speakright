@@ -8,7 +8,7 @@ from datetime import datetime
 from typing import List, Dict, Any, Optional
 from pathlib import Path
 from fastapi.responses import FileResponse
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Query
 from pydantic import BaseModel
 from fastapi.middleware.cors import CORSMiddleware
 from difflib import SequenceMatcher
@@ -1697,15 +1697,16 @@ def api_battle_check(req: BattleCheckReq):
 
 WORD_PRACTICE_DATA: Optional[Dict[str, Any]] = None
 
-def _load_word_practice_data() -> Dict[str, Any]:
-    data_path = Path(__file__).parent / "word_practice_sentences.json"
+def _load_word_practice_data(lang: str = "es") -> Dict[str, Any]:
+    filename = "word_practice_sentences_id.json" if lang == "id" else "word_practice_sentences.json"
+    data_path = Path(__file__).parent / filename
     with open(data_path, "r", encoding="utf-8") as f:
         return json.load(f)
 
 
 @app.get("/api/worddrill/words")
-def api_worddrill_words():
-    data = _load_word_practice_data()
+def api_worddrill_words(lang: str = Query("es")):
+    data = _load_word_practice_data(lang)
     words = [
         {"key": key, "display": info["display"], "description": info["description"]}
         for key, info in data.items()
@@ -1716,12 +1717,13 @@ def api_worddrill_words():
 class WordDrillSentenceReq(BaseModel):
     word: str
     exclude_ids: List[int] = []
+    lang: str = "es"
 
 
 @app.post("/api/worddrill/sentence")
 def api_worddrill_sentence(req: WordDrillSentenceReq):
     import random
-    data = _load_word_practice_data()
+    data = _load_word_practice_data(req.lang)
     if req.word not in data:
         raise HTTPException(status_code=404, detail=f"Word '{req.word}' not found")
 
@@ -1735,16 +1737,16 @@ def api_worddrill_sentence(req: WordDrillSentenceReq):
 
 
 @app.get("/api/worddrill/sentences/{word}")
-def api_worddrill_sentences(word: str):
-    data = _load_word_practice_data()
+def api_worddrill_sentences(word: str, lang: str = Query("es")):
+    data = _load_word_practice_data(lang)
     if word not in data:
         raise HTTPException(status_code=404, detail=f"Word '{word}' not found")
     return {"sentences": data[word]["sentences"]}
 
 
 @app.get("/api/worddrill/usecases/{word}")
-def api_worddrill_usecases(word: str):
-    data = _load_word_practice_data()
+def api_worddrill_usecases(word: str, lang: str = Query("es")):
+    data = _load_word_practice_data(lang)
     if word not in data:
         raise HTTPException(status_code=404, detail=f"Word '{word}' not found")
     usecases = data[word].get("usecases", [])

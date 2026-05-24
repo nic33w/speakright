@@ -598,7 +598,8 @@ function HistoryEntry({
 // ── Main component ──
 export default function TriviaGame2({
   fluent,
-  learning,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  learning: _learning,
   apiBase = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000",
   onBack,
 }: TriviaGame2Props) {
@@ -607,6 +608,12 @@ export default function TriviaGame2({
       ? crypto.randomUUID()
       : Math.random().toString(36).slice(2) + Date.now().toString(36)
   );
+
+  // Language selection (chosen in lobby before game starts)
+  const [drillLang, setDrillLang] = useState<"es" | "id" | null>(null);
+  const activeLearning: LangSpec = drillLang === "id"
+    ? { code: "id", name: "Indonesian" }
+    : { code: "es", name: "Spanish" };
 
   // Game state
   const [phase, setPhase] = useState<GamePhase>("lobby");
@@ -664,7 +671,7 @@ export default function TriviaGame2({
   const pendingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const currentRoundType = roundTypes[roundIndex] ?? "spotlight";
   const currentQuestion = questions[qIdx] ?? null;
-  const locale = learning.code === "id" ? "id-ID" : "es-MX";
+  const locale = activeLearning.code === "id" ? "id-ID" : "es-MX";
 
   // Sync refs
   useEffect(() => { playersRef.current = players; }, [players]);
@@ -758,7 +765,7 @@ export default function TriviaGame2({
     const delta = transcript.length - previousLengthRef.current;
     if (delta >= 3 && transcript.length > 2 && Date.now() - lastSentRef.current > 700) {
       const q = questionsRef.current[qIdxRef.current];
-      const isMatch = q ? checkFuzzyMatch(transcript.trim(), q.sentence.accepted_translations, learning.code) !== null : false;
+      const isMatch = q ? checkFuzzyMatch(transcript.trim(), q.sentence.accepted_translations, activeLearning.code) !== null : false;
       startPendingAutoSend(transcript, isMatch ? 1000 : 2000);
     }
     previousLengthRef.current = transcript.length;
@@ -768,14 +775,14 @@ export default function TriviaGame2({
 
   // ── Fetch words ──
   async function fetchWords(): Promise<string[]> {
-    const resp = await fetch(`${apiBase}/api/worddrill/words`);
+    const resp = await fetch(`${apiBase}/api/worddrill/words?lang=${drillLang ?? "es"}`);
     const data = await resp.json();
     const words = data.words as Array<{ key: string } | string>;
     return words.map(w => (typeof w === "string" ? w : w.key));
   }
 
   async function fetchSentences(word: string): Promise<Sentence[]> {
-    const resp = await fetch(`${apiBase}/api/worddrill/sentences/${encodeURIComponent(word)}`);
+    const resp = await fetch(`${apiBase}/api/worddrill/sentences/${encodeURIComponent(word)}?lang=${drillLang ?? "es"}`);
     const data = await resp.json();
     return data.sentences as Sentence[];
   }
@@ -994,7 +1001,7 @@ export default function TriviaGame2({
     questionStateRef.current = { ...qState, attemptCount: newAttemptCount };
 
     // Step 1: fuzzy match
-    const fuzzy = checkFuzzyMatch(answer, q.sentence.accepted_translations, learning.code);
+    const fuzzy = checkFuzzyMatch(answer, q.sentence.accepted_translations, activeLearning.code);
     if (fuzzy !== null) {
       await handleAccepted(answer, 1.0, null, null, null);
       return;
@@ -1018,7 +1025,7 @@ export default function TriviaGame2({
           accepted_translations: q.sentence.accepted_translations,
           prompt_text: promptText,
           required_word: rt !== "free" ? sw ?? q.wordTag : undefined,
-          learning,
+          learning: activeLearning,
           fluent,
           conversation_id: `trivia2_${rt}_${q.wordTag}`,
           difficulty: q.difficulty,
@@ -1348,11 +1355,40 @@ export default function TriviaGame2({
             ))}
           </div>
 
-          <div style={{ color: "rgba(255,255,255,0.5)", fontSize: 13, marginBottom: 24 }}>
+          <div style={{ color: "rgba(255,255,255,0.5)", fontSize: 13, marginBottom: 28 }}>
             Round 1: Word Spotlight · Round 2: Free Translation · Round 3: Final Blitz (2×)
           </div>
 
-          <button onClick={handleStart} style={primaryBtnStyle}>Start Game</button>
+          {/* Language picker */}
+          <div style={{ marginBottom: 28 }}>
+            <div style={{ fontSize: 12, color: "rgba(255,255,255,0.4)", marginBottom: 10, textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600 }}>
+              Language
+            </div>
+            <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
+              {([["es", "🇲🇽", "Spanish"], ["id", "🇮🇩", "Indonesian"]] as const).map(([code, flag, label]) => (
+                <button
+                  key={code}
+                  onClick={() => setDrillLang(code)}
+                  style={{
+                    padding: "10px 20px", borderRadius: 10, fontSize: 14, fontWeight: 600,
+                    border: `2px solid ${drillLang === code ? "#a78bfa" : "rgba(255,255,255,0.18)"}`,
+                    background: drillLang === code ? "rgba(167,139,250,0.2)" : "rgba(255,255,255,0.05)",
+                    color: "white", cursor: "pointer", transition: "all 0.15s",
+                  }}
+                >
+                  {flag} {label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <button
+            onClick={handleStart}
+            disabled={!drillLang}
+            style={{ ...primaryBtnStyle, opacity: drillLang ? 1 : 0.4, cursor: drillLang ? "pointer" : "not-allowed" }}
+          >
+            Start Game
+          </button>
         </div>
       </div>
     );
@@ -1498,7 +1534,7 @@ export default function TriviaGame2({
             {/* English sentence */}
             <div style={{ background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 10, padding: "16px 20px", marginBottom: 12 }}>
               <div style={{ fontSize: 12, opacity: 0.4, marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600 }}>
-                Translate to {learning.name}
+                Translate to {activeLearning.name}
               </div>
               <div style={{ fontSize: 20, fontWeight: 600, lineHeight: 1.5, color: "rgba(255,255,255,0.95)" }}>
                 {hints.length > 0

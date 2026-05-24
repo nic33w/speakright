@@ -1,0 +1,717 @@
+{
+  "deh": {
+    "display": "deh",
+    "description": "softening particle — gentles requests, shows mild acceptance",
+    "usecases": [
+      {
+        "id": 1,
+        "name": "Soften a request",
+        "explanation": "Add 'deh' at the end of a request to take the edge off. Without it, the same sentence can sound blunt or demanding. With deh, it becomes casual and friendly — like adding 'will you?' or 'come on' in English. Very common between friends.",
+        "demo": {
+          "context": "A: Can you drop me off on the way?",
+          "native": "Come on, just take me along.",
+          "spanish": "Anterin deh."
+        },
+        "practice": {
+          "context": "Adam: I'm heading out — need anything?",
+          "english": "Wait a sec for me, will you?",
+          "spanish": "Tunggu dulu deh.",
+          "accepted_translations": ["Tunggu dulu deh"],
+          "hints": [
+            { "native": "wait", "learning": "tunggu" },
+            { "native": "a sec / first", "learning": "dulu" },
+            { "native": "deh", "learning": "deh" }
+          ]
+        }
+      },
+      {
+        "id": 2,
+        "name": "Friendly persuasion",
+        "explanation": "Use 'deh' to gently nudge someone into doing something — a soft push, not a command. It signals you're encouraging rather than demanding. Think of it as 'come on, just do it' said with a smile.",
+        "demo": {
+          "context": "A: I don't really feel like going out.",
+          "native": "Just give it a try — come on.",
+          "spanish": "Coba dulu deh."
+        },
+        "practice": {
+          "context": "Adam: I'm not sure if I should call her.",
+          "english": "Just call her, come on.",
+          "spanish": "Telepon aja deh.",
+          "accepted_translations": ["Telepon aja deh", "Hubungi aja deh"],
+          "hints": [
+            { "native": "call", "learning": "telepon / hubungi" },
+            { "native": "just", "learning": "aja" },
+            { "native": "deh", "learning": "deh" }
+          ]
+        }
+      },
+      {
+        "id": 3,
+        "name": "Mild acceptance",
+        "explanation": "When you're not thrilled but you're okay with it, 'deh' captures that 'fine, whatever' feeling — mild concession without full enthusiasm. Often paired with 'ya udah' (okay fine) or 'oke'. Very common when going along with someone else's suggestion.",
+        "demo": {
+          "context": "A: Can we go with this option instead?",
+          "native": "Okay, fine then.",
+          "spanish": "Ya udah, boleh deh."
+        },
+        "practice": {
+          "context": "Adam: I already bought the tickets — is that okay?",
+          "english": "Okay, that's fine then.",
+          "spanish": "Ya udah deh.",
+          "accepted_translations": ["Ya udah deh", "Oke deh", "Boleh deh"],
+          "hints": [
+            { "native": "okay / fine", "learning": "ya udah / oke" },
+            { "native": "deh", "learning": "deh" }
+          ]
+        }
+      }
+    ],
+    "sentences": [
+      {
+        "id": 1,
+        "category": "Soften a request",
+        "context": "Adam: Are you free right now?",
+        "english": "Can you help me for a bit?",
+        "spanish": "Bantuin dulu deh.",
+        "accepted_translations": ["Bantuin dulu deh", "Tolong bantuin deh"],
+        "hints": [
+          { "native": "help me", "learning": "bantuin" },
+          { "native": "deh", "learning": "deh" }
+        ]
+      },
+      {
+        "id": 2,
+        "category": "Friendly persuasion",
+        "context": "Adam: I've never tried durian before.",
+        "english": "Just try it, come on.",
+        "spanish": "Cobain deh.",
+        "accepted_translations": ["Cobain deh", "Coba deh", "Coba aja deh"],
+        "hints": [
+          { "native": "try it", "learning": "cobain / coba" },
+          { "native": "deh", "learning": "deh" }
+        ]
+      },
+      {
+        "id": 3,
+        "category": "Mild acceptance",
+        "context": "Adam: What if we just eat here instead?",
+        "english": "Sure, let's just eat here then.",
+        "spanish": "Ya udah, makan di sini deh.",
+        "accepted_translations": ["Ya udah, makan di sini deh", "Oke, makan di sini deh"],
+        "hints": [
+          { "native": "okay / fine", "learning": "ya udah / oke" },
+          { "native": "eat", "learning": "makan" },
+          { "native": "here", "learning": "di sini" },
+          { "native": "deh", "learning": "deh" }
+        ]
+      },
+      {
+        "id": 4,
+        "category": "Soften a request",
+        "context": "Adam: I'll be back in a minute.",
+        "english": "Wait here for me, okay?",
+        "spanish": "Tunggu di sini deh.",
+        "accepted_translations": ["Tunggu di sini deh", "Tunggu sini deh"],
+        "hints": [
+          { "native": "wait", "learning": "tunggu" },
+          { "native": "here", "learning": "di sini" },
+          { "native": "deh", "learning": "deh" }
+        ]
+      },
+      {
+        "id": 5,
+        "category": "Friendly persuasion",
+        "context": "Adam: I'm nervous about saying hi to them.",
+        "english": "Come on, just say hi first.",
+        "spanish": "Sapa dulu deh.",
+        "accepted_translations": ["Sapa dulu deh", "Sapa aja deh"],
+        "hints": [
+          { "native": "say hi / greet", "learning": "sapa" },
+          { "native": "first", "learning": "dulu" },
+          { "native": "deh", "learning": "deh" }
+        ]
+      },
+      {
+        "id": 6,
+        "category": "Mild acceptance",
+        "context": "Adam: I signed us up for the early shift.",
+        "english": "Fine, that works for me.",
+        "spanish": "Oke deh, gapapa.",
+        "accepted_translations": ["Oke deh, gapapa", "Ya deh, gapapa", "Ya udah deh"],
+        "hints": [
+          { "native": "okay", "learning": "oke / ya" },
+          { "native": "deh", "learning": "deh" },
+          { "native": "that's fine", "learning": "gapapa" }
+        ]
+      },
+      {
+        "id": 7,
+        "category": "Soften a request",
+        "context": "Adam: Can you send it to me later?",
+        "english": "Just send it now, please.",
+        "spanish": "Kirim sekarang aja deh.",
+        "accepted_translations": ["Kirim sekarang aja deh", "Kirim sekarang deh"],
+        "hints": [
+          { "native": "send", "learning": "kirim" },
+          { "native": "now", "learning": "sekarang" },
+          { "native": "just", "learning": "aja" },
+          { "native": "deh", "learning": "deh" }
+        ]
+      },
+      {
+        "id": 8,
+        "category": "Friendly persuasion",
+        "context": "Adam: I'm thinking of skipping the event.",
+        "english": "Come on, just go — it'll be fun.",
+        "spanish": "Pergi aja deh, seru kok.",
+        "accepted_translations": ["Pergi aja deh, seru kok", "Pergi deh, seru kok"],
+        "hints": [
+          { "native": "go", "learning": "pergi" },
+          { "native": "just", "learning": "aja" },
+          { "native": "deh", "learning": "deh" },
+          { "native": "it'll be fun", "learning": "seru kok" }
+        ]
+      }
+    ]
+  },
+  "sih": {
+    "display": "sih",
+    "description": "emphasizing particle — adds curiosity, mild frustration, or soft explanation",
+    "usecases": [
+      {
+        "id": 1,
+        "name": "Curious / wondering",
+        "explanation": "Add 'sih' to a question to signal genuine curiosity — like a raised eyebrow. It's not accusatory; it's the verbal version of 'how come?' or 'I wonder why…'. Makes questions feel more natural and personal. 'Kenapa sih?' is one of the most common phrases you'll hear.",
+        "demo": {
+          "context": "A: She didn't show up again.",
+          "native": "Why does she keep doing this?",
+          "spanish": "Kenapa sih dia gitu terus?"
+        },
+        "practice": {
+          "context": "Adam: I've been waiting for your answer for days.",
+          "english": "What's taking so long?",
+          "spanish": "Lama banget sih?",
+          "accepted_translations": ["Lama banget sih?", "Lama banget sih"],
+          "hints": [
+            { "native": "takes so long / so slow", "learning": "lama banget" },
+            { "native": "sih", "learning": "sih" }
+          ]
+        }
+      },
+      {
+        "id": 2,
+        "name": "Mild frustration",
+        "explanation": "When something annoys or surprises you mildly, 'sih' adds that edge of exasperation. It's not a full complaint — more like a 'come on, really?' It won't cause offense between friends, but it does signal you're a bit fed up. Common in phrases like 'Lagi-lagi sih!' (Again with this!)",
+        "demo": {
+          "context": "A: Oops, I forgot again.",
+          "native": "How do you keep forgetting?",
+          "spanish": "Kok bisa lupa lagi sih?"
+        },
+        "practice": {
+          "context": "Adam: I dropped my phone again.",
+          "english": "Seriously, again?",
+          "spanish": "Lagi sih?",
+          "accepted_translations": ["Lagi sih?", "Lagi-lagi sih?"],
+          "hints": [
+            { "native": "again", "learning": "lagi" },
+            { "native": "sih", "learning": "sih" }
+          ]
+        }
+      },
+      {
+        "id": 3,
+        "name": "Soft explanation",
+        "explanation": "Use 'sih' to soften a statement when you're explaining or clarifying something with a shrug. It signals 'that's just how it is' or 'to be honest…' — low-key rather than blunt. Very natural in 'gitu sih' (that's kind of how it is) or 'sebenernya sih' (honestly / I mean).",
+        "demo": {
+          "context": "A: Why didn't you say something earlier?",
+          "native": "I mean, I didn't know either.",
+          "spanish": "Saya juga nggak tau sih."
+        },
+        "practice": {
+          "context": "Adam: So do you actually like the new place?",
+          "english": "Honestly, it's not bad.",
+          "spanish": "Lumayan sih.",
+          "accepted_translations": ["Lumayan sih", "Nggak jelek sih", "Tidak jelek sih"],
+          "hints": [
+            { "native": "not bad / decent", "learning": "lumayan" },
+            { "native": "sih", "learning": "sih" }
+          ]
+        }
+      }
+    ],
+    "sentences": [
+      {
+        "id": 1,
+        "category": "Curious / wondering",
+        "context": "Adam: She said she didn't want to come.",
+        "english": "Why though?",
+        "spanish": "Kenapa sih?",
+        "accepted_translations": ["Kenapa sih?", "Kenapa sih"],
+        "hints": [
+          { "native": "why", "learning": "kenapa" },
+          { "native": "sih", "learning": "sih" }
+        ]
+      },
+      {
+        "id": 2,
+        "category": "Mild frustration",
+        "context": "Adam: You're late again.",
+        "english": "What's going on with you?",
+        "spanish": "Kenapa sih kamu?",
+        "accepted_translations": ["Kenapa sih kamu?", "Ada apa sih sama kamu?"],
+        "hints": [
+          { "native": "why", "learning": "kenapa" },
+          { "native": "sih", "learning": "sih" },
+          { "native": "you", "learning": "kamu" }
+        ]
+      },
+      {
+        "id": 3,
+        "category": "Soft explanation",
+        "context": "Adam: Are you sure you want to do this?",
+        "english": "I mean, it's up to you.",
+        "spanish": "Terserah kamu sih.",
+        "accepted_translations": ["Terserah kamu sih", "Terserah sih"],
+        "hints": [
+          { "native": "up to you / whatever", "learning": "terserah kamu" },
+          { "native": "sih", "learning": "sih" }
+        ]
+      },
+      {
+        "id": 4,
+        "category": "Curious / wondering",
+        "context": "Adam: He just left without saying anything.",
+        "english": "Where did he go?",
+        "spanish": "Ke mana sih dia?",
+        "accepted_translations": ["Ke mana sih dia?", "Dia ke mana sih?"],
+        "hints": [
+          { "native": "where to", "learning": "ke mana" },
+          { "native": "sih", "learning": "sih" },
+          { "native": "he / she", "learning": "dia" }
+        ]
+      },
+      {
+        "id": 5,
+        "category": "Mild frustration",
+        "context": "Adam: You're still on your phone?",
+        "english": "Put it down already.",
+        "spanish": "Taruh dulu sih hp-nya.",
+        "accepted_translations": ["Taruh dulu sih hp-nya", "Letakkan dulu sih hp-nya"],
+        "hints": [
+          { "native": "put down", "learning": "taruh / letakkan" },
+          { "native": "first / already", "learning": "dulu" },
+          { "native": "sih", "learning": "sih" },
+          { "native": "the phone", "learning": "hp-nya" }
+        ]
+      },
+      {
+        "id": 6,
+        "category": "Soft explanation",
+        "context": "Adam: Do you actually want to go or are you just saying that?",
+        "english": "Honestly, I kind of don't want to.",
+        "spanish": "Sebenernya nggak mau sih.",
+        "accepted_translations": ["Sebenernya nggak mau sih", "Sebenarnya nggak mau sih", "Sebenarnya tidak mau sih"],
+        "hints": [
+          { "native": "honestly / actually", "learning": "sebenernya / sebenarnya" },
+          { "native": "don't want to", "learning": "nggak mau" },
+          { "native": "sih", "learning": "sih" }
+        ]
+      },
+      {
+        "id": 7,
+        "category": "Curious / wondering",
+        "context": "Adam: They told me something weird.",
+        "english": "What exactly did they say?",
+        "spanish": "Ngomong apa sih mereka?",
+        "accepted_translations": ["Ngomong apa sih mereka?", "Mereka ngomong apa sih?"],
+        "hints": [
+          { "native": "say / talk", "learning": "ngomong" },
+          { "native": "what", "learning": "apa" },
+          { "native": "sih", "learning": "sih" },
+          { "native": "they", "learning": "mereka" }
+        ]
+      },
+      {
+        "id": 8,
+        "category": "Mild frustration",
+        "context": "Adam: This is taking forever.",
+        "english": "How long is this going to take?",
+        "spanish": "Sampai kapan sih ini?",
+        "accepted_translations": ["Sampai kapan sih ini?", "Berapa lama sih ini?"],
+        "hints": [
+          { "native": "until when", "learning": "sampai kapan" },
+          { "native": "sih", "learning": "sih" },
+          { "native": "this", "learning": "ini" }
+        ]
+      }
+    ]
+  },
+  "pas": {
+    "display": "pas",
+    "description": "exactly right / perfect / just right — timing, fit, or precision",
+    "usecases": [
+      {
+        "id": 1,
+        "name": "Perfect fit",
+        "explanation": "Use 'pas' to say something fits exactly right — clothes, a number, a budget, any match. 'Pas banget' intensifies it: 'fits perfectly'. Also used when an amount is exact — 'uangnya pas' means the money is the exact amount with no change needed.",
+        "demo": {
+          "context": "A: How does the shirt fit?",
+          "native": "It fits perfectly.",
+          "spanish": "Pas banget."
+        },
+        "practice": {
+          "context": "Adam: Does that budget cover everything exactly?",
+          "english": "It's exactly the right amount.",
+          "spanish": "Pas banget jumlahnya.",
+          "accepted_translations": ["Pas banget jumlahnya", "Jumlahnya pas banget"],
+          "hints": [
+            { "native": "exactly right / perfect", "learning": "pas banget" },
+            { "native": "the amount", "learning": "jumlahnya" }
+          ]
+        }
+      },
+      {
+        "id": 2,
+        "name": "Perfect timing",
+        "explanation": "When something happens at exactly the right moment, use 'pas'. 'Pas kamu datang' = 'just as you arrived' — the timing was spot on. Often describes a lucky coincidence: showing up right when food is ready, or calling someone just before they leave.",
+        "demo": {
+          "context": "A: When did you get here?",
+          "native": "I arrived just as it started.",
+          "spanish": "Saya datang pas mulai."
+        },
+        "practice": {
+          "context": "Adam: I was about to leave when you called.",
+          "english": "You called at just the right time.",
+          "spanish": "Kamu nelpon pas banget.",
+          "accepted_translations": ["Kamu nelpon pas banget", "Pas banget kamu nelpon"],
+          "hints": [
+            { "native": "you", "learning": "kamu" },
+            { "native": "called (phone)", "learning": "nelpon" },
+            { "native": "just right / perfect timing", "learning": "pas banget" }
+          ]
+        }
+      },
+      {
+        "id": 3,
+        "name": "Exactly / precisely",
+        "explanation": "Use 'pas' before a time, number, or description to mean 'exactly' or 'precisely'. 'Pas jam 3' = 'at exactly 3 o'clock'. Often paired with specific numbers, measurements, or details to emphasize accuracy. Very common for times and prices.",
+        "demo": {
+          "context": "A: When did the movie start?",
+          "native": "It started at exactly 8.",
+          "spanish": "Mulainya pas jam 8."
+        },
+        "practice": {
+          "context": "Adam: How far is the store from here?",
+          "english": "It's exactly 2 kilometers away.",
+          "spanish": "Pas 2 kilometer dari sini.",
+          "accepted_translations": ["Pas 2 kilometer dari sini", "Jaraknya pas 2 kilometer"],
+          "hints": [
+            { "native": "exactly", "learning": "pas" },
+            { "native": "2 kilometers", "learning": "2 kilometer" },
+            { "native": "from here", "learning": "dari sini" }
+          ]
+        }
+      }
+    ],
+    "sentences": [
+      {
+        "id": 1,
+        "category": "Perfect fit",
+        "context": "Adam: How did the new shoes fit?",
+        "english": "They fit perfectly.",
+        "spanish": "Pas banget.",
+        "accepted_translations": ["Pas banget", "Pas banget ukurannya"],
+        "hints": [
+          { "native": "exactly right / perfect", "learning": "pas banget" }
+        ]
+      },
+      {
+        "id": 2,
+        "category": "Perfect timing",
+        "context": "Adam: I was just thinking about you!",
+        "english": "What great timing!",
+        "spanish": "Pas banget!",
+        "accepted_translations": ["Pas banget!", "Pas banget waktunya!"],
+        "hints": [
+          { "native": "what great timing / perfect", "learning": "pas banget" }
+        ]
+      },
+      {
+        "id": 3,
+        "category": "Exactly / precisely",
+        "context": "Adam: How much does it cost?",
+        "english": "It's exactly fifty thousand.",
+        "spanish": "Pas lima puluh ribu.",
+        "accepted_translations": ["Pas lima puluh ribu", "Harganya pas lima puluh ribu"],
+        "hints": [
+          { "native": "exactly", "learning": "pas" },
+          { "native": "fifty thousand", "learning": "lima puluh ribu" }
+        ]
+      },
+      {
+        "id": 4,
+        "category": "Perfect timing",
+        "context": "Adam: You walked in right as dinner was being served.",
+        "english": "You came at just the right moment.",
+        "spanish": "Kamu datang pas banget.",
+        "accepted_translations": ["Kamu datang pas banget", "Pas banget kamu datang"],
+        "hints": [
+          { "native": "you", "learning": "kamu" },
+          { "native": "came / arrived", "learning": "datang" },
+          { "native": "at just the right time", "learning": "pas banget" }
+        ]
+      },
+      {
+        "id": 5,
+        "category": "Perfect fit",
+        "context": "Adam: Does the table fit in the room?",
+        "english": "It fits in perfectly.",
+        "spanish": "Muat pas banget.",
+        "accepted_translations": ["Muat pas banget", "Pas banget muatnya"],
+        "hints": [
+          { "native": "fits in", "learning": "muat" },
+          { "native": "perfectly", "learning": "pas banget" }
+        ]
+      },
+      {
+        "id": 6,
+        "category": "Exactly / precisely",
+        "context": "Adam: When does she usually get here?",
+        "english": "She always comes at exactly 7.",
+        "spanish": "Dia selalu datang pas jam 7.",
+        "accepted_translations": ["Dia selalu datang pas jam 7", "Selalu pas jam 7 dia datang"],
+        "hints": [
+          { "native": "she / he", "learning": "dia" },
+          { "native": "always", "learning": "selalu" },
+          { "native": "comes / arrives", "learning": "datang" },
+          { "native": "at exactly", "learning": "pas" },
+          { "native": "7 o'clock", "learning": "jam 7" }
+        ]
+      },
+      {
+        "id": 7,
+        "category": "Perfect fit",
+        "context": "Adam: Do you have exact change?",
+        "english": "Yes, the amount is exact.",
+        "spanish": "Iya, uangnya pas.",
+        "accepted_translations": ["Iya, uangnya pas", "Ya, pas uangnya"],
+        "hints": [
+          { "native": "yes", "learning": "iya" },
+          { "native": "the money / the amount", "learning": "uangnya" },
+          { "native": "exact / right", "learning": "pas" }
+        ]
+      },
+      {
+        "id": 8,
+        "category": "Perfect timing",
+        "context": "Adam: I just made fresh coffee.",
+        "english": "Perfect — I was just craving coffee.",
+        "spanish": "Pas banget, saya lagi pengen kopi.",
+        "accepted_translations": ["Pas banget, saya lagi pengen kopi", "Pas banget, gue lagi pengen kopi"],
+        "hints": [
+          { "native": "perfect timing", "learning": "pas banget" },
+          { "native": "I was just craving", "learning": "saya lagi pengen" },
+          { "native": "coffee", "learning": "kopi" }
+        ]
+      }
+    ]
+  },
+  "lagi": {
+    "display": "lagi",
+    "description": "again / still / more / while — repetition, ongoing actions, and additional quantity",
+    "usecases": [
+      {
+        "id": 1,
+        "name": "Again / repeat",
+        "explanation": "Use 'lagi' after a verb to mean 'again' — something happens one more time or is repeated. 'Coba lagi' = 'try again', 'terjadi lagi' = 'it happened again'. Very direct and the most common meaning of lagi. Can also double: 'lagi-lagi' = 'once again (sigh)'.",
+        "demo": {
+          "context": "A: I missed what you said.",
+          "native": "Can you say that again?",
+          "spanish": "Bisa bilang lagi?"
+        },
+        "practice": {
+          "context": "Adam: I got the answer wrong again.",
+          "english": "Let's try again.",
+          "spanish": "Coba lagi yuk.",
+          "accepted_translations": ["Coba lagi yuk", "Kita coba lagi", "Ayo coba lagi"],
+          "hints": [
+            { "native": "try", "learning": "coba" },
+            { "native": "again", "learning": "lagi" },
+            { "native": "let's", "learning": "yuk / kita / ayo" }
+          ]
+        }
+      },
+      {
+        "id": 2,
+        "name": "Still / in progress",
+        "explanation": "Place 'lagi' before a verb to say something is currently happening or still going on — like a casual present progressive. 'Lagi makan' = 'currently eating / still eating'. Much more natural in spoken Indonesian than formal present-tense constructions.",
+        "demo": {
+          "context": "A: Is she available right now?",
+          "native": "She's still in a meeting.",
+          "spanish": "Dia lagi rapat."
+        },
+        "practice": {
+          "context": "Adam: Can I talk to your dad?",
+          "english": "He's busy right now.",
+          "spanish": "Dia lagi sibuk.",
+          "accepted_translations": ["Dia lagi sibuk", "Bapak lagi sibuk"],
+          "hints": [
+            { "native": "he / she", "learning": "dia" },
+            { "native": "currently / in the middle of", "learning": "lagi" },
+            { "native": "busy", "learning": "sibuk" }
+          ]
+        }
+      },
+      {
+        "id": 3,
+        "name": "More / another",
+        "explanation": "Use 'lagi' after a noun or number to mean 'more' or 'another one'. 'Satu lagi' = 'one more', 'sedikit lagi' = 'a little more'. Works for food, drinks, time, items — anything you want more of. Very versatile in everyday conversation.",
+        "demo": {
+          "context": "A: Do you want some more rice?",
+          "native": "Yes, a little more please.",
+          "spanish": "Iya, sedikit lagi."
+        },
+        "practice": {
+          "context": "Adam: Ready to go?",
+          "english": "Give me five more minutes.",
+          "spanish": "Lima menit lagi.",
+          "accepted_translations": ["Lima menit lagi", "Tunggu lima menit lagi"],
+          "hints": [
+            { "native": "five", "learning": "lima" },
+            { "native": "minutes", "learning": "menit" },
+            { "native": "more", "learning": "lagi" }
+          ]
+        }
+      },
+      {
+        "id": 4,
+        "name": "While / in the middle of",
+        "explanation": "Use 'lagi' to set up a background activity — 'I was doing X when Y happened'. 'Lagi mandi pas dia telepon' = 'I was in the shower when he called'. The 'lagi' establishes what you were in the middle of. Often paired with 'pas' for timing.",
+        "demo": {
+          "context": "A: Why didn't you pick up?",
+          "native": "I was driving when you called.",
+          "spanish": "Saya lagi nyetir pas kamu nelpon."
+        },
+        "practice": {
+          "context": "Adam: You don't look well.",
+          "english": "I was eating when I suddenly felt sick.",
+          "spanish": "Saya lagi makan tiba-tiba nggak enak badan.",
+          "accepted_translations": ["Saya lagi makan tiba-tiba nggak enak badan", "Lagi makan tiba-tiba mual", "Gue lagi makan tiba-tiba nggak enak badan"],
+          "hints": [
+            { "native": "I was", "learning": "saya lagi / gue lagi" },
+            { "native": "eating", "learning": "makan" },
+            { "native": "suddenly", "learning": "tiba-tiba" },
+            { "native": "felt sick / unwell", "learning": "nggak enak badan / mual" }
+          ]
+        }
+      }
+    ],
+    "sentences": [
+      {
+        "id": 1,
+        "category": "Again / repeat",
+        "context": "Adam: Can you explain that?",
+        "english": "Can you say it again?",
+        "spanish": "Bisa bilang lagi?",
+        "accepted_translations": ["Bisa bilang lagi?", "Bisa diulang lagi?"],
+        "hints": [
+          { "native": "can you", "learning": "bisa" },
+          { "native": "say", "learning": "bilang" },
+          { "native": "again", "learning": "lagi" }
+        ]
+      },
+      {
+        "id": 2,
+        "category": "Still / in progress",
+        "context": "Adam: Where's your sister?",
+        "english": "She's still sleeping.",
+        "spanish": "Dia lagi tidur.",
+        "accepted_translations": ["Dia lagi tidur", "Kakaknya lagi tidur"],
+        "hints": [
+          { "native": "she", "learning": "dia" },
+          { "native": "currently / still", "learning": "lagi" },
+          { "native": "sleeping", "learning": "tidur" }
+        ]
+      },
+      {
+        "id": 3,
+        "category": "More / another",
+        "context": "Adam: Do you want another drink?",
+        "english": "Yes, one more please.",
+        "spanish": "Iya, satu lagi dong.",
+        "accepted_translations": ["Iya, satu lagi dong", "Satu lagi dong", "Satu lagi ya"],
+        "hints": [
+          { "native": "yes", "learning": "iya" },
+          { "native": "one", "learning": "satu" },
+          { "native": "more", "learning": "lagi" },
+          { "native": "please", "learning": "dong / ya" }
+        ]
+      },
+      {
+        "id": 4,
+        "category": "While / in the middle of",
+        "context": "Adam: Why didn't you answer the door?",
+        "english": "I was in the shower.",
+        "spanish": "Saya lagi mandi.",
+        "accepted_translations": ["Saya lagi mandi", "Gue lagi mandi", "Aku lagi mandi"],
+        "hints": [
+          { "native": "I", "learning": "saya / gue / aku" },
+          { "native": "was / in the middle of", "learning": "lagi" },
+          { "native": "showering", "learning": "mandi" }
+        ]
+      },
+      {
+        "id": 5,
+        "category": "Again / repeat",
+        "context": "Adam: I can't believe that happened again.",
+        "english": "It happened again?",
+        "spanish": "Kejadian lagi?",
+        "accepted_translations": ["Kejadian lagi?", "Terjadi lagi?"],
+        "hints": [
+          { "native": "happened", "learning": "kejadian / terjadi" },
+          { "native": "again", "learning": "lagi" }
+        ]
+      },
+      {
+        "id": 6,
+        "category": "More / another",
+        "context": "Adam: Aren't you full?",
+        "english": "I want a little more.",
+        "spanish": "Mau sedikit lagi.",
+        "accepted_translations": ["Mau sedikit lagi", "Minta sedikit lagi"],
+        "hints": [
+          { "native": "want", "learning": "mau / minta" },
+          { "native": "a little", "learning": "sedikit" },
+          { "native": "more", "learning": "lagi" }
+        ]
+      },
+      {
+        "id": 7,
+        "category": "Still / in progress",
+        "context": "Adam: Is the food ready?",
+        "english": "He's still cooking.",
+        "spanish": "Dia lagi masak.",
+        "accepted_translations": ["Dia lagi masak", "Lagi masak"],
+        "hints": [
+          { "native": "he / she", "learning": "dia" },
+          { "native": "still / currently", "learning": "lagi" },
+          { "native": "cooking", "learning": "masak" }
+        ]
+      },
+      {
+        "id": 8,
+        "category": "While / in the middle of",
+        "context": "Adam: When did you hear the news?",
+        "english": "I heard it while I was eating.",
+        "spanish": "Saya denger pas lagi makan.",
+        "accepted_translations": ["Saya denger pas lagi makan", "Gue denger pas lagi makan", "Denger waktu lagi makan"],
+        "hints": [
+          { "native": "I heard", "learning": "saya denger / gue denger" },
+          { "native": "while", "learning": "pas" },
+          { "native": "in the middle of", "learning": "lagi" },
+          { "native": "eating", "learning": "makan" }
+        ]
+      }
+    ]
+  }
+}

@@ -281,7 +281,14 @@ export default function WordDrillGame({
   learning = { code: "es", name: "Spanish" },
   onBack,
 }: WordDrillGameProps) {
-  const learningLocale = LEARNING_LOCALE[learning.code] ?? "es-MX";
+  // Language picker — null means not yet chosen
+  const [drillLang, setDrillLang] = useState<"es" | "id" | null>(null);
+  const activeLearning: LangSpec = drillLang === "id"
+    ? { code: "id", name: "Indonesian" }
+    : drillLang === "es"
+    ? { code: "es", name: "Spanish" }
+    : learning;
+  const learningLocale = LEARNING_LOCALE[activeLearning.code] ?? "es-MX";
 
   // ── State ────────────────────────────────────────────────────────────────
   const [selectedWord, setSelectedWord] = useState<string | null>(null);
@@ -374,11 +381,12 @@ export default function WordDrillGame({
   useEffect(() => { usecaseStatusesRef.current = usecaseStatuses; }, [usecaseStatuses]);
 
   useEffect(() => {
-    fetch(`${apiBase}/api/worddrill/words`)
+    if (!drillLang) return;
+    fetch(`${apiBase}/api/worddrill/words?lang=${drillLang}`)
       .then(r => r.json())
       .then(data => setWordList(data.words ?? []))
-      .catch(() => setWordList([{ key: "quedar", display: "quedar", description: "to stay, meet up, fit, be left" }]));
-  }, [apiBase]);
+      .catch(() => setWordList([]));
+  }, [apiBase, drillLang]);
 
   useEffect(() => {
     if (currentSentence && answerStatus === "idle" && !busy) {
@@ -447,7 +455,7 @@ export default function WordDrillGame({
       const increase = transcript.length - previousLengthRef.current;
       if (increase >= 3 && Date.now() - lastSentRef.current > 700) {
         const isMatch = currentSentence
-          ? checkFuzzyMatch(transcript.trim(), currentSentence.accepted_translations, learning.code) !== null
+          ? checkFuzzyMatch(transcript.trim(), currentSentence.accepted_translations, activeLearning.code) !== null
           : false;
         startPendingAutoSend(isMatch ? 1000 : 2000);
       }
@@ -646,7 +654,7 @@ export default function WordDrillGame({
     setLoadingSentence(true);
     setBusy(true);
     try {
-      const resp = await fetch(`${apiBase}/api/worddrill/sentences/${encodeURIComponent(word)}`);
+      const resp = await fetch(`${apiBase}/api/worddrill/sentences/${encodeURIComponent(word)}?lang=${drillLang ?? "es"}`);
       if (!resp.ok) throw new Error("Failed");
       const data = await resp.json();
       sentenceQueueRef.current = shuffle([...data.sentences]);
@@ -665,7 +673,7 @@ export default function WordDrillGame({
   async function loadLearnData(word: string, jumpToCategory?: string) {
     setBusy(true);
     try {
-      const resp = await fetch(`${apiBase}/api/worddrill/usecases/${encodeURIComponent(word)}`);
+      const resp = await fetch(`${apiBase}/api/worddrill/usecases/${encodeURIComponent(word)}?lang=${drillLang ?? "es"}`);
       if (!resp.ok) throw new Error("Failed");
       const data = await resp.json();
       const usecases: UseCase[] = data.usecases ?? [];
@@ -803,7 +811,7 @@ export default function WordDrillGame({
     setBusy(true);
     setAnswerStatus("checking");
 
-    const fuzzyMatched = checkFuzzyMatch(userAnswer, currentSentence.accepted_translations, learning.code);
+    const fuzzyMatched = checkFuzzyMatch(userAnswer, currentSentence.accepted_translations, activeLearning.code);
     if (fuzzyMatched !== null) {
       resolveCorrect(fuzzyMatched, 1.0, null, null, null, null, null, false);
       setBusy(false);
@@ -820,7 +828,7 @@ export default function WordDrillGame({
           accepted_translations: currentSentence.accepted_translations,
           prompt_text: currentSentence.english,
           context: currentSentence.context,
-          learning,
+          learning: activeLearning,
           fluent,
         }),
       });
@@ -836,7 +844,7 @@ export default function WordDrillGame({
 
       const rawTokens = data.correction_tokens ?? null;
       const corrTokens = rawTokens
-        ? restoreAccentsInTokens(rawTokens, currentSentence.accepted_translations, learning.code)
+        ? restoreAccentsInTokens(rawTokens, currentSentence.accepted_translations, activeLearning.code)
         : null;
 
       if (data.accepted) {
@@ -1448,8 +1456,12 @@ export default function WordDrillGame({
     );
   }
 
-  // ── Word selection screen ─────────────────────────────────────────────────
-  if (!selectedWord) {
+  // ── Language picker screen ────────────────────────────────────────────────
+  if (!drillLang) {
+    const langOptions: { code: "es" | "id"; label: string; sub: string; flag: string }[] = [
+      { code: "es", label: "Spanish", sub: "verbs · phrases · particles", flag: "🇲🇽" },
+      { code: "id", label: "Indonesian", sub: "deh · sih · pas · lagi", flag: "🇮🇩" },
+    ];
     return (
       <div style={{
         minHeight: "100vh",
@@ -1466,7 +1478,49 @@ export default function WordDrillGame({
           }}>← Back</button>
         )}
         <h1 style={{ fontSize: 32, fontWeight: 700, marginBottom: 8, textAlign: "center" }}>Word Drill</h1>
-        <p style={{ fontSize: 16, opacity: 0.6, marginBottom: 40, textAlign: "center" }}>Choose a word to practice</p>
+        <p style={{ fontSize: 16, opacity: 0.6, marginBottom: 40, textAlign: "center" }}>Choose a language</p>
+        <div style={{ display: "flex", gap: 16, flexWrap: "wrap", justifyContent: "center" }}>
+          {langOptions.map(opt => (
+            <button key={opt.code} onClick={() => setDrillLang(opt.code)}
+              style={{
+                padding: "28px 36px", background: "rgba(255,255,255,0.06)",
+                border: "2px solid rgba(139,92,246,0.35)", borderRadius: 18,
+                color: "white", cursor: "pointer", textAlign: "center", minWidth: 160,
+                transition: "background 0.2s, border-color 0.2s, box-shadow 0.2s",
+              }}
+              onMouseEnter={e => { e.currentTarget.style.background = "rgba(139,92,246,0.2)"; e.currentTarget.style.borderColor = "rgba(139,92,246,0.7)"; e.currentTarget.style.boxShadow = "0 4px 20px rgba(139,92,246,0.2)"; }}
+              onMouseLeave={e => { e.currentTarget.style.background = "rgba(255,255,255,0.06)"; e.currentTarget.style.borderColor = "rgba(139,92,246,0.35)"; e.currentTarget.style.boxShadow = "none"; }}
+            >
+              <div style={{ fontSize: 40, marginBottom: 10 }}>{opt.flag}</div>
+              <div style={{ fontSize: 20, fontWeight: 800, color: "#c4b5fd", marginBottom: 6 }}>{opt.label}</div>
+              <div style={{ fontSize: 12, opacity: 0.5, lineHeight: 1.4 }}>{opt.sub}</div>
+            </button>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  // ── Word selection screen ─────────────────────────────────────────────────
+  if (!selectedWord) {
+    return (
+      <div style={{
+        minHeight: "100vh",
+        background: "linear-gradient(135deg, #1e1b4b 0%, #0f172a 100%)",
+        display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+        padding: 40, fontFamily: "system-ui, sans-serif", color: "white",
+      }}>
+        <button onClick={() => setDrillLang(null)} style={{
+          position: "absolute", top: 20, left: 20,
+          padding: "8px 16px", fontSize: 14,
+          background: "rgba(255,255,255,0.15)", color: "white",
+          border: "1px solid rgba(255,255,255,0.2)", borderRadius: 6, cursor: "pointer",
+        }}>← Language</button>
+        <h1 style={{ fontSize: 32, fontWeight: 700, marginBottom: 8, textAlign: "center" }}>Word Drill</h1>
+        <p style={{ fontSize: 16, opacity: 0.6, marginBottom: 8, textAlign: "center" }}>
+          {drillLang === "id" ? "🇮🇩 Indonesian" : "🇲🇽 Spanish"}
+        </p>
+        <p style={{ fontSize: 14, opacity: 0.45, marginBottom: 32, textAlign: "center" }}>Choose a word to practice</p>
         <div style={{ display: "flex", flexDirection: "column", gap: 10, width: "100%", maxWidth: 380 }}>
           {wordList.map(word => (
             <button key={word.key} onClick={() => handleSelectWord(word.key)}
@@ -1811,99 +1865,200 @@ export default function WordDrillGame({
 
             {/* ── Phase: practice ── */}
             {learnPhase === "practice" && currentSentence && (
-              <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
-                <div style={{ flex: 1, overflowY: "auto", padding: "20px 0 0" }}>
-                  <div style={{ maxWidth: 680, margin: "0 auto", padding: "0 32px", display: "flex", flexDirection: "column", gap: 16 }}>
+              <div style={{ flex: 1, display: "flex", overflow: "hidden" }}>
 
-                    {/* Explanation (dimmed) */}
-                    <div style={{
-                      fontSize: 14, lineHeight: 1.7, color: "rgba(255,255,255,0.3)",
-                      background: "rgba(255,255,255,0.02)", borderRadius: 10, padding: "14px 18px",
-                      border: "1px solid rgba(255,255,255,0.05)",
-                    }}>
-                      {currentUC.explanation}
-                    </div>
+                {/* LEFT — prompt + hints + input */}
+                <div style={{ flex: "0 0 66%", display: "flex", flexDirection: "column", overflow: "hidden" }}>
+                  <div style={{ flex: 1, overflowY: "auto", padding: "20px 0 0" }}>
+                    <div style={{ maxWidth: 680, margin: "0 auto", padding: "0 32px", display: "flex", flexDirection: "column", gap: 16 }}>
 
-                    {/* Demo (dimmed) */}
-                    <div style={{
-                      background: "rgba(139,92,246,0.05)", border: "1px solid rgba(139,92,246,0.15)",
-                      borderRadius: 12, padding: "14px 18px",
-                    }}>
-                      <div style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.07em", color: "rgba(167,139,250,0.5)", marginBottom: 10 }}>
-                        Example
+                      {/* Explanation (dimmed) */}
+                      <div style={{
+                        fontSize: 14, lineHeight: 1.7, color: "rgba(255,255,255,0.3)",
+                        background: "rgba(255,255,255,0.02)", borderRadius: 10, padding: "14px 18px",
+                        border: "1px solid rgba(255,255,255,0.05)",
+                      }}>
+                        {currentUC.explanation}
                       </div>
-                      {currentUC.demo.context && (
-                        <div style={{ fontSize: 12, color: "rgba(255,255,255,0.3)", fontStyle: "italic", marginBottom: 8 }}>
-                          {currentUC.demo.context}
+
+                      {/* Demo (dimmed) */}
+                      <div style={{
+                        background: "rgba(139,92,246,0.05)", border: "1px solid rgba(139,92,246,0.15)",
+                        borderRadius: 12, padding: "14px 18px",
+                      }}>
+                        <div style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.07em", color: "rgba(167,139,250,0.5)", marginBottom: 10 }}>
+                          Example
                         </div>
-                      )}
-                      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                        <div style={{ fontSize: 14, color: "rgba(255,255,255,0.4)" }}>
-                          <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.06em", marginRight: 8, color: "rgba(255,255,255,0.25)" }}>EN</span>
-                          {currentUC.demo.native}
-                        </div>
-                        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                          <div
-                            onMouseEnter={() => void fetchAndPlayAudio(currentUC.demo.spanish, learningLocale)}
-                            onMouseLeave={() => stopAudio()}
-                            style={{ fontSize: 15, fontWeight: 600, color: "rgba(196,181,253,0.5)", cursor: "pointer" }}
-                          >
-                            <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.06em", marginRight: 8, color: "rgba(255,255,255,0.2)" }}>ES</span>
-                            {currentUC.demo.spanish}
+                        {currentUC.demo.context && (
+                          <div style={{ fontSize: 12, color: "rgba(255,255,255,0.3)", fontStyle: "italic", marginBottom: 8 }}>
+                            {currentUC.demo.context}
                           </div>
-                          <button
-                            onClick={() => void fetchAndPlayAudio(currentUC.demo.spanish, learningLocale)}
-                            style={{
-                              padding: "3px 8px", fontSize: 12, background: "rgba(255,255,255,0.05)",
-                              border: "1px solid rgba(255,255,255,0.1)", borderRadius: 5, cursor: "pointer",
-                              color: "rgba(255,255,255,0.4)", flexShrink: 0,
-                            }}
-                          >🔊</button>
+                        )}
+                        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                          <div style={{ fontSize: 14, color: "rgba(255,255,255,0.4)" }}>
+                            <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.06em", marginRight: 8, color: "rgba(255,255,255,0.25)" }}>EN</span>
+                            {currentUC.demo.native}
+                          </div>
+                          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                            <div
+                              onMouseEnter={() => void fetchAndPlayAudio(currentUC.demo.spanish, learningLocale)}
+                              onMouseLeave={() => stopAudio()}
+                              style={{ fontSize: 15, fontWeight: 600, color: "rgba(196,181,253,0.5)", cursor: "pointer" }}
+                            >
+                              <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.06em", marginRight: 8, color: "rgba(255,255,255,0.2)" }}>ES</span>
+                              {currentUC.demo.spanish}
+                            </div>
+                            <button
+                              onClick={() => void fetchAndPlayAudio(currentUC.demo.spanish, learningLocale)}
+                              style={{
+                                padding: "3px 8px", fontSize: 12, background: "rgba(255,255,255,0.05)",
+                                border: "1px solid rgba(255,255,255,0.1)", borderRadius: 5, cursor: "pointer",
+                                color: "rgba(255,255,255,0.4)", flexShrink: 0,
+                              }}
+                            >🔊</button>
+                          </div>
                         </div>
                       </div>
-                    </div>
 
-                    {/* Divider */}
-                    <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                      <div style={{ flex: 1, height: 1, background: "rgba(255,255,255,0.1)" }} />
-                      <div style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", opacity: 0.4 }}>Your turn</div>
-                      <div style={{ flex: 1, height: 1, background: "rgba(255,255,255,0.1)" }} />
-                    </div>
-
-                    {/* Context */}
-                    <div style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 10, padding: "12px 16px" }}>
-                      <div style={{ fontSize: 12, opacity: 0.45, marginBottom: 4, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>Context</div>
-                      <div style={{ fontSize: 15, opacity: 0.8, lineHeight: 1.5, fontStyle: "italic" }}>{currentSentence.context}</div>
-                    </div>
-
-                    {/* English prompt */}
-                    <div style={{ background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 12, padding: "20px 24px", textAlign: "center" }}>
-                      <div style={{ fontSize: 12, opacity: 0.45, marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600 }}>
-                        Translate to {learning.name}
+                      {/* Divider */}
+                      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                        <div style={{ flex: 1, height: 1, background: "rgba(255,255,255,0.1)" }} />
+                        <div style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", opacity: 0.4 }}>Your turn</div>
+                        <div style={{ flex: 1, height: 1, background: "rgba(255,255,255,0.1)" }} />
                       </div>
-                      <div style={{ fontSize: 22, fontWeight: 700, lineHeight: 1.4 }}>
-                        {tokenizeWithHints(currentSentence.english, hints).map((tok, ti) => {
-                          if (tok.hintIndex === null) return <span key={ti}>{tok.text}</span>;
-                          const isRevealed = viewedHints.has(tok.hintIndex);
-                          return (
-                            <span key={ti} style={{
-                              color: isRevealed ? HINT_COLORS[tok.hintIndex % HINT_COLORS.length] : "inherit",
-                              borderBottom: isRevealed ? "none" : "2px dashed #fbbf24",
-                              cursor: "default",
-                            }}>{tok.text}</span>
-                          );
-                        })}
+
+                      {/* Context */}
+                      <div style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 10, padding: "12px 16px" }}>
+                        <div style={{ fontSize: 12, opacity: 0.45, marginBottom: 4, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>Context</div>
+                        <div style={{ fontSize: 15, opacity: 0.8, lineHeight: 1.5, fontStyle: "italic" }}>{currentSentence.context}</div>
                       </div>
+
+                      {/* English prompt */}
+                      <div style={{ background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 12, padding: "20px 24px", textAlign: "center" }}>
+                        <div style={{ fontSize: 12, opacity: 0.45, marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600 }}>
+                          Translate to {activeLearning.name}
+                        </div>
+                        <div style={{ fontSize: 22, fontWeight: 700, lineHeight: 1.4 }}>
+                          {tokenizeWithHints(currentSentence.english, hints).map((tok, ti) => {
+                            if (tok.hintIndex === null) return <span key={ti}>{tok.text}</span>;
+                            const isRevealed = viewedHints.has(tok.hintIndex);
+                            return (
+                              <span key={ti} style={{
+                                color: isRevealed ? HINT_COLORS[tok.hintIndex % HINT_COLORS.length] : "inherit",
+                                borderBottom: isRevealed ? "none" : "2px dashed #fbbf24",
+                                cursor: "default",
+                              }}>{tok.text}</span>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      {/* Hints */}
+                      {hasHints && renderHints()}
+
+                      <div ref={learnPracticeEndRef} style={{ height: 8 }} />
                     </div>
+                  </div>
 
-                    {/* Hints */}
-                    {hasHints && renderHints()}
+                  {renderPracticeBottom()}
+                </div>
 
-                    <div ref={learnPracticeEndRef} style={{ height: 8 }} />
+                {/* RIGHT — History log */}
+                <div style={{ flex: "0 0 34%", display: "flex", flexDirection: "column", borderLeft: "1px solid rgba(255,255,255,0.08)", overflow: "hidden" }}>
+                  <div style={{ flexShrink: 0, padding: "10px 16px", borderBottom: "1px solid rgba(255,255,255,0.08)", fontSize: 11, fontWeight: 600, opacity: 0.5, textTransform: "uppercase", letterSpacing: "0.08em" }}>
+                    History
+                  </div>
+                  <div style={{ flex: 1, overflowY: "auto", padding: "12px 14px 40px", display: "flex", flexDirection: "column", gap: 8 }}>
+                    {history.map((entry, i) => {
+                      if (entry.isWrongAttempt && resolvedSentenceIds.has(entry.sentenceId)) return null;
+                      const wrongAttempts = !entry.isWrongAttempt
+                        ? history.filter(e => e.sentenceId === entry.sentenceId && e.isWrongAttempt)
+                        : [];
+                      const isPinned = pinnedLogEntries.has(i);
+                      const isExpanded = expandedLogEntry === i || isPinned;
+                      const entryBg = entry.skipped ? "rgba(148,163,184,0.15)" : entry.isWrongAttempt ? "rgba(239,68,68,0.15)" : "rgba(59,130,246,0.2)";
+                      const entryBorder = isPinned ? "1px solid rgba(59,130,246,0.6)" : entry.skipped ? "1px solid rgba(148,163,184,0.2)" : entry.isWrongAttempt ? "1px solid rgba(239,68,68,0.25)" : "1px solid rgba(59,130,246,0.3)";
+                      const qualityHue = entry.qualityScore != null ? Math.round((entry.qualityScore / 100) * 217) : 0;
+                      const qualityFill = `hsl(${qualityHue},80%,58%)`;
+                      const totalHints = entry.allHints.length;
+                      const hintsUnusedPct = totalHints > 0 ? Math.round(((totalHints - (entry.hintsUsed ?? 0)) / totalHints) * 100) : 0;
+                      return (
+                        <div key={entry.entryId}
+                          style={{
+                            padding: "8px 12px", borderRadius: 10,
+                            background: entryBg, border: entryBorder,
+                            fontSize: 13, lineHeight: 1.4, wordBreak: "break-word",
+                            cursor: "pointer", transition: "max-width 0.2s, width 0.2s",
+                            maxWidth: isExpanded ? "92%" : "75%",
+                            width: isExpanded ? "92%" : undefined,
+                          }}
+                          onMouseEnter={() => {
+                            void fetchAndPlayAudio(entry.correctAnswer, learningLocale);
+                            if (expandTimerRef.current) clearTimeout(expandTimerRef.current);
+                            expandTimerRef.current = window.setTimeout(() => setExpandedLogEntry(i), 250);
+                          }}
+                          onMouseLeave={() => {
+                            stopAudio();
+                            if (expandTimerRef.current) clearTimeout(expandTimerRef.current);
+                            if (!isPinned) setExpandedLogEntry(null);
+                          }}
+                          onClick={() => {
+                            setPinnedLogEntries(prev => {
+                              const next = new Set(prev);
+                              if (next.has(i)) next.delete(i); else next.add(i);
+                              return next;
+                            });
+                          }}
+                        >
+                          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                            {entry.skipped ? (
+                              <span style={{ fontSize: 12, color: "#94a3b8" }}>→</span>
+                            ) : (
+                              <>
+                                <span style={{ fontSize: 13, color: entry.isWrongAttempt ? "#fca5a5" : "#86efac" }}>
+                                  {entry.isWrongAttempt ? "✗" : "✓"}
+                                </span>
+                                {!entry.isWrongAttempt && entry.qualityScore != null && (
+                                  <div style={{ width: 56, height: 5, borderRadius: 3, background: "rgba(255,255,255,0.2)", overflow: "hidden", border: `1px solid ${qualityFill}66` }}>
+                                    <div style={{ height: "100%", width: `${entry.qualityScore}%`, background: qualityFill, transition: "width 0.3s" }} />
+                                  </div>
+                                )}
+                                {totalHints > 0 && (
+                                  <div style={{ width: 56, height: 5, borderRadius: 3, background: "rgba(255,255,255,0.2)", overflow: "hidden", border: "1px solid rgba(251,191,36,0.4)" }}>
+                                    <div style={{ height: "100%", width: `${hintsUnusedPct}%`, background: "#fbbf24", transition: "width 0.3s" }} />
+                                  </div>
+                                )}
+                                {entry.llmUsed && <span style={{ fontSize: 11, opacity: 0.5 }}>🤖</span>}
+                              </>
+                            )}
+                            <span style={{ marginLeft: "auto", fontSize: 10, opacity: 0.35, fontWeight: 600, textAlign: "right" }}>{entry.category}</span>
+                          </div>
+                          <div style={{ fontSize: 11, opacity: 0.5, marginTop: 4, fontStyle: "italic" }}>{entry.english}</div>
+                          <div style={{ marginTop: 3, fontWeight: 500, lineHeight: 1.4, fontSize: 13 }}>
+                            {entry.skipped ? (
+                              <span style={{ color: "#94a3b8" }}>{entry.correctAnswer}</span>
+                            ) : entry.correctionTokens?.length ? (
+                              entry.correctionTokens.map((tok, ti) => (
+                                <span key={ti} style={{
+                                  color: tok.status === "remove" ? "#fca5a5" : tok.status === "add" ? "#86efac" : "rgba(255,255,255,0.85)",
+                                  textDecoration: tok.status === "remove" ? "line-through" : "none",
+                                  fontWeight: tok.status === "add" ? 700 : 400,
+                                }}>{tok.text}{" "}</span>
+                              ))
+                            ) : (
+                              <span style={{ color: entry.isWrongAttempt ? "#fca5a5" : "rgba(255,255,255,0.9)" }}>
+                                {entry.userAnswer || "—"}
+                              </span>
+                            )}
+                          </div>
+                          {isExpanded && renderExpandedHistoryEntry(entry, wrongAttempts)}
+                        </div>
+                      );
+                    })}
+                    <div ref={historyEndRef} />
                   </div>
                 </div>
 
-                {renderPracticeBottom()}
               </div>
             )}
 
