@@ -37,7 +37,7 @@
           "context": "Adam: I'm not sure if I should call her.",
           "english": "Just call her, come on.",
           "spanish": "Telepon aja deh.",
-          "accepted_translations": ["Telepon aja deh", "Hubungi aja deh"],
+          "accepted_translations": ["Telepon aja deh", "Nelpon aja deh", "Hubungi aja deh"],
           "hints": [
             { "native": "call", "learning": "telepon / hubungi" },
             { "native": "just", "learning": "aja" },
@@ -73,7 +73,7 @@
         "context": "Adam: Are you free right now?",
         "english": "Can you help me for a bit?",
         "spanish": "Bantuin dulu deh.",
-        "accepted_translations": ["Bantuin dulu deh", "Tolong bantuin deh"],
+        "accepted_translations": ["Bantuin dulu deh", "Tolong bantuin deh", "Bantu dulu deh"],
         "hints": [
           { "native": "help me", "learning": "bantuin" },
           { "native": "deh", "learning": "deh" }
@@ -323,7 +323,7 @@
         "context": "Adam: They told me something weird.",
         "english": "What exactly did they say?",
         "spanish": "Ngomong apa sih mereka?",
-        "accepted_translations": ["Ngomong apa sih mereka?", "Mereka ngomong apa sih?"],
+        "accepted_translations": ["Ngomong apa sih mereka?", "Mereka ngomong apa sih?", "Bilang apa sih mereka?", "Mereka bilang apa sih?"],
         "hints": [
           { "native": "say / talk", "learning": "ngomong" },
           { "native": "what", "learning": "apa" },
@@ -383,10 +383,10 @@
           "context": "Adam: I was about to leave when you called.",
           "english": "You called at just the right time.",
           "spanish": "Kamu nelpon pas banget.",
-          "accepted_translations": ["Kamu nelpon pas banget", "Pas banget kamu nelpon"],
+          "accepted_translations": ["Kamu nelpon pas banget", "Pas banget kamu nelpon", "Kamu telepon pas banget", "Pas banget kamu telepon"],
           "hints": [
             { "native": "you", "learning": "kamu" },
-            { "native": "called (phone)", "learning": "nelpon" },
+            { "native": "called (phone)", "learning": "nelpon / telepon" },
             { "native": "just right / perfect timing", "learning": "pas banget" }
           ]
         }
@@ -613,7 +613,7 @@
         "context": "Adam: Can you explain that?",
         "english": "Can you say it again?",
         "spanish": "Bisa bilang lagi?",
-        "accepted_translations": ["Bisa bilang lagi?", "Bisa diulang lagi?"],
+        "accepted_translations": ["Bisa bilang lagi?", "Bisa diulang lagi?", "Bisa ngomong lagi?"],
         "hints": [
           { "native": "can you", "learning": "bisa" },
           { "native": "say", "learning": "bilang" },
@@ -704,7 +704,7 @@
         "context": "Adam: When did you hear the news?",
         "english": "I heard it while I was eating.",
         "spanish": "Saya denger pas lagi makan.",
-        "accepted_translations": ["Saya denger pas lagi makan", "Gue denger pas lagi makan", "Denger waktu lagi makan"],
+        "accepted_translations": ["Saya denger pas lagi makan", "Gue denger pas lagi makan", "Denger waktu lagi makan", "Saya dengar pas lagi makan", "Gue dengar pas lagi makan"],
         "hints": [
           { "native": "I heard", "learning": "saya denger / gue denger" },
           { "native": "while", "learning": "pas" },
