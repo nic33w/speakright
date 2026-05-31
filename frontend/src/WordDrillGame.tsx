@@ -345,6 +345,8 @@ export default function WordDrillGame({
   const [learnPhase, setLearnPhase] = useState<"explanation" | "demo" | "practice">("explanation");
   const [showAllPhases, setShowAllPhases] = useState(false);
   const [canReturnToPractice, setCanReturnToPractice] = useState(false);
+  // Demo animation step: 0=hidden, 1=context, 2=EN, 3=audio playing (ES hidden), 4=ES revealed
+  const [demoAnimStep, setDemoAnimStep] = useState(0);
 
   // ── Refs ─────────────────────────────────────────────────────────────────
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -369,6 +371,7 @@ export default function WordDrillGame({
   const usecaseStatusesRef = useRef<UseCaseStatus[]>([]);
   const learnPracticeEndRef = useRef<HTMLDivElement>(null);
   const returnToPracticeRef = useRef<{ sentence: Sentence; queue: Sentence[] } | null>(null);
+  const demoAnimStepRef = useRef(0);
 
   // ── Effects ──────────────────────────────────────────────────────────────
 
@@ -465,16 +468,39 @@ export default function WordDrillGame({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [transcript]);
 
-  // Auto-play demo audio when entering demo phase (delayed so the user can read first)
+  // Demo phase animation: reveal context → EN → play audio → reveal ES text
   useEffect(() => {
-    if (gameMode === "learn" && learnPhase === "demo") {
+    if (gameMode !== "learn" || learnPhase !== "demo") return;
+
+    let alive = true;
+    demoAnimStepRef.current = 1;
+    setDemoAnimStep(1);
+
+    const advance = (step: number) => {
+      if (!alive || demoAnimStepRef.current >= step) return;
+      demoAnimStepRef.current = step;
+      setDemoAnimStep(step);
+    };
+
+    const t2 = window.setTimeout(() => advance(2), 1700);
+    const t3 = window.setTimeout(() => {
+      advance(3);
       const uc = learnUsecasesRef.current[currentUsecaseIdxRef.current];
-      if (!uc) return;
-      const timer = window.setTimeout(() => {
-        void fetchAndPlayAudio(uc.demo.spanish, learningLocale);
-      }, 800);
-      return () => window.clearTimeout(timer);
-    }
+      if (uc && alive) {
+        void fetchAndPlayAudio(uc.demo.spanish, learningLocale, () => {
+          window.setTimeout(() => advance(4), 400);
+        });
+      }
+    }, 3000);
+    const t4 = window.setTimeout(() => advance(4), 11000); // fallback if onEnded never fires
+
+    return () => {
+      alive = false;
+      window.clearTimeout(t2);
+      window.clearTimeout(t3);
+      window.clearTimeout(t4);
+      stopAudio();
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [learnPhase, gameMode]);
 
@@ -484,7 +510,18 @@ export default function WordDrillGame({
     function onKey(e: KeyboardEvent) {
       if (e.key !== " " && e.key !== "Enter") return;
       e.preventDefault();
-      if (showAllPhasesRef.current || learnPhaseRef.current === "demo") {
+      if (learnPhaseRef.current === "demo") {
+        if (demoAnimStepRef.current < 4) {
+          // Skip animation — show everything instantly
+          stopAudio();
+          demoAnimStepRef.current = 4;
+          setDemoAnimStep(4);
+        } else {
+          // Fully revealed — advance to practice
+          learnPhaseRef.current = "practice";
+          setLearnPhase("practice");
+        }
+      } else if (showAllPhasesRef.current) {
         learnPhaseRef.current = "practice";
         setLearnPhase("practice");
       } else {
@@ -593,7 +630,7 @@ export default function WordDrillGame({
     if (currentAudioRef.current) { currentAudioRef.current.pause(); currentAudioRef.current = null; }
   }
 
-  async function fetchAndPlayAudio(text: string, locale: string) {
+  async function fetchAndPlayAudio(text: string, locale: string, onEnded?: () => void) {
     const key = `${locale}:${text}`;
     let url = audioCacheRef.current.get(key);
     if (!url) {
@@ -611,6 +648,10 @@ export default function WordDrillGame({
     stopAudio();
     const audio = new Audio(url);
     currentAudioRef.current = audio;
+    if (onEnded) {
+      audio.onended = onEnded;
+      audio.onerror = onEnded;
+    }
     audio.play().catch(() => {});
   }
 
@@ -724,6 +765,8 @@ export default function WordDrillGame({
     hintCardsRefs.current = new Array((uc.practice.hints ?? []).length).fill(null);
     learnPhaseRef.current = "explanation";
     setLearnPhase("explanation");
+    demoAnimStepRef.current = 0;
+    setDemoAnimStep(0);
     stopAudio();
   }
 
@@ -1827,37 +1870,74 @@ export default function WordDrillGame({
                       Example
                     </div>
                     {currentUC.demo.context && (
-                      <div style={{ fontSize: 13, color: "rgba(255,255,255,0.45)", fontStyle: "italic", marginBottom: 12 }}>
+                      <div style={{
+                        marginBottom: 12,
+                        fontSize: demoAnimStep <= 1 ? 17 : 13,
+                        fontWeight: demoAnimStep <= 1 ? 700 : 400,
+                        fontStyle: demoAnimStep <= 1 ? "normal" : "italic",
+                        color: demoAnimStep <= 1 ? "rgba(255,255,255,0.88)" : "rgba(255,255,255,0.45)",
+                        opacity: demoAnimStep >= 1 ? 1 : 0,
+                        transform: demoAnimStep >= 1 ? "translateY(0)" : "translateY(6px)",
+                        transition: "opacity 0.5s ease, transform 0.5s ease, font-size 0.45s ease, color 0.45s ease",
+                      }}>
                         {currentUC.demo.context}
                       </div>
                     )}
                     <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                      <div style={{ fontSize: 16, color: "rgba(255,255,255,0.7)" }}>
-                        <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.06em", marginRight: 10, color: "rgba(255,255,255,0.4)" }}>EN</span>
+                      <div style={{
+                        fontSize: 17, fontWeight: 700, color: "rgba(255,255,255,0.88)",
+                        opacity: demoAnimStep >= 2 ? 1 : 0,
+                        transform: demoAnimStep >= 2 ? "translateY(0)" : "translateY(6px)",
+                        transition: "opacity 0.5s ease, transform 0.5s ease",
+                      }}>
+                        <span style={{ fontSize: 10, fontWeight: 600, letterSpacing: "0.06em", marginRight: 10, color: "rgba(255,255,255,0.4)" }}>EN</span>
                         {currentUC.demo.native}
                       </div>
-                      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                        <div
-                          onMouseEnter={() => void fetchAndPlayAudio(currentUC.demo.spanish, learningLocale)}
-                          onMouseLeave={() => stopAudio()}
-                          style={{ fontSize: 20, fontWeight: 700, color: "#c4b5fd", cursor: "pointer", lineHeight: 1.4 }}
-                        >
-                          <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.06em", marginRight: 10, color: "rgba(255,255,255,0.35)" }}>ES</span>
-                          {currentUC.demo.spanish}
-                        </div>
-                        <button
-                          onClick={() => void fetchAndPlayAudio(currentUC.demo.spanish, learningLocale)}
-                          style={{
-                            padding: "5px 12px", fontSize: 15, background: "rgba(255,255,255,0.08)",
-                            border: "1px solid rgba(255,255,255,0.15)", borderRadius: 6, cursor: "pointer", color: "white",
-                            flexShrink: 0,
-                          }}
-                        >🔊</button>
+                      <div style={{
+                        display: "flex", alignItems: "center", gap: 12,
+                        opacity: demoAnimStep >= 3 ? 1 : 0,
+                        transform: demoAnimStep >= 3 ? "translateY(0)" : "translateY(6px)",
+                        transition: "opacity 0.5s ease, transform 0.5s ease",
+                      }}>
+                        {demoAnimStep >= 4 ? (
+                          <>
+                            <div
+                              onMouseEnter={() => void fetchAndPlayAudio(currentUC.demo.spanish, learningLocale)}
+                              onMouseLeave={() => stopAudio()}
+                              style={{
+                                fontSize: 20, fontWeight: 700, color: "#c4b5fd", cursor: "pointer", lineHeight: 1.4,
+                                opacity: demoAnimStep >= 4 ? 1 : 0,
+                                transition: "opacity 0.5s ease",
+                              }}
+                            >
+                              <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.06em", marginRight: 10, color: "rgba(255,255,255,0.35)" }}>ES</span>
+                              {currentUC.demo.spanish}
+                            </div>
+                            <button
+                              onClick={() => void fetchAndPlayAudio(currentUC.demo.spanish, learningLocale)}
+                              style={{
+                                padding: "5px 12px", fontSize: 15, background: "rgba(255,255,255,0.08)",
+                                border: "1px solid rgba(255,255,255,0.15)", borderRadius: 6, cursor: "pointer", color: "white",
+                                flexShrink: 0,
+                              }}
+                            >🔊</button>
+                          </>
+                        ) : (
+                          <div style={{ display: "flex", alignItems: "center", gap: 10, color: "rgba(167,139,250,0.7)" }}>
+                            <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.06em", color: "rgba(255,255,255,0.25)" }}>ES</span>
+                            <span style={{ fontSize: 18 }}>🔊</span>
+                            <span style={{ fontSize: 14, fontStyle: "italic", opacity: 0.7 }}>playing…</span>
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>
                   <div style={{ textAlign: "center", fontSize: 13, color: "rgba(255,255,255,0.3)", marginTop: 8 }}>
-                    Press <kbd style={{ padding: "2px 8px", background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.2)", borderRadius: 4, fontSize: 12 }}>Space</kbd> to try it →
+                    {demoAnimStep < 4 ? (
+                      <>Press <kbd style={{ padding: "2px 8px", background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.2)", borderRadius: 4, fontSize: 12 }}>Space</kbd> to skip →</>
+                    ) : (
+                      <>Press <kbd style={{ padding: "2px 8px", background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.2)", borderRadius: 4, fontSize: 12 }}>Space</kbd> to try it →</>
+                    )}
                   </div>
                 </div>
               </div>
