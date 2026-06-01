@@ -62,13 +62,15 @@ type WordInfo = {
 };
 
 type GrammarTag = { type: string; label: string };
+type BulletItem = string | { text: string; audio?: string };
 
 type UseCase = {
   id: number;
   name: string;
+  english?: string;
   explanation: string;
   brief?: string;
-  explanation_bullets?: string[];
+  explanation_bullets?: BulletItem[];
   grammar_tags?: GrammarTag[];
   demo: { context: string; native: string; spanish: string };
   practice: {
@@ -352,8 +354,10 @@ export default function WordDrillGame({
   const [canReturnToPractice, setCanReturnToPractice] = useState(false);
   // Demo animation step: 0=hidden, 1=context, 2=EN, 3=audio playing (ES hidden), 4=ES revealed
   const [demoAnimStep, setDemoAnimStep] = useState(0);
-  // Explanation sub-step: 0=brief only, 1=bullets revealed
-  const [explainStep, setExplainStep] = useState(0);
+  // Bullet-by-bullet reveal: how many bullets are visible
+  const [bulletRevealIdx, setBulletRevealIdx] = useState(0);
+  // Audio state for the most recently revealed bullet with audio: 0=pending, 1=playing, 2=text shown
+  const [bulletAudioStep, setBulletAudioStep] = useState<0|1|2>(0);
   // Whether to display the target language text after audio (can be toggled off by user)
   const [showTargetText, setShowTargetText] = useState(true);
   // Whether the ES reveal area is currently hovered (when showTargetText=false)
@@ -383,7 +387,8 @@ export default function WordDrillGame({
   const learnPracticeEndRef = useRef<HTMLDivElement>(null);
   const returnToPracticeRef = useRef<{ sentence: Sentence; queue: Sentence[] } | null>(null);
   const demoAnimStepRef = useRef(0);
-  const explainStepRef = useRef(0);
+  const bulletRevealIdxRef = useRef(0);
+  const bulletAudioTimerRef = useRef<number | null>(null);
 
   // ── Effects ──────────────────────────────────────────────────────────────
 
@@ -516,6 +521,29 @@ export default function WordDrillGame({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [learnPhase, gameMode]);
 
+  // Bullet audio: when a new bullet is revealed, auto-play its audio after a short delay
+  useEffect(() => {
+    if (gameMode !== "learn" || learnPhase !== "explanation" || bulletRevealIdx === 0) return;
+    const bullets = learnUsecasesRef.current[currentUsecaseIdxRef.current]?.explanation_bullets ?? [];
+    const bullet = bullets[bulletRevealIdx - 1];
+    const audioText = typeof bullet === "object" && bullet.audio ? bullet.audio : null;
+    if (!audioText) { setBulletAudioStep(0); return; }
+
+    setBulletAudioStep(0);
+    if (bulletAudioTimerRef.current) window.clearTimeout(bulletAudioTimerRef.current);
+    bulletAudioTimerRef.current = window.setTimeout(() => {
+      setBulletAudioStep(1);
+      void fetchAndPlayAudio(audioText, learningLocale, () => {
+        setBulletAudioStep(showTargetText ? 2 : 1);
+      });
+    }, 500);
+
+    return () => {
+      if (bulletAudioTimerRef.current) { window.clearTimeout(bulletAudioTimerRef.current); bulletAudioTimerRef.current = null; }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bulletRevealIdx, learnPhase, gameMode]);
+
   // Space/Enter advances learn phases (disabled in "practice" so textarea works normally)
   useEffect(() => {
     if (gameMode !== "learn" || learnPhase === "practice") return;
@@ -523,12 +551,14 @@ export default function WordDrillGame({
       if (e.key !== " " && e.key !== "Enter") return;
       e.preventDefault();
       if (learnPhaseRef.current === "explanation") {
-        if (explainStepRef.current === 0) {
-          // Show bullets
-          explainStepRef.current = 1;
-          setExplainStep(1);
+        const bullets = learnUsecasesRef.current[currentUsecaseIdxRef.current]?.explanation_bullets ?? [];
+        // Cancel pending bullet audio timer and stop audio
+        if (bulletAudioTimerRef.current) { window.clearTimeout(bulletAudioTimerRef.current); bulletAudioTimerRef.current = null; }
+        stopAudio();
+        if (bulletRevealIdxRef.current < bullets.length) {
+          bulletRevealIdxRef.current++;
+          setBulletRevealIdx(bulletRevealIdxRef.current);
         } else {
-          // Bullets shown — go to demo
           learnPhaseRef.current = "demo";
           setLearnPhase("demo");
         }
@@ -786,8 +816,10 @@ export default function WordDrillGame({
     setLearnPhase("explanation");
     demoAnimStepRef.current = 0;
     setDemoAnimStep(0);
-    explainStepRef.current = 0;
-    setExplainStep(0);
+    bulletRevealIdxRef.current = 0;
+    setBulletRevealIdx(0);
+    setBulletAudioStep(0);
+    if (bulletAudioTimerRef.current) { window.clearTimeout(bulletAudioTimerRef.current); bulletAudioTimerRef.current = null; }
     setEsHovered(false);
     stopAudio();
   }
@@ -1807,6 +1839,18 @@ export default function WordDrillGame({
           </div>
         </div>
 
+        {/* Shared keyframes for learn mode animations */}
+        <style>{`
+          @keyframes enAudioPulse {
+            0%, 100% { color: rgba(255,255,255,0.88); }
+            50%       { color: #c4b5fd; }
+          }
+          @keyframes esFadeSlideUp {
+            from { opacity: 0; transform: translateY(6px); }
+            to   { opacity: 1; transform: translateY(0); }
+          }
+        `}</style>
+
         {/* Content */}
         {learnComplete ? (
           /* Completion screen */
@@ -1858,26 +1902,33 @@ export default function WordDrillGame({
             {/* ── Phase: explanation ── */}
             {learnPhase === "explanation" && (() => {
               const TAG_COLORS: Record<string, string> = {
-                reflexive: "#67e8f9",
-                connector: "#fbbf24",
-                direct_object: "#c4b5fd",
-                fixed: "#fdba74",
-                person: "#86efac",
+                reflexive: "#67e8f9", connector: "#fbbf24", direct_object: "#c4b5fd",
+                fixed: "#fdba74", person: "#86efac",
               };
-              const hasBrief = !!currentUC.brief;
-              const hasBullets = !!(currentUC.explanation_bullets?.length);
+              const bullets = currentUC.explanation_bullets ?? [];
+              const hasBullets = bullets.length > 0;
+              const allRevealed = bulletRevealIdx >= bullets.length;
+
               return (
                 <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "40px 32px", overflowY: "auto" }}>
-                  <div style={{ maxWidth: 620, width: "100%", display: "flex", flexDirection: "column", gap: 20 }}>
-                    {/* Name + ordinal */}
-                    <div>
-                      <div style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", color: "#a78bfa", opacity: 0.8, marginBottom: 6 }}>
-                        Use case {currentUsecaseIdx + 1} of {learnUsecases.length}
-                      </div>
-                      <h3 style={{ margin: 0, fontSize: 22, fontWeight: 700 }}>{currentUC.name}</h3>
+                  <div style={{ maxWidth: 620, width: "100%", display: "flex", flexDirection: "column", gap: 18 }}>
+
+                    {/* Ordinal */}
+                    <div style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", color: "#a78bfa", opacity: 0.8 }}>
+                      Use case {currentUsecaseIdx + 1} of {learnUsecases.length}
                     </div>
 
-                    {/* Grammar tags — always visible */}
+                    {/* Title: Spanish phrase + English meaning */}
+                    <div>
+                      <h3 style={{ margin: 0, fontSize: 24, fontWeight: 700, lineHeight: 1.3 }}>{currentUC.name}</h3>
+                      {currentUC.english && (
+                        <div style={{ fontSize: 15, color: "rgba(255,255,255,0.45)", marginTop: 4, fontStyle: "italic" }}>
+                          ({currentUC.english})
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Grammar tags */}
                     {currentUC.grammar_tags && currentUC.grammar_tags.length > 0 && (
                       <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                         {currentUC.grammar_tags.map((tag, i) => {
@@ -1885,23 +1936,61 @@ export default function WordDrillGame({
                           return (
                             <span key={i} style={{
                               fontSize: 11, fontWeight: 600, padding: "3px 10px", borderRadius: 999,
-                              background: `${color}18`, border: `1px solid ${color}55`, color,
-                              letterSpacing: "0.03em",
-                            }}>
-                              {tag.label}
-                            </span>
+                              background: `${color}18`, border: `1px solid ${color}55`, color, letterSpacing: "0.03em",
+                            }}>{tag.label}</span>
                           );
                         })}
                       </div>
                     )}
 
-                    {/* Brief tagline — always visible when present */}
-                    {hasBrief ? (
-                      <div style={{ fontSize: 20, fontWeight: 600, lineHeight: 1.5, color: "rgba(255,255,255,0.9)" }}>
-                        {currentUC.brief}
+                    {/* Bullets — revealed one at a time */}
+                    {hasBullets ? (
+                      <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
+                        {bullets.slice(0, bulletRevealIdx).map((bullet, i) => {
+                          const isObj = typeof bullet === "object";
+                          const text = isObj ? bullet.text : bullet;
+                          const audioText = isObj && bullet.audio ? bullet.audio : null;
+                          const isCurrent = i === bulletRevealIdx - 1;
+                          const isOlder = i < bulletRevealIdx - 1;
+                          const showAudioText = audioText && showTargetText && (isOlder || (isCurrent && bulletAudioStep >= 2));
+                          const isPulsing = isCurrent && audioText !== null && bulletAudioStep === 1;
+
+                          return (
+                            <div key={i} style={{
+                              display: "flex", gap: 12, alignItems: "flex-start",
+                              padding: "10px 0",
+                              borderBottom: i < bulletRevealIdx - 1 ? "1px solid rgba(255,255,255,0.06)" : "none",
+                              opacity: 1,
+                              animation: isCurrent ? "esFadeSlideUp 0.4s ease" : "none",
+                            }}>
+                              <span style={{ color: "#a78bfa", fontWeight: 700, fontSize: 16, lineHeight: 1.6, flexShrink: 0, marginTop: 1 }}>•</span>
+                              <div style={{ flex: 1 }}>
+                                <span style={{
+                                  fontSize: 16, lineHeight: 1.6, color: "rgba(255,255,255,0.85)",
+                                  animation: isPulsing ? "enAudioPulse 2.8s ease-in-out infinite" : "none",
+                                }}>
+                                  {text.split(/("(?:[^"\\]|\\.)*")/).map((part, pi) =>
+                                    part.startsWith('"') && part.endsWith('"')
+                                      ? <span key={pi}
+                                          style={{ fontWeight: 600, color: "#fbbf24", cursor: audioText ? "pointer" : "default" }}
+                                          onMouseEnter={() => { if (audioText) void fetchAndPlayAudio(audioText, learningLocale); }}
+                                          onMouseLeave={() => { if (audioText) stopAudio(); }}
+                                        >{part}</span>
+                                      : <span key={pi}>{part}</span>
+                                  )}
+                                </span>
+                                {showAudioText && (
+                                  <span style={{ fontSize: 16, fontWeight: 600, color: "#c4b5fd", marginLeft: 8, display: "inline-block", animation: "esFadeSlideUp 0.4s ease" }}>
+                                    — {audioText}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
                       </div>
                     ) : (
-                      /* Fallback: old prose explanation for words without brief */
+                      /* Fallback: prose explanation for words without bullets */
                       <div style={{
                         fontSize: 16, lineHeight: 1.8, color: "rgba(255,255,255,0.7)",
                         background: "rgba(255,255,255,0.04)", borderRadius: 12, padding: "20px 24px",
@@ -1911,33 +2000,10 @@ export default function WordDrillGame({
                       </div>
                     )}
 
-                    {/* Bullet details — fade in on Enter (only when brief exists) */}
-                    {hasBrief && hasBullets && (
-                      <div style={{
-                        opacity: explainStep >= 1 ? 1 : 0,
-                        transform: explainStep >= 1 ? "translateY(0)" : "translateY(8px)",
-                        transition: "opacity 0.45s ease, transform 0.45s ease",
-                        pointerEvents: explainStep >= 1 ? "auto" : "none",
-                      }}>
-                        <div style={{
-                          background: "rgba(255,255,255,0.04)", borderRadius: 12,
-                          padding: "18px 22px", border: "1px solid rgba(255,255,255,0.08)",
-                          display: "flex", flexDirection: "column", gap: 10,
-                        }}>
-                          {currentUC.explanation_bullets!.map((bullet, i) => (
-                            <div key={i} style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
-                              <span style={{ color: "#a78bfa", fontWeight: 700, fontSize: 16, lineHeight: 1.5, flexShrink: 0 }}>•</span>
-                              <span style={{ fontSize: 15, lineHeight: 1.6, color: "rgba(255,255,255,0.78)" }}>{bullet}</span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
                     {/* Hint */}
                     <div style={{ textAlign: "center", fontSize: 13, color: "rgba(255,255,255,0.3)", marginTop: 4 }}>
-                      {hasBrief && explainStep === 0 ? (
-                        <>Press <kbd style={{ padding: "2px 8px", background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.2)", borderRadius: 4, fontSize: 12 }}>Space</kbd> for details →</>
+                      {hasBullets && !allRevealed ? (
+                        <>Press <kbd style={{ padding: "2px 8px", background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.2)", borderRadius: 4, fontSize: 12 }}>Space</kbd> {bulletRevealIdx === 0 ? "to begin →" : "to continue →"}</>
                       ) : (
                         <>Press <kbd style={{ padding: "2px 8px", background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.2)", borderRadius: 4, fontSize: 12 }}>Space</kbd> to see example →</>
                       )}
@@ -1962,7 +2028,9 @@ export default function WordDrillGame({
                     background: "rgba(255,255,255,0.02)", borderRadius: 12, padding: "14px 18px",
                     border: "1px solid rgba(255,255,255,0.05)",
                   }}>
-                    {currentUC.brief ?? currentUC.explanation}
+                    {currentUC.english
+                      ? <><span style={{ fontStyle: "normal" }}>{currentUC.name}</span> <span style={{ opacity: 0.7 }}>({currentUC.english})</span></>
+                      : (currentUC.brief ?? currentUC.explanation)}
                   </div>
                   <div style={{
                     background: "rgba(139,92,246,0.1)", border: "1px solid rgba(139,92,246,0.3)",
@@ -1985,16 +2053,6 @@ export default function WordDrillGame({
                         {currentUC.demo.context}
                       </div>
                     )}
-                    <style>{`
-                      @keyframes enAudioPulse {
-                        0%, 100% { color: rgba(255,255,255,0.88); }
-                        50%       { color: #c4b5fd; }
-                      }
-                      @keyframes esFadeSlideUp {
-                        from { opacity: 0; transform: translateY(6px); }
-                        to   { opacity: 1; transform: translateY(0); }
-                      }
-                    `}</style>
                     <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                       {/* EN sentence — hover plays audio when showTargetText is off */}
                       <div

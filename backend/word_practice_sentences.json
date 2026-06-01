@@ -1414,6 +1414,13 @@
       {
         "id": 1,
         "name": "¿Qué pasó? / ¿Qué pasa?",
+        "english": "What happened? / What's going on?",
+        "grammar_tags": [],
+        "explanation_bullets": [
+          { "text": "Use this to ask \"what happened?\"", "audio": "¿Qué pasó?" },
+          { "text": "or \"what's going on?\"", "audio": "¿Qué pasa?" },
+          "Both are extremely natural and you'll use them constantly"
+        ],
         "explanation": "These are the two most common questions for asking what happened or what's going on. '¿Qué pasó?' = 'what happened?' (past). '¿Qué pasa?' = 'what's going on?' (present). Both are extremely natural and you'll use them constantly.",
         "demo": {
           "context": "A: [Someone looks stressed]",
@@ -1439,6 +1446,13 @@
       {
         "id": 2,
         "name": "No pasa nada",
+        "english": "no worries",
+        "grammar_tags": [],
+        "explanation_bullets": [
+          { "text": "Use this to say \"no worries\" or \"it's okay\" or \"don't worry about it\"", "audio": "No pasa nada" },
+          "It literally means 'nothing is happening' — i.e. there's no problem",
+          "You'll use it constantly when someone apologizes for something minor."
+        ],
         "explanation": "'No pasa nada' is the go-to response for 'no worries,' 'it's okay,' or 'don't worry about it.' It literally means 'nothing is happening' — i.e., there's no problem. You'll use it constantly when someone apologizes for something minor.",
         "demo": {
           "context": "A: I'm so sorry I forgot to text you back!",
@@ -1463,6 +1477,13 @@
       {
         "id": 3,
         "name": "Pasarlo bien / mal",
+        "english": "to have a good/bad time",
+        "grammar_tags": [{ "type": "direct_object", "label": "lo/la" }],
+        "explanation_bullets": [
+          { "text": "Use this to say \"I had a great time\"", "audio": "Lo pasé muy bien" },
+          "The 'lo' or 'la' refers to the time spent.",
+          "The opposite 'pasarlo mal' = to have a rough time or bad experience."
+        ],
         "explanation": "'Pasarla bien' or 'pasarlo bien' is how you say you had a good time. 'Lo pasé muy bien' = 'I had a great time.' The 'lo' or 'la' refers to the time spent. The opposite 'pasarlo mal' = to have a rough time or bad experience.",
         "demo": {
           "context": "A: How was your birthday party?",
@@ -1488,6 +1509,13 @@
       {
         "id": 4,
         "name": "Pasar por (pick up)",
+        "english": "pick up / stop by",
+        "grammar_tags": [{ "type": "connector", "label": "connector: por" }],
+        "explanation_bullets": [
+          "'Pasar por alguien' means to pick someone up or stop by to get them.",
+          "It's the everyday way to say you'll swing by for someone.",
+          { "text": "You can say \"I'll come get you / I'll pick you up.\"", "audio": "Paso por ti" }
+        ],
         "explanation": "'Pasar por alguien' or 'pasar a buscar a alguien' means to pick someone up or stop by to get them. It's the everyday way to say you'll swing by for someone. 'Paso por ti' = 'I'll come get you / I'll pick you up.'",
         "demo": {
           "context": "A: How are you getting to the concert?",
@@ -1517,6 +1545,13 @@
       {
         "id": 5,
         "name": "Pasar de largo",
+        "english": "to go past without stopping",
+        "grammar_tags": [{ "type": "connector", "label": "connector: de" }],
+        "explanation_bullets": [
+          "'Pasar de largo' means to go past something or someone without stopping — like walking right by a store you meant to enter.",
+          "It can also mean to ignore someone on purpose.",
+          "The key idea is moving past without pausing."
+        ],
         "explanation": "'Pasar de largo' means to go past something or someone without stopping — like walking right by a store you meant to enter. It can also mean to ignore someone on purpose. The key idea is moving past without pausing.",
         "demo": {
           "context": "A: Did you stop at the bakery?",
@@ -1542,6 +1577,13 @@
       {
         "id": 6,
         "name": "Pasarse",
+        "english": "to go too far",
+        "grammar_tags": [{ "type": "reflexive", "label": "reflexive (me/te/se)" }],
+        "explanation_bullets": [
+          "'Pasarse' means to go too far, overdo it, or cross a line.",
+          "'Me pasé' can mean you ate too much, worked too hard, or said something inappropriate.",
+          "It covers any kind of excess where you went beyond what was reasonable."
+        ],
         "explanation": "'Pasarse' means to go too far, overdo it, or cross a line. 'Me pasé' can mean you ate too much, worked too hard, or said something inappropriate. It covers any kind of excess where you went beyond what was reasonable.",
         "demo": {
           "context": "A: You look exhausted.",
@@ -1571,6 +1613,13 @@
       {
         "id": 7,
         "name": "Pasa que...",
+        "english": "the thing is...",
+        "grammar_tags": [{ "type": "connector", "label": "connector: que" }, { "type": "person", "label": "3rd person" }],
+        "explanation_bullets": [
+          "'Pasa que' is how you introduce an explanation for something unexpected — like 'the thing is...' or 'here's the deal...'",
+          "Use it when you're about to explain a situation.",
+          "It signals that a reason or context is coming."
+        ],
         "explanation": "'Pasa que' is how you introduce an explanation for something unexpected — like 'the thing is...' or 'here's the deal...' Use it when you're about to explain a situation. It signals that a reason or context is coming.",
         "demo": {
           "context": "A: Why are you home so early?",
@@ -1604,6 +1653,13 @@
       {
         "id": 8,
         "name": "Pasar tiempo / el rato",
+        "english": "to spend time / hang out",
+        "grammar_tags": [],
+        "explanation_bullets": [
+          "'Pasar tiempo' means to spend time.",
+          "'Pasar el rato' is more casual — to hang out or kill time without a specific plan.",
+          "Both are very common when describing how you spent your day or talking about being with someone."
+        ],
         "explanation": "'Pasar tiempo' means to spend time. 'Pasar el rato' is more casual — to hang out or kill time without a specific plan. Both are very common when describing how you spent your day or talking about being with someone.",
         "demo": {
           "context": "A: Are you two close friends?",
@@ -1632,6 +1688,13 @@
       {
         "id": 9,
         "name": "Pasar por alto",
+        "english": "to overlook",
+        "grammar_tags": [{ "type": "connector", "label": "connector: por" }],
+        "explanation_bullets": [
+          "'Pasar por alto' means to overlook or miss something — whether accidentally or intentionally.",
+          "Use it for mistakes you didn't catch, details you ignored, or things you chose to let slide.",
+          { "text": "Like \"I overlooked it / I missed it.\"", "audio": "Lo pasé por alto" }
+        ],
         "explanation": "'Pasar por alto' means to overlook or miss something — whether accidentally or intentionally. Use it for mistakes you didn't catch, details you ignored, or things you chose to let slide. 'Lo pasé por alto' = 'I overlooked it / I missed it.'",
         "demo": {
           "context": "A: There's a big typo on the first page.",
@@ -1657,6 +1720,13 @@
       {
         "id": 10,
         "name": "¿Te pasó algo?",
+        "english": "Did something happen to you?",
+        "grammar_tags": [],
+        "explanation_bullets": [
+          "'¿Te pasó algo?' is the personal, concerned version of '¿Qué pasó?' — you use it when you're worried about a specific person.",
+          { "text": "It means \"did something happen to you?\" or \"are you okay?\"", "audio": "¿Te pasó algo?" },
+          "It's more intimate and shows concern."
+        ],
         "explanation": "'¿Te pasó algo?' is the personal, concerned version of '¿Qué pasó?' — you use it when you're worried about a specific person. It means 'did something happen to you?' or 'are you okay?' It's more intimate and shows concern.",
         "demo": {
           "context": "A: [A friend seems distracted and sad]",
@@ -1685,7 +1755,15 @@
       },
       {
         "id": 11,
-        "name": "¡Pasa! (come in)",
+        "name": "¡Pasa!",
+        "english": "come in",
+        "grammar_tags": [],
+        "explanation_bullets": [
+          "¡Pasa! is the informal imperative of pasar — the everyday way to say come in or go ahead.",
+          "You will hear it when someone answers the door (¡Pasa, pasa!) or waves you through.",
+          "The formal version is ¡Pase!.",
+          "It signals an open invitation to enter or proceed."
+        ],
         "explanation": "¡Pasa! is the informal imperative of pasar — the everyday way to say come in or go ahead. You will hear it when someone answers the door (¡Pasa, pasa!) or waves you through. The formal version is ¡Pase!. It signals an open invitation to enter or proceed.",
         "demo": {
           "context": "A: *knocks on the door*",
@@ -1712,7 +1790,14 @@
       },
       {
         "id": 12,
-        "name": "Pasar frío (to be cold)",
+        "name": "Pasar frío",
+        "english": "to be cold (endure cold)",
+        "grammar_tags": [],
+        "explanation_bullets": [
+          "Pasar frío means to be cold or endure cold — not just feeling cold in the moment (that is tengo frío) but experiencing it over time.",
+          "The same pattern works for heat: pasar calor.",
+          "Think of pasar here as to go through a physical condition."
+        ],
         "explanation": "Pasar frío means to be cold or endure cold — not just feeling cold in the moment (that is tengo frío) but experiencing it over time. The same pattern works for heat: pasar calor. Think of pasar here as to go through a physical condition.",
         "demo": {
           "context": "A: Was it cold at the beach last night?",
@@ -1737,7 +1822,14 @@
       },
       {
         "id": 13,
-        "name": "Pasar la noche (spend the night)",
+        "name": "Pasar la noche",
+        "english": "spend the night",
+        "grammar_tags": [],
+        "explanation_bullets": [
+          "Pasar la noche means to spend the night somewhere.",
+          "It is more specific than quedarse — it emphasizes the full overnight stay.",
+          "Use it to say you slept over, stayed the night at a place, or were somewhere all night."
+        ],
         "explanation": "Pasar la noche means to spend the night somewhere. It is more specific than quedarse — it emphasizes the full overnight stay. Use it to say you slept over, stayed the night at a place, or were somewhere all night.",
         "demo": {
           "context": "A: Did you drive back after the party?",
@@ -1768,7 +1860,15 @@
       },
       {
         "id": 14,
-        "name": "Pasar un momento difícil (hard time)",
+        "name": "Pasar un momento difícil",
+        "english": "to go through a hard time",
+        "grammar_tags": [],
+        "explanation_bullets": [
+          "Pasar un momento difícil means to go through a hard time.",
+          "Pasar here means to experience or endure — the same verb that powers pasarlo bien/mal.",
+          "This phrase fits serious situations: grief, illness, a tough period in life.",
+          "You can also say pasar por un momento difícil."
+        ],
         "explanation": "Pasar un momento difícil means to go through a hard time. Pasar here means to experience or endure — the same verb that powers pasarlo bien/mal. This phrase fits serious situations: grief, illness, a tough period in life. You can also say pasar por un momento difícil.",
         "demo": {
           "context": "A: How is your friend doing after the breakup?",
