@@ -2025,13 +2025,34 @@ export default function WordDrillGame({
                     <h3 style={{ margin: 0, fontSize: 22, fontWeight: 700 }}>{currentUC.name}</h3>
                   </div>
                   <div style={{
-                    fontSize: 14, lineHeight: 1.7, color: "rgba(255,255,255,0.35)",
-                    background: "rgba(255,255,255,0.02)", borderRadius: 12, padding: "14px 18px",
+                    background: "rgba(255,255,255,0.02)", borderRadius: 12, padding: "12px 16px",
                     border: "1px solid rgba(255,255,255,0.05)",
                   }}>
-                    {currentUC.english
-                      ? <><span style={{ fontStyle: "normal" }}>{currentUC.name}</span> <span style={{ opacity: 0.7 }}>({currentUC.english})</span></>
-                      : (currentUC.brief ?? currentUC.explanation)}
+                    {currentUC.explanation_bullets?.length ? (
+                      <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                        {currentUC.explanation_bullets.map((bullet, i) => {
+                          const text = typeof bullet === "object" ? bullet.text : bullet;
+                          return (
+                            <div key={i} style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
+                              <span style={{ color: "rgba(167,139,250,0.4)", fontSize: 13, flexShrink: 0, marginTop: 1 }}>•</span>
+                              <span style={{ fontSize: 13, lineHeight: 1.6, color: "rgba(255,255,255,0.35)" }}>
+                                {text.split(/("(?:[^"\\]|\\.)*")/).map((part, pi) =>
+                                  part.startsWith('"') && part.endsWith('"')
+                                    ? <span key={pi} style={{ color: "rgba(251,191,36,0.45)" }}>{part}</span>
+                                    : <span key={pi}>{part}</span>
+                                )}
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <span style={{ fontSize: 14, lineHeight: 1.7, color: "rgba(255,255,255,0.35)" }}>
+                        {currentUC.english
+                          ? <>{currentUC.name} <span style={{ opacity: 0.7 }}>({currentUC.english})</span></>
+                          : (currentUC.brief ?? currentUC.explanation)}
+                      </span>
+                    )}
                   </div>
                   <div style={{
                     background: "rgba(139,92,246,0.1)", border: "1px solid rgba(139,92,246,0.3)",
@@ -2134,11 +2155,32 @@ export default function WordDrillGame({
 
                       {/* Explanation (dimmed) */}
                       <div style={{
-                        fontSize: 14, lineHeight: 1.7, color: "rgba(255,255,255,0.3)",
-                        background: "rgba(255,255,255,0.02)", borderRadius: 10, padding: "14px 18px",
+                        background: "rgba(255,255,255,0.02)", borderRadius: 10, padding: "10px 14px",
                         border: "1px solid rgba(255,255,255,0.05)",
                       }}>
-                        {currentUC.brief ?? currentUC.explanation}
+                        {currentUC.explanation_bullets?.length ? (
+                          <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+                            {currentUC.explanation_bullets.map((bullet, i) => {
+                              const text = typeof bullet === "object" ? bullet.text : bullet;
+                              return (
+                                <div key={i} style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
+                                  <span style={{ color: "rgba(167,139,250,0.35)", fontSize: 12, flexShrink: 0, marginTop: 1 }}>•</span>
+                                  <span style={{ fontSize: 12, lineHeight: 1.6, color: "rgba(255,255,255,0.3)" }}>
+                                    {text.split(/("(?:[^"\\]|\\.)*")/).map((part, pi) =>
+                                      part.startsWith('"') && part.endsWith('"')
+                                        ? <span key={pi} style={{ color: "rgba(251,191,36,0.4)" }}>{part}</span>
+                                        : <span key={pi}>{part}</span>
+                                    )}
+                                  </span>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        ) : (
+                          <span style={{ fontSize: 13, lineHeight: 1.7, color: "rgba(255,255,255,0.3)" }}>
+                            {currentUC.brief ?? currentUC.explanation}
+                          </span>
+                        )}
                       </div>
 
                       {/* Demo (dimmed) */}
