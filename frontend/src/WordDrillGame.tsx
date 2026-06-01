@@ -1818,7 +1818,7 @@ export default function WordDrillGame({
                       padding: "5px 10px", fontSize: 11, whiteSpace: "nowrap",
                       color: "rgba(255,255,255,0.85)", zIndex: 20, pointerEvents: "none",
                     }}>
-                      {uc.name}
+                      {uc.name}{uc.english ? ` (${uc.english})` : ""}
                     </div>
                   )}
                 </div>
@@ -1918,13 +1918,13 @@ export default function WordDrillGame({
                       Use case {currentUsecaseIdx + 1} of {learnUsecases.length}
                     </div>
 
-                    {/* Title: Spanish phrase + English meaning */}
-                    <div>
+                    {/* Title: Spanish phrase + English meaning on same line */}
+                    <div style={{ display: "flex", alignItems: "baseline", gap: 10, flexWrap: "wrap" }}>
                       <h3 style={{ margin: 0, fontSize: 24, fontWeight: 700, lineHeight: 1.3 }}>{currentUC.name}</h3>
                       {currentUC.english && (
-                        <div style={{ fontSize: 15, color: "rgba(255,255,255,0.45)", marginTop: 4, fontStyle: "italic" }}>
+                        <span style={{ fontSize: 24, color: "rgba(255,255,255,0.82)", fontWeight: 400, fontStyle: "italic", whiteSpace: "nowrap" }}>
                           ({currentUC.english})
-                        </div>
+                        </span>
                       )}
                     </div>
 
@@ -2018,11 +2018,29 @@ export default function WordDrillGame({
             {learnPhase === "demo" && (
               <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "40px 32px" }}>
                 <div style={{ maxWidth: 620, width: "100%", display: "flex", flexDirection: "column", gap: 20 }}>
-                  <div>
-                    <div style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", color: "#a78bfa", opacity: 0.8, marginBottom: 6 }}>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                    <div style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", color: "#a78bfa", opacity: 0.8 }}>
                       Use case {currentUsecaseIdx + 1} of {learnUsecases.length}
                     </div>
-                    <h3 style={{ margin: 0, fontSize: 22, fontWeight: 700 }}>{currentUC.name}</h3>
+                    <div style={{ display: "flex", alignItems: "baseline", gap: 10, flexWrap: "wrap" }}>
+                      <h3 style={{ margin: 0, fontSize: 22, fontWeight: 700 }}>{currentUC.name}</h3>
+                      {currentUC.english && (
+                        <span style={{ fontSize: 22, color: "rgba(255,255,255,0.82)", fontWeight: 400, fontStyle: "italic" }}>
+                          ({currentUC.english})
+                        </span>
+                      )}
+                    </div>
+                    {currentUC.grammar_tags && currentUC.grammar_tags.length > 0 && (() => {
+                      const TAG_COLORS: Record<string, string> = { reflexive: "#67e8f9", connector: "#fbbf24", direct_object: "#c4b5fd", fixed: "#fdba74", person: "#86efac" };
+                      return (
+                        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                          {currentUC.grammar_tags.map((tag, i) => {
+                            const color = TAG_COLORS[tag.type] ?? "#94a3b8";
+                            return <span key={i} style={{ fontSize: 11, fontWeight: 600, padding: "3px 10px", borderRadius: 999, background: `${color}18`, border: `1px solid ${color}55`, color, letterSpacing: "0.03em" }}>{tag.label}</span>;
+                          })}
+                        </div>
+                      );
+                    })()}
                   </div>
                   <div style={{
                     background: "rgba(255,255,255,0.02)", borderRadius: 12, padding: "12px 16px",

@@ -1508,7 +1508,7 @@
       },
       {
         "id": 4,
-        "name": "Pasar por (pick up)",
+        "name": "Pasar por",
         "english": "pick up / stop by",
         "grammar_tags": [{ "type": "connector", "label": "connector: por" }],
         "explanation_bullets": [
