@@ -61,10 +61,15 @@ type WordInfo = {
   description: string;
 };
 
+type GrammarTag = { type: string; label: string };
+
 type UseCase = {
   id: number;
   name: string;
   explanation: string;
+  brief?: string;
+  explanation_bullets?: string[];
+  grammar_tags?: GrammarTag[];
   demo: { context: string; native: string; spanish: string };
   practice: {
     context: string;
@@ -347,6 +352,12 @@ export default function WordDrillGame({
   const [canReturnToPractice, setCanReturnToPractice] = useState(false);
   // Demo animation step: 0=hidden, 1=context, 2=EN, 3=audio playing (ES hidden), 4=ES revealed
   const [demoAnimStep, setDemoAnimStep] = useState(0);
+  // Explanation sub-step: 0=brief only, 1=bullets revealed
+  const [explainStep, setExplainStep] = useState(0);
+  // Whether to display the target language text after audio (can be toggled off by user)
+  const [showTargetText, setShowTargetText] = useState(true);
+  // Whether the ES reveal area is currently hovered (when showTargetText=false)
+  const [esHovered, setEsHovered] = useState(false);
 
   // ── Refs ─────────────────────────────────────────────────────────────────
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -372,6 +383,7 @@ export default function WordDrillGame({
   const learnPracticeEndRef = useRef<HTMLDivElement>(null);
   const returnToPracticeRef = useRef<{ sentence: Sentence; queue: Sentence[] } | null>(null);
   const demoAnimStepRef = useRef(0);
+  const explainStepRef = useRef(0);
 
   // ── Effects ──────────────────────────────────────────────────────────────
 
@@ -510,7 +522,17 @@ export default function WordDrillGame({
     function onKey(e: KeyboardEvent) {
       if (e.key !== " " && e.key !== "Enter") return;
       e.preventDefault();
-      if (learnPhaseRef.current === "demo") {
+      if (learnPhaseRef.current === "explanation") {
+        if (explainStepRef.current === 0) {
+          // Show bullets
+          explainStepRef.current = 1;
+          setExplainStep(1);
+        } else {
+          // Bullets shown — go to demo
+          learnPhaseRef.current = "demo";
+          setLearnPhase("demo");
+        }
+      } else if (learnPhaseRef.current === "demo") {
         if (demoAnimStepRef.current < 4) {
           // Skip animation — show everything instantly
           stopAudio();
@@ -524,9 +546,6 @@ export default function WordDrillGame({
       } else if (showAllPhasesRef.current) {
         learnPhaseRef.current = "practice";
         setLearnPhase("practice");
-      } else {
-        learnPhaseRef.current = "demo";
-        setLearnPhase("demo");
       }
     }
     window.addEventListener("keydown", onKey);
@@ -767,6 +786,9 @@ export default function WordDrillGame({
     setLearnPhase("explanation");
     demoAnimStepRef.current = 0;
     setDemoAnimStep(0);
+    explainStepRef.current = 0;
+    setExplainStep(0);
+    setEsHovered(false);
     stopAudio();
   }
 
@@ -1700,6 +1722,18 @@ export default function WordDrillGame({
             </h2>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+            <label style={{
+              display: "flex", alignItems: "center", gap: 6,
+              fontSize: 12, color: "rgba(255,255,255,0.5)", cursor: "pointer", userSelect: "none",
+            }}>
+              <input
+                type="checkbox"
+                checked={showTargetText}
+                onChange={e => setShowTargetText(e.target.checked)}
+                style={{ accentColor: "#a78bfa", cursor: "pointer" }}
+              />
+              Show {activeLearning.name} text
+            </label>
             <div style={{ fontSize: 13, opacity: 0.55 }}>{doneCount}/{learnUsecases.length} done</div>
             {onBack && (
               <button onClick={() => { stopAudio(); onBack(); }}
@@ -1822,28 +1856,96 @@ export default function WordDrillGame({
           <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
 
             {/* ── Phase: explanation ── */}
-            {learnPhase === "explanation" && (
-              <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "40px 32px" }}>
-                <div style={{ maxWidth: 620, width: "100%", display: "flex", flexDirection: "column", gap: 20 }}>
-                  <div>
-                    <div style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", color: "#a78bfa", opacity: 0.8, marginBottom: 6 }}>
-                      Use case {currentUsecaseIdx + 1} of {learnUsecases.length}
+            {learnPhase === "explanation" && (() => {
+              const TAG_COLORS: Record<string, string> = {
+                reflexive: "#67e8f9",
+                connector: "#fbbf24",
+                direct_object: "#c4b5fd",
+                fixed: "#fdba74",
+                person: "#86efac",
+              };
+              const hasBrief = !!currentUC.brief;
+              const hasBullets = !!(currentUC.explanation_bullets?.length);
+              return (
+                <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "40px 32px", overflowY: "auto" }}>
+                  <div style={{ maxWidth: 620, width: "100%", display: "flex", flexDirection: "column", gap: 20 }}>
+                    {/* Name + ordinal */}
+                    <div>
+                      <div style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", color: "#a78bfa", opacity: 0.8, marginBottom: 6 }}>
+                        Use case {currentUsecaseIdx + 1} of {learnUsecases.length}
+                      </div>
+                      <h3 style={{ margin: 0, fontSize: 22, fontWeight: 700 }}>{currentUC.name}</h3>
                     </div>
-                    <h3 style={{ margin: 0, fontSize: 22, fontWeight: 700 }}>{currentUC.name}</h3>
-                  </div>
-                  <div style={{
-                    fontSize: 16, lineHeight: 1.8, color: "rgba(255,255,255,0.7)",
-                    background: "rgba(255,255,255,0.04)", borderRadius: 12, padding: "20px 24px",
-                    border: "1px solid rgba(255,255,255,0.08)",
-                  }}>
-                    {currentUC.explanation}
-                  </div>
-                  <div style={{ textAlign: "center", fontSize: 13, color: "rgba(255,255,255,0.3)", marginTop: 8 }}>
-                    Press <kbd style={{ padding: "2px 8px", background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.2)", borderRadius: 4, fontSize: 12 }}>Space</kbd> to see example →
+
+                    {/* Grammar tags — always visible */}
+                    {currentUC.grammar_tags && currentUC.grammar_tags.length > 0 && (
+                      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                        {currentUC.grammar_tags.map((tag, i) => {
+                          const color = TAG_COLORS[tag.type] ?? "#94a3b8";
+                          return (
+                            <span key={i} style={{
+                              fontSize: 11, fontWeight: 600, padding: "3px 10px", borderRadius: 999,
+                              background: `${color}18`, border: `1px solid ${color}55`, color,
+                              letterSpacing: "0.03em",
+                            }}>
+                              {tag.label}
+                            </span>
+                          );
+                        })}
+                      </div>
+                    )}
+
+                    {/* Brief tagline — always visible when present */}
+                    {hasBrief ? (
+                      <div style={{ fontSize: 20, fontWeight: 600, lineHeight: 1.5, color: "rgba(255,255,255,0.9)" }}>
+                        {currentUC.brief}
+                      </div>
+                    ) : (
+                      /* Fallback: old prose explanation for words without brief */
+                      <div style={{
+                        fontSize: 16, lineHeight: 1.8, color: "rgba(255,255,255,0.7)",
+                        background: "rgba(255,255,255,0.04)", borderRadius: 12, padding: "20px 24px",
+                        border: "1px solid rgba(255,255,255,0.08)",
+                      }}>
+                        {currentUC.explanation}
+                      </div>
+                    )}
+
+                    {/* Bullet details — fade in on Enter (only when brief exists) */}
+                    {hasBrief && hasBullets && (
+                      <div style={{
+                        opacity: explainStep >= 1 ? 1 : 0,
+                        transform: explainStep >= 1 ? "translateY(0)" : "translateY(8px)",
+                        transition: "opacity 0.45s ease, transform 0.45s ease",
+                        pointerEvents: explainStep >= 1 ? "auto" : "none",
+                      }}>
+                        <div style={{
+                          background: "rgba(255,255,255,0.04)", borderRadius: 12,
+                          padding: "18px 22px", border: "1px solid rgba(255,255,255,0.08)",
+                          display: "flex", flexDirection: "column", gap: 10,
+                        }}>
+                          {currentUC.explanation_bullets!.map((bullet, i) => (
+                            <div key={i} style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
+                              <span style={{ color: "#a78bfa", fontWeight: 700, fontSize: 16, lineHeight: 1.5, flexShrink: 0 }}>•</span>
+                              <span style={{ fontSize: 15, lineHeight: 1.6, color: "rgba(255,255,255,0.78)" }}>{bullet}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Hint */}
+                    <div style={{ textAlign: "center", fontSize: 13, color: "rgba(255,255,255,0.3)", marginTop: 4 }}>
+                      {hasBrief && explainStep === 0 ? (
+                        <>Press <kbd style={{ padding: "2px 8px", background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.2)", borderRadius: 4, fontSize: 12 }}>Space</kbd> for details →</>
+                      ) : (
+                        <>Press <kbd style={{ padding: "2px 8px", background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.2)", borderRadius: 4, fontSize: 12 }}>Space</kbd> to see example →</>
+                      )}
+                    </div>
                   </div>
                 </div>
-              </div>
-            )}
+              );
+            })()}
 
             {/* ── Phase: demo ── */}
             {learnPhase === "demo" && (
@@ -1856,11 +1958,11 @@ export default function WordDrillGame({
                     <h3 style={{ margin: 0, fontSize: 22, fontWeight: 700 }}>{currentUC.name}</h3>
                   </div>
                   <div style={{
-                    fontSize: 15, lineHeight: 1.75, color: "rgba(255,255,255,0.35)",
-                    background: "rgba(255,255,255,0.02)", borderRadius: 12, padding: "16px 20px",
+                    fontSize: 14, lineHeight: 1.7, color: "rgba(255,255,255,0.35)",
+                    background: "rgba(255,255,255,0.02)", borderRadius: 12, padding: "14px 18px",
                     border: "1px solid rgba(255,255,255,0.05)",
                   }}>
-                    {currentUC.explanation}
+                    {currentUC.brief ?? currentUC.explanation}
                   </div>
                   <div style={{
                     background: "rgba(139,92,246,0.1)", border: "1px solid rgba(139,92,246,0.3)",
@@ -1883,53 +1985,72 @@ export default function WordDrillGame({
                         {currentUC.demo.context}
                       </div>
                     )}
+                    <style>{`
+                      @keyframes enAudioPulse {
+                        0%, 100% { color: rgba(255,255,255,0.88); }
+                        50%       { color: #c4b5fd; }
+                      }
+                      @keyframes esFadeSlideUp {
+                        from { opacity: 0; transform: translateY(6px); }
+                        to   { opacity: 1; transform: translateY(0); }
+                      }
+                    `}</style>
                     <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                      <div style={{
-                        fontSize: 17, fontWeight: 700, color: "rgba(255,255,255,0.88)",
-                        opacity: demoAnimStep >= 2 ? 1 : 0,
-                        transform: demoAnimStep >= 2 ? "translateY(0)" : "translateY(6px)",
-                        transition: "opacity 0.5s ease, transform 0.5s ease",
-                      }}>
+                      {/* EN sentence — hover plays audio when showTargetText is off */}
+                      <div
+                        onMouseEnter={() => { if (!showTargetText && demoAnimStep >= 4) void fetchAndPlayAudio(currentUC.demo.spanish, learningLocale); }}
+                        onMouseLeave={() => { if (!showTargetText) stopAudio(); }}
+                        style={{
+                          fontSize: 17, fontWeight: 700,
+                          animation: demoAnimStep === 3 ? "enAudioPulse 2.8s ease-in-out infinite" : "none",
+                          color: "rgba(255,255,255,0.88)",
+                          opacity: demoAnimStep >= 2 ? 1 : 0,
+                          transform: demoAnimStep >= 2 ? "translateY(0)" : "translateY(6px)",
+                          transition: "opacity 0.5s ease, transform 0.5s ease",
+                          cursor: !showTargetText && demoAnimStep >= 4 ? "pointer" : "default",
+                        }}
+                      >
                         <span style={{ fontSize: 10, fontWeight: 600, letterSpacing: "0.06em", marginRight: 10, color: "rgba(255,255,255,0.4)" }}>EN</span>
                         {currentUC.demo.native}
                       </div>
-                      <div style={{
-                        display: "flex", alignItems: "center", gap: 12,
-                        opacity: demoAnimStep >= 3 ? 1 : 0,
-                        transform: demoAnimStep >= 3 ? "translateY(0)" : "translateY(6px)",
-                        transition: "opacity 0.5s ease, transform 0.5s ease",
-                      }}>
-                        {demoAnimStep >= 4 ? (
-                          <>
-                            <div
-                              onMouseEnter={() => void fetchAndPlayAudio(currentUC.demo.spanish, learningLocale)}
-                              onMouseLeave={() => stopAudio()}
-                              style={{
-                                fontSize: 20, fontWeight: 700, color: "#c4b5fd", cursor: "pointer", lineHeight: 1.4,
-                                opacity: demoAnimStep >= 4 ? 1 : 0,
-                                transition: "opacity 0.5s ease",
-                              }}
-                            >
-                              <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.06em", marginRight: 10, color: "rgba(255,255,255,0.35)" }}>ES</span>
-                              {currentUC.demo.spanish}
+                      {/* ES row — hover reveals text only (audio separate via EN hover) */}
+                      {demoAnimStep >= 4 && (
+                        <div
+                          style={{ display: "flex", alignItems: "center", gap: 12, animation: "esFadeSlideUp 0.5s ease" }}
+                          onMouseEnter={() => setEsHovered(true)}
+                          onMouseLeave={() => setEsHovered(false)}
+                        >
+                          {showTargetText || esHovered ? (
+                            <>
+                              <div
+                                onMouseEnter={() => showTargetText && void fetchAndPlayAudio(currentUC.demo.spanish, learningLocale)}
+                                onMouseLeave={() => showTargetText && stopAudio()}
+                                style={{ fontSize: 20, fontWeight: 700, color: "#c4b5fd", cursor: showTargetText ? "pointer" : "default", lineHeight: 1.4 }}
+                              >
+                                <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.06em", marginRight: 10, color: "rgba(255,255,255,0.35)" }}>ES</span>
+                                {currentUC.demo.spanish}
+                              </div>
+                              <button
+                                onClick={() => void fetchAndPlayAudio(currentUC.demo.spanish, learningLocale)}
+                                style={{
+                                  padding: "5px 12px", fontSize: 15, background: "rgba(255,255,255,0.08)",
+                                  border: "1px solid rgba(255,255,255,0.15)", borderRadius: 6, cursor: "pointer", color: "white",
+                                  flexShrink: 0,
+                                }}
+                              >🔊</button>
+                            </>
+                          ) : (
+                            <div style={{
+                              fontSize: 15, color: "rgba(167,139,250,0.4)", fontStyle: "italic",
+                              border: "1px dashed rgba(167,139,250,0.25)", borderRadius: 8,
+                              padding: "6px 16px", cursor: "default",
+                            }}>
+                              <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.06em", marginRight: 8, color: "rgba(255,255,255,0.2)" }}>ES</span>
+                              hover to reveal
                             </div>
-                            <button
-                              onClick={() => void fetchAndPlayAudio(currentUC.demo.spanish, learningLocale)}
-                              style={{
-                                padding: "5px 12px", fontSize: 15, background: "rgba(255,255,255,0.08)",
-                                border: "1px solid rgba(255,255,255,0.15)", borderRadius: 6, cursor: "pointer", color: "white",
-                                flexShrink: 0,
-                              }}
-                            >🔊</button>
-                          </>
-                        ) : (
-                          <div style={{ display: "flex", alignItems: "center", gap: 10, color: "rgba(167,139,250,0.7)" }}>
-                            <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.06em", color: "rgba(255,255,255,0.25)" }}>ES</span>
-                            <span style={{ fontSize: 18 }}>🔊</span>
-                            <span style={{ fontSize: 14, fontStyle: "italic", opacity: 0.7 }}>playing…</span>
-                          </div>
-                        )}
-                      </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                   </div>
                   <div style={{ textAlign: "center", fontSize: 13, color: "rgba(255,255,255,0.3)", marginTop: 8 }}>
@@ -1958,7 +2079,7 @@ export default function WordDrillGame({
                         background: "rgba(255,255,255,0.02)", borderRadius: 10, padding: "14px 18px",
                         border: "1px solid rgba(255,255,255,0.05)",
                       }}>
-                        {currentUC.explanation}
+                        {currentUC.brief ?? currentUC.explanation}
                       </div>
 
                       {/* Demo (dimmed) */}
