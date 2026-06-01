@@ -362,6 +362,10 @@ export default function WordDrillGame({
   const [showTargetText, setShowTargetText] = useState(true);
   // Whether the ES reveal area is currently hovered (when showTargetText=false)
   const [esHovered, setEsHovered] = useState(false);
+  // Which bullet index is currently hovered (for brightness highlight)
+  const [hoveredBulletIdx, setHoveredBulletIdx] = useState<number | null>(null);
+  // Which bullet's "hover to reveal" badge is hovered (for Spanish text reveal only)
+  const [revealBulletIdx, setRevealBulletIdx] = useState<number | null>(null);
 
   // ── Refs ─────────────────────────────────────────────────────────────────
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -821,6 +825,8 @@ export default function WordDrillGame({
     setBulletAudioStep(0);
     if (bulletAudioTimerRef.current) { window.clearTimeout(bulletAudioTimerRef.current); bulletAudioTimerRef.current = null; }
     setEsHovered(false);
+    setHoveredBulletIdx(null);
+    setRevealBulletIdx(null);
     stopAudio();
   }
 
@@ -1952,18 +1958,27 @@ export default function WordDrillGame({
                           const audioText = isObj && bullet.audio ? bullet.audio : null;
                           const isCurrent = i === bulletRevealIdx - 1;
                           const isOlder = i < bulletRevealIdx - 1;
+                          const isHovered = hoveredBulletIdx === i;
+                          const isRevealing = revealBulletIdx === i;
+                          // Audio text visible: showTargetText on → show after audio plays; off → show only when badge hovered
+                          const audioHasPlayed = isOlder || (isCurrent && bulletAudioStep >= 1);
                           const showAudioText = audioText && showTargetText && (isOlder || (isCurrent && bulletAudioStep >= 2));
+                          const showAudioPlaceholder = audioText && !showTargetText && audioHasPlayed;
                           const isPulsing = isCurrent && audioText !== null && bulletAudioStep === 1;
 
                           return (
-                            <div key={i} style={{
-                              display: "flex", gap: 12, alignItems: "flex-start",
-                              padding: "10px 0",
-                              borderBottom: isOlder ? "1px solid rgba(255,255,255,0.06)" : "none",
-                              opacity: isCurrent ? 1 : 0.35,
-                              transition: "opacity 0.5s ease",
-                              animation: isCurrent ? "esFadeSlideUp 0.4s ease" : "none",
-                            }}>
+                            <div key={i}
+                              onMouseEnter={() => setHoveredBulletIdx(i)}
+                              onMouseLeave={() => setHoveredBulletIdx(null)}
+                              style={{
+                                display: "flex", gap: 12, alignItems: "flex-start",
+                                padding: "10px 0",
+                                borderBottom: isOlder ? "1px solid rgba(255,255,255,0.06)" : "none",
+                                opacity: isHovered || (hoveredBulletIdx === null && isCurrent) ? 1 : 0.35,
+                                transition: "opacity 0.3s ease",
+                                animation: isCurrent ? "esFadeSlideUp 0.4s ease" : "none",
+                                cursor: "default",
+                              }}>
                               <span style={{ color: "#a78bfa", fontWeight: 700, fontSize: 16, lineHeight: 1.6, flexShrink: 0, marginTop: 1 }}>•</span>
                               <div style={{ flex: 1 }}>
                                 <span style={{
@@ -1980,9 +1995,29 @@ export default function WordDrillGame({
                                       : <span key={pi}>{part}</span>
                                   )}
                                 </span>
+                                {/* Spanish text: show inline when toggle on */}
                                 {showAudioText && (
                                   <span style={{ fontSize: 16, fontWeight: 600, color: "#c4b5fd", marginLeft: 8, display: "inline-block", animation: "esFadeSlideUp 0.4s ease" }}>
                                     — {audioText}
+                                  </span>
+                                )}
+                                {/* Placeholder when toggle off: hover the badge to reveal */}
+                                {showAudioPlaceholder && (
+                                  <span
+                                    onMouseEnter={() => setRevealBulletIdx(i)}
+                                    onMouseLeave={() => setRevealBulletIdx(null)}
+                                    style={{
+                                      display: "inline-block", marginLeft: 10,
+                                      fontSize: 13,
+                                      color: isRevealing ? "#c4b5fd" : "rgba(167,139,250,0.35)",
+                                      fontStyle: isRevealing ? "normal" : "italic",
+                                      fontWeight: isRevealing ? 600 : 400,
+                                      border: `1px dashed ${isRevealing ? "rgba(196,181,253,0.5)" : "rgba(167,139,250,0.2)"}`,
+                                      borderRadius: 6, padding: "1px 10px",
+                                      cursor: "default",
+                                      transition: "color 0.2s, border-color 0.2s",
+                                    }}>
+                                    {isRevealing ? audioText : "hover to reveal"}
                                   </span>
                                 )}
                               </div>
