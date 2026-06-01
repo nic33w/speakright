@@ -1959,8 +1959,9 @@ export default function WordDrillGame({
                             <div key={i} style={{
                               display: "flex", gap: 12, alignItems: "flex-start",
                               padding: "10px 0",
-                              borderBottom: i < bulletRevealIdx - 1 ? "1px solid rgba(255,255,255,0.06)" : "none",
-                              opacity: 1,
+                              borderBottom: isOlder ? "1px solid rgba(255,255,255,0.06)" : "none",
+                              opacity: isCurrent ? 1 : 0.35,
+                              transition: "opacity 0.5s ease",
                               animation: isCurrent ? "esFadeSlideUp 0.4s ease" : "none",
                             }}>
                               <span style={{ color: "#a78bfa", fontWeight: 700, fontSize: 16, lineHeight: 1.6, flexShrink: 0, marginTop: 1 }}>•</span>
