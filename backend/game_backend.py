@@ -1749,8 +1749,10 @@ def api_worddrill_usecases(word: str, lang: str = Query("es")):
     data = _load_word_practice_data(lang)
     if word not in data:
         raise HTTPException(status_code=404, detail=f"Word '{word}' not found")
-    usecases = data[word].get("usecases", [])
-    return {"usecases": usecases}
+    word_data = data[word]
+    usecases = word_data.get("usecases", [])
+    conjugations = word_data.get("conjugations")
+    return {"usecases": usecases, "conjugations": conjugations}
 
 
 class WordDrillCheckReq(BaseModel):
@@ -1823,6 +1825,33 @@ def api_worddrill_chat(req: GrammarChatReq):
     except Exception as e:
         print("Grammar chat error:", e)
         return {"reply": "Sorry, something went wrong. Please try again."}
+
+
+class FreeformReq(BaseModel):
+    user_sentence: str
+    word_key: str = ""
+    usecase_name: str = ""
+    learning_lang: str = "Spanish"
+    fluent_lang: str = "English"
+
+@app.post("/api/worddrill/freeform")
+def api_worddrill_freeform(req: FreeformReq):
+    from llm_call import call_llm_for_freeform_correction
+    try:
+        result = call_llm_for_freeform_correction(
+            user_sentence=req.user_sentence,
+            word_key=req.word_key,
+            usecase_name=req.usecase_name,
+            learning_lang=req.learning_lang,
+            fluent_lang=req.fluent_lang,
+        )
+        return result
+    except Exception as e:
+        print("Freeform correction error:", e)
+        return {
+            "correction_tokens": [{"text": req.user_sentence, "status": "keep"}],
+            "feedback_message": "Couldn't check this sentence.",
+        }
 
 
 @app.get("/api/quiz/stats")

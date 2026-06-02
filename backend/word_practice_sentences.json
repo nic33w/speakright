@@ -1417,8 +1417,14 @@
         "english": "What happened? / What's going on?",
         "grammar_tags": [],
         "explanation_bullets": [
-          { "text": "Use this to ask \"what happened?\"", "audio": "¿Qué pasó?" },
-          { "text": "or \"what's going on?\"", "audio": "¿Qué pasa?" },
+          {
+            "text": "Use this to ask \"what happened?\"",
+            "audio": "¿Qué pasó?"
+          },
+          {
+            "text": "or \"what's going on?\"",
+            "audio": "¿Qué pasa?"
+          },
           "Both are extremely natural and you'll use them constantly"
         ],
         "explanation": "These are the two most common questions for asking what happened or what's going on. '¿Qué pasó?' = 'what happened?' (past). '¿Qué pasa?' = 'what's going on?' (present). Both are extremely natural and you'll use them constantly.",
@@ -1449,7 +1455,10 @@
         "english": "no worries",
         "grammar_tags": [],
         "explanation_bullets": [
-          { "text": "Use this to say \"no worries\" or \"it's okay\" or \"don't worry about it\"", "audio": "No pasa nada" },
+          {
+            "text": "Use this to say \"no worries\" or \"it's okay\" or \"don't worry about it\"",
+            "audio": "No pasa nada"
+          },
           "It literally means 'nothing is happening' — i.e. there's no problem",
           "You'll use it constantly when someone apologizes for something minor."
         ],
@@ -1478,9 +1487,17 @@
         "id": 3,
         "name": "Pasarlo bien / mal",
         "english": "to have a good/bad time",
-        "grammar_tags": [{ "type": "direct_object", "label": "lo/la" }],
+        "grammar_tags": [
+          {
+            "type": "direct_object",
+            "label": "lo/la"
+          }
+        ],
         "explanation_bullets": [
-          { "text": "Use this to say \"I had a great time\"", "audio": "Lo pasé muy bien" },
+          {
+            "text": "Use this to say \"I had a great time\"",
+            "audio": "Lo pasé muy bien"
+          },
           "The 'lo' or 'la' refers to the time spent.",
           "The opposite 'pasarlo mal' = to have a rough time or bad experience."
         ],
@@ -1510,11 +1527,19 @@
         "id": 4,
         "name": "Pasar por",
         "english": "pick up / stop by",
-        "grammar_tags": [{ "type": "connector", "label": "connector: por" }],
+        "grammar_tags": [
+          {
+            "type": "connector",
+            "label": "connector: por"
+          }
+        ],
         "explanation_bullets": [
           "'Pasar por alguien' means to pick someone up or stop by to get them.",
           "It's the everyday way to say you'll swing by for someone.",
-          { "text": "You can say \"I'll come get you / I'll pick you up.\"", "audio": "Paso por ti" }
+          {
+            "text": "You can say \"I'll come get you / I'll pick you up.\"",
+            "audio": "Paso por ti"
+          }
         ],
         "explanation": "'Pasar por alguien' or 'pasar a buscar a alguien' means to pick someone up or stop by to get them. It's the everyday way to say you'll swing by for someone. 'Paso por ti' = 'I'll come get you / I'll pick you up.'",
         "demo": {
@@ -1546,7 +1571,12 @@
         "id": 5,
         "name": "Pasar de largo",
         "english": "to go past without stopping",
-        "grammar_tags": [{ "type": "connector", "label": "connector: de" }],
+        "grammar_tags": [
+          {
+            "type": "connector",
+            "label": "connector: de"
+          }
+        ],
         "explanation_bullets": [
           "'Pasar de largo' means to go past something or someone without stopping — like walking right by a store you meant to enter.",
           "It can also mean to ignore someone on purpose.",
@@ -1578,7 +1608,12 @@
         "id": 6,
         "name": "Pasarse",
         "english": "to go too far",
-        "grammar_tags": [{ "type": "reflexive", "label": "reflexive (me/te/se)" }],
+        "grammar_tags": [
+          {
+            "type": "reflexive",
+            "label": "reflexive (me/te/se)"
+          }
+        ],
         "explanation_bullets": [
           "'Pasarse' means to go too far, overdo it, or cross a line.",
           "'Me pasé' can mean you ate too much, worked too hard, or said something inappropriate.",
@@ -1614,7 +1649,16 @@
         "id": 7,
         "name": "Pasa que...",
         "english": "the thing is...",
-        "grammar_tags": [{ "type": "connector", "label": "connector: que" }, { "type": "person", "label": "3rd person" }],
+        "grammar_tags": [
+          {
+            "type": "connector",
+            "label": "connector: que"
+          },
+          {
+            "type": "person",
+            "label": "3rd person"
+          }
+        ],
         "explanation_bullets": [
           "'Pasa que' is how you introduce an explanation for something unexpected — like 'the thing is...' or 'here's the deal...'",
           "Use it when you're about to explain a situation.",
@@ -1689,11 +1733,19 @@
         "id": 9,
         "name": "Pasar por alto",
         "english": "to overlook",
-        "grammar_tags": [{ "type": "connector", "label": "connector: por" }],
+        "grammar_tags": [
+          {
+            "type": "connector",
+            "label": "connector: por"
+          }
+        ],
         "explanation_bullets": [
           "'Pasar por alto' means to overlook or miss something — whether accidentally or intentionally.",
           "Use it for mistakes you didn't catch, details you ignored, or things you chose to let slide.",
-          { "text": "Like \"I overlooked it / I missed it.\"", "audio": "Lo pasé por alto" }
+          {
+            "text": "Like \"I overlooked it / I missed it.\"",
+            "audio": "Lo pasé por alto"
+          }
         ],
         "explanation": "'Pasar por alto' means to overlook or miss something — whether accidentally or intentionally. Use it for mistakes you didn't catch, details you ignored, or things you chose to let slide. 'Lo pasé por alto' = 'I overlooked it / I missed it.'",
         "demo": {
@@ -1724,7 +1776,10 @@
         "grammar_tags": [],
         "explanation_bullets": [
           "'¿Te pasó algo?' is the personal, concerned version of '¿Qué pasó?' — you use it when you're worried about a specific person.",
-          { "text": "It means \"did something happen to you?\" or \"are you okay?\"", "audio": "¿Te pasó algo?" },
+          {
+            "text": "It means \"did something happen to you?\" or \"are you okay?\"",
+            "audio": "¿Te pasó algo?"
+          },
           "It's more intimate and shows concern."
         ],
         "explanation": "'¿Te pasó algo?' is the personal, concerned version of '¿Qué pasó?' — you use it when you're worried about a specific person. It means 'did something happen to you?' or 'are you okay?' It's more intimate and shows concern.",
@@ -2286,11 +2341,20 @@
         "english": "to come back / return",
         "explanation_bullets": [
           "Use for returning home, from a trip, or to a conversation",
-          { "text": "Say \"I'll be right back\"", "audio": "Vuelvo ahora." },
-          { "text": "Or ask \"When are you coming back?\"", "audio": "¿Cuándo vuelves?" }
+          {
+            "text": "Say \"I'll be right back\"",
+            "audio": "Vuelvo ahora."
+          },
+          {
+            "text": "Or ask \"When are you coming back?\"",
+            "audio": "¿Cuándo vuelves?"
+          }
         ],
         "grammar_tags": [
-          { "type": "person", "label": "all persons" }
+          {
+            "type": "person",
+            "label": "all persons"
+          }
         ],
         "explanation": "'Volver' is the standard verb for coming back or returning somewhere. 'Vuelvo ahora' = 'I'll be right back.' '¿Cuándo vuelves?' = 'when are you coming back?' Use it for returning home, from a trip, or to a conversation.",
         "demo": {
@@ -2323,13 +2387,25 @@
         "english": "to do something again",
         "explanation_bullets": [
           "Add 'a + verb' after volver to mean 'to do it again'",
-          { "text": "Like \"He did it again\"", "audio": "Lo volvió a hacer." },
+          {
+            "text": "Like \"He did it again\"",
+            "audio": "Lo volvió a hacer."
+          },
           "More natural than 'hacer otra vez' in most contexts",
-          { "text": "Object pronoun goes before volver: \"I called her again\"", "audio": "La volví a llamar." }
+          {
+            "text": "Object pronoun goes before volver: \"I called her again\"",
+            "audio": "La volví a llamar."
+          }
         ],
         "grammar_tags": [
-          { "type": "connector", "label": "connector: a" },
-          { "type": "direct_object", "label": "direct object" }
+          {
+            "type": "connector",
+            "label": "connector: a"
+          },
+          {
+            "type": "direct_object",
+            "label": "direct object"
+          }
         ],
         "explanation": "'Volver a' + infinitive means 'to do something again.' 'Lo volvió a hacer' = 'he did it again.' This is one of the most useful constructions in Spanish — more natural than 'hacer otra vez' in most contexts.",
         "demo": {
@@ -2360,11 +2436,17 @@
         "english": "won't do it again",
         "explanation_bullets": [
           "Negate volver a to say 'won't do it again' or 'never again'",
-          { "text": "Like \"I won't do it again\"", "audio": "No lo vuelvo a hacer." },
+          {
+            "text": "Like \"I won't do it again\"",
+            "audio": "No lo vuelvo a hacer."
+          },
           "Stronger commitment or warning than 'no lo hago de nuevo'"
         ],
         "grammar_tags": [
-          { "type": "connector", "label": "connector: a" }
+          {
+            "type": "connector",
+            "label": "connector: a"
+          }
         ],
         "explanation": "The negative 'no volver a' means 'won't do again' or 'never again.' 'No lo vuelvo a hacer' = 'I won't do it again.' This is a strong and common way to make a commitment or give a warning.",
         "demo": {
@@ -2393,12 +2475,21 @@
         "english": "to become (lasting change)",
         "explanation_bullets": [
           "Use when someone gradually or permanently becomes something",
-          { "text": "Like \"He became very distant\"", "audio": "Se volvió muy distante." },
+          {
+            "text": "Like \"He became very distant\"",
+            "audio": "Se volvió muy distante."
+          },
           "Use this, not 'ponerse,' when the change is lasting or gradual"
         ],
         "grammar_tags": [
-          { "type": "reflexive", "label": "reflexive" },
-          { "type": "person", "label": "3rd person common" }
+          {
+            "type": "reflexive",
+            "label": "reflexive"
+          },
+          {
+            "type": "person",
+            "label": "3rd person common"
+          }
         ],
         "explanation": "'Volverse' + adjective means someone became a certain way — often describing a gradual personality change. 'Se volvió muy distante' = 'he became very distant.' It implies a more lasting change than 'ponerse' (which is more sudden and emotional).",
         "demo": {
@@ -2432,13 +2523,25 @@
         "name": "Volverse loco",
         "english": "to go crazy / drive crazy",
         "explanation_bullets": [
-          { "text": "Means \"I'm losing my mind\"", "audio": "Me estoy volviendo loco." },
-          { "text": "Or affectionately: \"You drive me crazy\"", "audio": "Me vuelves loco." },
+          {
+            "text": "Means \"I'm losing my mind\"",
+            "audio": "Me estoy volviendo loco."
+          },
+          {
+            "text": "Or affectionately: \"You drive me crazy\"",
+            "audio": "Me vuelves loco."
+          },
           "Works in 1st and 3rd person"
         ],
         "grammar_tags": [
-          { "type": "reflexive", "label": "reflexive" },
-          { "type": "fixed", "label": "fixed phrase" }
+          {
+            "type": "reflexive",
+            "label": "reflexive"
+          },
+          {
+            "type": "fixed",
+            "label": "fixed phrase"
+          }
         ],
         "explanation": "'Volverse loco' is a very common expression for going crazy, losing your mind, or being driven mad. It can be dramatic ('I'm overwhelmed') or affectionate: 'me vuelves loco' = 'you drive me crazy' as a compliment.",
         "demo": {
@@ -2468,12 +2571,21 @@
         "english": "to regain consciousness",
         "explanation_bullets": [
           "Fixed phrase for regaining consciousness after fainting",
-          { "text": "Like \"He came to\"", "audio": "Volvió en sí." },
+          {
+            "text": "Like \"He came to\"",
+            "audio": "Volvió en sí."
+          },
           "Mainly used in dramatic or medical contexts"
         ],
         "grammar_tags": [
-          { "type": "reflexive", "label": "reflexive" },
-          { "type": "fixed", "label": "fixed phrase" }
+          {
+            "type": "reflexive",
+            "label": "reflexive"
+          },
+          {
+            "type": "fixed",
+            "label": "fixed phrase"
+          }
         ],
         "explanation": "'Volver en sí' is a fixed expression meaning to regain consciousness or come to after fainting. Always used with a reflexive pronoun: 'volvió en sí' = 'he came to.' You'll mainly encounter this in dramatic or medical contexts.",
         "demo": {
@@ -2505,11 +2617,17 @@
         "english": "to start over",
         "explanation_bullets": [
           "The natural way to say 'start over from scratch'",
-          { "text": "Like \"We have to start over\"", "audio": "Hay que volver a empezar." },
+          {
+            "text": "Like \"We have to start over\"",
+            "audio": "Hay que volver a empezar."
+          },
           "More conversational than 'comenzar de nuevo'"
         ],
         "grammar_tags": [
-          { "type": "connector", "label": "connector: a" }
+          {
+            "type": "connector",
+            "label": "connector: a"
+          }
         ],
         "explanation": "'Volver a empezar' means to start over from scratch. Combine with 'hay que' for 'we have to start over.' More natural in conversation than 'comenzar de nuevo.' Use it whenever a plan falls apart and you need to begin again.",
         "demo": {
@@ -2541,12 +2659,21 @@
         "name": "¿Ya volvió?",
         "english": "Is he/she back yet?",
         "explanation_bullets": [
-          { "text": "Confirm someone is back: \"He's already back\"", "audio": "Ya volvió." },
-          { "text": "Or ask: \"Is he back yet?\"", "audio": "¿Ya volvió?" },
+          {
+            "text": "Confirm someone is back: \"He's already back\"",
+            "audio": "Ya volvió."
+          },
+          {
+            "text": "Or ask: \"Is he back yet?\"",
+            "audio": "¿Ya volvió?"
+          },
           "'Ya' marks completed action — you'll use this constantly"
         ],
         "grammar_tags": [
-          { "type": "person", "label": "3rd person focus" }
+          {
+            "type": "person",
+            "label": "3rd person focus"
+          }
         ],
         "explanation": "'Ya volvió' = 'he/she is already back.' The question '¿Ya volvió?' = 'is he/she back yet?' The word 'ya' marks completed action or asks about it — you'll use this constantly when waiting for someone.",
         "demo": {
@@ -2957,7 +3084,21 @@
           }
         ]
       }
-    ]
+    ],
+    "conjugations": {
+      "present": [
+        "vuelvo",
+        "vuelves",
+        "vuelve"
+      ],
+      "preterite": [
+        "volví",
+        "volviste",
+        "volvió"
+      ],
+      "esta": "volviendo",
+      "ha": "vuelto"
+    }
   },
   "poner": {
     "display": "poner",

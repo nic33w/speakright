@@ -64,6 +64,13 @@ type WordInfo = {
 type GrammarTag = { type: string; label: string };
 type BulletItem = string | { text: string; audio?: string };
 
+type Conjugations = {
+  present: [string, string, string];
+  preterite: [string, string, string];
+  esta: string;
+  ha: string;
+};
+
 type UseCase = {
   id: number;
   name: string;
@@ -320,6 +327,15 @@ export default function WordDrillGame({
   const [closestHintIndex, setClosestHintIndex] = useState<number | null>(null);
   const [closestHintOpacity, setClosestHintOpacity] = useState<number>(0);
 
+  // Learn mode conjugations (word-level, may be null if not a verb)
+  const [conjugations, setConjugations] = useState<Conjugations | null>(null);
+
+  // Freeform "Try your own sentence" state (learn mode only)
+  const [freeformText, setFreeformText] = useState("");
+  const [freeformResult, setFreeformResult] = useState<{ correction_tokens: { text: string; status: "ok" | "remove" | "add" }[]; feedback_message: string } | null>(null);
+  const [freeformBusy, setFreeformBusy] = useState(false);
+  const freeformRef = useRef<HTMLTextAreaElement>(null);
+
   // Grammar chat state
   const [chatOpen, setChatOpen] = useState(false);
   const [chatMessages, setChatMessages] = useState<{ role: "user" | "ai"; text: string }[]>([]);
@@ -365,6 +381,8 @@ export default function WordDrillGame({
   const [showTargetText, setShowTargetText] = useState(false);
   // Whether the ES reveal area is currently hovered (when showTargetText=false)
   const [esHovered, setEsHovered] = useState(false);
+  // Right panel mode: history log or info panel
+  const [rightPanelMode, setRightPanelMode] = useState<"history" | "info">("history");
   // Which bullet index is currently hovered (for brightness highlight)
   const [hoveredBulletIdx, setHoveredBulletIdx] = useState<number | null>(null);
   // Which bullet's "hover to reveal" badge is hovered (for Spanish text reveal only)
@@ -395,6 +413,7 @@ export default function WordDrillGame({
   const returnToPracticeRef = useRef<{ sentence: Sentence; queue: Sentence[] } | null>(null);
   const demoAnimStepRef = useRef(0);
   const bulletRevealIdxRef = useRef(0);
+  const lastPlayedAudioRef = useRef<{ text: string; locale: string } | null>(null);
   const bulletAudioTimerRef = useRef<number | null>(null);
 
   // ── Effects ──────────────────────────────────────────────────────────────
@@ -588,6 +607,46 @@ export default function WordDrillGame({
     return () => window.removeEventListener("keydown", onKey);
   }, [gameMode, learnPhase]);
 
+  // Global learn-mode hotkeys: R, S, A, 0, I, 1-9
+  useEffect(() => {
+    if (gameMode !== "learn") return;
+    function onKey(e: KeyboardEvent) {
+      const tag = (document.activeElement as HTMLElement)?.tagName;
+      if (tag === "TEXTAREA" || tag === "INPUT") return;
+      switch (e.key) {
+        case "r": case "R":
+          if (lastPlayedAudioRef.current) {
+            void fetchAndPlayAudio(lastPlayedAudioRef.current.text, lastPlayedAudioRef.current.locale);
+          }
+          break;
+        case "s": case "S":
+          setShowTargetText(prev => !prev);
+          break;
+        case "a": case "A":
+          setShowAllPhases(true);
+          break;
+        case "0":
+          navigateToUsecase(currentUsecaseIdxRef.current, false);
+          break;
+        case "i": case "I":
+          setRightPanelMode(prev => prev === "history" ? "info" : "history");
+          break;
+        default:
+          if (e.key >= "1" && e.key <= "9") {
+            const idx = parseInt(e.key) - 1;
+            if (idx < learnUsecasesRef.current.length) {
+              const alreadyDone = usecaseStatusesRef.current[idx] !== "pending";
+              setLearnComplete(false);
+              navigateToUsecase(idx, alreadyDone || showAllPhasesRef.current);
+            }
+          }
+      }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gameMode]);
+
   // Wispr paste routing — when no textarea/input is focused, capture the paste and route to main textarea
   useEffect(() => {
     function onPaste(e: ClipboardEvent) {
@@ -677,6 +736,31 @@ export default function WordDrillGame({
 
   // ── Grammar chat ──────────────────────────────────────────────────────────
 
+  async function submitFreeform() {
+    const currentUC = learnUsecasesRef.current[currentUsecaseIdxRef.current];
+    if (!freeformText.trim() || freeformBusy || !currentUC) return;
+    setFreeformBusy(true);
+    try {
+      const resp = await fetch(`${apiBase}/api/worddrill/freeform`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          user_sentence: freeformText.trim(),
+          word_key: selectedWord ?? "",
+          usecase_name: currentUC.name,
+          learning_lang: learning.name,
+          fluent_lang: fluent.name,
+        }),
+      });
+      const data = await resp.json();
+      setFreeformResult(data);
+    } catch {
+      setFreeformResult({ correction_tokens: [], feedback_message: "Error getting correction." });
+    } finally {
+      setFreeformBusy(false);
+    }
+  }
+
   async function sendChat() {
     if (!chatInput.trim() || chatBusy) return;
     const userMsg = chatInput.trim();
@@ -736,6 +820,7 @@ export default function WordDrillGame({
       } catch { return; }
     }
     stopAudio();
+    lastPlayedAudioRef.current = { text, locale };
     const audio = new Audio(url);
     currentAudioRef.current = audio;
     if (onEnded) {
@@ -777,6 +862,9 @@ export default function WordDrillGame({
     setClosestHintOpacity(0);
     setChatMessages([]);
     setChatOpen(false);
+    setFreeformText("");
+    setFreeformResult(null);
+    setFreeformBusy(false);
     previousLengthRef.current = 0;
     hintCardsRefs.current = new Array((sentence.hints ?? []).length).fill(null);
   }
@@ -810,6 +898,7 @@ export default function WordDrillGame({
       const usecases: UseCase[] = data.usecases ?? [];
       learnUsecasesRef.current = usecases;
       setLearnUsecases(usecases);
+      setConjugations(data.conjugations ?? null);
       setUsecaseStatuses(new Array(usecases.length).fill("pending"));
       setLearnComplete(false);
       if (usecases.length > 0) {
@@ -851,6 +940,9 @@ export default function WordDrillGame({
     setViewedHints(new Set());
     setClosestHintIndex(null);
     setClosestHintOpacity(0);
+    setFreeformText("");
+    setFreeformResult(null);
+    setFreeformBusy(false);
     previousLengthRef.current = 0;
     hintCardsRefs.current = new Array((uc.practice.hints ?? []).length).fill(null);
     learnPhaseRef.current = "explanation";
@@ -1278,7 +1370,7 @@ export default function WordDrillGame({
   // ── Floating grammar chat (Messenger style) ──────────────────────────────
 
   function renderChat() {
-    if (!currentSentence) return null;
+    if (!currentSentence || gameMode === "learn") return null;
     return (
       <>
         {/* Floating chat bubble */}
@@ -1529,6 +1621,61 @@ export default function WordDrillGame({
             </>
           )}
         </div>
+
+        {/* Try Your Own Sentence — learn mode only, shown after answer */}
+        {gameModeRef.current === "learn" && (answerStatus === "correct" || answerStatus === "skipped") && (
+          <div style={{ paddingTop: 10, borderTop: "1px solid rgba(255,255,255,0.06)", marginTop: 2 }}>
+            <div style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", opacity: 0.35, marginBottom: 6 }}>
+              Try your own sentence (optional — Enter to skip)
+            </div>
+            <div style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
+              <textarea
+                ref={freeformRef}
+                value={freeformText}
+                onChange={e => setFreeformText(e.target.value)}
+                onMouseEnter={() => freeformRef.current?.focus()}
+                onKeyDown={e => {
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    if (freeformText.trim()) void submitFreeform();
+                    else handleNext();
+                  }
+                }}
+                placeholder="Write your own example…"
+                disabled={freeformBusy}
+                rows={2}
+                style={{
+                  flex: 1, padding: "8px 12px", fontSize: 14,
+                  background: "rgba(0,0,0,0.3)", color: "white",
+                  border: "1px solid rgba(255,255,255,0.1)", borderRadius: 6,
+                  resize: "none", fontFamily: "system-ui, sans-serif", outline: "none",
+                  opacity: freeformBusy ? 0.5 : 1, boxSizing: "border-box",
+                }}
+              />
+              <button
+                onClick={() => freeformText.trim() ? void submitFreeform() : handleNext()}
+                disabled={freeformBusy}
+                style={{
+                  padding: "8px 14px", fontSize: 14, fontWeight: 600, flexShrink: 0,
+                  background: freeformText.trim() ? "linear-gradient(135deg, #7c3aed, #5b21b6)" : "rgba(255,255,255,0.08)",
+                  color: "white", border: "none", borderRadius: 6,
+                  cursor: freeformBusy ? "not-allowed" : "pointer",
+                  opacity: freeformBusy ? 0.5 : 1,
+                }}
+              >{freeformBusy ? "…" : freeformText.trim() ? "Check" : "Skip →"}</button>
+            </div>
+            {freeformResult && (
+              <div style={{ marginTop: 8 }}>
+                {freeformResult.correction_tokens.length > 0 && renderCorrectionTokens(freeformResult.correction_tokens)}
+                {freeformResult.feedback_message && (
+                  <div style={{ fontSize: 13, color: "rgba(255,255,255,0.6)", marginTop: 4, lineHeight: 1.5 }}>
+                    {freeformResult.feedback_message}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
       </div>
     );
   }
@@ -1944,7 +2091,9 @@ export default function WordDrillGame({
             Loading…
           </div>
         ) : currentUC ? (
-          <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+          <div style={{ flex: 1, display: "flex", overflow: "hidden" }}>
+            {/* LEFT — phase content */}
+            <div style={{ flex: "0 0 66%", display: "flex", flexDirection: "column", overflow: "hidden" }}>
 
             {/* ── Phase: explanation ── */}
             {learnPhase === "explanation" && (() => {
@@ -2240,10 +2389,7 @@ export default function WordDrillGame({
 
             {/* ── Phase: practice ── */}
             {learnPhase === "practice" && currentSentence && (
-              <div style={{ flex: 1, display: "flex", overflow: "hidden" }}>
-
-                {/* LEFT — prompt + hints + input */}
-                <div style={{ flex: "0 0 66%", display: "flex", flexDirection: "column", overflow: "hidden" }}>
+              <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
                   <div style={{ flex: 1, overflowY: "auto", padding: "20px 0 0" }}>
                     <div style={{ maxWidth: 680, margin: "0 auto", padding: "0 32px", display: "flex", flexDirection: "column", gap: 16 }}>
 
@@ -2403,13 +2549,28 @@ export default function WordDrillGame({
                   }}>
                     {renderPracticeBottom()}
                   </div>
-                </div>
+              </div>
+            )}
+          </div>
 
-                {/* RIGHT — History log */}
-                <div style={{ flex: "0 0 34%", display: "flex", flexDirection: "column", borderLeft: "1px solid rgba(255,255,255,0.08)", overflow: "hidden" }}>
-                  <div style={{ flexShrink: 0, padding: "10px 16px", borderBottom: "1px solid rgba(255,255,255,0.08)", fontSize: 11, fontWeight: 600, opacity: 0.5, textTransform: "uppercase", letterSpacing: "0.08em" }}>
-                    History
+            {/* RIGHT — History / Info panel */}
+            <div style={{ flex: "0 0 34%", display: "flex", flexDirection: "column", borderLeft: "1px solid rgba(255,255,255,0.08)", overflow: "hidden" }}>
+              {/* Tab header */}
+              <div style={{ flexShrink: 0, display: "flex", borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
+                    {(["history", "info"] as const).map(mode => (
+                      <button key={mode} onClick={() => setRightPanelMode(mode)} style={{
+                        flex: 1, padding: "10px 0", fontSize: 11, fontWeight: 600,
+                        textTransform: "uppercase", letterSpacing: "0.08em", cursor: "pointer",
+                        background: "none", border: "none", color: "white",
+                        opacity: rightPanelMode === mode ? 0.85 : 0.3,
+                        borderBottom: rightPanelMode === mode ? "2px solid #a78bfa" : "2px solid transparent",
+                        transition: "opacity 0.2s",
+                      }}>{mode === "history" ? "History" : "Info (I)"}</button>
+                    ))}
                   </div>
+
+                  {/* History content */}
+                  {rightPanelMode === "history" && (
                   <div style={{ flex: 1, overflowY: "auto", padding: "12px 14px 40px", display: "flex", flexDirection: "column", gap: 8 }}>
                     {history.map((entry, i) => {
                       if (entry.isWrongAttempt && resolvedSentenceIds.has(entry.sentenceId)) return null;
@@ -2499,10 +2660,163 @@ export default function WordDrillGame({
                     })}
                     <div ref={historyEndRef} />
                   </div>
-                </div>
+                  )}
 
-              </div>
-            )}
+                  {/* Info panel content */}
+                  {rightPanelMode === "info" && (
+                    <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+
+                      {/* Scrollable reference section: conjugations + hotkeys */}
+                      <div style={{ flexShrink: 0, overflowY: "auto", maxHeight: "42%", padding: "12px 14px", display: "flex", flexDirection: "column", gap: 14, borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
+
+                        {/* Conjugation table */}
+                        {conjugations && (
+                          <div>
+                            <div style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", color: "#a78bfa", opacity: 0.8, marginBottom: 8 }}>Conjugations</div>
+                            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+                              <thead>
+                                <tr>
+                                  {["", "yo", "tú", "él/ella"].map(h => (
+                                    <th key={h} style={{ textAlign: "center", padding: "3px 4px", color: "rgba(255,255,255,0.35)", fontWeight: 600, fontSize: 10 }}>{h}</th>
+                                  ))}
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {[
+                                  ["Present", conjugations.present],
+                                  ["Preterite", conjugations.preterite],
+                                ].map(([label, forms]) => (
+                                  <tr key={label as string}>
+                                    <td style={{ padding: "4px 4px", color: "rgba(255,255,255,0.4)", fontSize: 10, fontWeight: 600 }}>{label}</td>
+                                    {(forms as string[]).map((f, fi) => (
+                                      <td key={fi} style={{ textAlign: "center", padding: "4px 4px", color: "#c4b5fd", fontWeight: 500, cursor: "pointer" }}
+                                        onMouseEnter={() => void fetchAndPlayAudio(f, learningLocale)}
+                                        onMouseLeave={() => stopAudio()}
+                                      >{f}</td>
+                                    ))}
+                                  </tr>
+                                ))}
+                                <tr>
+                                  <td style={{ padding: "4px 4px", color: "rgba(255,255,255,0.3)", fontSize: 10, fontWeight: 600 }}>está…</td>
+                                  <td colSpan={3} style={{ textAlign: "center", padding: "4px 4px", color: "rgba(196,181,253,0.7)", fontStyle: "italic", cursor: "pointer" }}
+                                    onMouseEnter={() => void fetchAndPlayAudio(`está ${conjugations.esta}`, learningLocale)}
+                                    onMouseLeave={() => stopAudio()}
+                                  >está {conjugations.esta}</td>
+                                </tr>
+                                <tr>
+                                  <td style={{ padding: "4px 4px", color: "rgba(255,255,255,0.3)", fontSize: 10, fontWeight: 600 }}>ha…</td>
+                                  <td colSpan={3} style={{ textAlign: "center", padding: "4px 4px", color: "rgba(196,181,253,0.7)", fontStyle: "italic", cursor: "pointer" }}
+                                    onMouseEnter={() => void fetchAndPlayAudio(`ha ${conjugations.ha}`, learningLocale)}
+                                    onMouseLeave={() => stopAudio()}
+                                  >ha {conjugations.ha}</td>
+                                </tr>
+                              </tbody>
+                            </table>
+                          </div>
+                        )}
+
+                        {/* Hotkey reference */}
+                        <div>
+                          <div style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", color: "#a78bfa", opacity: 0.8, marginBottom: 8 }}>Hotkeys</div>
+                          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                            {[
+                              ["Space / Enter", "Next bullet / advance"],
+                              ["← →", "Switch use case"],
+                              ["1 – 9", "Jump to use case N"],
+                              ["R", "Replay last audio"],
+                              ["S", "Toggle Spanish text"],
+                              ["A", "Skip to practice"],
+                              ["0", "Reset use case"],
+                              ["I", "Toggle Info panel"],
+                              ["Esc", "Cancel Wispr send"],
+                            ].map(([key, desc]) => (
+                              <div key={key} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                <kbd style={{
+                                  fontSize: 10, padding: "2px 5px", borderRadius: 4, flexShrink: 0,
+                                  background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.18)",
+                                  color: "rgba(255,255,255,0.7)", fontFamily: "monospace", minWidth: 56, textAlign: "center",
+                                }}>{key}</kbd>
+                                <span style={{ fontSize: 11, color: "rgba(255,255,255,0.4)" }}>{desc}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Grammar Chat — takes remaining space */}
+                      <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+                        <div style={{ flexShrink: 0, padding: "8px 14px", borderBottom: "1px solid rgba(255,255,255,0.08)", background: "rgba(0,0,0,0.1)" }}>
+                          <span style={{ fontSize: 12, fontWeight: 700, color: "#a78bfa" }}>💬 Grammar Chat</span>
+                        </div>
+                        {currentSentence && (
+                          <div style={{ flexShrink: 0, padding: "6px 14px", borderBottom: "1px solid rgba(255,255,255,0.06)", background: "rgba(0,0,0,0.1)" }}>
+                            <div style={{ fontSize: 11, color: "rgba(255,255,255,0.5)", lineHeight: 1.4 }}>
+                              <span style={{ color: "rgba(255,255,255,0.3)" }}>EN </span>{currentSentence.english}
+                            </div>
+                            <div style={{ fontSize: 11, color: "#86efac", lineHeight: 1.4, marginTop: 1 }}>
+                              <span style={{ color: "rgba(134,239,172,0.4)" }}>ES </span>{currentSentence.accepted_translations[0]}
+                            </div>
+                          </div>
+                        )}
+                        <div style={{ flex: 1, overflowY: "auto", padding: "10px 12px", display: "flex", flexDirection: "column", gap: 8 }}>
+                          {chatMessages.length === 0 && (
+                            <div style={{ fontSize: 12, color: "rgba(255,255,255,0.25)", textAlign: "center", marginTop: 16, lineHeight: 1.7 }}>
+                              Ask about grammar,<br />rules, or examples.
+                            </div>
+                          )}
+                          {chatMessages.map((msg, i) => (
+                            <div key={i} style={{
+                              alignSelf: msg.role === "user" ? "flex-end" : "flex-start",
+                              maxWidth: "92%",
+                              background: msg.role === "user" ? "rgba(139,92,246,0.2)" : "rgba(255,255,255,0.07)",
+                              border: msg.role === "user" ? "1px solid rgba(139,92,246,0.35)" : "1px solid rgba(255,255,255,0.1)",
+                              borderRadius: msg.role === "user" ? "10px 10px 3px 10px" : "10px 10px 10px 3px",
+                              padding: "6px 10px", fontSize: 12, lineHeight: 1.5,
+                              color: msg.role === "user" ? "#c4b5fd" : "rgba(255,255,255,0.85)",
+                              wordBreak: "break-word",
+                            }}>{msg.text}</div>
+                          ))}
+                          {chatBusy && (
+                            <div style={{ alignSelf: "flex-start", background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "10px 10px 10px 3px", padding: "6px 10px", fontSize: 12, color: "rgba(255,255,255,0.4)" }}>…</div>
+                          )}
+                          <div ref={chatBottomRef} />
+                        </div>
+                        <div style={{ flexShrink: 0, padding: "8px 10px", borderTop: "1px solid rgba(255,255,255,0.08)", display: "flex", gap: 6, alignItems: "flex-end" }}>
+                          <textarea
+                            ref={chatInputRef}
+                            value={chatInput}
+                            onChange={e => setChatInput(e.target.value)}
+                            onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); void sendChat(); } }}
+                            placeholder="Ask a grammar question…"
+                            disabled={chatBusy}
+                            rows={2}
+                            style={{
+                              flex: 1, padding: "6px 10px", fontSize: 12,
+                              background: "rgba(255,255,255,0.07)", color: "white",
+                              border: "1px solid rgba(255,255,255,0.12)", borderRadius: 16,
+                              resize: "none", fontFamily: "system-ui, sans-serif",
+                              outline: "none", boxSizing: "border-box",
+                              opacity: chatBusy ? 0.5 : 1,
+                            }}
+                          />
+                          <button
+                            onClick={() => void sendChat()}
+                            disabled={chatBusy || !chatInput.trim()}
+                            style={{
+                              width: 30, height: 30, borderRadius: "50%", flexShrink: 0,
+                              background: chatInput.trim() && !chatBusy ? "linear-gradient(135deg, #7c3aed, #5b21b6)" : "rgba(255,255,255,0.1)",
+                              color: "white", border: "none",
+                              cursor: chatInput.trim() && !chatBusy ? "pointer" : "not-allowed",
+                              opacity: chatInput.trim() && !chatBusy ? 1 : 0.4,
+                              display: "flex", alignItems: "center", justifyContent: "center",
+                              fontSize: 14,
+                            }}
+                          >→</button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
 
           </div>
         ) : null}

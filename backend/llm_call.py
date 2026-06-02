@@ -849,6 +849,71 @@ Answer the learner's question based on this context."""
         return "Sorry, something went wrong. Please try again."
 
 
+def call_llm_for_freeform_correction(
+    user_sentence: str,
+    word_key: str,
+    usecase_name: str,
+    learning_lang: str = "Spanish",
+    fluent_lang: str = "English",
+    model=None,
+    temperature: float = 0.15,
+    timeout: int = 20,
+) -> dict:
+    """Correct a freeform learner sentence; return correction_tokens + feedback_message."""
+    import json as _json
+    model = model or DEFAULT_MODEL
+    client = _init_client()
+
+    if client is None:
+        return {
+            "correction_tokens": [{"text": user_sentence, "status": "keep"}],
+            "feedback_message": "(mock mode — no correction)",
+        }
+
+    system_prompt = (
+        f"You are a {learning_lang} grammar corrector. The learner is practicing the word/phrase "
+        f'"{word_key}" (use case: {usecase_name}).\n'
+        f"Correct the learner's {learning_lang} sentence. Respond ONLY with JSON:\n"
+        '{"corrected": "...", "feedback": "one-sentence feedback in '
+        f'{fluent_lang}, or empty string if perfect"' + "}"
+    )
+
+    try:
+        resp = client.responses.create(
+            model=model,
+            input=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_sentence},
+            ],
+            temperature=temperature,
+            max_output_tokens=200,
+            timeout=timeout,
+        )
+        text = ""
+        if hasattr(resp, "output_text") and resp.output_text:
+            text = resp.output_text.strip()
+        else:
+            for item in (getattr(resp, "output", None) or []):
+                for c in (item.get("content") or [] if isinstance(item, dict) else []):
+                    if isinstance(c, dict) and c.get("text"):
+                        text = c["text"].strip()
+        if text.startswith("```"):
+            text = text.split("```")[1]
+            if text.startswith("json"):
+                text = text[4:]
+        data = _json.loads(text.strip())
+        corrected = data.get("corrected", user_sentence)
+        feedback = data.get("feedback", "")
+        tokens = _diff_tokens(user_sentence, corrected)
+        return {"correction_tokens": tokens, "feedback_message": feedback}
+    except Exception as e:
+        print("Freeform correction error:", e)
+        return {
+            "correction_tokens": [{"text": user_sentence, "status": "keep"}],
+            "feedback_message": "Couldn't check this sentence.",
+        }
+
+
 def call_llm_to_pick_secret(
     theme: str,
     model: Optional[str] = None,
