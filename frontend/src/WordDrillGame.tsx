@@ -53,6 +53,7 @@ type HistoryEntry = {
   correctionTokens?: Array<{ text: string; status: "ok" | "remove" | "add" }> | null;
   qualityScore?: number;
   llmUsed: boolean;
+  isFreeform?: boolean;
 };
 
 type WordInfo = {
@@ -334,7 +335,11 @@ export default function WordDrillGame({
   const [freeformText, setFreeformText] = useState("");
   const [freeformResult, setFreeformResult] = useState<{ correction_tokens: { text: string; status: "ok" | "remove" | "add" }[]; feedback_message: string } | null>(null);
   const [freeformBusy, setFreeformBusy] = useState(false);
+  const [freeformPendingAutoSend, setFreeformPendingAutoSend] = useState(false);
+  const [freeformPendingProgress, setFreeformPendingProgress] = useState<number | null>(null);
   const freeformRef = useRef<HTMLTextAreaElement>(null);
+  const freeformPendingTimerRef = useRef<number | null>(null);
+  const freeformPreviousLengthRef = useRef<number>(0);
 
   // Grammar chat state
   const [chatOpen, setChatOpen] = useState(false);
@@ -489,6 +494,31 @@ export default function WordDrillGame({
     }, 30);
   }
 
+  function cancelFreeformPendingAutoSend(clearText = false) {
+    if (freeformPendingTimerRef.current) { window.clearInterval(freeformPendingTimerRef.current); freeformPendingTimerRef.current = null; }
+    setFreeformPendingAutoSend(false);
+    setFreeformPendingProgress(null);
+    if (clearText) { setFreeformText(""); freeformRef.current?.focus(); }
+  }
+
+  function startFreeformPendingAutoSend(duration = 2000) {
+    cancelFreeformPendingAutoSend();
+    const startTime = Date.now();
+    setFreeformPendingAutoSend(true);
+    setFreeformPendingProgress(1.0);
+    freeformPendingTimerRef.current = window.setInterval(() => {
+      const remaining = Math.max(0, 1 - (Date.now() - startTime) / duration);
+      setFreeformPendingProgress(remaining);
+      if (remaining <= 0) {
+        window.clearInterval(freeformPendingTimerRef.current!);
+        freeformPendingTimerRef.current = null;
+        setFreeformPendingAutoSend(false);
+        setFreeformPendingProgress(null);
+        void submitFreeform();
+      }
+    }, 30);
+  }
+
   // Wispr auto-send
   useEffect(() => {
     cancelPendingAutoSend();
@@ -506,6 +536,19 @@ export default function WordDrillGame({
     return () => cancelPendingAutoSend();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [transcript]);
+
+  // Freeform Wispr auto-send
+  useEffect(() => {
+    cancelFreeformPendingAutoSend();
+    const isShown = gameModeRef.current === "learn" && (answerStatus === "correct" || answerStatus === "skipped");
+    if (isShown && freeformText.length > 2 && !freeformBusy) {
+      const increase = freeformText.length - freeformPreviousLengthRef.current;
+      if (increase >= 3) startFreeformPendingAutoSend(2000);
+    }
+    freeformPreviousLengthRef.current = freeformText.length;
+    return () => cancelFreeformPendingAutoSend();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [freeformText]);
 
   // Demo phase animation: reveal context → EN → play audio → reveal ES text
   useEffect(() => {
@@ -738,14 +781,16 @@ export default function WordDrillGame({
 
   async function submitFreeform() {
     const currentUC = learnUsecasesRef.current[currentUsecaseIdxRef.current];
-    if (!freeformText.trim() || freeformBusy || !currentUC) return;
+    if (!freeformText.trim() || freeformBusy || !currentUC || !currentSentence) return;
+    cancelFreeformPendingAutoSend();
     setFreeformBusy(true);
+    const sentText = freeformText.trim();
     try {
       const resp = await fetch(`${apiBase}/api/worddrill/freeform`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          user_sentence: freeformText.trim(),
+          user_sentence: sentText,
           word_key: selectedWord ?? "",
           usecase_name: currentUC.name,
           learning_lang: learning.name,
@@ -753,7 +798,28 @@ export default function WordDrillGame({
         }),
       });
       const data = await resp.json();
+      setFreeformText("");
+      freeformPreviousLengthRef.current = 0;
       setFreeformResult(data);
+      setHistory(prev => [...prev, {
+        entryId: `${++entryIdCounter.current}`,
+        sentenceId: currentSentence.id + 100000,
+        category: currentUC.name,
+        context: currentSentence.context,
+        english: `✍ ${sentText}`,
+        userAnswer: sentText,
+        correctAnswer: sentText,
+        acceptedTranslations: [],
+        allHints: [],
+        hintsUsed: 0,
+        isWrongAttempt: false,
+        skipped: false,
+        correctionTokens: data.correction_tokens ?? null,
+        feedbackExplanation: data.feedback_message ?? null,
+        llmUsed: true,
+        isFreeform: true,
+      }]);
+      setTimeout(() => historyEndRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
     } catch {
       setFreeformResult({ correction_tokens: [], feedback_message: "Error getting correction." });
     } finally {
@@ -865,6 +931,8 @@ export default function WordDrillGame({
     setFreeformText("");
     setFreeformResult(null);
     setFreeformBusy(false);
+    cancelFreeformPendingAutoSend();
+    freeformPreviousLengthRef.current = 0;
     previousLengthRef.current = 0;
     hintCardsRefs.current = new Array((sentence.hints ?? []).length).fill(null);
   }
@@ -943,6 +1011,8 @@ export default function WordDrillGame({
     setFreeformText("");
     setFreeformResult(null);
     setFreeformBusy(false);
+    cancelFreeformPendingAutoSend();
+    freeformPreviousLengthRef.current = 0;
     previousLengthRef.current = 0;
     hintCardsRefs.current = new Array((uc.practice.hints ?? []).length).fill(null);
     learnPhaseRef.current = "explanation";
@@ -1635,8 +1705,10 @@ export default function WordDrillGame({
                 onChange={e => setFreeformText(e.target.value)}
                 onMouseEnter={() => freeformRef.current?.focus()}
                 onKeyDown={e => {
+                  if (e.key === "Escape") { cancelFreeformPendingAutoSend(true); return; }
                   if (e.key === "Enter" && !e.shiftKey) {
                     e.preventDefault();
+                    if (freeformPendingAutoSend) { cancelFreeformPendingAutoSend(false); void submitFreeform(); return; }
                     if (freeformText.trim()) void submitFreeform();
                     else handleNext();
                   }
@@ -1652,17 +1724,35 @@ export default function WordDrillGame({
                   opacity: freeformBusy ? 0.5 : 1, boxSizing: "border-box",
                 }}
               />
-              <button
-                onClick={() => freeformText.trim() ? void submitFreeform() : handleNext()}
-                disabled={freeformBusy}
-                style={{
-                  padding: "8px 14px", fontSize: 14, fontWeight: 600, flexShrink: 0,
-                  background: freeformText.trim() ? "linear-gradient(135deg, #7c3aed, #5b21b6)" : "rgba(255,255,255,0.08)",
-                  color: "white", border: "none", borderRadius: 6,
-                  cursor: freeformBusy ? "not-allowed" : "pointer",
-                  opacity: freeformBusy ? 0.5 : 1,
-                }}
-              >{freeformBusy ? "…" : freeformText.trim() ? "Check" : "Skip →"}</button>
+              {freeformPendingAutoSend ? (
+                <button onClick={() => cancelFreeformPendingAutoSend(true)}
+                  style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 14px", fontSize: 14, fontWeight: 600, flexShrink: 0, background: "linear-gradient(135deg, #d97706, #b45309)", color: "white", border: "none", borderRadius: 6, cursor: "pointer" }}>
+                  {freeformPendingProgress !== null && (() => {
+                    const r = 9, circ = 2 * Math.PI * r;
+                    return (
+                      <svg width={22} height={22} style={{ transform: "rotate(-90deg)", flexShrink: 0 }}>
+                        <circle cx={11} cy={11} r={r} fill="none" stroke="rgba(255,255,255,0.2)" strokeWidth={2.5} />
+                        <circle cx={11} cy={11} r={r} fill="none" stroke="white" strokeWidth={2.5}
+                          strokeDasharray={circ} strokeDashoffset={circ * (1 - freeformPendingProgress)}
+                          strokeLinecap="round" />
+                      </svg>
+                    );
+                  })()}
+                  Cancel
+                </button>
+              ) : (
+                <button
+                  onClick={() => freeformText.trim() ? void submitFreeform() : handleNext()}
+                  disabled={freeformBusy}
+                  style={{
+                    padding: "8px 14px", fontSize: 14, fontWeight: 600, flexShrink: 0,
+                    background: freeformText.trim() ? "linear-gradient(135deg, #7c3aed, #5b21b6)" : "rgba(255,255,255,0.08)",
+                    color: "white", border: "none", borderRadius: 6,
+                    cursor: freeformBusy ? "not-allowed" : "pointer",
+                    opacity: freeformBusy ? 0.5 : 1,
+                  }}
+                >{freeformBusy ? "…" : freeformText.trim() ? "Check" : "Skip →"}</button>
+              )}
             </div>
             {freeformResult && (
               <div style={{ marginTop: 8 }}>
@@ -2574,6 +2664,46 @@ export default function WordDrillGame({
                   <div style={{ flex: 1, overflowY: "auto", padding: "12px 14px 40px", display: "flex", flexDirection: "column", gap: 8 }}>
                     {history.map((entry, i) => {
                       if (entry.isWrongAttempt && resolvedSentenceIds.has(entry.sentenceId)) return null;
+
+                      // Freeform entries get a compact distinct look
+                      if (entry.isFreeform) {
+                        const allKeep = !entry.correctionTokens?.some(t => t.status !== "ok");
+                        return (
+                          <div key={entry.entryId} style={{
+                            padding: "7px 11px", borderRadius: 8,
+                            background: "rgba(139,92,246,0.1)", border: "1px solid rgba(139,92,246,0.25)",
+                            fontSize: 12, lineHeight: 1.4, wordBreak: "break-word",
+                            maxWidth: "92%",
+                          }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: 5, marginBottom: 3 }}>
+                              <span style={{ fontSize: 11, color: "#a78bfa" }}>✍</span>
+                              <span style={{ fontSize: 10, color: "rgba(167,139,250,0.6)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em" }}>Your sentence</span>
+                            </div>
+                            <div style={{ fontWeight: 500 }}>
+                              {entry.correctionTokens?.length ? (
+                                entry.correctionTokens.map((tok, ti) => (
+                                  <span key={ti} style={{
+                                    color: tok.status === "remove" ? "#fca5a5" : tok.status === "add" ? "#86efac" : "rgba(255,255,255,0.85)",
+                                    textDecoration: tok.status === "remove" ? "line-through" : "none",
+                                    fontWeight: tok.status === "add" ? 700 : 400,
+                                  }}>{tok.text}{" "}</span>
+                                ))
+                              ) : (
+                                <span style={{ color: "rgba(255,255,255,0.8)" }}>{entry.userAnswer}</span>
+                              )}
+                            </div>
+                            {entry.feedbackExplanation && !allKeep && (
+                              <div style={{ fontSize: 11, color: "rgba(255,255,255,0.45)", marginTop: 4, lineHeight: 1.4 }}>
+                                {entry.feedbackExplanation}
+                              </div>
+                            )}
+                            {allKeep && (
+                              <div style={{ fontSize: 11, color: "#86efac", marginTop: 3 }}>✓ Looks good!</div>
+                            )}
+                          </div>
+                        );
+                      }
+
                       const wrongAttempts = !entry.isWrongAttempt
                         ? history.filter(e => e.sentenceId === entry.sentenceId && e.isWrongAttempt)
                         : [];
