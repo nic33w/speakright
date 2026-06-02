@@ -2796,30 +2796,55 @@ export default function WordDrillGame({
                   {rightPanelMode === "info" && (
                     <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
 
-                      {/* Scrollable reference section: conjugations + hotkeys */}
-                      <div style={{ flexShrink: 0, overflowY: "auto", maxHeight: "42%", padding: "12px 14px", display: "flex", flexDirection: "column", gap: 14, borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
+                      {/* Reference section: hotkeys (left) + conjugations (right) */}
+                      <div style={{ flexShrink: 0, overflowY: "auto", maxHeight: "48%", padding: "10px 12px", display: "flex", gap: 10, borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
 
-                        {/* Conjugation table */}
+                        {/* LEFT — Hotkeys */}
+                        <div style={{ flex: "0 0 auto" }}>
+                          <div style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", color: "#a78bfa", opacity: 0.8, marginBottom: 7 }}>Hotkeys</div>
+                          <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+                            {[
+                              ["Space", "Advance"],
+                              ["← →", "Use case"],
+                              ["1–9", "Jump to N"],
+                              ["R", "Replay audio"],
+                              ["S", "Toggle ES"],
+                              ["A", "Skip to practice"],
+                              ["0", "Reset"],
+                              ["I", "Info panel"],
+                              ["Esc", "Cancel send"],
+                            ].map(([key, desc]) => (
+                              <div key={key} style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                                <kbd style={{
+                                  fontSize: 9, padding: "1px 5px", borderRadius: 3, flexShrink: 0,
+                                  background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.18)",
+                                  color: "rgba(255,255,255,0.7)", fontFamily: "monospace", minWidth: 40, textAlign: "center",
+                                }}>{key}</kbd>
+                                <span style={{ fontSize: 10, color: "rgba(255,255,255,0.38)" }}>{desc}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* RIGHT — Conjugation table (rows = person, cols = tense) */}
                         {conjugations && (
-                          <div>
-                            <div style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", color: "#a78bfa", opacity: 0.8, marginBottom: 8 }}>Conjugations</div>
-                            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", color: "#a78bfa", opacity: 0.8, marginBottom: 7 }}>Conjugations</div>
+                            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11 }}>
                               <thead>
                                 <tr>
-                                  {["", "yo", "tú", "él/ella"].map(h => (
-                                    <th key={h} style={{ textAlign: "center", padding: "3px 4px", color: "rgba(255,255,255,0.35)", fontWeight: 600, fontSize: 10 }}>{h}</th>
+                                  <th style={{ width: "30%", padding: "2px 3px" }} />
+                                  {["Present", "Preterite"].map(h => (
+                                    <th key={h} style={{ textAlign: "center", padding: "2px 3px", color: "rgba(255,255,255,0.35)", fontWeight: 600, fontSize: 9 }}>{h}</th>
                                   ))}
                                 </tr>
                               </thead>
                               <tbody>
-                                {[
-                                  ["Present", conjugations.present],
-                                  ["Preterite", conjugations.preterite],
-                                ].map(([label, forms]) => (
-                                  <tr key={label as string}>
-                                    <td style={{ padding: "4px 4px", color: "rgba(255,255,255,0.4)", fontSize: 10, fontWeight: 600 }}>{label}</td>
-                                    {(forms as string[]).map((f, fi) => (
-                                      <td key={fi} style={{ textAlign: "center", padding: "4px 4px", color: "#c4b5fd", fontWeight: 500, cursor: "pointer" }}
+                                {(["yo", "tú", "él/ella"] as const).map((person, pi) => (
+                                  <tr key={person}>
+                                    <td style={{ padding: "3px 3px", color: "rgba(255,255,255,0.38)", fontSize: 9, fontWeight: 600 }}>{person}</td>
+                                    {[conjugations.present[pi], conjugations.preterite[pi]].map((f, fi) => (
+                                      <td key={fi} style={{ textAlign: "center", padding: "3px 3px", color: "#c4b5fd", fontWeight: 500, cursor: "pointer", fontSize: 11 }}
                                         onMouseEnter={() => void fetchAndPlayAudio(f, learningLocale)}
                                         onMouseLeave={() => stopAudio()}
                                       >{f}</td>
@@ -2827,15 +2852,15 @@ export default function WordDrillGame({
                                   </tr>
                                 ))}
                                 <tr>
-                                  <td style={{ padding: "4px 4px", color: "rgba(255,255,255,0.3)", fontSize: 10, fontWeight: 600 }}>está…</td>
-                                  <td colSpan={3} style={{ textAlign: "center", padding: "4px 4px", color: "rgba(196,181,253,0.7)", fontStyle: "italic", cursor: "pointer" }}
+                                  <td style={{ padding: "3px 3px", color: "rgba(255,255,255,0.3)", fontSize: 9, fontWeight: 600 }}>está…</td>
+                                  <td colSpan={2} style={{ textAlign: "center", padding: "3px 3px", color: "rgba(196,181,253,0.7)", fontStyle: "italic", fontSize: 11, cursor: "pointer" }}
                                     onMouseEnter={() => void fetchAndPlayAudio(`está ${conjugations.esta}`, learningLocale)}
                                     onMouseLeave={() => stopAudio()}
                                   >está {conjugations.esta}</td>
                                 </tr>
                                 <tr>
-                                  <td style={{ padding: "4px 4px", color: "rgba(255,255,255,0.3)", fontSize: 10, fontWeight: 600 }}>ha…</td>
-                                  <td colSpan={3} style={{ textAlign: "center", padding: "4px 4px", color: "rgba(196,181,253,0.7)", fontStyle: "italic", cursor: "pointer" }}
+                                  <td style={{ padding: "3px 3px", color: "rgba(255,255,255,0.3)", fontSize: 9, fontWeight: 600 }}>ha…</td>
+                                  <td colSpan={2} style={{ textAlign: "center", padding: "3px 3px", color: "rgba(196,181,253,0.7)", fontStyle: "italic", fontSize: 11, cursor: "pointer" }}
                                     onMouseEnter={() => void fetchAndPlayAudio(`ha ${conjugations.ha}`, learningLocale)}
                                     onMouseLeave={() => stopAudio()}
                                   >ha {conjugations.ha}</td>
@@ -2844,33 +2869,6 @@ export default function WordDrillGame({
                             </table>
                           </div>
                         )}
-
-                        {/* Hotkey reference */}
-                        <div>
-                          <div style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", color: "#a78bfa", opacity: 0.8, marginBottom: 8 }}>Hotkeys</div>
-                          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                            {[
-                              ["Space / Enter", "Next bullet / advance"],
-                              ["← →", "Switch use case"],
-                              ["1 – 9", "Jump to use case N"],
-                              ["R", "Replay last audio"],
-                              ["S", "Toggle Spanish text"],
-                              ["A", "Skip to practice"],
-                              ["0", "Reset use case"],
-                              ["I", "Toggle Info panel"],
-                              ["Esc", "Cancel Wispr send"],
-                            ].map(([key, desc]) => (
-                              <div key={key} style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                                <kbd style={{
-                                  fontSize: 10, padding: "2px 5px", borderRadius: 4, flexShrink: 0,
-                                  background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.18)",
-                                  color: "rgba(255,255,255,0.7)", fontFamily: "monospace", minWidth: 56, textAlign: "center",
-                                }}>{key}</kbd>
-                                <span style={{ fontSize: 11, color: "rgba(255,255,255,0.4)" }}>{desc}</span>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
                       </div>
 
                       {/* Grammar Chat — takes remaining space */}
