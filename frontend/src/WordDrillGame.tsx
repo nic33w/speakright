@@ -2828,9 +2828,9 @@ export default function WordDrillGame({
 
                         {/* RIGHT — Conjugation table (rows = person, cols = tense) */}
                         {conjugations && (
-                          <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ flex: "0 0 auto" }}>
                             <div style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", color: "#a78bfa", opacity: 0.8, marginBottom: 7 }}>Conjugations</div>
-                            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11 }}>
+                            <table style={{ borderCollapse: "collapse", fontSize: 11 }}>
                               <thead>
                                 <tr>
                                   <th style={{ width: "30%", padding: "2px 3px" }} />
