@@ -358,8 +358,11 @@ export default function WordDrillGame({
   const [bulletRevealIdx, setBulletRevealIdx] = useState(0);
   // Audio state for the most recently revealed bullet with audio: 0=pending, 1=playing, 2=text shown
   const [bulletAudioStep, setBulletAudioStep] = useState<0|1|2>(0);
+  // Practice phase reveal: 0=hidden, 1=context, 2=English prompt, 3=hints, 4=textarea
+  const [practiceRevealStep, setPracticeRevealStep] = useState(0);
+  const practiceRevealTimerRefs = useRef<number[]>([]);
   // Whether to display the target language text after audio (can be toggled off by user)
-  const [showTargetText, setShowTargetText] = useState(true);
+  const [showTargetText, setShowTargetText] = useState(false);
   // Whether the ES reveal area is currently hovered (when showTargetText=false)
   const [esHovered, setEsHovered] = useState(false);
   // Which bullet index is currently hovered (for brightness highlight)
@@ -623,6 +626,26 @@ export default function WordDrillGame({
     }
   }, [learnPhase, gameMode]);
 
+  // Practice phase sequential reveal: context → English → hints → textarea
+  useEffect(() => {
+    if (gameMode !== "learn" || learnPhase !== "practice") return;
+    practiceRevealTimerRefs.current.forEach(id => window.clearTimeout(id));
+    practiceRevealTimerRefs.current = [];
+    setPracticeRevealStep(0);
+    const add = (ms: number, step: number) => {
+      const id = window.setTimeout(() => setPracticeRevealStep(step), ms);
+      practiceRevealTimerRefs.current.push(id);
+    };
+    add(0, 1);     // context
+    add(700, 2);   // English prompt
+    add(1300, 3);  // hints
+    add(1800, 4);  // textarea
+    return () => {
+      practiceRevealTimerRefs.current.forEach(id => window.clearTimeout(id));
+      practiceRevealTimerRefs.current = [];
+    };
+  }, [learnPhase, gameMode]);
+
   // When "Show all" is toggled on, jump to practice phase immediately
   useEffect(() => {
     if (showAllPhases && gameMode === "learn" && learnPhaseRef.current !== "practice") {
@@ -841,6 +864,9 @@ export default function WordDrillGame({
     setEsHovered(false);
     setHoveredBulletIdx(null);
     setRevealBulletIdx(null);
+    setPracticeRevealStep(0);
+    practiceRevealTimerRefs.current.forEach(id => window.clearTimeout(id));
+    practiceRevealTimerRefs.current = [];
     stopAudio();
   }
 
@@ -2317,13 +2343,23 @@ export default function WordDrillGame({
                       </div>
 
                       {/* Context */}
-                      <div style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 10, padding: "12px 16px" }}>
+                      <div style={{
+                        background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 10, padding: "12px 16px",
+                        opacity: practiceRevealStep >= 1 ? 1 : 0,
+                        transform: practiceRevealStep >= 1 ? "translateY(0)" : "translateY(8px)",
+                        transition: "opacity 0.5s ease, transform 0.5s ease",
+                      }}>
                         <div style={{ fontSize: 12, opacity: 0.45, marginBottom: 4, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>Context</div>
                         <div style={{ fontSize: 15, opacity: 0.8, lineHeight: 1.5, fontStyle: "italic" }}>{currentSentence.context}</div>
                       </div>
 
                       {/* English prompt */}
-                      <div style={{ background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 12, padding: "20px 24px", textAlign: "center" }}>
+                      <div style={{
+                        background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 12, padding: "20px 24px", textAlign: "center",
+                        opacity: practiceRevealStep >= 2 ? 1 : 0,
+                        transform: practiceRevealStep >= 2 ? "translateY(0)" : "translateY(8px)",
+                        transition: "opacity 0.5s ease, transform 0.5s ease",
+                      }}>
                         <div style={{ fontSize: 12, opacity: 0.45, marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600 }}>
                           Translate to {activeLearning.name}
                         </div>
@@ -2343,13 +2379,28 @@ export default function WordDrillGame({
                       </div>
 
                       {/* Hints */}
-                      {hasHints && renderHints()}
+                      <div style={{
+                        opacity: practiceRevealStep >= 3 ? 1 : 0,
+                        transform: practiceRevealStep >= 3 ? "translateY(0)" : "translateY(8px)",
+                        transition: "opacity 0.5s ease, transform 0.5s ease",
+                        pointerEvents: practiceRevealStep >= 3 ? "auto" : "none",
+                      }}>
+                        {hasHints && renderHints()}
+                      </div>
 
                       <div ref={learnPracticeEndRef} style={{ height: 8 }} />
                     </div>
                   </div>
 
-                  {renderPracticeBottom()}
+                  <div style={{
+                    opacity: practiceRevealStep >= 4 ? 1 : 0,
+                    transform: practiceRevealStep >= 4 ? "translateY(0)" : "translateY(8px)",
+                    transition: "opacity 0.5s ease, transform 0.5s ease",
+                    pointerEvents: practiceRevealStep >= 4 ? "auto" : "none",
+                    flexShrink: 0,
+                  }}>
+                    {renderPracticeBottom()}
+                  </div>
                 </div>
 
                 {/* RIGHT — History log */}
