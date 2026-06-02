@@ -2282,12 +2282,12 @@
     "usecases": [
       {
         "id": 1,
-        "name": "Come back / return",
-        "brief": "The standard verb for physically returning somewhere.",
+        "name": "Volver",
+        "english": "to come back / return",
         "explanation_bullets": [
           "Use for returning home, from a trip, or to a conversation",
-          "Vuelvo ahora → I'll be right back",
-          "¿Cuándo vuelves? → When are you coming back?"
+          { "text": "Say \"I'll be right back\"", "audio": "Vuelvo ahora." },
+          { "text": "Or ask \"When are you coming back?\"", "audio": "¿Cuándo vuelves?" }
         ],
         "grammar_tags": [
           { "type": "person", "label": "all persons" }
@@ -2320,12 +2320,12 @@
       {
         "id": 2,
         "name": "Volver a + infinitive",
-        "brief": "Add 'a + verb' after volver to mean 'do it again.'",
+        "english": "to do something again",
         "explanation_bullets": [
-          "Volver a + infinitive = to do something again",
-          "Lo volvió a hacer → He did it again",
+          "Add 'a + verb' after volver to mean 'to do it again'",
+          { "text": "Like \"He did it again\"", "audio": "Lo volvió a hacer." },
           "More natural than 'hacer otra vez' in most contexts",
-          "Object pronoun goes before volver: la volví a llamar"
+          { "text": "Object pronoun goes before volver: \"I called her again\"", "audio": "La volví a llamar." }
         ],
         "grammar_tags": [
           { "type": "connector", "label": "connector: a" },
@@ -2357,10 +2357,10 @@
       {
         "id": 3,
         "name": "No volver a",
-        "brief": "The strong way to say 'I won't do it again.'",
+        "english": "won't do it again",
         "explanation_bullets": [
-          "No + volver a + inf = won't do it again / never again",
-          "No lo vuelvo a hacer → I won't do it again",
+          "Negate volver a to say 'won't do it again' or 'never again'",
+          { "text": "Like \"I won't do it again\"", "audio": "No lo vuelvo a hacer." },
           "Stronger commitment or warning than 'no lo hago de nuevo'"
         ],
         "grammar_tags": [
@@ -2390,11 +2390,11 @@
       {
         "id": 4,
         "name": "Volverse + adjective",
-        "brief": "'Volverse' describes a gradual, lasting change in someone.",
+        "english": "to become (lasting change)",
         "explanation_bullets": [
-          "Se volvió + adj = someone became a certain way (lasting change)",
-          "Se volvió muy distante → He became very distant",
-          "Use this, not 'ponerse,' when the change is gradual or permanent"
+          "Use when someone gradually or permanently becomes something",
+          { "text": "Like \"He became very distant\"", "audio": "Se volvió muy distante." },
+          "Use this, not 'ponerse,' when the change is lasting or gradual"
         ],
         "grammar_tags": [
           { "type": "reflexive", "label": "reflexive" },
@@ -2430,10 +2430,10 @@
       {
         "id": 5,
         "name": "Volverse loco",
-        "brief": "'Going crazy' — can be dramatic or affectionate.",
+        "english": "to go crazy / drive crazy",
         "explanation_bullets": [
-          "Me estoy volviendo loco → I'm losing my mind",
-          "Me vuelves loco → You drive me crazy (as a compliment)",
+          { "text": "Means \"I'm losing my mind\"", "audio": "Me estoy volviendo loco." },
+          { "text": "Or affectionately: \"You drive me crazy\"", "audio": "Me vuelves loco." },
           "Works in 1st and 3rd person"
         ],
         "grammar_tags": [
@@ -2465,10 +2465,10 @@
       {
         "id": 6,
         "name": "Volver en sí",
-        "brief": "Fixed phrase: to regain consciousness after fainting.",
+        "english": "to regain consciousness",
         "explanation_bullets": [
-          "Volver en sí = to come to / regain consciousness",
-          "Always reflexive: volvió en sí → he came to",
+          "Fixed phrase for regaining consciousness after fainting",
+          { "text": "Like \"He came to\"", "audio": "Volvió en sí." },
           "Mainly used in dramatic or medical contexts"
         ],
         "grammar_tags": [
@@ -2502,10 +2502,10 @@
       {
         "id": 7,
         "name": "Volver a empezar",
-        "brief": "'To start over from scratch' — more natural than 'comenzar de nuevo.'",
+        "english": "to start over",
         "explanation_bullets": [
-          "Volver a empezar = to start over",
-          "Hay que volver a empezar → We have to start over",
+          "The natural way to say 'start over from scratch'",
+          { "text": "Like \"We have to start over\"", "audio": "Hay que volver a empezar." },
           "More conversational than 'comenzar de nuevo'"
         ],
         "grammar_tags": [
@@ -2539,10 +2539,10 @@
       {
         "id": 8,
         "name": "¿Ya volvió?",
-        "brief": "Use 'ya' to ask or confirm someone is back.",
+        "english": "Is he/she back yet?",
         "explanation_bullets": [
-          "Ya volvió → He/she is already back",
-          "¿Ya volvió? → Is he/she back yet?",
+          { "text": "Confirm someone is back: \"He's already back\"", "audio": "Ya volvió." },
+          { "text": "Or ask: \"Is he back yet?\"", "audio": "¿Ya volvió?" },
           "'Ya' marks completed action — you'll use this constantly"
         ],
         "grammar_tags": [
