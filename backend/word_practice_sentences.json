@@ -29,7 +29,16 @@
               "learning": "en el bar"
             }
           ]
-        }
+        },
+        "english": "to meet up / make plans",
+        "explanation_bullets": [
+          "Use 'quedar con alguien' to say you're meeting up with someone",
+          "More natural than 'reunirse' in casual conversation",
+          {
+            "text": "Say \"We're meeting up tonight\"",
+            "audio": "Quedamos esta noche."
+          }
+        ]
       },
       {
         "id": 2,
@@ -57,7 +66,16 @@
               "learning": "llamarnos"
             }
           ]
-        }
+        },
+        "english": "to agree on / settle on",
+        "explanation_bullets": [
+          "Use 'quedar en' + infinitive to say two people agreed on something",
+          {
+            "text": "Like \"We agreed to call each other\"",
+            "audio": "Quedamos en llamarnos."
+          },
+          "The result of coming to an agreement together"
+        ]
       },
       {
         "id": 3,
@@ -81,7 +99,16 @@
               "learning": "solo queda uno"
             }
           ]
-        }
+        },
+        "english": "to be left / remain",
+        "explanation_bullets": [
+          "When something is left over, 'quedar' flips — the thing left is the subject",
+          {
+            "text": "\"I have three left\" is said as \"Three are left to me\"",
+            "audio": "Me quedan tres."
+          },
+          "Works for money, time, food — anything that remains"
+        ]
       },
       {
         "id": 4,
@@ -109,7 +136,16 @@
               "learning": "un poco pequeños"
             }
           ]
-        }
+        },
+        "english": "to fit / suit",
+        "explanation_bullets": [
+          "Use with an indirect object pronoun to describe how clothing fits",
+          {
+            "text": "Say \"It fits you well\"",
+            "audio": "Te queda bien."
+          },
+          "Like 'gustar' — the item is the subject, you are the indirect object"
+        ]
       },
       {
         "id": 5,
@@ -138,7 +174,16 @@
               "learning": "muy bien"
             }
           ]
-        }
+        },
+        "english": "to turn out",
+        "explanation_bullets": [
+          "Use 'quedar bien/mal' to describe how something turned out",
+          {
+            "text": "\"It turned out great\"",
+            "audio": "Quedó muy bien."
+          },
+          "Works for events, photos, food, impressions"
+        ]
       },
       {
         "id": 6,
@@ -166,7 +211,16 @@
               "learning": "a la vuelta"
             }
           ]
-        }
+        },
+        "english": "to be located",
+        "explanation_bullets": [
+          "In Latin American Spanish, 'quedar' is used to say where something is located",
+          {
+            "text": "\"Where is the pharmacy?\"",
+            "audio": "¿Dónde queda la farmacia?"
+          },
+          "More common than 'estar' for permanent locations in casual speech"
+        ]
       },
       {
         "id": 7,
@@ -195,7 +249,16 @@
               "learning": "esperando"
             }
           ]
-        }
+        },
+        "english": "to stay (quedarse)",
+        "explanation_bullets": [
+          "Use 'quedarse' (reflexive) when someone stays put or doesn't go somewhere",
+          {
+            "text": "\"I'm staying home\"",
+            "audio": "Me quedo en casa."
+          },
+          "The reflexive form marks that you yourself are the one staying"
+        ]
       },
       {
         "id": 8,
@@ -220,7 +283,16 @@
               "learning": "se quedó con ella"
             }
           ]
-        }
+        },
+        "english": "to keep / take (quedarse con)",
+        "explanation_bullets": [
+          "'Quedarse con' means to keep something or choose it for yourself",
+          {
+            "text": "\"I'll take this one\"",
+            "audio": "Me quedo con este."
+          },
+          "Common when choosing between options or keeping what was given"
+        ]
       },
       {
         "id": 9,
@@ -250,7 +322,16 @@
               "note": "lit. 'without words'"
             }
           ]
-        }
+        },
+        "english": "to end up / become (quedarse)",
+        "explanation_bullets": [
+          "Use 'quedarse' + adjective for lasting states — often involuntary",
+          {
+            "text": "\"I was speechless\"",
+            "audio": "Me quedé sin palabras."
+          },
+          "Describes a result that sticks — quieter, more permanent than 'ponerse'"
+        ]
       },
       {
         "id": 10,
@@ -283,7 +364,16 @@
               "learning": "quedo debiendo"
             }
           ]
-        }
+        },
+        "english": "to still owe",
+        "explanation_bullets": [
+          "'Quedar debiendo' means to still owe something after an interaction",
+          {
+            "text": "\"I still owe you one\"",
+            "audio": "Te quedo debiendo."
+          },
+          "More specific than 'deber' — implies an ongoing social debt"
+        ]
       }
     ],
     "sentences": [
@@ -743,7 +833,21 @@
           }
         ]
       }
-    ]
+    ],
+    "conjugations": {
+      "present": [
+        "quedo",
+        "quedas",
+        "queda"
+      ],
+      "preterite": [
+        "quedé",
+        "quedaste",
+        "quedó"
+      ],
+      "esta": "quedando",
+      "ha": "quedado"
+    }
   },
   "dar": {
     "display": "dar",
@@ -775,7 +879,16 @@
               "learning": "bolígrafo"
             }
           ]
-        }
+        },
+        "english": "to give",
+        "explanation_bullets": [
+          "Core meaning: to give or hand something to someone",
+          "The receiver gets an indirect object pronoun: 'te doy' = 'I give you'",
+          {
+            "text": "\"I'll give you my number\"",
+            "audio": "Te doy mi número."
+          }
+        ]
       },
       {
         "id": 2,
@@ -799,7 +912,19 @@
               "learning": "da lo mismo"
             }
           ]
-        }
+        },
+        "english": "doesn't matter / all the same",
+        "explanation_bullets": [
+          {
+            "text": "\"It doesn't matter\" →",
+            "audio": "Me da igual."
+          },
+          {
+            "text": "\"It's all the same\" →",
+            "audio": "Da lo mismo."
+          },
+          "Use these when you genuinely don't have a preference"
+        ]
       },
       {
         "id": 3,
@@ -827,7 +952,16 @@
               "learning": "bailar"
             }
           ]
-        }
+        },
+        "english": "to feel like doing something",
+        "explanation_bullets": [
+          "'Dar ganas de' + infinitive = to feel like doing something",
+          {
+            "text": "\"I feel like going out\"",
+            "audio": "Me dan ganas de salir."
+          },
+          "Note: 'ganas' is plural — always 'dan', never 'da'"
+        ]
       },
       {
         "id": 4,
@@ -851,7 +985,16 @@
               "learning": "me da miedo"
             }
           ]
-        }
+        },
+        "english": "to cause a feeling (fear, disgust, pity)",
+        "explanation_bullets": [
+          "Use 'dar' + emotion noun: the thing causing the feeling is the subject",
+          {
+            "text": "\"That grosses me out\"",
+            "audio": "Me da asco."
+          },
+          "Same pattern: 'dar miedo' = scare, 'dar pena' = feel sorry"
+        ]
       },
       {
         "id": 5,
@@ -875,7 +1018,16 @@
               "learning": "ni me di cuenta"
             }
           ]
-        }
+        },
+        "english": "to realize (darse cuenta)",
+        "explanation_bullets": [
+          "'Darse cuenta de' is the everyday expression for realizing something",
+          {
+            "text": "\"I didn't realize\"",
+            "audio": "No me di cuenta."
+          },
+          "Always use 'de' when followed by a noun or clause"
+        ]
       },
       {
         "id": 6,
@@ -904,7 +1056,16 @@
               "learning": "que llegamos tarde"
             }
           ]
-        }
+        },
+        "english": "to hurry up (darse prisa)",
+        "explanation_bullets": [
+          {
+            "text": "\"Hurry up!\" is said as",
+            "audio": "¡Date prisa!"
+          },
+          "Fixed expression — 'tengo prisa' = 'I'm in a hurry'",
+          "In Latin America, 'apúrate' is also very common"
+        ]
       },
       {
         "id": 7,
@@ -928,7 +1089,16 @@
               "learning": "vamos a dar una vuelta"
             }
           ]
-        }
+        },
+        "english": "to go for a walk / ride",
+        "explanation_bullets": [
+          "'Dar una vuelta' = to go for a walk, drive, or casual outing",
+          {
+            "text": "\"Shall we go for a walk?\"",
+            "audio": "¿Damos una vuelta?"
+          },
+          "Can be on foot, by car, or bike — any relaxed outing"
+        ]
       },
       {
         "id": 8,
@@ -953,7 +1123,16 @@
               "learning": "no te des por vencido"
             }
           ]
-        }
+        },
+        "english": "to give up (darse por vencido)",
+        "explanation_bullets": [
+          "'Darse por vencido' = to give up or admit defeat",
+          {
+            "text": "\"I give up\"",
+            "audio": "Me doy por vencido."
+          },
+          "Literally 'to consider oneself beaten'"
+        ]
       },
       {
         "id": 9,
@@ -977,7 +1156,16 @@
               "learning": "no dio resultado"
             }
           ]
-        }
+        },
+        "english": "to work / pay off",
+        "explanation_bullets": [
+          "'Dar resultado' = something worked or produced results",
+          {
+            "text": "\"The strategy worked\"",
+            "audio": "La estrategia dio resultado."
+          },
+          "The subject is the thing that worked, not the person"
+        ]
       },
       {
         "id": 10,
@@ -1001,7 +1189,16 @@
               "learning": "diste en el clavo"
             }
           ]
-        }
+        },
+        "english": "to nail it",
+        "explanation_bullets": [
+          "Fixed idiom: 'dar en el clavo' = to hit the nail on the head",
+          {
+            "text": "\"You nailed it!\"",
+            "audio": "¡Diste en el clavo!"
+          },
+          "Use it when someone gets something exactly right"
+        ]
       },
       {
         "id": 11,
@@ -1029,7 +1226,16 @@
               "learning": "en la cabeza"
             }
           ]
-        }
+        },
+        "english": "to bump / hit yourself",
+        "explanation_bullets": [
+          "'Darse un golpe' = to accidentally hit or bump yourself",
+          {
+            "text": "\"I hit my head\"",
+            "audio": "Me di un golpe en la cabeza."
+          },
+          "Use 'darse' (reflexive) to show it happened to yourself"
+        ]
       }
     ],
     "sentences": [
@@ -1405,7 +1611,21 @@
           }
         ]
       }
-    ]
+    ],
+    "conjugations": {
+      "present": [
+        "doy",
+        "das",
+        "da"
+      ],
+      "preterite": [
+        "di",
+        "diste",
+        "dio"
+      ],
+      "esta": "dando",
+      "ha": "dado"
+    }
   },
   "pasar": {
     "display": "pasar",
@@ -2329,7 +2549,21 @@
           }
         ]
       }
-    ]
+    ],
+    "conjugations": {
+      "present": [
+        "paso",
+        "pasas",
+        "pasa"
+      ],
+      "preterite": [
+        "pasé",
+        "pasaste",
+        "pasó"
+      ],
+      "esta": "pasando",
+      "ha": "pasado"
+    }
   },
   "volver": {
     "display": "volver",
@@ -3131,7 +3365,16 @@
               "learning": "música"
             }
           ]
-        }
+        },
+        "english": "to put on (music, TV)",
+        "explanation_bullets": [
+          "Standard verb for putting on music, TV, a movie, or any media",
+          {
+            "text": "\"Put on some music\"",
+            "audio": "Pon música."
+          },
+          "More natural than 'escuchar' when you're choosing to play something"
+        ]
       },
       {
         "id": 2,
@@ -3164,7 +3407,16 @@
               "learning": "los zapatos"
             }
           ]
-        }
+        },
+        "english": "to put on (clothing)",
+        "explanation_bullets": [
+          "'Ponerse' (reflexive) = to put on clothing or accessories",
+          {
+            "text": "\"Put on your coat\"",
+            "audio": "Ponte el abrigo."
+          },
+          "In Spanish, clothing uses articles, not possessives"
+        ]
       },
       {
         "id": 3,
@@ -3192,7 +3444,16 @@
               "learning": "ponernos de acuerdo"
             }
           ]
-        }
+        },
+        "english": "to agree / get on the same page",
+        "explanation_bullets": [
+          "'Ponerse de acuerdo' = to agree as a group or get aligned",
+          {
+            "text": "\"We need to get on the same page\"",
+            "audio": "Hay que ponernos de acuerdo."
+          },
+          "Focus is on the process of reaching agreement"
+        ]
       },
       {
         "id": 4,
@@ -3222,7 +3483,16 @@
               "learning": "muy"
             }
           ]
-        }
+        },
+        "english": "to get / become (emotion)",
+        "explanation_bullets": [
+          "'Ponerse' + adjective = a sudden emotional change of state",
+          {
+            "text": "\"I got nervous\"",
+            "audio": "Me puse nervioso."
+          },
+          "Use for quick reactions — more temporary than 'quedarse'"
+        ]
       },
       {
         "id": 5,
@@ -3247,7 +3517,16 @@
               "note": "ponerse a + verb = start doing"
             }
           ]
-        }
+        },
+        "english": "to suddenly start doing",
+        "explanation_bullets": [
+          "'Ponerse a' + infinitive = to suddenly start doing something",
+          {
+            "text": "\"She burst into tears\"",
+            "audio": "Se puso a llorar."
+          },
+          "Implies a spontaneous or reactive start, not a planned action"
+        ]
       },
       {
         "id": 6,
@@ -3271,7 +3550,16 @@
               "learning": "me pone de mal humor"
             }
           ]
-        }
+        },
+        "english": "to put in a bad mood",
+        "explanation_bullets": [
+          "The thing causing the mood is the subject: traffic, noise, people",
+          {
+            "text": "\"It puts me in a bad mood\"",
+            "audio": "Me pone de mal humor."
+          },
+          "Works the same for good moods: 'poner de buen humor'"
+        ]
       },
       {
         "id": 7,
@@ -3296,7 +3584,16 @@
               "learning": "ponme al día"
             }
           ]
-        }
+        },
+        "english": "to catch up / fill in",
+        "explanation_bullets": [
+          "'Poner al día' = to bring someone up to speed on what they missed",
+          {
+            "text": "\"Fill me in\"",
+            "audio": "Ponme al día."
+          },
+          "Use it when someone has been out of the loop"
+        ]
       },
       {
         "id": 8,
@@ -3331,7 +3628,16 @@
               "learning": "más tarde"
             }
           ]
-        }
+        },
+        "english": "to get in touch",
+        "explanation_bullets": [
+          "'Ponerse en contacto' = to get in touch or reach out to someone",
+          {
+            "text": "\"I'll get in touch with you\"",
+            "audio": "Me pondré en contacto contigo."
+          },
+          "More formal than just 'te escribo' or 'te llamo'"
+        ]
       },
       {
         "id": 9,
@@ -3356,7 +3662,16 @@
               "note": "lit. 'put yourself in my place'"
             }
           ]
-        }
+        },
+        "english": "to put yourself in someone's shoes",
+        "explanation_bullets": [
+          "'Ponerse en el lugar de alguien' = to see things from their perspective",
+          {
+            "text": "\"Put yourself in my position\"",
+            "audio": "Ponte en mi lugar."
+          },
+          "Used to appeal to someone's empathy"
+        ]
       },
       {
         "id": 10,
@@ -3389,7 +3704,16 @@
               "learning": "en práctica"
             }
           ]
-        }
+        },
+        "english": "to put into practice",
+        "explanation_bullets": [
+          "'Poner en práctica' = to actually apply what you've learned or planned",
+          {
+            "text": "\"Let's put it into practice\"",
+            "audio": "Vamos a ponerlo en práctica."
+          },
+          "The 'lo' refers to the skill or plan being applied"
+        ]
       },
       {
         "id": 11,
@@ -3417,7 +3741,16 @@
               "learning": "en la mesa"
             }
           ]
-        }
+        },
+        "english": "to put / place",
+        "explanation_bullets": [
+          "Core meaning: to put or place something somewhere",
+          {
+            "text": "\"Put it on the table\"",
+            "audio": "Ponlo en la mesa."
+          },
+          "More natural than 'colocar' in casual speech"
+        ]
       },
       {
         "id": 12,
@@ -3445,7 +3778,16 @@
               "learning": "a cargo"
             }
           ]
-        }
+        },
+        "english": "to put in charge",
+        "explanation_bullets": [
+          "Use 'poner a alguien a cargo' to say someone is given responsibility",
+          {
+            "text": "\"They put me in charge\"",
+            "audio": "Me pusieron a cargo."
+          },
+          "Common in work and organizational contexts"
+        ]
       },
       {
         "id": 13,
@@ -3473,7 +3815,19 @@
               "learning": "poner excusas"
             }
           ]
-        }
+        },
+        "english": "fixed phrases with poner",
+        "explanation_bullets": [
+          {
+            "text": "\"Set the table\"",
+            "audio": "Pon la mesa."
+          },
+          {
+            "text": "\"Pay attention\"",
+            "audio": "Pon atención."
+          },
+          "Learn these as chunks — the meaning of 'poner' shifts in each one"
+        ]
       },
       {
         "id": 14,
@@ -3497,7 +3851,16 @@
               "learning": "¿qué le pongo?"
             }
           ]
-        }
+        },
+        "english": "What can I get you?",
+        "explanation_bullets": [
+          {
+            "text": "A server asks \"What can I get you?\" with",
+            "audio": "¿Qué le pongo?"
+          },
+          "Literally 'what shall I put for you?' — a polite ordering convention",
+          "Casual version between friends: ¿qué te pongo?"
+        ]
       }
     ],
     "sentences": [
@@ -3909,6 +4272,20 @@
           }
         ]
       }
-    ]
+    ],
+    "conjugations": {
+      "present": [
+        "pongo",
+        "pones",
+        "pone"
+      ],
+      "preterite": [
+        "puse",
+        "pusiste",
+        "puso"
+      ],
+      "esta": "poniendo",
+      "ha": "puesto"
+    }
   }
 }
