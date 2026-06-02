@@ -412,11 +412,7 @@ export default function WordDrillGame({
       .catch(() => setWordList([]));
   }, [apiBase, drillLang]);
 
-  useEffect(() => {
-    if (currentSentence && answerStatus === "idle" && !busy) {
-      textareaRef.current?.focus();
-    }
-  }, [currentSentence, answerStatus, busy]);
+  // Textarea is focused only on hover — no auto-focus
 
   useEffect(() => {
     historyEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -553,6 +549,9 @@ export default function WordDrillGame({
     if (gameMode !== "learn" || learnPhase === "practice") return;
     function onKey(e: KeyboardEvent) {
       if (e.key !== " " && e.key !== "Enter") return;
+      // Don't steal keypresses from focused text inputs
+      const tag = (document.activeElement as HTMLElement)?.tagName;
+      if (tag === "TEXTAREA" || tag === "INPUT") return;
       e.preventDefault();
       if (learnPhaseRef.current === "explanation") {
         const bullets = learnUsecasesRef.current[currentUsecaseIdxRef.current]?.explanation_bullets ?? [];
@@ -585,6 +584,21 @@ export default function WordDrillGame({
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [gameMode, learnPhase]);
+
+  // Wispr paste routing — when no textarea/input is focused, capture the paste and route to main textarea
+  useEffect(() => {
+    function onPaste(e: ClipboardEvent) {
+      const tag = (document.activeElement as HTMLElement)?.tagName;
+      if (tag === "TEXTAREA" || tag === "INPUT") return; // already going to the right place
+      const text = e.clipboardData?.getData("text/plain");
+      if (!text) return;
+      e.preventDefault();
+      setTranscript(prev => prev + text);
+      textareaRef.current?.focus();
+    }
+    document.addEventListener("paste", onPaste);
+    return () => document.removeEventListener("paste", onPaste);
+  }, []);
 
   // Space/Enter advances to next use case after a correct/skipped answer in learn mode
   useEffect(() => {
@@ -1421,7 +1435,6 @@ export default function WordDrillGame({
           onKeyDown={e => { if (e.key === "Escape") { cancelPendingAutoSend(true); return; } if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); void submitAnswer(); } }}
           placeholder={`Hold CTRL + WIN to say the ${learning.name} translation…`}
           disabled={busy || answerStatus === "correct" || answerStatus === "skipped"}
-          autoFocus
           style={{
             width: "100%", minHeight: 60, padding: 12, fontSize: 16,
             border: "2px solid rgba(255,255,255,0.18)", borderRadius: 8,
@@ -2206,6 +2219,27 @@ export default function WordDrillGame({
                   <div style={{ flex: 1, overflowY: "auto", padding: "20px 0 0" }}>
                     <div style={{ maxWidth: 680, margin: "0 auto", padding: "0 32px", display: "flex", flexDirection: "column", gap: 16 }}>
 
+                      {/* Title + tags (dimmed) */}
+                      <div>
+                        <div style={{ display: "flex", alignItems: "baseline", gap: 8, flexWrap: "wrap" }}>
+                          <span style={{ fontSize: 18, fontWeight: 700, color: "rgba(255,255,255,0.6)" }}>{currentUC.name}</span>
+                          {currentUC.english && (
+                            <span style={{ fontSize: 18, color: "rgba(255,255,255,0.35)", fontStyle: "italic" }}>({currentUC.english})</span>
+                          )}
+                        </div>
+                        {currentUC.grammar_tags && currentUC.grammar_tags.length > 0 && (() => {
+                          const TAG_COLORS: Record<string, string> = { reflexive: "#67e8f9", connector: "#fbbf24", direct_object: "#c4b5fd", fixed: "#fdba74", person: "#86efac" };
+                          return (
+                            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 6 }}>
+                              {currentUC.grammar_tags.map((tag, i) => {
+                                const color = TAG_COLORS[tag.type] ?? "#94a3b8";
+                                return <span key={i} style={{ fontSize: 10, fontWeight: 600, padding: "2px 8px", borderRadius: 999, background: `${color}12`, border: `1px solid ${color}33`, color: `${color}99`, letterSpacing: "0.03em" }}>{tag.label}</span>;
+                              })}
+                            </div>
+                          );
+                        })()}
+                      </div>
+
                       {/* Explanation (dimmed) */}
                       <div style={{
                         background: "rgba(255,255,255,0.02)", borderRadius: 10, padding: "10px 14px",
@@ -2604,8 +2638,7 @@ export default function WordDrillGame({
                 onKeyDown={e => { if (e.key === "Escape") { cancelPendingAutoSend(true); return; } if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); void submitAnswer(); } }}
                 placeholder={`Hold CTRL + WIN to say the ${learning.name} translation…`}
                 disabled={busy || answerStatus === "correct" || answerStatus === "skipped"}
-                autoFocus
-                style={{
+                      style={{
                   width: "100%", minHeight: 60, padding: 12, fontSize: 16,
                   border: "2px solid rgba(255,255,255,0.18)", borderRadius: 8,
                   resize: "none", fontFamily: "system-ui, sans-serif",
