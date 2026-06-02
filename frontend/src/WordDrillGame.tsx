@@ -1762,6 +1762,8 @@ export default function WordDrillGame({
     );
   }
 
+  const resolvedSentenceIds = new Set(history.filter(e => !e.isWrongAttempt).map(e => e.sentenceId));
+
   // ── Learn mode screen ─────────────────────────────────────────────────────
   if (gameMode === "learn") {
     const currentUC = learnUsecases[currentUsecaseIdx];
@@ -2511,7 +2513,6 @@ export default function WordDrillGame({
 
   // ── Practice drill screen ─────────────────────────────────────────────────
 
-  const resolvedSentenceIds = new Set(history.filter(e => !e.isWrongAttempt).map(e => e.sentenceId));
 
   const mainColor = answerStatus === "correct"
     ? ((lastCheckResult?.multiplier ?? 1.0) >= 1.0 ? "#86efac" : (lastCheckResult?.multiplier ?? 0) >= 0.7 ? "#fbbf24" : "#f97316")
