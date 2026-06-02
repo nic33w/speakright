@@ -272,6 +272,67 @@ export default function HomeScreen({
           gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
           gap: '24px',
         }}>
+          {/* Word Drill Card */}
+          <button
+            onClick={() => onSelectMode('worddrill', fluent, learning)}
+            style={{
+              padding: '32px 24px',
+              background: 'linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%)',
+              border: 'none',
+              borderRadius: '12px',
+              color: 'white',
+              cursor: 'pointer',
+              transition: 'transform 0.2s, box-shadow 0.2s',
+              boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.transform = 'translateY(-4px)';
+              e.currentTarget.style.boxShadow = '0 8px 24px rgba(0,0,0,0.25)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.transform = 'translateY(0)';
+              e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.15)';
+            }}
+          >
+            <div style={{ fontSize: '48px', marginBottom: '16px' }}>📝</div>
+            <h2 style={{ fontSize: '24px', fontWeight: 700, marginBottom: '12px' }}>
+              Word Drill
+            </h2>
+            <p style={{ fontSize: '14px', opacity: 0.9, lineHeight: '1.5' }}>
+              Practice key words in context. Translate sentences with Wispr and get instant feedback.
+            </p>
+          </button>
+
+          {/* Word Showdown Card */}
+          <button
+            onClick={() => onSelectMode('trivia2', fluent, learning)}
+            style={{
+              padding: '32px 24px',
+              background: 'linear-gradient(135deg, #7c3aed 0%, #4f46e5 100%)',
+              border: 'none',
+              borderRadius: '12px',
+              color: 'white',
+              cursor: 'pointer',
+              transition: 'transform 0.2s, box-shadow 0.2s',
+              boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.transform = 'translateY(-4px)';
+              e.currentTarget.style.boxShadow = '0 8px 24px rgba(0,0,0,0.25)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.transform = 'translateY(0)';
+              e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.15)';
+            }}
+          >
+            <div style={{ fontSize: '48px', marginBottom: '16px' }}>🤖</div>
+            <h2 style={{ fontSize: '24px', fontWeight: 700, marginBottom: '12px' }}>
+              Word Showdown
+            </h2>
+            <p style={{ fontSize: '14px', opacity: 0.9, lineHeight: '1.5' }}>
+              Compete against 3 bots across 3 rounds! Vote for the spotlight word and race to translate.
+            </p>
+          </button>
           {/* Battle Mode Card */}
           <button
             onClick={() => onSelectMode('battle', fluent, learning)}
@@ -540,67 +601,7 @@ export default function HomeScreen({
             </p>
           </button>
 
-          {/* Word Drill Card */}
-          <button
-            onClick={() => onSelectMode('worddrill', fluent, learning)}
-            style={{
-              padding: '32px 24px',
-              background: 'linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%)',
-              border: 'none',
-              borderRadius: '12px',
-              color: 'white',
-              cursor: 'pointer',
-              transition: 'transform 0.2s, box-shadow 0.2s',
-              boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.transform = 'translateY(-4px)';
-              e.currentTarget.style.boxShadow = '0 8px 24px rgba(0,0,0,0.25)';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.transform = 'translateY(0)';
-              e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.15)';
-            }}
-          >
-            <div style={{ fontSize: '48px', marginBottom: '16px' }}>📝</div>
-            <h2 style={{ fontSize: '24px', fontWeight: 700, marginBottom: '12px' }}>
-              Word Drill
-            </h2>
-            <p style={{ fontSize: '14px', opacity: 0.9, lineHeight: '1.5' }}>
-              Practice key words in context. Translate sentences with Wispr and get instant feedback.
-            </p>
-          </button>
-
-          {/* Word Showdown Card */}
-          <button
-            onClick={() => onSelectMode('trivia2', fluent, learning)}
-            style={{
-              padding: '32px 24px',
-              background: 'linear-gradient(135deg, #7c3aed 0%, #4f46e5 100%)',
-              border: 'none',
-              borderRadius: '12px',
-              color: 'white',
-              cursor: 'pointer',
-              transition: 'transform 0.2s, box-shadow 0.2s',
-              boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.transform = 'translateY(-4px)';
-              e.currentTarget.style.boxShadow = '0 8px 24px rgba(0,0,0,0.25)';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.transform = 'translateY(0)';
-              e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.15)';
-            }}
-          >
-            <div style={{ fontSize: '48px', marginBottom: '16px' }}>🤖</div>
-            <h2 style={{ fontSize: '24px', fontWeight: 700, marginBottom: '12px' }}>
-              Word Showdown
-            </h2>
-            <p style={{ fontSize: '14px', opacity: 0.9, lineHeight: '1.5' }}>
-              Compete against 3 bots across 3 rounds! Vote for the spotlight word and race to translate.
-            </p>
-          </button>
+          
 
         </div>
       </div>

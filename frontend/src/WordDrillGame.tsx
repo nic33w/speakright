@@ -308,6 +308,8 @@ export default function WordDrillGame({
   // ── State ────────────────────────────────────────────────────────────────
   const [selectedWord, setSelectedWord] = useState<string | null>(null);
   const [wordList, setWordList] = useState<WordInfo[]>([]);
+  const [wordListEs, setWordListEs] = useState<WordInfo[]>([]);
+  const [wordListId, setWordListId] = useState<WordInfo[]>([]);
   const [currentSentence, setCurrentSentence] = useState<Sentence | null>(null);
   const [transcript, setTranscript] = useState("");
   const [busy, setBusy] = useState(false);
@@ -438,6 +440,12 @@ export default function WordDrillGame({
       .then(data => setWordList(data.words ?? []))
       .catch(() => setWordList([]));
   }, [apiBase, drillLang]);
+
+  // Load both word lists on mount for the combined home screen
+  useEffect(() => {
+    fetch(`${apiBase}/api/worddrill/words?lang=es`).then(r => r.json()).then(d => setWordListEs(d.words ?? [])).catch(() => {});
+    fetch(`${apiBase}/api/worddrill/words?lang=id`).then(r => r.json()).then(d => setWordListId(d.words ?? [])).catch(() => {});
+  }, [apiBase]);
 
   // Textarea is focused only on hover — no auto-focus
 
@@ -937,11 +945,11 @@ export default function WordDrillGame({
     hintCardsRefs.current = new Array((sentence.hints ?? []).length).fill(null);
   }
 
-  async function loadSentencesForWord(word: string) {
+  async function loadSentencesForWord(word: string, langOverride?: "es" | "id") {
     setLoadingSentence(true);
     setBusy(true);
     try {
-      const resp = await fetch(`${apiBase}/api/worddrill/sentences/${encodeURIComponent(word)}?lang=${drillLang ?? "es"}`);
+      const resp = await fetch(`${apiBase}/api/worddrill/sentences/${encodeURIComponent(word)}?lang=${langOverride ?? drillLang ?? "es"}`);
       if (!resp.ok) throw new Error("Failed");
       const data = await resp.json();
       sentenceQueueRef.current = shuffle([...data.sentences]);
@@ -957,10 +965,10 @@ export default function WordDrillGame({
     }
   }
 
-  async function loadLearnData(word: string, jumpToCategory?: string) {
+  async function loadLearnData(word: string, jumpToCategory?: string, langOverride?: "es" | "id") {
     setBusy(true);
     try {
-      const resp = await fetch(`${apiBase}/api/worddrill/usecases/${encodeURIComponent(word)}?lang=${drillLang ?? "es"}`);
+      const resp = await fetch(`${apiBase}/api/worddrill/usecases/${encodeURIComponent(word)}?lang=${langOverride ?? drillLang ?? "es"}`);
       if (!resp.ok) throw new Error("Failed");
       const data = await resp.json();
       const usecases: UseCase[] = data.usecases ?? [];
@@ -1059,6 +1067,28 @@ export default function WordDrillGame({
     returnToPracticeRef.current = null;
     setCanReturnToPractice(false);
     stopAudio();
+  }
+
+  function handleDirectLaunch(wordKey: string, lang: "es" | "id", mode: GameMode) {
+    setDrillLang(lang);
+    setSelectedWord(wordKey);
+    gameModeRef.current = mode;
+    setGameMode(mode);
+    setHistory([]);
+    setCorrectCount(0);
+    setTotalCount(0);
+    setTotalSentences(0);
+    setRoundSentencesShown(0);
+    setHasCompletedRound(false);
+    setPinnedLogEntries(new Set());
+    sentenceQueueRef.current = [];
+    setCurrentSentence(null);
+    setLearnComplete(false);
+    returnToPracticeRef.current = null;
+    setCanReturnToPractice(false);
+    stopAudio();
+    if (mode === "learn") void loadLearnData(wordKey, undefined, lang);
+    else void loadSentencesForWord(wordKey, lang);
   }
 
   function handleLearnThis() {
@@ -1836,164 +1866,67 @@ export default function WordDrillGame({
   }
 
   // ── Language picker screen ────────────────────────────────────────────────
-  if (!drillLang) {
-    const langOptions: { code: "es" | "id"; label: string; sub: string; flag: string }[] = [
-      { code: "es", label: "Spanish", sub: "verbs · phrases · particles", flag: "🇲🇽" },
-      { code: "id", label: "Indonesian", sub: "deh · sih · pas · lagi", flag: "🇮🇩" },
-    ];
-    return (
-      <div style={{
-        minHeight: "100vh",
-        background: "linear-gradient(135deg, #1e1b4b 0%, #0f172a 100%)",
-        display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-        padding: 40, fontFamily: "system-ui, sans-serif", color: "white",
-      }}>
-        {onBack && (
-          <button onClick={onBack} style={{
-            position: "absolute", top: 20, left: 20,
-            padding: "8px 16px", fontSize: 14,
-            background: "rgba(255,255,255,0.15)", color: "white",
-            border: "1px solid rgba(255,255,255,0.2)", borderRadius: 6, cursor: "pointer",
-          }}>← Back</button>
-        )}
-        <h1 style={{ fontSize: 32, fontWeight: 700, marginBottom: 8, textAlign: "center" }}>Word Drill</h1>
-        <p style={{ fontSize: 16, opacity: 0.6, marginBottom: 40, textAlign: "center" }}>Choose a language</p>
-        <div style={{ display: "flex", gap: 16, flexWrap: "wrap", justifyContent: "center" }}>
-          {langOptions.map(opt => (
-            <button key={opt.code} onClick={() => setDrillLang(opt.code)}
-              style={{
-                padding: "28px 36px", background: "rgba(255,255,255,0.06)",
-                border: "2px solid rgba(139,92,246,0.35)", borderRadius: 18,
-                color: "white", cursor: "pointer", textAlign: "center", minWidth: 160,
-                transition: "background 0.2s, border-color 0.2s, box-shadow 0.2s",
-              }}
-              onMouseEnter={e => { e.currentTarget.style.background = "rgba(139,92,246,0.2)"; e.currentTarget.style.borderColor = "rgba(139,92,246,0.7)"; e.currentTarget.style.boxShadow = "0 4px 20px rgba(139,92,246,0.2)"; }}
-              onMouseLeave={e => { e.currentTarget.style.background = "rgba(255,255,255,0.06)"; e.currentTarget.style.borderColor = "rgba(139,92,246,0.35)"; e.currentTarget.style.boxShadow = "none"; }}
-            >
-              <div style={{ fontSize: 40, marginBottom: 10 }}>{opt.flag}</div>
-              <div style={{ fontSize: 20, fontWeight: 800, color: "#c4b5fd", marginBottom: 6 }}>{opt.label}</div>
-              <div style={{ fontSize: 12, opacity: 0.5, lineHeight: 1.4 }}>{opt.sub}</div>
-            </button>
-          ))}
-        </div>
-      </div>
-    );
-  }
+  const wordInfo = (drillLang === "id" ? wordListId : wordListEs).find(w => w.key === selectedWord)
+    ?? wordList.find(w => w.key === selectedWord);
 
-  // ── Word selection screen ─────────────────────────────────────────────────
-  if (!selectedWord) {
-    return (
-      <div style={{
-        minHeight: "100vh",
-        background: "linear-gradient(135deg, #1e1b4b 0%, #0f172a 100%)",
-        display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-        padding: 40, fontFamily: "system-ui, sans-serif", color: "white",
-      }}>
-        <button onClick={() => setDrillLang(null)} style={{
-          position: "absolute", top: 20, left: 20,
-          padding: "8px 16px", fontSize: 14,
-          background: "rgba(255,255,255,0.15)", color: "white",
-          border: "1px solid rgba(255,255,255,0.2)", borderRadius: 6, cursor: "pointer",
-        }}>← Language</button>
-        <h1 style={{ fontSize: 32, fontWeight: 700, marginBottom: 8, textAlign: "center" }}>Word Drill</h1>
-        <p style={{ fontSize: 16, opacity: 0.6, marginBottom: 8, textAlign: "center" }}>
-          {drillLang === "id" ? "🇮🇩 Indonesian" : "🇲🇽 Spanish"}
-        </p>
-        <p style={{ fontSize: 14, opacity: 0.45, marginBottom: 32, textAlign: "center" }}>Choose a word to practice</p>
-        <div style={{ display: "flex", flexDirection: "column", gap: 10, width: "100%", maxWidth: 380 }}>
-          {wordList.map(word => (
-            <button key={word.key} onClick={() => handleSelectWord(word.key)}
-              style={{
-                padding: "16px 24px", background: "rgba(255,255,255,0.06)",
-                border: "2px solid rgba(139,92,246,0.35)", borderRadius: 14,
-                color: "white", cursor: "pointer", textAlign: "left", width: "100%",
-                display: "flex", alignItems: "center", gap: 16,
-                transition: "background 0.2s, border-color 0.2s, box-shadow 0.2s",
-              }}
-              onMouseEnter={e => { e.currentTarget.style.background = "rgba(139,92,246,0.2)"; e.currentTarget.style.borderColor = "rgba(139,92,246,0.7)"; e.currentTarget.style.boxShadow = "0 4px 20px rgba(139,92,246,0.2)"; }}
-              onMouseLeave={e => { e.currentTarget.style.background = "rgba(255,255,255,0.06)"; e.currentTarget.style.borderColor = "rgba(139,92,246,0.35)"; e.currentTarget.style.boxShadow = "none"; }}
-            >
-              <div style={{ fontSize: 22, fontWeight: 800, color: "#c4b5fd", minWidth: 80 }}>{word.display}</div>
-              <div style={{ fontSize: 13, opacity: 0.55, lineHeight: 1.4 }}>{word.description}</div>
-            </button>
-          ))}
-        </div>
-      </div>
-    );
-  }
-
-  const wordInfo = wordList.find(w => w.key === selectedWord);
-
-  // ── Mode selection screen ─────────────────────────────────────────────────
+  // ── Combined home screen ──────────────────────────────────────────────────
   if (!gameMode) {
+    const renderWordColumn = (list: WordInfo[], lang: "es" | "id", flag: string, label: string) => (
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", borderRight: lang === "es" ? "1px solid rgba(255,255,255,0.08)" : "none" }}>
+        <div style={{ flexShrink: 0, padding: "14px 20px", borderBottom: "1px solid rgba(255,255,255,0.06)", display: "flex", alignItems: "center", gap: 8 }}>
+          <span style={{ fontSize: 18 }}>{flag}</span>
+          <span style={{ fontSize: 14, fontWeight: 700, color: "#c4b5fd" }}>{label}</span>
+        </div>
+        <div style={{ flex: 1, overflowY: "auto", padding: "10px 16px", display: "flex", flexDirection: "column", gap: 6 }}>
+          {list.length === 0 && (
+            <div style={{ fontSize: 13, opacity: 0.3, padding: "20px 0", textAlign: "center" }}>Loading…</div>
+          )}
+          {list.map(word => (
+            <div key={word.key} style={{
+              display: "flex", alignItems: "center", gap: 10,
+              padding: "10px 14px", borderRadius: 10,
+              background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)",
+            }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 15, fontWeight: 700, color: "#c4b5fd" }}>{word.display}</div>
+                <div style={{ fontSize: 12, opacity: 0.45, marginTop: 1, lineHeight: 1.3 }}>{word.description}</div>
+              </div>
+              <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
+                <button
+                  onClick={() => handleDirectLaunch(word.key, lang, "learn")}
+                  style={{
+                    padding: "10px 34px", fontSize: 14, fontWeight: 700, borderRadius: 8, cursor: "pointer",
+                    background: "linear-gradient(135deg, #7c3aed, #5b21b6)", color: "white", border: "none",
+                  }}
+                >Learn</button>
+                <button
+                  onClick={() => handleDirectLaunch(word.key, lang, "practice")}
+                  style={{
+                    padding: "10px 34px", fontSize: 14, fontWeight: 700, borderRadius: 8, cursor: "pointer",
+                    background: "linear-gradient(135deg, #1d4ed8, #1e40af)", color: "white", border: "none",
+                  }}
+                >Practice</button>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+
     return (
       <div style={{
-        minHeight: "100vh",
+        height: "100vh",
         background: "linear-gradient(135deg, #1e1b4b 0%, #0f172a 100%)",
-        display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-        padding: 40, fontFamily: "system-ui, sans-serif", color: "white",
+        display: "flex", flexDirection: "column",
+        fontFamily: "system-ui, sans-serif", color: "white", overflow: "hidden",
       }}>
-        <button onClick={() => setSelectedWord(null)} style={{
-          position: "absolute", top: 20, left: 20,
-          padding: "8px 16px", fontSize: 14,
-          background: "rgba(255,255,255,0.15)", color: "white",
-          border: "1px solid rgba(255,255,255,0.2)", borderRadius: 6, cursor: "pointer",
-        }}>← Words</button>
-
-        <div style={{
-          background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)",
-          borderRadius: 20, padding: "48px 56px", textAlign: "center", maxWidth: 480,
-        }}>
-          <div style={{ fontSize: 44, fontWeight: 800, color: "#c4b5fd", marginBottom: 10 }}>
-            {wordInfo?.display ?? selectedWord}
-          </div>
-          <div style={{ fontSize: 15, opacity: 0.55, marginBottom: 40, lineHeight: 1.5 }}>
-            {wordInfo?.description}
-          </div>
-
-          <div style={{ display: "flex", gap: 16, justifyContent: "center" }}>
-            <button
-              onClick={() => {
-                gameModeRef.current = "learn";
-                setGameMode("learn");
-                void loadLearnData(selectedWord!);
-              }}
-              style={{
-                padding: "18px 32px", fontSize: 16, fontWeight: 700, borderRadius: 12, cursor: "pointer",
-                background: "linear-gradient(135deg, #7c3aed, #5b21b6)",
-                color: "white", border: "2px solid rgba(139,92,246,0.5)",
-                display: "flex", flexDirection: "column", alignItems: "center", gap: 6, minWidth: 140,
-                transition: "transform 0.15s, box-shadow 0.15s",
-              }}
-              onMouseEnter={e => { e.currentTarget.style.transform = "translateY(-2px)"; e.currentTarget.style.boxShadow = "0 8px 24px rgba(124,58,237,0.4)"; }}
-              onMouseLeave={e => { e.currentTarget.style.transform = ""; e.currentTarget.style.boxShadow = ""; }}
-            >
-              <span style={{ fontSize: 22 }}>📖</span>
-              Learn
-              <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.7 }}>Explanations + guided practice</span>
-            </button>
-
-            <button
-              onClick={() => {
-                gameModeRef.current = "practice";
-                setGameMode("practice");
-                void loadSentencesForWord(selectedWord!);
-              }}
-              style={{
-                padding: "18px 32px", fontSize: 16, fontWeight: 700, borderRadius: 12, cursor: "pointer",
-                background: "linear-gradient(135deg, #1d4ed8, #1e40af)",
-                color: "white", border: "2px solid rgba(59,130,246,0.5)",
-                display: "flex", flexDirection: "column", alignItems: "center", gap: 6, minWidth: 140,
-                transition: "transform 0.15s, box-shadow 0.15s",
-              }}
-              onMouseEnter={e => { e.currentTarget.style.transform = "translateY(-2px)"; e.currentTarget.style.boxShadow = "0 8px 24px rgba(29,78,216,0.4)"; }}
-              onMouseLeave={e => { e.currentTarget.style.transform = ""; e.currentTarget.style.boxShadow = ""; }}
-            >
-              <span style={{ fontSize: 22 }}>🎯</span>
-              Practice
-              <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.7 }}>Drill sentences freely</span>
-            </button>
-          </div>
+        <div style={{ flexShrink: 0, padding: "14px 24px", borderBottom: "1px solid rgba(255,255,255,0.08)", display: "flex", alignItems: "center", gap: 14 }}>
+          {onBack && <button onClick={onBack} style={{ padding: "6px 14px", fontSize: 13, background: "rgba(255,255,255,0.1)", color: "white", border: "1px solid rgba(255,255,255,0.18)", borderRadius: 6, cursor: "pointer" }}>← Back</button>}
+          <h1 style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>Word Drill</h1>
+        </div>
+        <div style={{ flex: 1, display: "flex", overflow: "hidden" }}>
+          {renderWordColumn(wordListEs, "es", "🇲🇽", "Spanish")}
+          {renderWordColumn(wordListId, "id", "🇮🇩", "Indonesian")}
         </div>
       </div>
     );
