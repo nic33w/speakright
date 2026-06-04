@@ -105,7 +105,8 @@
           "When something is left over, 'quedar' flips — the thing left is the subject",
           {
             "text": "\"I have three left\" is said as \"Three are left to me\"",
-            "audio": "Me quedan tres."
+            "audio": "Me quedan tres.",
+            "literal": "three remain to me"
           },
           "Works for money, time, food — anything that remains"
         ]
@@ -142,7 +143,8 @@
           "Use with an indirect object pronoun to describe how clothing fits",
           {
             "text": "Say \"It fits you well\"",
-            "audio": "Te queda bien."
+            "audio": "Te queda bien.",
+            "literal": "it remains/stays to you well"
           },
           "Like 'gustar' — the item is the subject, you are the indirect object"
         ]
@@ -256,7 +258,8 @@
           "Use 'quedarse' (reflexive) when someone stays put or doesn't go somewhere",
           {
             "text": "\"I'm staying home\"",
-            "audio": "Me quedo en casa."
+            "audio": "Me quedo en casa.",
+            "literal": "I stay myself at home"
           },
           "The reflexive form marks that you yourself are the one staying"
         ]
@@ -291,7 +294,8 @@
           "'Quedarse con' means to keep something or choose it for yourself",
           {
             "text": "\"I'll take this one\"",
-            "audio": "Me quedo con este."
+            "audio": "Me quedo con este.",
+            "literal": "I stay myself with this one"
           },
           "Common when choosing between options or keeping what was given"
         ]
@@ -331,7 +335,8 @@
           "Use 'quedarse' + adjective for lasting states — often involuntary",
           {
             "text": "\"I was speechless\"",
-            "audio": "Me quedé sin palabras."
+            "audio": "Me quedé sin palabras.",
+            "literal": "I stayed myself without words"
           },
           "Describes a result that sticks — quieter, more permanent than 'ponerse'"
         ]
@@ -920,7 +925,8 @@
         "explanation_bullets": [
           {
             "text": "\"It doesn't matter\" →",
-            "audio": "Me da igual."
+            "audio": "Me da igual.",
+            "literal": "it gives me equal"
           },
           {
             "text": "\"It's all the same\" →",
@@ -961,7 +967,8 @@
           "'Dar ganas de' + infinitive = to feel like doing something",
           {
             "text": "\"I feel like going out\"",
-            "audio": "Me dan ganas de salir."
+            "audio": "Me dan ganas de salir.",
+            "literal": "going out gives me desire"
           },
           "Note: 'ganas' is plural — always 'dan', never 'da'"
         ]
@@ -977,7 +984,7 @@
         },
         "practice": {
           "context": "Adam: Are you going to speak in front of everyone?",
-          "english": "It scares me / makes me nervous.",
+          "english": "It scares me.",
           "spanish": "Me da miedo",
           "accepted_translations": [
             "Me da miedo"
@@ -994,7 +1001,8 @@
           "Use 'dar' + emotion noun: the thing causing the feeling is the subject",
           {
             "text": "\"That grosses me out\"",
-            "audio": "Me da asco."
+            "audio": "Me da asco.",
+            "literal": "it gives me disgust"
           },
           "Same pattern: 'dar miedo' = scare, 'dar pena' = feel sorry"
         ]
@@ -1028,7 +1036,8 @@
           "'Darse cuenta de' is the everyday expression for realizing something",
           {
             "text": "\"I didn't realize\"",
-            "audio": "No me di cuenta."
+            "audio": "No me di cuenta.",
+            "literal": "I didn't give myself account"
           },
           "Always use 'de' when followed by a noun or clause"
         ]
@@ -1066,7 +1075,8 @@
         "explanation_bullets": [
           {
             "text": "\"Hurry up!\" is said as",
-            "audio": "¡Date prisa!"
+            "audio": "¡Date prisa!",
+            "literal": "give yourself haste"
           },
           "Fixed expression — 'tengo prisa' = 'I'm in a hurry'",
           "In Latin America, 'apúrate' is also very common"
@@ -1239,7 +1249,8 @@
           "'Darse un golpe' = to accidentally hit or bump yourself",
           {
             "text": "\"I hit my head\"",
-            "audio": "Me di un golpe en la cabeza."
+            "audio": "Me di un golpe en la cabeza.",
+            "literal": "I gave myself a bump on the head"
           },
           "Use 'darse' (reflexive) to show it happened to yourself"
         ]
@@ -1723,7 +1734,8 @@
         "explanation_bullets": [
           {
             "text": "Use this to say \"I had a great time\"",
-            "audio": "Lo pasé muy bien"
+            "audio": "Lo pasé muy bien",
+            "literal": "I passed it very well"
           },
           "The 'lo' or 'la' refers to the time spent.",
           "The opposite 'pasarlo mal' = to have a rough time or bad experience."
@@ -1971,7 +1983,8 @@
           "Use it for mistakes you didn't catch, details you ignored, or things you chose to let slide.",
           {
             "text": "Like \"I overlooked it / I missed it.\"",
-            "audio": "Lo pasé por alto"
+            "audio": "Lo pasé por alto",
+            "literal": "I passed it over high"
           }
         ],
         "explanation": "'Pasar por alto' means to overlook or miss something — whether accidentally or intentionally. Use it for mistakes you didn't catch, details you ignored, or things you chose to let slide. 'Lo pasé por alto' = 'I overlooked it / I missed it.'",
@@ -2630,7 +2643,8 @@
           "Add 'a + verb' after volver to mean 'to do it again'",
           {
             "text": "Like \"He did it again\"",
-            "audio": "Lo volvió a hacer."
+            "audio": "Lo volvió a hacer.",
+            "literal": "he turned to do it"
           },
           "More natural than 'hacer otra vez' in most contexts",
           {
@@ -2718,7 +2732,8 @@
           "Use when someone gradually or permanently becomes something",
           {
             "text": "Like \"He became very distant\"",
-            "audio": "Se volvió muy distante."
+            "audio": "Se volvió muy distante.",
+            "literal": "he turned himself very distant"
           },
           "Use this, not 'ponerse,' when the change is lasting or gradual"
         ],
@@ -2766,11 +2781,13 @@
         "explanation_bullets": [
           {
             "text": "Means \"I'm losing my mind\"",
-            "audio": "Me estoy volviendo loco."
+            "audio": "Me estoy volviendo loco.",
+            "literal": "I am turning myself crazy"
           },
           {
             "text": "Or affectionately: \"You drive me crazy\"",
-            "audio": "Me vuelves loco."
+            "audio": "Me vuelves loco.",
+            "literal": "you turn me crazy"
           },
           "Works in 1st and 3rd person"
         ],
@@ -2814,7 +2831,8 @@
           "Fixed phrase for regaining consciousness after fainting",
           {
             "text": "Like \"He came to\"",
-            "audio": "Volvió en sí."
+            "audio": "Volvió en sí.",
+            "literal": "he returned to himself"
           },
           "Mainly used in dramatic or medical contexts"
         ],
@@ -3422,7 +3440,8 @@
           "'Ponerse' (reflexive) = to put on clothing or accessories",
           {
             "text": "\"Put on your coat\"",
-            "audio": "Ponte el abrigo."
+            "audio": "Ponte el abrigo.",
+            "literal": "put yourself the coat"
           },
           "In Spanish, clothing uses articles, not possessives"
         ]
@@ -3460,7 +3479,8 @@
           "'Ponerse de acuerdo' = to agree as a group or get aligned",
           {
             "text": "\"We need to get on the same page\"",
-            "audio": "Hay que ponernos de acuerdo."
+            "audio": "Hay que ponernos de acuerdo.",
+            "literal": "we need to put ourselves in agreement"
           },
           "Focus is on the process of reaching agreement"
         ]
@@ -3500,7 +3520,8 @@
           "'Ponerse' + adjective = a sudden emotional change of state",
           {
             "text": "\"I got nervous\"",
-            "audio": "Me puse nervioso."
+            "audio": "Me puse nervioso.",
+            "literal": "I put myself nervous"
           },
           "Use for quick reactions — more temporary than 'quedarse'"
         ]
@@ -3535,7 +3556,8 @@
           "'Ponerse a' + infinitive = to suddenly start doing something",
           {
             "text": "\"She burst into tears\"",
-            "audio": "Se puso a llorar."
+            "audio": "Se puso a llorar.",
+            "literal": "she put herself to crying"
           },
           "Implies a spontaneous or reactive start, not a planned action"
         ]
@@ -3649,7 +3671,8 @@
           "'Ponerse en contacto' = to get in touch or reach out to someone",
           {
             "text": "\"I'll get in touch with you\"",
-            "audio": "Me pondré en contacto contigo."
+            "audio": "Me pondré en contacto contigo.",
+            "literal": "I'll put myself in contact with you"
           },
           "More formal than just 'te escribo' or 'te llamo'"
         ]
@@ -3684,7 +3707,8 @@
           "'Ponerse en el lugar de alguien' = to see things from their perspective",
           {
             "text": "\"Put yourself in my position\"",
-            "audio": "Ponte en mi lugar."
+            "audio": "Ponte en mi lugar.",
+            "literal": "put yourself in my place"
           },
           "Used to appeal to someone's empathy"
         ]

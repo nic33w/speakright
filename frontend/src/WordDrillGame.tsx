@@ -63,7 +63,7 @@ type WordInfo = {
 };
 
 type GrammarTag = { type: string; label: string };
-type BulletItem = string | { text: string; audio?: string };
+type BulletItem = string | { text: string; audio?: string; literal?: string };
 
 type Conjugations = {
   present: [string, string, string];
@@ -2041,6 +2041,23 @@ export default function WordDrillGame({
                 </div>
               );
             })}
+            {/* Summary nav button */}
+            <button
+              onClick={() => setLearnComplete(true)}
+              title="Summary"
+              style={{
+                width: 34, height: 34, borderRadius: "50%",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                fontSize: 14, cursor: "pointer",
+                background: learnComplete ? "rgba(167,139,250,0.22)" : "rgba(255,255,255,0.08)",
+                border: learnComplete
+                  ? "2px solid rgba(167,139,250,0.9)"
+                  : "1px solid rgba(255,255,255,0.2)",
+                color: learnComplete ? "#a78bfa" : "rgba(255,255,255,0.45)",
+                boxShadow: learnComplete ? "0 0 12px rgba(139,92,246,0.3)" : "none",
+                transition: "all 0.2s",
+              }}
+            >≡</button>
             <label style={{
               marginLeft: "auto", display: "flex", alignItems: "center", gap: 6,
               fontSize: 12, color: "rgba(255,255,255,0.45)", cursor: "pointer", userSelect: "none",
@@ -2066,50 +2083,226 @@ export default function WordDrillGame({
             from { opacity: 0; transform: translateY(6px); }
             to   { opacity: 1; transform: translateY(0); }
           }
+          .summary-row { transition: filter 0.15s ease; }
+          .summary-row:hover { filter: brightness(1.4); }
         `}</style>
 
         {/* Content */}
-        {learnComplete ? (
-          /* Completion screen */
-          <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 24, padding: 40 }}>
-            <div style={{ fontSize: 36, fontWeight: 800 }}>All use cases complete!</div>
-            <div style={{ display: "flex", gap: 20 }}>
-              {[
-                { label: "Correct", count: usecaseStatuses.filter(s => s === "correct").length, color: "#86efac" },
-                { label: "Close", count: usecaseStatuses.filter(s => s === "close").length, color: "#fbbf24" },
-                { label: "Skipped", count: usecaseStatuses.filter(s => s === "skipped").length, color: "#94a3b8" },
-              ].map(({ label, count, color }) => (
-                <div key={label} style={{
-                  textAlign: "center", padding: "16px 24px",
-                  background: `${color}18`, border: `1px solid ${color}44`, borderRadius: 12,
-                  minWidth: 90,
-                }}>
-                  <div style={{ fontSize: 28, fontWeight: 800, color }}>{count}</div>
-                  <div style={{ fontSize: 12, color, opacity: 0.7 }}>{label}</div>
+        {learnComplete ? (() => {
+          const TAG_COLORS: Record<string, string> = { reflexive: "#67e8f9", connector: "#fbbf24", direct_object: "#c4b5fd", fixed: "#fdba74", person: "#86efac" };
+          const counts = [
+            { label: "correct", count: usecaseStatuses.filter(s => s === "correct").length, color: "#86efac" },
+            { label: "close", count: usecaseStatuses.filter(s => s === "close").length, color: "#fbbf24" },
+            { label: "skipped", count: usecaseStatuses.filter(s => s === "skipped").length, color: "#94a3b8" },
+          ].filter(s => s.count > 0);
+          return (
+            /* Summary — two-column layout matching learn mode */
+            <div style={{ flex: 1, display: "flex", overflow: "hidden" }}>
+
+              {/* LEFT — use case index */}
+              <div style={{ flex: "0 0 66%", display: "flex", flexDirection: "column", overflow: "hidden" }}>
+                <div style={{ flexShrink: 0, padding: "16px 22px 12px", borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
+                  <div style={{ fontSize: 18, fontWeight: 800 }}>Summary</div>
+                  <div style={{ fontSize: 12, color: "rgba(255,255,255,0.4)", marginTop: 4 }}>
+                    {counts.map(({ label, count, color }, i) => (
+                      <span key={label}>
+                        <span style={{ color, fontWeight: 600 }}>{count}</span> {label}
+                        {i < counts.length - 1 && <span style={{ margin: "0 6px", opacity: 0.5 }}>·</span>}
+                      </span>
+                    ))}
+                  </div>
                 </div>
-              ))}
+                <div style={{ flex: 1, overflowY: "auto", padding: "10px 16px" }}>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                    {learnUsecases.map((uc, i) => {
+                      const status = usecaseStatuses[i] ?? "pending";
+                      const statusColor = status === "correct" ? "#86efac" : status === "close" ? "#fbbf24" : status === "skipped" ? "#94a3b8" : "rgba(255,255,255,0.15)";
+                      const statusIcon = status === "correct" ? "✓" : status === "close" ? "≈" : status === "skipped" ? "→" : "○";
+                      return (
+                        <div key={i}
+                          className="summary-row"
+                          onClick={() => { setLearnComplete(false); navigateToUsecase(i, true); }}
+                          style={{
+                            padding: "10px 12px", borderRadius: 10, cursor: "pointer",
+                            background: `${statusColor}0a`, border: `1px solid ${statusColor}22`,
+                          }}
+                        >
+                          {/* Header row */}
+                          <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ display: "flex", alignItems: "baseline", gap: 8, flexWrap: "wrap" }}>
+                                <span style={{ fontSize: 14, fontWeight: 700 }}>{uc.name}</span>
+                                {uc.english && <span style={{ fontSize: 12, color: "rgba(255,255,255,0.38)", fontStyle: "italic" }}>— {uc.english}</span>}
+                              </div>
+                              {uc.grammar_tags && uc.grammar_tags.length > 0 && (
+                                <div style={{ display: "flex", gap: 5, flexWrap: "wrap", marginTop: 4 }}>
+                                  {uc.grammar_tags.map((tag, ti) => {
+                                    const color = TAG_COLORS[tag.type] ?? "#94a3b8";
+                                    return <span key={ti} style={{ fontSize: 10, fontWeight: 600, padding: "1px 7px", borderRadius: 999, background: `${color}15`, border: `1px solid ${color}40`, color, letterSpacing: "0.03em" }}>{tag.label}</span>;
+                                  })}
+                                </div>
+                              )}
+                            </div>
+                            <div style={{ fontSize: 12, fontWeight: 700, color: statusColor, paddingTop: 2, flexShrink: 0 }}>{statusIcon}</div>
+                          </div>
+                          {/* Bullet points */}
+                          {uc.explanation_bullets && uc.explanation_bullets.length > 0 && (
+                            <div style={{ marginTop: 8, marginLeft: 6, display: "flex", flexDirection: "column", gap: 3 }}>
+                              {uc.explanation_bullets.map((bullet, bi) => {
+                                const text = typeof bullet === "object" ? bullet.text : bullet;
+                                const audioText = typeof bullet === "object" ? bullet.audio ?? null : null;
+                                const literal = typeof bullet === "object" ? bullet.literal ?? null : null;
+                                return (
+                                  <div key={bi} style={{ display: "flex", gap: 7, alignItems: "flex-start" }}>
+                                    <span style={{ color: `${statusColor}55`, fontSize: 11, flexShrink: 0, marginTop: 2 }}>•</span>
+                                    <div>
+                                      <span
+                                        onMouseEnter={() => { if (audioText) { void fetchAndPlayAudio(audioText, learningLocale); } }}
+                                        onMouseLeave={() => { if (audioText) stopAudio(); }}
+                                        style={{ fontSize: 12, lineHeight: 1.6, color: "rgba(255,255,255,0.55)", cursor: audioText ? "pointer" : "default" }}
+                                      >
+                                        {text.split(/("(?:[^"\\]|\\.)*")/).map((part, pi) =>
+                                          part.startsWith('"') && part.endsWith('"')
+                                            ? <span key={pi} style={{ color: "#fbbf24", fontWeight: 600 }}>{part}</span>
+                                            : <span key={pi}>{part}</span>
+                                        )}
+                                      </span>
+                                      {literal && (
+                                        <div style={{ fontSize: 11, color: "rgba(255,255,255,0.28)", fontStyle: "italic", marginTop: 1 }}>
+                                          <span style={{ fontStyle: "normal", fontSize: 10, fontWeight: 700, color: "rgba(251,191,36,0.4)", marginRight: 4 }}>lit.</span>
+                                          "{literal}"
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+                <div style={{ flexShrink: 0, padding: "12px 16px 20px", display: "flex", gap: 10, borderTop: "1px solid rgba(255,255,255,0.07)" }}>
+                  <button
+                    onClick={() => {
+                      gameModeRef.current = "practice";
+                      setGameMode("practice");
+                      setLearnComplete(false);
+                      void loadSentencesForWord(selectedWord!);
+                    }}
+                    style={{ padding: "11px 22px", fontSize: 14, fontWeight: 700, borderRadius: 10, cursor: "pointer", background: "linear-gradient(135deg, #1d4ed8, #1e40af)", color: "white", border: "none" }}
+                  >
+                    Practice this word
+                  </button>
+                  <button
+                    onClick={() => { stopAudio(); setSelectedWord(null); gameModeRef.current = null; setGameMode(null); setLearnComplete(false); }}
+                    style={{ padding: "11px 22px", fontSize: 14, fontWeight: 600, borderRadius: 10, cursor: "pointer", background: "rgba(255,255,255,0.1)", color: "white", border: "1px solid rgba(255,255,255,0.2)" }}
+                  >
+                    Back to word list
+                  </button>
+                </div>
+              </div>
+
+              {/* RIGHT — Info panel (always shown on summary) */}
+              <div style={{ flex: "0 0 34%", display: "flex", flexDirection: "column", borderLeft: "1px solid rgba(255,255,255,0.08)", overflow: "hidden" }}>
+                <div style={{ flexShrink: 0, padding: "10px 14px", borderBottom: "1px solid rgba(255,255,255,0.08)", background: "rgba(0,0,0,0.15)" }}>
+                  <span style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", color: "#a78bfa", opacity: 0.8 }}>Info</span>
+                </div>
+                <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+                  <div style={{ flexShrink: 0, overflowY: "auto", maxHeight: "48%", padding: "10px 12px", display: "flex", gap: 10, borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
+                    <div style={{ flex: "0 0 auto" }}>
+                      <div style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", color: "#a78bfa", opacity: 0.8, marginBottom: 7 }}>Hotkeys</div>
+                      <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+                        {[["Space", "Advance"], ["← →", "Use case"], ["1–9", "Jump to N"], ["R", "Replay audio"], ["S", "Toggle ES"], ["A", "Skip to practice"], ["0", "Reset"], ["I", "Info panel"], ["Esc", "Cancel send"]].map(([key, desc]) => (
+                          <div key={key} style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                            <kbd style={{ fontSize: 9, padding: "1px 5px", borderRadius: 3, flexShrink: 0, background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.18)", color: "rgba(255,255,255,0.7)", fontFamily: "monospace", minWidth: 40, textAlign: "center" }}>{key}</kbd>
+                            <span style={{ fontSize: 10, color: "rgba(255,255,255,0.38)" }}>{desc}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                    {conjugations && (
+                      <div style={{ flex: "0 0 auto" }}>
+                        <div style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", color: "#a78bfa", opacity: 0.8, marginBottom: 7 }}>Conjugations</div>
+                        <table style={{ borderCollapse: "collapse", fontSize: 11 }}>
+                          <thead>
+                            <tr>
+                              <th style={{ width: "30%", padding: "2px 3px" }} />
+                              {["Present", "Preterite"].map(h => (
+                                <th key={h} style={{ textAlign: "center", padding: "2px 3px", color: "rgba(255,255,255,0.35)", fontWeight: 600, fontSize: 9 }}>{h}</th>
+                              ))}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {(["yo", "tú", "él/ella"] as const).map((person, pi) => (
+                              <tr key={person}>
+                                <td style={{ padding: "3px 3px", color: "rgba(255,255,255,0.38)", fontSize: 9, fontWeight: 600 }}>{person}</td>
+                                {[conjugations.present[pi], conjugations.preterite[pi]].map((f, fi) => (
+                                  <td key={fi} style={{ textAlign: "center", padding: "3px 3px", color: "#c4b5fd", fontWeight: 500, cursor: "pointer", fontSize: 11 }}
+                                    onMouseEnter={() => void fetchAndPlayAudio(f, learningLocale)}
+                                    onMouseLeave={() => stopAudio()}
+                                  >{f}</td>
+                                ))}
+                              </tr>
+                            ))}
+                            <tr>
+                              <td style={{ padding: "3px 3px", color: "rgba(255,255,255,0.3)", fontSize: 9, fontWeight: 600 }}>está…</td>
+                              <td colSpan={2} style={{ textAlign: "center", padding: "3px 3px", color: "rgba(196,181,253,0.7)", fontStyle: "italic", fontSize: 11, cursor: "pointer" }}
+                                onMouseEnter={() => void fetchAndPlayAudio(`está ${conjugations.esta}`, learningLocale)}
+                                onMouseLeave={() => stopAudio()}
+                              >está {conjugations.esta}</td>
+                            </tr>
+                            <tr>
+                              <td style={{ padding: "3px 3px", color: "rgba(255,255,255,0.3)", fontSize: 9, fontWeight: 600 }}>ha…</td>
+                              <td colSpan={2} style={{ textAlign: "center", padding: "3px 3px", color: "rgba(196,181,253,0.7)", fontStyle: "italic", fontSize: 11, cursor: "pointer" }}
+                                onMouseEnter={() => void fetchAndPlayAudio(`ha ${conjugations.ha}`, learningLocale)}
+                                onMouseLeave={() => stopAudio()}
+                              >ha {conjugations.ha}</td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+                  <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+                    <div style={{ flexShrink: 0, padding: "8px 14px", borderBottom: "1px solid rgba(255,255,255,0.08)", background: "rgba(0,0,0,0.1)" }}>
+                      <span style={{ fontSize: 12, fontWeight: 700, color: "#a78bfa" }}>💬 Grammar Chat</span>
+                    </div>
+                    <div style={{ flex: 1, overflowY: "auto", padding: "10px 14px", display: "flex", flexDirection: "column", gap: 8 }}>
+                      {chatMessages.map((msg, mi) => (
+                        <div key={mi} style={{
+                          maxWidth: "90%", alignSelf: msg.role === "user" ? "flex-end" : "flex-start",
+                          padding: "7px 11px", borderRadius: msg.role === "user" ? "12px 12px 2px 12px" : "12px 12px 12px 2px",
+                          background: msg.role === "user" ? "rgba(139,92,246,0.25)" : "rgba(255,255,255,0.06)",
+                          border: msg.role === "user" ? "1px solid rgba(139,92,246,0.4)" : "1px solid rgba(255,255,255,0.1)",
+                          fontSize: 12, lineHeight: 1.5, color: "rgba(255,255,255,0.85)",
+                        }}>{msg.text}</div>
+                      ))}
+                      <div ref={chatBottomRef} />
+                    </div>
+                    <div style={{ flexShrink: 0, padding: "8px 10px", borderTop: "1px solid rgba(255,255,255,0.07)", display: "flex", gap: 6 }}>
+                      <textarea
+                        ref={chatInputRef}
+                        value={chatInput}
+                        onChange={e => setChatInput(e.target.value)}
+                        onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); void sendChat(); } }}
+                        placeholder="Ask about grammar…"
+                        rows={1}
+                        style={{ flex: 1, resize: "none", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 8, padding: "6px 10px", fontSize: 12, color: "white", outline: "none", lineHeight: 1.5 }}
+                      />
+                      <button onClick={() => void sendChat()} disabled={chatBusy || !chatInput.trim()} style={{ padding: "6px 12px", fontSize: 12, fontWeight: 600, borderRadius: 8, cursor: "pointer", background: "rgba(139,92,246,0.4)", color: "white", border: "1px solid rgba(139,92,246,0.5)" }}>
+                        {chatBusy ? "…" : "↑"}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
             </div>
-            <div style={{ display: "flex", gap: 14, marginTop: 8 }}>
-              <button
-                onClick={() => {
-                  gameModeRef.current = "practice";
-                  setGameMode("practice");
-                  setLearnComplete(false);
-                  void loadSentencesForWord(selectedWord!);
-                }}
-                style={{ padding: "14px 28px", fontSize: 15, fontWeight: 700, borderRadius: 10, cursor: "pointer", background: "linear-gradient(135deg, #1d4ed8, #1e40af)", color: "white", border: "none" }}
-              >
-                Practice this word
-              </button>
-              <button
-                onClick={() => { stopAudio(); setSelectedWord(null); gameModeRef.current = null; setGameMode(null); setLearnComplete(false); }}
-                style={{ padding: "14px 28px", fontSize: 15, fontWeight: 600, borderRadius: 10, cursor: "pointer", background: "rgba(255,255,255,0.1)", color: "white", border: "1px solid rgba(255,255,255,0.2)" }}
-              >
-                Back to word list
-              </button>
-            </div>
-          </div>
-        ) : busy && !currentUC ? (
+          );
+        })() : busy && !currentUC ? (
           <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", opacity: 0.5, fontSize: 16 }}>
             Loading…
           </div>
@@ -2233,6 +2426,12 @@ export default function WordDrillGame({
                                     {isRevealing ? audioText : "hover to reveal"}
                                   </span>
                                 )}
+                                {typeof bullet === "object" && bullet.literal && (
+                                  <div style={{ fontSize: 12, color: "rgba(255,255,255,0.32)", fontStyle: "italic", marginTop: 4 }}>
+                                    <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.05em", color: "#fbbf24", opacity: 0.55, marginRight: 5, fontStyle: "normal" }}>lit.</span>
+                                    "{bullet.literal}"
+                                  </div>
+                                )}
                               </div>
                             </div>
                           );
@@ -2298,16 +2497,25 @@ export default function WordDrillGame({
                       <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                         {currentUC.explanation_bullets.map((bullet, i) => {
                           const text = typeof bullet === "object" ? bullet.text : bullet;
+                          const literal = typeof bullet === "object" ? bullet.literal : undefined;
                           return (
                             <div key={i} style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
                               <span style={{ color: "rgba(167,139,250,0.4)", fontSize: 13, flexShrink: 0, marginTop: 1 }}>•</span>
-                              <span style={{ fontSize: 13, lineHeight: 1.6, color: "rgba(255,255,255,0.35)" }}>
-                                {text.split(/("(?:[^"\\]|\\.)*")/).map((part, pi) =>
-                                  part.startsWith('"') && part.endsWith('"')
-                                    ? <span key={pi} style={{ color: "rgba(251,191,36,0.45)" }}>{part}</span>
-                                    : <span key={pi}>{part}</span>
+                              <div>
+                                <span style={{ fontSize: 13, lineHeight: 1.6, color: "rgba(255,255,255,0.35)" }}>
+                                  {text.split(/("(?:[^"\\]|\\.)*")/).map((part, pi) =>
+                                    part.startsWith('"') && part.endsWith('"')
+                                      ? <span key={pi} style={{ color: "rgba(251,191,36,0.45)" }}>{part}</span>
+                                      : <span key={pi}>{part}</span>
+                                  )}
+                                </span>
+                                {literal && (
+                                  <div style={{ fontSize: 11, color: "rgba(255,255,255,0.2)", fontStyle: "italic", marginTop: 1 }}>
+                                    <span style={{ fontSize: 10, fontWeight: 700, color: "rgba(251,191,36,0.3)", fontStyle: "normal", marginRight: 4 }}>lit.</span>
+                                    "{literal}"
+                                  </div>
                                 )}
-                              </span>
+                              </div>
                             </div>
                           );
                         })}
@@ -2446,16 +2654,25 @@ export default function WordDrillGame({
                           <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
                             {currentUC.explanation_bullets.map((bullet, i) => {
                               const text = typeof bullet === "object" ? bullet.text : bullet;
+                              const literal = typeof bullet === "object" ? bullet.literal : undefined;
                               return (
                                 <div key={i} style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
                                   <span style={{ color: "rgba(167,139,250,0.35)", fontSize: 12, flexShrink: 0, marginTop: 1 }}>•</span>
-                                  <span style={{ fontSize: 12, lineHeight: 1.6, color: "rgba(255,255,255,0.3)" }}>
-                                    {text.split(/("(?:[^"\\]|\\.)*")/).map((part, pi) =>
-                                      part.startsWith('"') && part.endsWith('"')
-                                        ? <span key={pi} style={{ color: "rgba(251,191,36,0.4)" }}>{part}</span>
-                                        : <span key={pi}>{part}</span>
+                                  <div>
+                                    <span style={{ fontSize: 12, lineHeight: 1.6, color: "rgba(255,255,255,0.3)" }}>
+                                      {text.split(/("(?:[^"\\]|\\.)*")/).map((part, pi) =>
+                                        part.startsWith('"') && part.endsWith('"')
+                                          ? <span key={pi} style={{ color: "rgba(251,191,36,0.4)" }}>{part}</span>
+                                          : <span key={pi}>{part}</span>
+                                      )}
+                                    </span>
+                                    {literal && (
+                                      <div style={{ fontSize: 10, color: "rgba(255,255,255,0.18)", fontStyle: "italic", marginTop: 1 }}>
+                                        <span style={{ fontSize: 9, fontWeight: 700, color: "rgba(251,191,36,0.25)", fontStyle: "normal", marginRight: 4 }}>lit.</span>
+                                        "{literal}"
+                                      </div>
                                     )}
-                                  </span>
+                                  </div>
                                 </div>
                               );
                             })}
