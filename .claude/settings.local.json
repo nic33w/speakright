@@ -7,7 +7,9 @@
       "Bash(node -e ' *)",
       "Bash(node --input-type=commonjs)",
       "Bash(del _patch.js _patch2.js)",
-      "Bash(curl -s \"http://localhost:5174/src/trivia2/TriviaGame2.tsx\")"
+      "Bash(curl -s \"http://localhost:5174/src/trivia2/TriviaGame2.tsx\")",
+      "Bash(xargs grep -l \"worddrill\\\\|word_drill\\\\|usecases\")",
+      "Bash(xargs grep -l \"poner\\\\|quedar\\\\|grammar_tags\\\\|reflexive\")"
     ]
   }
 }

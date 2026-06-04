@@ -251,6 +251,7 @@
           ]
         },
         "english": "to stay (quedarse)",
+        "grammar_tags": [{"type": "reflexive", "label": "reflexive (quedarse)"}],
         "explanation_bullets": [
           "Use 'quedarse' (reflexive) when someone stays put or doesn't go somewhere",
           {
@@ -285,6 +286,7 @@
           ]
         },
         "english": "to keep / take (quedarse con)",
+        "grammar_tags": [{"type": "reflexive", "label": "reflexive (quedarse)"}],
         "explanation_bullets": [
           "'Quedarse con' means to keep something or choose it for yourself",
           {
@@ -324,6 +326,7 @@
           ]
         },
         "english": "to end up / become (quedarse)",
+        "grammar_tags": [{"type": "reflexive", "label": "reflexive (quedarse)"}],
         "explanation_bullets": [
           "Use 'quedarse' + adjective for lasting states — often involuntary",
           {
@@ -1020,6 +1023,7 @@
           ]
         },
         "english": "to realize (darse cuenta)",
+        "grammar_tags": [{"type": "reflexive", "label": "reflexive (darse)"}],
         "explanation_bullets": [
           "'Darse cuenta de' is the everyday expression for realizing something",
           {
@@ -1058,6 +1062,7 @@
           ]
         },
         "english": "to hurry up (darse prisa)",
+        "grammar_tags": [{"type": "reflexive", "label": "reflexive (darse)"}],
         "explanation_bullets": [
           {
             "text": "\"Hurry up!\" is said as",
@@ -1125,6 +1130,7 @@
           ]
         },
         "english": "to give up (darse por vencido)",
+        "grammar_tags": [{"type": "reflexive", "label": "reflexive (darse)"}],
         "explanation_bullets": [
           "'Darse por vencido' = to give up or admit defeat",
           {
@@ -1228,6 +1234,7 @@
           ]
         },
         "english": "to bump / hit yourself",
+        "grammar_tags": [{"type": "reflexive", "label": "reflexive (darse)"}],
         "explanation_bullets": [
           "'Darse un golpe' = to accidentally hit or bump yourself",
           {
@@ -3367,6 +3374,7 @@
           ]
         },
         "english": "to put on (music, TV)",
+        "grammar_tags": [],
         "explanation_bullets": [
           "Standard verb for putting on music, TV, a movie, or any media",
           {
@@ -3409,6 +3417,7 @@
           ]
         },
         "english": "to put on (clothing)",
+        "grammar_tags": [{"type": "reflexive", "label": "reflexive (ponerse)"}],
         "explanation_bullets": [
           "'Ponerse' (reflexive) = to put on clothing or accessories",
           {
@@ -3446,6 +3455,7 @@
           ]
         },
         "english": "to agree / get on the same page",
+        "grammar_tags": [{"type": "reflexive", "label": "reflexive (ponerse)"}],
         "explanation_bullets": [
           "'Ponerse de acuerdo' = to agree as a group or get aligned",
           {
@@ -3485,6 +3495,7 @@
           ]
         },
         "english": "to get / become (emotion)",
+        "grammar_tags": [{"type": "reflexive", "label": "reflexive (ponerse)"}],
         "explanation_bullets": [
           "'Ponerse' + adjective = a sudden emotional change of state",
           {
@@ -3519,6 +3530,7 @@
           ]
         },
         "english": "to suddenly start doing",
+        "grammar_tags": [{"type": "reflexive", "label": "reflexive (ponerse)"}, {"type": "connector", "label": "connector: a"}],
         "explanation_bullets": [
           "'Ponerse a' + infinitive = to suddenly start doing something",
           {
@@ -3552,6 +3564,7 @@
           ]
         },
         "english": "to put in a bad mood",
+        "grammar_tags": [],
         "explanation_bullets": [
           "The thing causing the mood is the subject: traffic, noise, people",
           {
@@ -3586,6 +3599,7 @@
           ]
         },
         "english": "to catch up / fill in",
+        "grammar_tags": [],
         "explanation_bullets": [
           "'Poner al día' = to bring someone up to speed on what they missed",
           {
@@ -3630,6 +3644,7 @@
           ]
         },
         "english": "to get in touch",
+        "grammar_tags": [{"type": "reflexive", "label": "reflexive (ponerse)"}],
         "explanation_bullets": [
           "'Ponerse en contacto' = to get in touch or reach out to someone",
           {
@@ -3664,6 +3679,7 @@
           ]
         },
         "english": "to put yourself in someone's shoes",
+        "grammar_tags": [{"type": "reflexive", "label": "reflexive (ponerse)"}],
         "explanation_bullets": [
           "'Ponerse en el lugar de alguien' = to see things from their perspective",
           {
@@ -3706,6 +3722,7 @@
           ]
         },
         "english": "to put into practice",
+        "grammar_tags": [],
         "explanation_bullets": [
           "'Poner en práctica' = to actually apply what you've learned or planned",
           {
@@ -3743,6 +3760,7 @@
           ]
         },
         "english": "to put / place",
+        "grammar_tags": [],
         "explanation_bullets": [
           "Core meaning: to put or place something somewhere",
           {
@@ -3780,6 +3798,7 @@
           ]
         },
         "english": "to put in charge",
+        "grammar_tags": [],
         "explanation_bullets": [
           "Use 'poner a alguien a cargo' to say someone is given responsibility",
           {
@@ -3817,6 +3836,7 @@
           ]
         },
         "english": "fixed phrases with poner",
+        "grammar_tags": [],
         "explanation_bullets": [
           {
             "text": "\"Set the table\"",
@@ -3853,6 +3873,7 @@
           ]
         },
         "english": "What can I get you?",
+        "grammar_tags": [],
         "explanation_bullets": [
           {
             "text": "A server asks \"What can I get you?\" with",
