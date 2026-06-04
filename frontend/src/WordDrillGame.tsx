@@ -698,6 +698,18 @@ export default function WordDrillGame({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gameMode]);
 
+  // Practice mode hotkey: I to toggle info panel
+  useEffect(() => {
+    if (gameMode !== "practice") return;
+    function onKey(e: KeyboardEvent) {
+      const tag = (document.activeElement as HTMLElement)?.tagName;
+      if (tag === "TEXTAREA" || tag === "INPUT") return;
+      if (e.key === "i" || e.key === "I") setRightPanelMode(prev => prev === "history" ? "info" : "history");
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [gameMode]);
+
   // Wispr paste routing — when no textarea/input is focused, capture the paste and route to main textarea
   useEffect(() => {
     function onPaste(e: ClipboardEvent) {
@@ -1470,7 +1482,7 @@ export default function WordDrillGame({
   // ── Floating grammar chat (Messenger style) ──────────────────────────────
 
   function renderChat() {
-    if (!currentSentence || gameMode === "learn") return null;
+    if (!currentSentence || gameMode === "learn" || gameMode === "practice") return null;
     return (
       <>
         {/* Floating chat bubble */}
@@ -2127,15 +2139,18 @@ export default function WordDrillGame({
                             background: `${statusColor}0a`, border: `1px solid ${statusColor}22`,
                           }}
                         >
-                          {/* Header row */}
-                          <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
-                            <div style={{ flex: 1, minWidth: 0 }}>
-                              <div style={{ display: "flex", alignItems: "baseline", gap: 8, flexWrap: "wrap" }}>
-                                <span style={{ fontSize: 14, fontWeight: 700 }}>{uc.name}</span>
-                                {uc.english && <span style={{ fontSize: 12, color: "rgba(255,255,255,0.38)", fontStyle: "italic" }}>— {uc.english}</span>}
+                          <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
+                            {/* LEFT — title, english, tags, status */}
+                            <div style={{ flex: "0 0 36%", minWidth: 0, paddingRight: 12, borderRight: "1px solid rgba(255,255,255,0.07)" }}>
+                              <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 6 }}>
+                                <div style={{ minWidth: 0 }}>
+                                  <div style={{ fontSize: 14, fontWeight: 700, lineHeight: 1.3 }}>{i + 1}. {uc.name}</div>
+                                  {uc.english && <div style={{ fontSize: 11, color: "rgba(255,255,255,0.38)", fontStyle: "italic", marginTop: 2 }}>{uc.english}</div>}
+                                </div>
+                                <div style={{ fontSize: 12, fontWeight: 700, color: statusColor, flexShrink: 0, paddingTop: 1 }}>{statusIcon}</div>
                               </div>
                               {uc.grammar_tags && uc.grammar_tags.length > 0 && (
-                                <div style={{ display: "flex", gap: 5, flexWrap: "wrap", marginTop: 4 }}>
+                                <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginTop: 6 }}>
                                   {uc.grammar_tags.map((tag, ti) => {
                                     const color = TAG_COLORS[tag.type] ?? "#94a3b8";
                                     return <span key={ti} style={{ fontSize: 10, fontWeight: 600, padding: "1px 7px", borderRadius: 999, background: `${color}15`, border: `1px solid ${color}40`, color, letterSpacing: "0.03em" }}>{tag.label}</span>;
@@ -2143,23 +2158,20 @@ export default function WordDrillGame({
                                 </div>
                               )}
                             </div>
-                            <div style={{ fontSize: 12, fontWeight: 700, color: statusColor, paddingTop: 2, flexShrink: 0 }}>{statusIcon}</div>
-                          </div>
-                          {/* Bullet points */}
-                          {uc.explanation_bullets && uc.explanation_bullets.length > 0 && (
-                            <div style={{ marginTop: 8, marginLeft: 6, display: "flex", flexDirection: "column", gap: 3 }}>
-                              {uc.explanation_bullets.map((bullet, bi) => {
+                            {/* RIGHT — bullet points */}
+                            <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 3 }}>
+                              {(uc.explanation_bullets ?? []).map((bullet, bi) => {
                                 const text = typeof bullet === "object" ? bullet.text : bullet;
                                 const audioText = typeof bullet === "object" ? bullet.audio ?? null : null;
                                 const literal = typeof bullet === "object" ? bullet.literal ?? null : null;
                                 return (
-                                  <div key={bi} style={{ display: "flex", gap: 7, alignItems: "flex-start" }}>
+                                  <div key={bi} style={{ display: "flex", gap: 6, alignItems: "flex-start" }}>
                                     <span style={{ color: `${statusColor}55`, fontSize: 11, flexShrink: 0, marginTop: 2 }}>•</span>
                                     <div>
                                       <span
-                                        onMouseEnter={() => { if (audioText) { void fetchAndPlayAudio(audioText, learningLocale); } }}
+                                        onMouseEnter={() => { if (audioText) void fetchAndPlayAudio(audioText, learningLocale); }}
                                         onMouseLeave={() => { if (audioText) stopAudio(); }}
-                                        style={{ fontSize: 12, lineHeight: 1.6, color: "rgba(255,255,255,0.55)", cursor: audioText ? "pointer" : "default" }}
+                                        style={{ fontSize: 12, lineHeight: 1.5, color: "rgba(255,255,255,0.55)", cursor: audioText ? "pointer" : "default" }}
                                       >
                                         {text.split(/("(?:[^"\\]|\\.)*")/).map((part, pi) =>
                                           part.startsWith('"') && part.endsWith('"')
@@ -2178,7 +2190,7 @@ export default function WordDrillGame({
                                 );
                               })}
                             </div>
-                          )}
+                          </div>
                         </div>
                       );
                     })}
@@ -3355,11 +3367,136 @@ export default function WordDrillGame({
           )}
         </div>
 
-        {/* RIGHT — History log */}
+        {/* RIGHT — History / Info panel */}
         <div style={{ flex: "0 0 34%", display: "flex", flexDirection: "column", borderLeft: "1px solid rgba(255,255,255,0.08)", overflow: "hidden" }}>
-          <div style={{ flexShrink: 0, padding: "10px 16px", borderBottom: "1px solid rgba(255,255,255,0.08)", fontSize: 11, fontWeight: 600, opacity: 0.5, textTransform: "uppercase", letterSpacing: "0.08em" }}>
-            History
+          {/* Tab header */}
+          <div style={{ flexShrink: 0, display: "flex", borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
+            {(["history", "info"] as const).map(mode => (
+              <button key={mode} onClick={() => setRightPanelMode(mode)} style={{
+                flex: 1, padding: "10px 0", fontSize: 11, fontWeight: 600,
+                textTransform: "uppercase", letterSpacing: "0.08em", cursor: "pointer",
+                background: "none", border: "none", color: "white",
+                opacity: rightPanelMode === mode ? 0.85 : 0.3,
+                borderBottom: rightPanelMode === mode ? "2px solid #a78bfa" : "2px solid transparent",
+                transition: "opacity 0.2s",
+              }}>{mode === "history" ? "History" : "Info (I)"}</button>
+            ))}
           </div>
+
+          {/* Info panel */}
+          {rightPanelMode === "info" && (
+            <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+              <div style={{ flexShrink: 0, overflowY: "auto", maxHeight: "48%", padding: "10px 12px", display: "flex", gap: 10, borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
+                <div style={{ flex: "0 0 auto" }}>
+                  <div style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", color: "#a78bfa", opacity: 0.8, marginBottom: 7 }}>Hotkeys</div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+                    {[["Enter", "Submit"], ["R", "Replay audio"], ["I", "Info panel"], ["Esc", "Cancel send"]].map(([key, desc]) => (
+                      <div key={key} style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                        <kbd style={{ fontSize: 9, padding: "1px 5px", borderRadius: 3, flexShrink: 0, background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.18)", color: "rgba(255,255,255,0.7)", fontFamily: "monospace", minWidth: 40, textAlign: "center" }}>{key}</kbd>
+                        <span style={{ fontSize: 10, color: "rgba(255,255,255,0.38)" }}>{desc}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                {conjugations && (
+                  <div style={{ flex: "0 0 auto" }}>
+                    <div style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", color: "#a78bfa", opacity: 0.8, marginBottom: 7 }}>Conjugations</div>
+                    <table style={{ borderCollapse: "collapse", fontSize: 11 }}>
+                      <thead>
+                        <tr>
+                          <th style={{ width: "30%", padding: "2px 3px" }} />
+                          {["Present", "Preterite"].map(h => (
+                            <th key={h} style={{ textAlign: "center", padding: "2px 3px", color: "rgba(255,255,255,0.35)", fontWeight: 600, fontSize: 9 }}>{h}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {(["yo", "tú", "él/ella"] as const).map((person, pi) => (
+                          <tr key={person}>
+                            <td style={{ padding: "3px 3px", color: "rgba(255,255,255,0.38)", fontSize: 9, fontWeight: 600 }}>{person}</td>
+                            {[conjugations.present[pi], conjugations.preterite[pi]].map((f, fi) => (
+                              <td key={fi} style={{ textAlign: "center", padding: "3px 3px", color: "#c4b5fd", fontWeight: 500, cursor: "pointer", fontSize: 11 }}
+                                onMouseEnter={() => void fetchAndPlayAudio(f, learningLocale)}
+                                onMouseLeave={() => stopAudio()}
+                              >{f}</td>
+                            ))}
+                          </tr>
+                        ))}
+                        <tr>
+                          <td style={{ padding: "3px 3px", color: "rgba(255,255,255,0.3)", fontSize: 9, fontWeight: 600 }}>está…</td>
+                          <td colSpan={2} style={{ textAlign: "center", padding: "3px 3px", color: "rgba(196,181,253,0.7)", fontStyle: "italic", fontSize: 11, cursor: "pointer" }}
+                            onMouseEnter={() => void fetchAndPlayAudio(`está ${conjugations.esta}`, learningLocale)}
+                            onMouseLeave={() => stopAudio()}
+                          >está {conjugations.esta}</td>
+                        </tr>
+                        <tr>
+                          <td style={{ padding: "3px 3px", color: "rgba(255,255,255,0.3)", fontSize: 9, fontWeight: 600 }}>ha…</td>
+                          <td colSpan={2} style={{ textAlign: "center", padding: "3px 3px", color: "rgba(196,181,253,0.7)", fontStyle: "italic", fontSize: 11, cursor: "pointer" }}
+                            onMouseEnter={() => void fetchAndPlayAudio(`ha ${conjugations.ha}`, learningLocale)}
+                            onMouseLeave={() => stopAudio()}
+                          >ha {conjugations.ha}</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+              <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+                <div style={{ flexShrink: 0, padding: "8px 14px", borderBottom: "1px solid rgba(255,255,255,0.08)", background: "rgba(0,0,0,0.1)" }}>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: "#a78bfa" }}>💬 Grammar Chat</span>
+                </div>
+                {currentSentence && (
+                  <div style={{ flexShrink: 0, padding: "6px 14px", borderBottom: "1px solid rgba(255,255,255,0.06)", background: "rgba(0,0,0,0.1)" }}>
+                    <div style={{ fontSize: 11, color: "rgba(255,255,255,0.5)", lineHeight: 1.4 }}>
+                      <span style={{ color: "rgba(255,255,255,0.3)" }}>EN </span>{currentSentence.english}
+                    </div>
+                    <div style={{ fontSize: 11, color: "#86efac", lineHeight: 1.4, marginTop: 1 }}>
+                      <span style={{ color: "rgba(134,239,172,0.4)" }}>ES </span>{currentSentence.accepted_translations[0]}
+                    </div>
+                    {lastCheckResult?.userAnswer && (
+                      <div style={{ fontSize: 11, color: "#fca5a5", lineHeight: 1.4, marginTop: 1 }}>
+                        <span style={{ color: "rgba(252,165,165,0.4)" }}>You </span>{lastCheckResult.userAnswer}
+                      </div>
+                    )}
+                  </div>
+                )}
+                <div style={{ flex: 1, overflowY: "auto", padding: "10px 14px", display: "flex", flexDirection: "column", gap: 8 }}>
+                  {chatMessages.length === 0 && (
+                    <div style={{ fontSize: 12, color: "rgba(255,255,255,0.3)", textAlign: "center", marginTop: 20, lineHeight: 1.7 }}>
+                      Ask why an answer is correct,<br />how a grammar rule works,<br />or for more examples.
+                    </div>
+                  )}
+                  {chatMessages.map((msg, mi) => (
+                    <div key={mi} style={{
+                      maxWidth: "90%", alignSelf: msg.role === "user" ? "flex-end" : "flex-start",
+                      padding: "7px 11px", borderRadius: msg.role === "user" ? "12px 12px 2px 12px" : "12px 12px 12px 2px",
+                      background: msg.role === "user" ? "rgba(139,92,246,0.25)" : "rgba(255,255,255,0.06)",
+                      border: msg.role === "user" ? "1px solid rgba(139,92,246,0.4)" : "1px solid rgba(255,255,255,0.1)",
+                      fontSize: 12, lineHeight: 1.5, color: "rgba(255,255,255,0.85)",
+                    }}>{msg.text}</div>
+                  ))}
+                  <div ref={chatBottomRef} />
+                </div>
+                <div style={{ flexShrink: 0, padding: "8px 10px", borderTop: "1px solid rgba(255,255,255,0.07)", display: "flex", gap: 6 }}>
+                  <textarea
+                    ref={chatInputRef}
+                    value={chatInput}
+                    onChange={e => setChatInput(e.target.value)}
+                    onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); void sendChat(); } }}
+                    placeholder="Ask about grammar…"
+                    rows={1}
+                    style={{ flex: 1, resize: "none", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 8, padding: "6px 10px", fontSize: 12, color: "white", outline: "none", lineHeight: 1.5 }}
+                  />
+                  <button onClick={() => void sendChat()} disabled={chatBusy || !chatInput.trim()} style={{ padding: "6px 12px", fontSize: 12, fontWeight: 600, borderRadius: 8, cursor: "pointer", background: "rgba(139,92,246,0.4)", color: "white", border: "1px solid rgba(139,92,246,0.5)" }}>
+                    {chatBusy ? "…" : "↑"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* History content */}
+          {rightPanelMode === "history" && (
           <div style={{ flex: 1, overflowY: "auto", padding: "12px 14px 40px", display: "flex", flexDirection: "column", gap: 8 }}>
             {history.map((entry, i) => {
               if (entry.isWrongAttempt && resolvedSentenceIds.has(entry.sentenceId)) return null;
@@ -3457,11 +3594,10 @@ export default function WordDrillGame({
             })}
             <div ref={historyEndRef} />
           </div>
+          )}
         </div>
 
       </div>
-
-      {renderChat()}
     </div>
   );
 }

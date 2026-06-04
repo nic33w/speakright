@@ -881,6 +881,126 @@
       "damage_multiplier": 0.6,
       "hints_used_count": 0,
       "hints_used_phrases": []
+    },
+    {
+      "timestamp": "2026-06-04T01:15:37.269230",
+      "conversation_id": "trivia2_spotlight_dar",
+      "difficulty": "easy",
+      "native": "Translate using the word 'dar': Can you pass me the water?",
+      "user_answer": "¿Puedes pasarme la agua?",
+      "feedback_keys": [
+        "missing_target_word"
+      ],
+      "issues": [
+        {
+          "feedback_key": "missing_target_word",
+          "corrected_snippet": null,
+          "feedback_explanation": "Your answer is correct, but this exercise requires you to use 'dar' — the word being practiced here."
+        }
+      ],
+      "damage_multiplier": 0.0,
+      "hints_used_count": 0,
+      "hints_used_phrases": []
+    },
+    {
+      "timestamp": "2026-06-04T01:15:48.472116",
+      "conversation_id": "trivia2_spotlight_dar",
+      "difficulty": "easy",
+      "native": "Translate using the word 'dar': Can you pass me the water?",
+      "user_answer": "¿Puedes darme el agua?",
+      "feedback_keys": [
+        "perfect"
+      ],
+      "issues": [
+        {
+          "feedback_key": "perfect",
+          "corrected_snippet": null,
+          "feedback_explanation": null
+        }
+      ],
+      "damage_multiplier": 1.0,
+      "hints_used_count": 0,
+      "hints_used_phrases": []
+    },
+    {
+      "timestamp": "2026-06-04T01:18:53.125906",
+      "conversation_id": "trivia2_free_volver",
+      "difficulty": "medium",
+      "native": "Let's try again",
+      "user_answer": "Vamos a volver a intentar.",
+      "feedback_keys": [
+        "perfect"
+      ],
+      "issues": [
+        {
+          "feedback_key": "perfect",
+          "corrected_snippet": null,
+          "feedback_explanation": null
+        }
+      ],
+      "damage_multiplier": 1.0,
+      "hints_used_count": 0,
+      "hints_used_phrases": []
+    },
+    {
+      "timestamp": "2026-06-04T01:20:38.096117",
+      "conversation_id": "trivia2_blitz_pasar",
+      "difficulty": "easy",
+      "native": "Translate using the word 'pasar': I had a great time",
+      "user_answer": "Me pasó bien.",
+      "feedback_keys": [
+        "missing_target_word"
+      ],
+      "issues": [
+        {
+          "feedback_key": "missing_target_word",
+          "corrected_snippet": null,
+          "feedback_explanation": "Your answer is correct, but this exercise requires you to use 'pasar' — the word being practiced here."
+        }
+      ],
+      "damage_multiplier": 0.0,
+      "hints_used_count": 0,
+      "hints_used_phrases": []
+    },
+    {
+      "timestamp": "2026-06-04T01:21:45.544576",
+      "conversation_id": "trivia2_blitz_pasar",
+      "difficulty": "hard",
+      "native": "Translate using the word 'pasar': I spent the night there",
+      "user_answer": "Pasé la noche ahí.",
+      "feedback_keys": [
+        "missing_target_word"
+      ],
+      "issues": [
+        {
+          "feedback_key": "missing_target_word",
+          "corrected_snippet": null,
+          "feedback_explanation": "Your answer is correct, but this exercise requires you to use 'pasar' — the word being practiced here."
+        }
+      ],
+      "damage_multiplier": 0.0,
+      "hints_used_count": 0,
+      "hints_used_phrases": []
+    },
+    {
+      "timestamp": "2026-06-04T01:21:58.491809",
+      "conversation_id": "trivia2_blitz_pasar",
+      "difficulty": "hard",
+      "native": "Translate using the word 'pasar': I spent the night there",
+      "user_answer": "Pasé la noche ahí.",
+      "feedback_keys": [
+        "missing_target_word"
+      ],
+      "issues": [
+        {
+          "feedback_key": "missing_target_word",
+          "corrected_snippet": null,
+          "feedback_explanation": "Your answer is correct, but this exercise requires you to use 'pasar' — the word being practiced here."
+        }
+      ],
+      "damage_multiplier": 0.0,
+      "hints_used_count": 0,
+      "hints_used_phrases": []
     }
   ],
   "topics_to_practice": []
