@@ -2,6 +2,11 @@
 // Battle mode: conversational battle with translation challenges
 import React, { useEffect, useState, useRef } from "react";
 import { normalizeNumberTokens } from "./numUtils";
+import {
+  HINT_COLORS, FEEDBACK_MAP, FEEDBACK_COLORS, FEEDBACK_LABELS,
+  HintItem, CorrectionToken, FeedbackIssue,
+  tokenizeWithHints, diffExampleVsUser, calculateDistance, distanceToOpacity,
+} from "./sharedGameUtils";
 import BATTLE_CONV_CAFE from './battle_conversations_es.json';
 import BATTLE_CONV_MARKET from './battle_conversations_es_2.json';
 import BATTLE_CONV_NEIGHBOR from './battle_conversations_es_3.json';
@@ -11,7 +16,6 @@ import BATTLE_CONV_OFFICE from './battle_conversations_es_5.json';
 
 type LangSpec = { code: string; name: string };
 
-type HintItem = { native: string; learning: string; note?: string };
 
 type DifficultyOption = {
   native: string;
@@ -86,12 +90,6 @@ const CONV_LANGUAGE: Record<string, LangSpec> = {
 
 type Difficulty = "easy" | "medium" | "hard";
 
-type FeedbackIssue = {
-  feedbackKey: string;
-  correctedSnippet?: string | null;
-  feedbackExplanation?: string | null;
-};
-
 type CompletedRound = {
   id: number | string;
   speaker: "player" | "enemy";
@@ -129,56 +127,6 @@ const MIN_DAMAGE = 5;
 const ENEMY_DAMAGE = 15;
 const DEFEND_COUNTER_DAMAGE = 10;
 
-const FEEDBACK_MAP: Record<string, string> = {
-  perfect: "Sounds natural — perfect answer!",
-  asr_error: "Looks like a speech-to-text mishearing — full credit given.",
-  missing_minor_words: "Almost perfect — just missing a small word or particle.",
-  missing_content: "Part of the meaning from the prompt was left out.",
-  gender_agreement: "Check the gender agreement — the article or adjective should match the noun.",
-  register_too_formal: "Grammatically correct, but a bit too formal for this situation. Aim for a more casual, everyday tone.",
-  register_too_informal: "Grammatically correct, but a bit too casual for this situation. Aim for a slightly more neutral tone.",
-  subtle_meaning_shift: "The meaning is slightly different from what was asked — close, but not quite.",
-  wrong_mood: "The meaning is clear, but this calls for the subjunctive or conditional mood.",
-  word_order: "The words are in an unusual order — the meaning comes through but it sounds a bit off.",
-  unnatural_phrasing: "This is understandable but sounds unnatural to a native speaker.",
-  wrong_conjugation: "The verb is conjugated incorrectly.",
-  wrong_tense: "The tense used changes or contradicts the intended meaning.",
-  wrong_meaning: "The answer doesn't match what was asked.",
-};
-
-const FEEDBACK_COLORS: Record<string, string> = {
-  perfect: "#4ade80",
-  asr_error: "#60a5fa",
-  missing_minor_words: "#fbbf24",
-  missing_content: "#f97316",
-  gender_agreement: "#fb923c",
-  register_too_formal: "#a78bfa",
-  register_too_informal: "#c084fc",
-  subtle_meaning_shift: "#fb923c",
-  wrong_mood: "#f97316",
-  word_order: "#fbbf24",
-  unnatural_phrasing: "#f97316",
-  wrong_conjugation: "#f87171",
-  wrong_tense: "#f87171",
-  wrong_meaning: "#ef4444",
-};
-
-const FEEDBACK_LABELS: Record<string, string> = {
-  perfect: "Perfect",
-  asr_error: "STT Error",
-  missing_minor_words: "Minor Word",
-  missing_content: "Missing Content",
-  gender_agreement: "Gender",
-  register_too_formal: "Too Formal",
-  register_too_informal: "Too Informal",
-  subtle_meaning_shift: "Meaning Shift",
-  wrong_mood: "Wrong Mood",
-  word_order: "Word Order",
-  unnatural_phrasing: "Unnatural",
-  wrong_conjugation: "Conjugation",
-  wrong_tense: "Wrong Tense",
-  wrong_meaning: "Wrong Meaning",
-};
 const PLAYER_MAX_HP = 100;
 const ENEMY_MAX_HP = 200;
 const PLAYER_PET_EMOJIS = ["🐺", "🦊", "🦅"];
@@ -189,68 +137,6 @@ const PET_DAMAGE = 5;
 type Pet = { id: string; emoji: string; hp: number; maxHp: number };
 
 
-// ── Tokenizes native sentence text into hint-mapped segments ──
-function tokenizeWithHints(
-  text: string,
-  hints: HintItem[]
-): Array<{ text: string; hintIndex: number | null }> {
-  if (!hints.length) return [{ text, hintIndex: null }];
-  type Span = { start: number; end: number; hintIndex: number };
-  const spans: Span[] = [];
-  hints.forEach((hint, hi) => {
-    const terms = hint.native.split("/").map(t => t.trim()).filter(Boolean);
-    for (const term of terms) {
-      const escaped = term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-      const re = new RegExp(escaped, "gi");
-      let m: RegExpExecArray | null;
-      while ((m = re.exec(text)) !== null) {
-        spans.push({ start: m.index, end: m.index + m[0].length, hintIndex: hi });
-      }
-    }
-  });
-  spans.sort((a, b) => a.start !== b.start ? a.start - b.start : (b.end - b.start) - (a.end - a.start));
-  const kept: Span[] = [];
-  let cursor = 0;
-  for (const sp of spans) {
-    if (sp.start >= cursor) { kept.push(sp); cursor = sp.end; }
-  }
-  const result: Array<{ text: string; hintIndex: number | null }> = [];
-  let pos = 0;
-  for (const sp of kept) {
-    if (pos < sp.start) result.push({ text: text.slice(pos, sp.start), hintIndex: null });
-    result.push({ text: text.slice(sp.start, sp.end), hintIndex: sp.hintIndex });
-    pos = sp.end;
-  }
-  if (pos < text.length) result.push({ text: text.slice(pos), hintIndex: null });
-  return result.length ? result : [{ text, hintIndex: null }];
-}
-
-// ── Word-level diff: returns example words tagged matched/different vs user's answer ──
-function diffExampleVsUser(userText: string, exampleText: string): Array<{ word: string; matched: boolean }> {
-  const normalize = (w: string) => w.toLowerCase().replace(/[.,!?;:¿¡"""'']/g, "");
-  const aWords = userText.trim().split(/\s+/).map(normalize);
-  const bWords = exampleText.trim().split(/\s+/);
-  const bNorm = bWords.map(normalize);
-  const m = aWords.length, n = bWords.length;
-  const dp: number[][] = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0));
-  for (let i = 1; i <= m; i++)
-    for (let j = 1; j <= n; j++)
-      dp[i][j] = aWords[i - 1] === bNorm[j - 1] ? dp[i - 1][j - 1] + 1 : Math.max(dp[i - 1][j], dp[i][j - 1]);
-  const result: Array<{ word: string; matched: boolean }> = [];
-  let i = m, j = n;
-  while (j > 0) {
-    if (i > 0 && aWords[i - 1] === bNorm[j - 1]) {
-      result.unshift({ word: bWords[j - 1], matched: true });
-      i--; j--;
-    } else if (i === 0 || dp[i - 1][j] < dp[i][j - 1]) {
-      result.unshift({ word: bWords[j - 1], matched: false });
-      j--;
-    } else {
-      i--;
-    }
-  }
-  return result;
-}
 
 // ── Expanded player log entry: 4-section hover layout ──
 type PlayerLogEntryExpandedProps = {
@@ -1034,7 +920,6 @@ export default function BattleGame({
     return acceptedList.find(acc => normalize(acc) === userNorm) ?? null;
   }
 
-  const HINT_COLORS = ["#fbbf24", "#67e8f9", "#86efac", "#c4b5fd", "#f9a8d4", "#fdba74"];
 
   function renderSentenceWithHints(
     text: string,
@@ -1559,21 +1444,6 @@ export default function BattleGame({
     audio0.play().catch(() => setArenaPlayingHint(null));
   }
 
-  // Proximity-based scaling for hints
-  function calculateDistance(cursorX: number, cursorY: number, el: HTMLDivElement): number {
-    const rect = el.getBoundingClientRect();
-    const dx = Math.max(rect.left - cursorX, 0, cursorX - rect.right);
-    const dy = Math.max(rect.top - cursorY, 0, cursorY - rect.bottom);
-    return Math.sqrt(dx * dx + dy * dy);
-  }
-
-
-  function distanceToOpacity(distance: number): number {
-    const MAX_DISTANCE = 300;
-    if (distance >= MAX_DISTANCE) return 0;
-    if (distance <= 0) return 1;
-    return 1 - distance / MAX_DISTANCE;
-  }
 
   // Get the active hints list based on mode
   function getActiveHints(): HintItem[] {
