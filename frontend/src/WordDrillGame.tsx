@@ -7,7 +7,7 @@ import {
   normalizeForMatch, checkFuzzyMatch, restoreAccentsInTokens,
   tokenizeWithHints, diffExampleVsUser, calculateDistance, distanceToOpacity,
 } from "./sharedGameUtils";
-import { FeedbackBadges, CorrectionTokens } from "./sharedGameComponents";
+import { FeedbackBadges, CorrectionTokens, HintCards } from "./sharedGameComponents";
 
 type LangSpec = { code: string; name: string };
 
@@ -170,8 +170,6 @@ export default function WordDrillGame({
 
   // Hints state
   const [viewedHints, setViewedHints] = useState<Set<number>>(new Set());
-  const [closestHintIndex, setClosestHintIndex] = useState<number | null>(null);
-  const [closestHintOpacity, setClosestHintOpacity] = useState<number>(0);
 
   // Learn mode conjugations (word-level, may be null if not a verb)
   const [conjugations, setConjugations] = useState<Conjugations | null>(null);
@@ -247,7 +245,6 @@ export default function WordDrillGame({
   const previousLengthRef = useRef<number>(0);
   const entryIdCounter = useRef<number>(0);
   const historyEndRef = useRef<HTMLDivElement>(null);
-  const hintCardsRefs = useRef<(HTMLDivElement | null)[]>([]);
   const currentAudioRef = useRef<HTMLAudioElement | null>(null);
   const audioCacheRef = useRef<Map<string, string>>(new Map());
   const expandTimerRef = useRef<number | null>(null);
@@ -768,20 +765,6 @@ export default function WordDrillGame({
 
   // ── Hint proximity ────────────────────────────────────────────────────────
 
-  function handleHintsMouseMove(e: React.MouseEvent) {
-    const hints = currentSentence?.hints ?? [];
-    if (!hints.length) return;
-    let minDist = Infinity;
-    let minIdx: number | null = null;
-    hintCardsRefs.current.forEach((el, i) => {
-      if (!el || viewedHints.has(i)) return;
-      const d = calculateDistance(e.clientX, e.clientY, el);
-      if (d < minDist) { minDist = d; minIdx = i; }
-    });
-    setClosestHintIndex(minIdx);
-    setClosestHintOpacity(minIdx !== null ? distanceToOpacity(minDist) : 0);
-  }
-
   // ── Data fetching ─────────────────────────────────────────────────────────
 
   function advanceToNextSentence() {
@@ -794,8 +777,6 @@ export default function WordDrillGame({
     setFeedbackMessage("");
     setLastCheckResult(null);
     setViewedHints(new Set());
-    setClosestHintIndex(null);
-    setClosestHintOpacity(0);
     setChatMessages([]);
     setChatOpen(false);
     setFreeformText("");
@@ -804,7 +785,6 @@ export default function WordDrillGame({
     cancelFreeformPendingAutoSend();
     freeformPreviousLengthRef.current = 0;
     previousLengthRef.current = 0;
-    hintCardsRefs.current = new Array((sentence.hints ?? []).length).fill(null);
   }
 
   async function loadSentencesForWord(word: string, langOverride?: "es" | "id") {
@@ -876,15 +856,12 @@ export default function WordDrillGame({
     setFeedbackMessage("");
     setLastCheckResult(null);
     setViewedHints(new Set());
-    setClosestHintIndex(null);
-    setClosestHintOpacity(0);
     setFreeformText("");
     setFreeformResult(null);
     setFreeformBusy(false);
     cancelFreeformPendingAutoSend();
     freeformPreviousLengthRef.current = 0;
     previousLengthRef.current = 0;
-    hintCardsRefs.current = new Array((uc.practice.hints ?? []).length).fill(null);
     learnPhaseRef.current = "explanation";
     setLearnPhase("explanation");
     demoAnimStepRef.current = 0;
@@ -990,10 +967,7 @@ export default function WordDrillGame({
     setFeedbackMessage("");
     setLastCheckResult(null);
     setViewedHints(new Set());
-    setClosestHintIndex(null);
-    setClosestHintOpacity(0);
     previousLengthRef.current = 0;
-    hintCardsRefs.current = new Array((saved.sentence.hints ?? []).length).fill(null);
     stopAudio();
   }
 
@@ -1632,70 +1606,6 @@ export default function WordDrillGame({
     );
   }
 
-  function renderHints() {
-    const hints = currentSentence?.hints ?? [];
-    if (!hints.length) return null;
-    return (
-      <div
-        onMouseMove={handleHintsMouseMove}
-        onMouseLeave={() => { setClosestHintIndex(null); setClosestHintOpacity(0); stopAudio(); }}
-      >
-        <div style={{ fontSize: 11, opacity: 0.4, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>Hints</div>
-        <div style={{ display: "flex", gap: 10, overflowX: "auto", padding: "4px 0" }}>
-          {hints.map((hint, idx) => {
-            const isRevealed = viewedHints.has(idx);
-            const isClosest = closestHintIndex === idx && !isRevealed;
-            const proximityBorder = isClosest ? `2px solid rgba(0,212,255,${Math.max(0.3, closestHintOpacity)})` : undefined;
-            const proximityBg = isClosest ? `rgba(0,212,255,${0.15 * closestHintOpacity})` : undefined;
-            const learningParts = hint.learning.split("/").map(p => p.trim()).filter(Boolean);
-            return (
-              <div key={idx} ref={el => { hintCardsRefs.current[idx] = el; }}
-                style={{
-                  flexShrink: 0, width: 130, display: "flex", flexDirection: "column",
-                  border: isRevealed ? "2px solid rgba(255,255,255,0.3)" : proximityBorder || "2px solid #FFD700",
-                  borderRadius: 8, padding: "8px 12px 6px",
-                  background: isRevealed ? "rgba(255,255,255,0.1)" : proximityBg || "rgba(255,215,0,0.1)",
-                  transition: "all 0.3s ease",
-                  boxShadow: isRevealed ? "none" : "0 2px 8px rgba(255,215,0,0.2)",
-                }}
-              >
-                <div style={{ fontWeight: 600, marginBottom: 6, fontSize: 14, color: isRevealed ? "#9ca3af" : "white" }}>
-                  {hint.native}
-                </div>
-                {isRevealed ? (
-                  <div style={{ marginBottom: 6, flex: 1 }}>
-                    {learningParts.length > 1
-                      ? <ol style={{ margin: 0, padding: "0 0 0 16px", color: "#93c5fd", fontSize: 12, fontWeight: 500 }}>{learningParts.map((p, pi) => <li key={pi}>{p}</li>)}</ol>
-                      : <div style={{ color: "#93c5fd", fontSize: 12, fontWeight: 500 }}>{hint.learning}</div>}
-                    {hint.note && <div style={{ fontSize: 10, fontStyle: "italic", color: "rgba(255,255,255,0.45)", marginTop: 4 }}>{hint.note}</div>}
-                  </div>
-                ) : (
-                  <button
-                    onMouseEnter={() => setViewedHints(prev => new Set([...prev, idx]))}
-                    style={{
-                      width: "100%", padding: "6px 8px", fontSize: 12, borderRadius: 6, cursor: "pointer",
-                      textAlign: "center", fontWeight: 600, marginBottom: 6, flex: 1, minHeight: 44,
-                      background: "rgba(147,197,253,0.08)", border: "1px dashed rgba(147,197,253,0.3)",
-                      color: "rgba(147,197,253,0.5)",
-                    }}
-                  >Aa</button>
-                )}
-                <button
-                  onMouseEnter={() => fetchAndPlayAudio(hint.learning.split("/")[0].trim(), learningLocale)}
-                  onMouseLeave={() => stopAudio()}
-                  style={{
-                    width: "100%", padding: "5px 8px", fontSize: 13, borderRadius: 6, cursor: "pointer",
-                    textAlign: "center", background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.15)",
-                    color: "rgba(255,255,255,0.55)", transition: "all 0.15s",
-                  }}
-                >🔊</button>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-    );
-  }
 
   // ── Language picker screen ────────────────────────────────────────────────
   const wordInfo = (drillLang === "id" ? wordListId : wordListEs).find(w => w.key === selectedWord)
@@ -2605,7 +2515,7 @@ export default function WordDrillGame({
                         transition: "opacity 0.5s ease, transform 0.5s ease",
                         pointerEvents: practiceRevealStep >= 3 ? "auto" : "none",
                       }}>
-                        {hasHints && renderHints()}
+                        {hasHints && <HintCards key={currentSentence?.id} hints={currentSentence?.hints ?? []} viewedHints={viewedHints} onReveal={idx => setViewedHints(prev => new Set([...prev, idx]))} onPlayAudio={text => void fetchAndPlayAudio(text, learningLocale)} onStopAudio={stopAudio} />}
                       </div>
 
                       <div ref={learnPracticeEndRef} style={{ height: 8 }} />
@@ -3061,7 +2971,7 @@ export default function WordDrillGame({
                 </div>
 
                 {/* Hints */}
-                {hasHints && renderHints()}
+                {hasHints && <HintCards key={currentSentence?.id} hints={currentSentence?.hints ?? []} viewedHints={viewedHints} onReveal={idx => setViewedHints(prev => new Set([...prev, idx]))} onPlayAudio={text => void fetchAndPlayAudio(text, learningLocale)} onStopAudio={stopAudio} />}
               </>
             ) : null}
           </div>

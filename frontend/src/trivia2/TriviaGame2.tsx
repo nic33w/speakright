@@ -6,7 +6,7 @@ import {
   HintItem, FeedbackIssue,
   tokenizeWithHints, diffExampleVsUser, calculateDistance, distanceToOpacity,
 } from "../sharedGameUtils";
-import { FeedbackBadges, CorrectionTokens } from "../sharedGameComponents";
+import { FeedbackBadges, CorrectionTokens, HintCards } from "../sharedGameComponents";
 
 type LangSpec = { code: string; name: string };
 
@@ -478,9 +478,6 @@ export default function TriviaGame2({
   // Hint state
   const [viewedHints, setViewedHints] = useState<Set<number>>(new Set());
   const [hintAudio, setHintAudio] = useState<HTMLAudioElement | null>(null);
-  const [closestHintIndex, setClosestHintIndex] = useState<number | null>(null);
-  const [closestHintOpacity, setClosestHintOpacity] = useState(0);
-  const hintCardsRefs = useRef<(HTMLDivElement | null)[]>([]);
   const hintAudioCache = useRef<Map<string, string>>(new Map());
 
   // Refs for stale-closure avoidance
@@ -1059,21 +1056,13 @@ export default function TriviaGame2({
     audio.play().catch(() => {});
   }
 
-  const handleHintsMouseMove = useCallback((e: React.MouseEvent) => {
-    if (!currentQuestion?.sentence.hints.length) return;
-    const hints = currentQuestion.sentence.hints;
-    let closest: number | null = null;
-    let minDist = Infinity;
-    hints.forEach((_, index) => {
-      if (viewedHints.has(index)) return;
-      const el = hintCardsRefs.current[index];
-      if (!el) return;
-      const dist = calculateDistance(e.clientX, e.clientY, el);
-      if (dist < minDist) { minDist = dist; closest = index; }
-    });
-    setClosestHintIndex(closest);
-    setClosestHintOpacity(closest !== null ? distanceToOpacity(minDist) : 0);
-  }, [currentQuestion, viewedHints]);
+  async function playHintText(text: string) {
+    await playHintAudio({ native: "", learning: text });
+  }
+
+  function stopHintAudio() {
+    if (hintAudio) { hintAudio.pause(); setHintAudio(null); }
+  }
 
   // Sorted players for display
   const sortedPlayers = [...players].sort((a, b) => b.score - a.score);
@@ -1368,76 +1357,17 @@ export default function TriviaGame2({
               </div>
             </div>
 
-            {/* Hints — positioned right below sentence, same as WordDrillGame */}
+            {/* Hints */}
             {hints.length > 0 && (
-              <div
-                style={{ marginBottom: 12 }}
-                onMouseMove={handleHintsMouseMove}
-                onMouseLeave={() => { setClosestHintIndex(null); setClosestHintOpacity(0); if (hintAudio) { hintAudio.pause(); setHintAudio(null); } }}
-              >
-                <div style={{ fontSize: 11, opacity: 0.4, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>Hints</div>
-                <div style={{ display: "flex", gap: 10, overflowX: "auto", padding: "4px 0" }}>
-                  {hints.map((hint, idx) => {
-                    const isRevealed = viewedHints.has(idx);
-                    const isClosest = closestHintIndex === idx && !isRevealed;
-                    const learningParts = hint.learning.split("/").map(p => p.trim()).filter(Boolean);
-                    return (
-                      <div
-                        key={idx}
-                        ref={el => { hintCardsRefs.current[idx] = el; }}
-                        style={{
-                          flexShrink: 0, width: 130, display: "flex", flexDirection: "column",
-                          border: isRevealed
-                            ? "2px solid rgba(255,255,255,0.3)"
-                            : isClosest
-                            ? `2px solid rgba(0,212,255,${Math.max(0.3, closestHintOpacity)})`
-                            : "2px solid #FFD700",
-                          borderRadius: 8, padding: "8px 12px 6px",
-                          background: isRevealed
-                            ? "rgba(255,255,255,0.1)"
-                            : isClosest
-                            ? `rgba(0,212,255,${0.15 * closestHintOpacity})`
-                            : "rgba(255,215,0,0.1)",
-                          boxShadow: isRevealed || isClosest ? "none" : "0 2px 8px rgba(255,215,0,0.2)",
-                          transition: "all 0.3s ease",
-                        }}
-                      >
-                        <div style={{ fontWeight: 600, marginBottom: 6, fontSize: 14, color: isRevealed ? "#9ca3af" : "white" }}>
-                          {hint.native}
-                        </div>
-                        {isRevealed ? (
-                          <div style={{ marginBottom: 6, flex: 1 }}>
-                            {learningParts.length > 1
-                              ? <ol style={{ margin: 0, padding: "0 0 0 16px", color: "#93c5fd", fontSize: 12, fontWeight: 500 }}>
-                                  {learningParts.map((p, pi) => <li key={pi}>{p}</li>)}
-                                </ol>
-                              : <div style={{ color: "#93c5fd", fontSize: 12, fontWeight: 500 }}>{hint.learning}</div>}
-                            {hint.note && <div style={{ fontSize: 10, fontStyle: "italic", color: "rgba(255,255,255,0.45)", marginTop: 4 }}>{hint.note}</div>}
-                          </div>
-                        ) : (
-                          <button
-                            onMouseEnter={() => { revealHint(idx); }}
-                            style={{
-                              width: "100%", padding: "6px 8px", fontSize: 12, borderRadius: 6, cursor: "pointer",
-                              textAlign: "center", fontWeight: 600, marginBottom: 6, flex: 1, minHeight: 44,
-                              background: "rgba(147,197,253,0.08)", border: "1px dashed rgba(147,197,253,0.3)",
-                              color: "rgba(147,197,253,0.5)",
-                            }}
-                          >Aa</button>
-                        )}
-                        <button
-                          onMouseEnter={() => { revealHint(idx); playHintAudio(hint); }}
-                          onMouseLeave={() => { if (hintAudio) { hintAudio.pause(); setHintAudio(null); } }}
-                          style={{
-                            width: "100%", padding: "5px 8px", fontSize: 13, borderRadius: 6, cursor: "pointer",
-                            textAlign: "center", background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.15)",
-                            color: "rgba(255,255,255,0.55)", transition: "all 0.15s",
-                          }}
-                        >🔊</button>
-                      </div>
-                    );
-                  })}
-                </div>
+              <div style={{ marginBottom: 12 }}>
+                <HintCards
+                  key={currentQuestion?.sentence.id}
+                  hints={hints}
+                  viewedHints={viewedHints}
+                  onReveal={revealHint}
+                  onPlayAudio={text => void playHintText(text)}
+                  onStopAudio={stopHintAudio}
+                />
               </div>
             )}
 
