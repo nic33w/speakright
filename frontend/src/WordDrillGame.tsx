@@ -7,6 +7,7 @@ import {
   normalizeForMatch, checkFuzzyMatch, restoreAccentsInTokens,
   tokenizeWithHints, diffExampleVsUser, calculateDistance, distanceToOpacity,
 } from "./sharedGameUtils";
+import { FeedbackBadges, CorrectionTokens } from "./sharedGameComponents";
 
 type LangSpec = { code: string; name: string };
 
@@ -1177,42 +1178,6 @@ export default function WordDrillGame({
 
   // ── Sub-renderers ─────────────────────────────────────────────────────────
 
-  function renderFeedbackBadges(issues: FeedbackIssue[], small = false) {
-    return issues.map((issue, i) => {
-      const catColor = FEEDBACK_COLORS[issue.feedbackKey] ?? "#94a3b8";
-      const catLabel = FEEDBACK_LABELS[issue.feedbackKey] ?? issue.feedbackKey;
-      const tip = issue.feedbackExplanation ?? FEEDBACK_MAP[issue.feedbackKey];
-      return (
-        <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 6, flexWrap: "wrap" }}>
-          <span style={{
-            fontSize: small ? 10 : 11, fontWeight: 600, padding: small ? "1px 6px" : "2px 8px", borderRadius: 999,
-            background: `${catColor}22`, border: `1px solid ${catColor}66`, color: catColor,
-            whiteSpace: "nowrap", flexShrink: 0,
-          }}>
-            {catLabel}
-          </span>
-          {tip && (
-            <span style={{ fontSize: small ? 11 : 12, color: catColor, lineHeight: 1.4, opacity: 0.9 }}>
-              {tip}{issue.correctedSnippet ? <span style={{ fontWeight: 600 }}> → {issue.correctedSnippet}</span> : null}
-            </span>
-          )}
-        </div>
-      );
-    });
-  }
-
-  function renderCorrectionTokens(tokens: Array<{ text: string; status: "ok" | "remove" | "add" }>, small = false) {
-    return (
-      <div style={{ fontSize: small ? 12 : 13, lineHeight: 1.7, wordBreak: "break-word", padding: "5px 10px", background: "rgba(255,255,255,0.04)", borderRadius: 6 }}>
-        {tokens.map((tok, ti) => {
-          if (tok.status === "remove") return <span key={ti} style={{ color: "#fca5a5", textDecoration: "line-through" }}>{tok.text}</span>;
-          if (tok.status === "add") return <span key={ti} style={{ color: "#86efac", fontWeight: 600 }}>{tok.text}</span>;
-          return <span key={ti} style={{ color: "rgba(255,255,255,0.8)" }}>{tok.text}</span>;
-        })}
-      </div>
-    );
-  }
-
   function renderExpandedHistoryEntry(entry: HistoryEntry, wrongAttempts: HistoryEntry[]) {
     const tokens = tokenizeWithHints(entry.english, entry.allHints);
     const entryIssues: FeedbackIssue[] = entry.feedbackIssues?.length
@@ -1275,7 +1240,7 @@ export default function WordDrillGame({
                 ))}
               </div>
             ) : entry.correctionTokens?.length ? (
-              renderCorrectionTokens(entry.correctionTokens)
+              <CorrectionTokens tokens={entry.correctionTokens} />
             ) : (
               <div style={{ fontSize: 13, color: entry.isWrongAttempt ? "#fca5a5" : "#86efac" }}>{entry.userAnswer}</div>
             )}
@@ -1286,7 +1251,7 @@ export default function WordDrillGame({
           <div>
             <div style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em", opacity: 0.4, marginBottom: 4 }}>Feedback</div>
             <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-              {renderFeedbackBadges(entryIssues)}
+              <FeedbackBadges issues={entryIssues} />
             </div>
           </div>
         )}
@@ -1305,10 +1270,10 @@ export default function WordDrillGame({
                 return (
                   <div key={wa.entryId} style={{ padding: "6px 10px", borderRadius: 8, background: "rgba(239,68,68,0.12)", border: "1px solid rgba(239,68,68,0.2)" }}>
                     <div style={{ fontSize: 12, color: "#fca5a5", marginBottom: waIssues.length ? 4 : 0 }}>{wa.userAnswer}</div>
-                    {wa.correctionTokens?.length ? renderCorrectionTokens(wa.correctionTokens, true) : null}
+                    {wa.correctionTokens?.length ? <CorrectionTokens tokens={wa.correctionTokens} small /> : null}
                     {waIssues.length > 0 && (
                       <div style={{ display: "flex", flexDirection: "column", gap: 3, marginTop: 4 }}>
-                        {renderFeedbackBadges(waIssues, true)}
+                        <FeedbackBadges issues={waIssues} small />
                       </div>
                     )}
                   </div>
@@ -1492,10 +1457,10 @@ export default function WordDrillGame({
             )}
             {liveIssues.length > 0 && (
               <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                {renderFeedbackBadges(liveIssues)}
+                <FeedbackBadges issues={liveIssues} />
               </div>
             )}
-            {lastCheckResult?.correctionTokens?.length ? renderCorrectionTokens(lastCheckResult.correctionTokens) : null}
+            {lastCheckResult?.correctionTokens?.length ? <CorrectionTokens tokens={lastCheckResult.correctionTokens} /> : null}
           </div>
         )}
 
@@ -1640,7 +1605,7 @@ export default function WordDrillGame({
             </div>
             {freeformResult && (
               <div style={{ marginTop: 8 }}>
-                {freeformResult.correction_tokens.length > 0 && renderCorrectionTokens(freeformResult.correction_tokens)}
+                {freeformResult.correction_tokens.length > 0 && <CorrectionTokens tokens={freeformResult.correction_tokens} />}
                 {freeformResult.feedback_message && (
                   <div style={{ fontSize: 13, color: "rgba(255,255,255,0.6)", marginTop: 4, lineHeight: 1.5 }}>
                     {freeformResult.feedback_message}
@@ -2685,13 +2650,7 @@ export default function WordDrillGame({
                             </div>
                             <div style={{ fontWeight: 500 }}>
                               {entry.correctionTokens?.length ? (
-                                entry.correctionTokens.map((tok, ti) => (
-                                  <span key={ti} style={{
-                                    color: tok.status === "remove" ? "#fca5a5" : tok.status === "add" ? "#86efac" : "rgba(255,255,255,0.85)",
-                                    textDecoration: tok.status === "remove" ? "line-through" : "none",
-                                    fontWeight: tok.status === "add" ? 700 : 400,
-                                  }}>{tok.text}{" "}</span>
-                                ))
+                                <CorrectionTokens tokens={entry.correctionTokens} wrapped={false} />
                               ) : (
                                 <span style={{ color: "rgba(255,255,255,0.8)" }}>{entry.userAnswer}</span>
                               )}
@@ -2775,13 +2734,7 @@ export default function WordDrillGame({
                             {entry.skipped ? (
                               <span style={{ color: "#94a3b8" }}>{entry.correctAnswer}</span>
                             ) : entry.correctionTokens?.length ? (
-                              entry.correctionTokens.map((tok, ti) => (
-                                <span key={ti} style={{
-                                  color: tok.status === "remove" ? "#fca5a5" : tok.status === "add" ? "#86efac" : "rgba(255,255,255,0.85)",
-                                  textDecoration: tok.status === "remove" ? "line-through" : "none",
-                                  fontWeight: tok.status === "add" ? 700 : 400,
-                                }}>{tok.text}{" "}</span>
-                              ))
+                              <CorrectionTokens tokens={entry.correctionTokens} wrapped={false} />
                             ) : (
                               <span style={{ color: entry.isWrongAttempt ? "#fca5a5" : "rgba(255,255,255,0.9)" }}>
                                 {entry.userAnswer || "—"}
@@ -3120,10 +3073,10 @@ export default function WordDrillGame({
                   )}
                   {liveIssues.length > 0 && (
                     <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                      {renderFeedbackBadges(liveIssues)}
+                      <FeedbackBadges issues={liveIssues} />
                     </div>
                   )}
-                  {lastCheckResult?.correctionTokens?.length ? renderCorrectionTokens(lastCheckResult.correctionTokens) : null}
+                  {lastCheckResult?.correctionTokens?.length ? <CorrectionTokens tokens={lastCheckResult.correctionTokens} /> : null}
                 </div>
               )}
 
@@ -3416,13 +3369,7 @@ export default function WordDrillGame({
                     {entry.skipped ? (
                       <span style={{ color: "#94a3b8" }}>{entry.correctAnswer}</span>
                     ) : entry.correctionTokens?.length ? (
-                      entry.correctionTokens.map((tok, ti) => (
-                        <span key={ti} style={{
-                          color: tok.status === "remove" ? "#fca5a5" : tok.status === "add" ? "#86efac" : "rgba(255,255,255,0.85)",
-                          textDecoration: tok.status === "remove" ? "line-through" : "none",
-                          fontWeight: tok.status === "add" ? 700 : 400,
-                        }}>{tok.text}{" "}</span>
-                      ))
+                      <CorrectionTokens tokens={entry.correctionTokens} wrapped={false} />
                     ) : (
                       <span style={{ color: entry.isWrongAttempt ? "#fca5a5" : "rgba(255,255,255,0.9)" }}>
                         {entry.userAnswer || "—"}

@@ -7,6 +7,7 @@ import {
   HintItem, CorrectionToken, FeedbackIssue,
   tokenizeWithHints, diffExampleVsUser, calculateDistance, distanceToOpacity,
 } from "./sharedGameUtils";
+import { FeedbackBadges, CorrectionTokens } from "./sharedGameComponents";
 import BATTLE_CONV_CAFE from './battle_conversations_es.json';
 import BATTLE_CONV_MARKET from './battle_conversations_es_2.json';
 import BATTLE_CONV_NEIGHBOR from './battle_conversations_es_3.json';
@@ -300,15 +301,7 @@ function PlayerLogEntryExpanded({ entry, hideLearnText, conversationId, wrongAtt
             )}
           </div>
           <div style={{ fontSize: 13, lineHeight: 1.6, wordBreak: "break-word" }}>
-            {entry.correctionTokens.map((tok, ti) => {
-              if (tok.status === "remove") return (
-                <span key={ti} style={{ color: "#fca5a5", textDecoration: "line-through", textDecorationColor: "#fca5a5" }}>{tok.text}</span>
-              );
-              if (tok.status === "add") return (
-                <span key={ti} style={{ color: "#86efac", fontWeight: 500 }}>{tok.text}</span>
-              );
-              return <span key={ti} style={{ color: "rgba(255,255,255,0.85)" }}>{tok.text}</span>;
-            })}
+            <CorrectionTokens tokens={entry.correctionTokens} wrapped={false} />
           </div>
         </div>
       ) : (
@@ -369,27 +362,7 @@ function PlayerLogEntryExpanded({ entry, hideLearnText, conversationId, wrongAtt
                 {feedbackText}
               </div>
             )}
-            {effectiveIssues.map((issue, i) => {
-              const tip = issue.feedbackExplanation ?? FEEDBACK_MAP[issue.feedbackKey];
-              const catColor = FEEDBACK_COLORS[issue.feedbackKey] ?? "#94a3b8";
-              const catLabel = FEEDBACK_LABELS[issue.feedbackKey] ?? issue.feedbackKey;
-              return (
-                <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 8, flexWrap: "wrap", marginBottom: i < effectiveIssues.length - 1 ? 5 : 0 }}>
-                  <span style={{
-                    fontSize: 11, fontWeight: 600, padding: "2px 8px", borderRadius: 999,
-                    background: `${catColor}22`, border: `1px solid ${catColor}66`, color: catColor,
-                    whiteSpace: "nowrap", flexShrink: 0,
-                  }}>
-                    {catLabel}
-                  </span>
-                  {tip && (
-                    <span style={{ fontSize: 12, color: catColor, lineHeight: 1.4, opacity: 0.85 }}>
-                      {tip}
-                    </span>
-                  )}
-                </div>
-              );
-            })}
+            <FeedbackBadges issues={effectiveIssues} />
           </div>
         );
       })()}
@@ -409,40 +382,12 @@ function PlayerLogEntryExpanded({ entry, hideLearnText, conversationId, wrongAtt
                 <div key={wi} style={{ background: "rgba(239,68,68,0.1)", borderRadius: 6, padding: "5px 8px" }}>
                   {wa.correctionTokens && wa.correctionTokens.length > 0 ? (
                     <div style={{ fontSize: 12, lineHeight: 1.6, wordBreak: "break-word", marginBottom: waIssues.length ? 4 : 0 }}>
-                      {wa.correctionTokens.map((tok, ti) => {
-                        if (tok.status === "remove") return (
-                          <span key={ti} style={{ color: "#fca5a5", textDecoration: "line-through", textDecorationColor: "#fca5a5" }}>{tok.text}</span>
-                        );
-                        if (tok.status === "add") return (
-                          <span key={ti} style={{ color: "#86efac", fontWeight: 500 }}>{tok.text}</span>
-                        );
-                        return <span key={ti} style={{ color: "rgba(255,255,255,0.7)" }}>{tok.text}</span>;
-                      })}
+                      <CorrectionTokens tokens={wa.correctionTokens} wrapped={false} />
                     </div>
                   ) : (
                     <div style={{ fontSize: 12, color: "#fca5a5", marginBottom: waIssues.length ? 3 : 0 }}>{wa.textLearning}</div>
                   )}
-                  {waIssues.map((issue, ii) => {
-                    const waColor = FEEDBACK_COLORS[issue.feedbackKey] ?? "#94a3b8";
-                    const waLabel = FEEDBACK_LABELS[issue.feedbackKey] ?? issue.feedbackKey;
-                    const waTip = issue.feedbackExplanation ?? FEEDBACK_MAP[issue.feedbackKey];
-                    return (
-                      <div key={ii} style={{ display: "flex", alignItems: "flex-start", gap: 6, flexWrap: "wrap", marginTop: 3 }}>
-                        <span style={{
-                          fontSize: 10, fontWeight: 600, padding: "1px 6px", borderRadius: 999,
-                          background: `${waColor}22`, border: `1px solid ${waColor}66`, color: waColor,
-                          whiteSpace: "nowrap", flexShrink: 0,
-                        }}>
-                          {waLabel}
-                        </span>
-                        {waTip && (
-                          <span style={{ fontSize: 11, color: waColor, lineHeight: 1.4, opacity: 0.85 }}>
-                            {waTip}
-                          </span>
-                        )}
-                      </div>
-                    );
-                  })}
+                  <FeedbackBadges issues={waIssues} small />
                 </div>
               );
             })}
@@ -2679,39 +2624,10 @@ export default function BattleGame({
                           </span>
                         )}
                       </div>
-                      {liveIssues.map((issue, i) => {
-                        const catColor = FEEDBACK_COLORS[issue.feedbackKey] ?? "#94a3b8";
-                        const catLabel = FEEDBACK_LABELS[issue.feedbackKey] ?? issue.feedbackKey;
-                        const tip = issue.feedbackExplanation ?? FEEDBACK_MAP[issue.feedbackKey];
-                        const snippet = issue.correctedSnippet;
-                        return (
-                          <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 8, flexWrap: "wrap", marginTop: i === 0 ? 2 : 0 }}>
-                            <span style={{
-                              fontSize: 11, fontWeight: 600, padding: "2px 8px", borderRadius: 999,
-                              background: `${catColor}22`, border: `1px solid ${catColor}66`, color: catColor,
-                              whiteSpace: "nowrap", flexShrink: 0,
-                            }}>
-                              {catLabel}
-                            </span>
-                            {tip && (
-                              <span style={{ fontSize: 12, color: catColor, lineHeight: 1.4, opacity: 0.85 }}>
-                                {tip}{snippet ? <span style={{ fontWeight: 500 }}> → {snippet}</span> : null}
-                              </span>
-                            )}
-                          </div>
-                        );
-                      })}
+                      <FeedbackBadges issues={liveIssues} />
                       {liveDiffTokens && liveDiffTokens.length > 0 && (
-                        <div style={{ fontSize: 13, lineHeight: 1.6, wordBreak: "break-word", marginTop: 4, padding: "6px 10px", background: "rgba(255,255,255,0.04)", borderRadius: 6 }}>
-                          {liveDiffTokens.map((tok, ti) => {
-                            if (tok.status === "remove") return (
-                              <span key={ti} style={{ color: "#fca5a5", textDecoration: "line-through", textDecorationColor: "#fca5a5" }}>{tok.text}</span>
-                            );
-                            if (tok.status === "add") return (
-                              <span key={ti} style={{ color: "#86efac", fontWeight: 500 }}>{tok.text}</span>
-                            );
-                            return <span key={ti} style={{ color: "rgba(255,255,255,0.8)" }}>{tok.text}</span>;
-                          })}
+                        <div style={{ marginTop: 4 }}>
+                          <CorrectionTokens tokens={liveDiffTokens} />
                         </div>
                       )}
                     </div>

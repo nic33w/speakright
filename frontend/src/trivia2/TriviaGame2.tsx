@@ -6,6 +6,7 @@ import {
   HintItem, FeedbackIssue,
   tokenizeWithHints, diffExampleVsUser, calculateDistance, distanceToOpacity,
 } from "../sharedGameUtils";
+import { FeedbackBadges, CorrectionTokens } from "../sharedGameComponents";
 
 type LangSpec = { code: string; name: string };
 
@@ -373,11 +374,7 @@ function HistoryEntry({
                 </div>
               ) : pr.correctionTokens ? (
                 <div style={{ fontSize: 13, lineHeight: 1.5 }}>
-                  {pr.correctionTokens.map((tok, i) => {
-                    if (tok.status === "remove") return <span key={i} style={{ color: "#fca5a5", textDecoration: "line-through" }}>{tok.text}</span>;
-                    if (tok.status === "add") return <span key={i} style={{ color: "#86efac", fontWeight: 500 }}>{tok.text}</span>;
-                    return <span key={i} style={{ color: "rgba(255,255,255,0.85)" }}>{tok.text}</span>;
-                  })}
+                  <CorrectionTokens tokens={pr.correctionTokens} wrapped={false} />
                 </div>
               ) : (
                 <div style={{ fontSize: 13, color: pr.accepted ? "#86efac" : "#fca5a5" }}>
@@ -391,22 +388,7 @@ function HistoryEntry({
           {pr?.feedbackIssues && pr.feedbackIssues.length > 0 && (
             <div style={{ marginBottom: 8 }}>
               <div style={{ fontSize: 10, opacity: 0.45, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 }}>Feedback</div>
-              {pr.feedbackIssues.map((issue, i) => {
-                const color = FEEDBACK_COLORS[issue.feedbackKey] ?? "#94a3b8";
-                const label = FEEDBACK_LABELS[issue.feedbackKey] ?? issue.feedbackKey;
-                const tip = issue.feedbackExplanation ?? FEEDBACK_MAP[issue.feedbackKey];
-                return (
-                  <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 6, marginBottom: 4, flexWrap: "wrap" }}>
-                    <span style={{
-                      fontSize: 10, fontWeight: 600, padding: "2px 7px", borderRadius: 999,
-                      background: `${color}22`, border: `1px solid ${color}66`, color,
-                    }}>
-                      {label}
-                    </span>
-                    {tip && <span style={{ fontSize: 11, color: "rgba(255,255,255,0.55)", lineHeight: 1.4 }}>{tip}</span>}
-                  </div>
-                );
-              })}
+              <FeedbackBadges issues={pr.feedbackIssues} small />
             </div>
           )}
 
@@ -418,25 +400,10 @@ function HistoryEntry({
                 <div key={i} style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)", borderRadius: 6, padding: "6px 8px", marginBottom: 4 }}>
                   {attempt.correctionTokens && (
                     <div style={{ fontSize: 12, marginBottom: 3, lineHeight: 1.4 }}>
-                      {attempt.correctionTokens.map((tok, j) => {
-                        if (tok.status === "remove") return <span key={j} style={{ color: "#fca5a5", textDecoration: "line-through" }}>{tok.text}</span>;
-                        if (tok.status === "add") return <span key={j} style={{ color: "#86efac" }}>{tok.text}</span>;
-                        return <span key={j} style={{ color: "rgba(255,255,255,0.7)" }}>{tok.text}</span>;
-                      })}
+                      <CorrectionTokens tokens={attempt.correctionTokens} wrapped={false} />
                     </div>
                   )}
-                  <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
-                    {attempt.feedbackIssues?.map((issue, j) => {
-                      const color = FEEDBACK_COLORS[issue.feedbackKey] ?? "#94a3b8";
-                      const label = FEEDBACK_LABELS[issue.feedbackKey] ?? issue.feedbackKey;
-                      return (
-                        <span key={j} style={{
-                          fontSize: 10, fontWeight: 600, padding: "1px 6px", borderRadius: 999,
-                          background: `${color}22`, border: `1px solid ${color}55`, color,
-                        }}>{label}</span>
-                      );
-                    })}
-                  </div>
+                  {attempt.feedbackIssues?.length ? <FeedbackBadges issues={attempt.feedbackIssues} small /> : null}
                 </div>
               ))}
             </div>
@@ -1133,29 +1100,10 @@ export default function TriviaGame2({
             )}
           </div>
         )}
-        {liveResult.feedbackIssues?.map((issue, i) => {
-          const color2 = FEEDBACK_COLORS[issue.feedbackKey] ?? "#94a3b8";
-          const label = FEEDBACK_LABELS[issue.feedbackKey] ?? issue.feedbackKey;
-          const tip = issue.feedbackExplanation ?? FEEDBACK_MAP[issue.feedbackKey];
-          return (
-            <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 6, marginBottom: 4, flexWrap: "wrap" }}>
-              <span style={{
-                fontSize: 11, fontWeight: 600, padding: "2px 7px", borderRadius: 999,
-                background: `${color2}22`, border: `1px solid ${color2}66`, color: color2,
-              }}>
-                {label}
-              </span>
-              {tip && <span style={{ fontSize: 11, color: "rgba(255,255,255,0.55)" }}>{tip}</span>}
-            </div>
-          );
-        })}
+        {liveResult.feedbackIssues?.length ? <FeedbackBadges issues={liveResult.feedbackIssues} /> : null}
         {liveResult.correctionTokens && liveResult.accepted && (
-          <div style={{ fontSize: 13, marginTop: 4 }}>
-            {liveResult.correctionTokens.map((tok, i) => {
-              if (tok.status === "remove") return <span key={i} style={{ color: "#fca5a5", textDecoration: "line-through" }}>{tok.text}</span>;
-              if (tok.status === "add") return <span key={i} style={{ color: "#86efac", fontWeight: 500 }}>{tok.text}</span>;
-              return <span key={i} style={{ color: "rgba(255,255,255,0.8)" }}>{tok.text}</span>;
-            })}
+          <div style={{ marginTop: 4 }}>
+            <CorrectionTokens tokens={liveResult.correctionTokens} wrapped={false} />
           </div>
         )}
         {liveRejected && (
@@ -1641,11 +1589,7 @@ export default function TriviaGame2({
               <div style={{ marginBottom: 14 }}>
                 <div style={{ fontSize: 11, color: "rgba(255,255,255,0.4)", marginBottom: 4, textTransform: "uppercase" }}>Your answer</div>
                 <div style={{ fontSize: 14 }}>
-                  {pr.correctionTokens.map((tok, i) => {
-                    if (tok.status === "remove") return <span key={i} style={{ color: "#fca5a5", textDecoration: "line-through" }}>{tok.text}</span>;
-                    if (tok.status === "add") return <span key={i} style={{ color: "#86efac", fontWeight: 500 }}>{tok.text}</span>;
-                    return <span key={i} style={{ color: "rgba(255,255,255,0.8)" }}>{tok.text}</span>;
-                  })}
+                  <CorrectionTokens tokens={pr.correctionTokens} wrapped={false} />
                 </div>
               </div>
             )}
