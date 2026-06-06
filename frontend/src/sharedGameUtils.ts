@@ -14,6 +14,29 @@ export type FeedbackIssue = {
   feedbackExplanation?: string | null;
 };
 
+// Normalized entry shape used by HistoryLogEntry. Both WordDrillGame and
+// TriviaGame2 map their internal entry types to this before rendering.
+export type SharedHistoryEntry = {
+  entryId: string;
+  isWrongAttempt: boolean;
+  skipped: boolean;
+  qualityScore?: number;
+  llmUsed?: boolean;
+  allHints: HintItem[];
+  hintsUsed: number;
+  hintsRevealedIndices?: number[];
+  promptText: string;
+  userAnswer: string;
+  correctAnswer: string;
+  acceptedTranslations?: string[];
+  correctionTokens?: CorrectionToken[] | null;
+  feedbackIssues?: FeedbackIssue[] | null;
+  feedbackKey?: string | null;
+  correctedSnippet?: string | null;
+  feedbackExplanation?: string | null;
+  extraLabel?: string;
+};
+
 // ── Feedback constants ────────────────────────────────────────────────────────
 
 export const FEEDBACK_MAP: Record<string, string> = {

@@ -1761,6 +1761,7 @@ class WordDrillCheckReq(BaseModel):
     accepted_translations: List[str] = []
     prompt_text: str
     context: str = ""
+    valid_phrases: Optional[List[str]] = None
     learning: Optional[LangSpec] = None
     fluent: Optional[LangSpec] = None
 
@@ -1780,6 +1781,7 @@ def api_worddrill_check(req: WordDrillCheckReq):
             fluent=fluent.dict(),
             learning=learning.dict(),
             accepted_translations=req.accepted_translations,
+            valid_phrases=req.valid_phrases or None,
         )
         return {
             "accepted": result.get("accepted", False),

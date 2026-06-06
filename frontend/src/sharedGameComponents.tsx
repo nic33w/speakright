@@ -1,7 +1,7 @@
 // sharedGameComponents.tsx
 // Shared React components used across game modes.
-import { useRef, useState } from "react";
-import { FEEDBACK_MAP, FEEDBACK_COLORS, FEEDBACK_LABELS, FeedbackIssue, CorrectionToken, HintItem, calculateDistance, distanceToOpacity } from "./sharedGameUtils";
+import React, { useRef, useState } from "react";
+import { FEEDBACK_MAP, FEEDBACK_COLORS, FEEDBACK_LABELS, FeedbackIssue, CorrectionToken, HintItem, HINT_COLORS, calculateDistance, distanceToOpacity, tokenizeWithHints, diffExampleVsUser, SharedHistoryEntry } from "./sharedGameUtils";
 
 // ── FeedbackBadges ────────────────────────────────────────────────────────────
 // Renders a list of feedback issue pills with explanations.
@@ -174,6 +174,306 @@ export function HintCards({
           );
         })}
       </div>
+    </div>
+  );
+}
+
+// ── HistoryLogEntry ───────────────────────────────────────────────────────────
+// Self-contained history log entry used by WordDrillGame and TriviaGame2.
+// Manages its own expand/pin/audio/hint-hover/preview state.
+// Pass a changing `key` prop (e.g. entry.entryId) — do not reuse instances.
+//
+// wrongAttempts: wrong entries for the same sentence (WordDrill passes these
+//   externally; TriviaGame2 embeds them in the entry and maps them before passing).
+// promptLabel: optional node rendered above the sentence in expanded view
+//   (e.g. TriviaGame2's difficulty dot + spotlight word).
+// extraBottom: rendered after "Previous Attempts" (e.g. TriviaGame2 bot results).
+export function HistoryLogEntry({
+  entry,
+  wrongAttempts = [],
+  apiBase = "http://localhost:8000",
+  locale = "es-MX",
+  promptLabel,
+  extraBottom,
+}: {
+  entry: SharedHistoryEntry;
+  wrongAttempts?: SharedHistoryEntry[];
+  apiBase?: string;
+  locale?: string;
+  promptLabel?: React.ReactNode;
+  extraBottom?: React.ReactNode;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const [pinned, setPinned] = useState(false);
+  const [hoverTimer, setHoverTimer] = useState<ReturnType<typeof setTimeout> | null>(null);
+  const [hoveredHintIdx, setHoveredHintIdx] = useState<number | null>(null);
+  const [previewExIdx, setPreviewExIdx] = useState<number | null>(null);
+  const [hoverAudio, setHoverAudio] = useState<HTMLAudioElement | null>(null);
+  const audioCacheRef = useRef<Map<string, string>>(new Map());
+
+  const isOpen = expanded || pinned;
+  const qualityHue = entry.qualityScore != null ? Math.round((entry.qualityScore / 100) * 217) : 0;
+  const qualityFill = `hsl(${qualityHue},80%,58%)`;
+  const totalHints = entry.allHints.length;
+  const hintsUnusedPct = totalHints > 0 ? Math.round(((totalHints - entry.hintsUsed) / totalHints) * 100) : 0;
+  const revealed = new Set(entry.hintsRevealedIndices ?? []);
+
+  async function playAudio(text: string) {
+    const key = `${locale}:${text}`;
+    let url = audioCacheRef.current.get(key);
+    if (!url) {
+      try {
+        const resp = await fetch(`${apiBase}/api/trivia/audio`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text, locale }),
+        });
+        const data = await resp.json();
+        url = `${apiBase}${data.audio_file}`;
+        audioCacheRef.current.set(key, url);
+      } catch { return; }
+    }
+    if (hoverAudio) { hoverAudio.pause(); }
+    const audio = new Audio(url);
+    setHoverAudio(audio);
+    audio.play().catch(() => {});
+  }
+
+  function stopAudio() {
+    if (hoverAudio) { hoverAudio.pause(); setHoverAudio(null); }
+  }
+
+  const entryBg = entry.skipped
+    ? "rgba(148,163,184,0.15)"
+    : entry.isWrongAttempt ? "rgba(239,68,68,0.15)" : "rgba(59,130,246,0.2)";
+  const entryBorder = pinned
+    ? "1px solid rgba(59,130,246,0.6)"
+    : entry.skipped ? "1px solid rgba(148,163,184,0.2)"
+    : entry.isWrongAttempt ? "1px solid rgba(239,68,68,0.25)" : "1px solid rgba(59,130,246,0.3)";
+
+  return (
+    <div
+      style={{
+        padding: "8px 12px", borderRadius: 10, fontSize: 13, lineHeight: 1.4,
+        wordBreak: "break-word", cursor: "pointer",
+        background: entryBg, border: entryBorder,
+        maxWidth: isOpen ? "92%" : "75%",
+        width: isOpen ? "92%" : undefined,
+        transition: "max-width 0.2s, width 0.2s",
+      }}
+      onMouseEnter={() => {
+        void playAudio(entry.correctAnswer);
+        const t = setTimeout(() => setExpanded(true), 250);
+        setHoverTimer(t);
+      }}
+      onMouseLeave={() => {
+        stopAudio();
+        if (hoverTimer) { clearTimeout(hoverTimer); setHoverTimer(null); }
+        if (!pinned) setExpanded(false);
+      }}
+      onClick={() => setPinned(p => !p)}
+    >
+      {/* ── Collapsed header ── */}
+      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+        {entry.skipped ? (
+          <span style={{ fontSize: 12, color: "#94a3b8" }}>→</span>
+        ) : (
+          <>
+            <span style={{ fontSize: 13, color: entry.isWrongAttempt ? "#fca5a5" : "#86efac" }}>
+              {entry.isWrongAttempt ? "✗" : "✓"}
+            </span>
+            {!entry.isWrongAttempt && entry.qualityScore != null && (
+              <div style={{ width: 56, height: 5, borderRadius: 3, background: "rgba(255,255,255,0.2)", overflow: "hidden", border: `1px solid ${qualityFill}66` }}>
+                <div style={{ height: "100%", width: `${entry.qualityScore}%`, background: qualityFill, transition: "width 0.3s" }} />
+              </div>
+            )}
+            {totalHints > 0 && !entry.isWrongAttempt && (
+              <div style={{ width: 56, height: 5, borderRadius: 3, background: "rgba(255,255,255,0.2)", overflow: "hidden", border: "1px solid rgba(251,191,36,0.4)" }}>
+                <div style={{ height: "100%", width: `${hintsUnusedPct}%`, background: "#fbbf24", transition: "width 0.3s" }} />
+              </div>
+            )}
+            {entry.llmUsed && <span style={{ fontSize: 11, opacity: 0.5 }}>🤖</span>}
+          </>
+        )}
+        {entry.extraLabel && (
+          <span style={{ marginLeft: "auto", fontSize: 10, opacity: 0.35, fontWeight: 600, textAlign: "right" }}>{entry.extraLabel}</span>
+        )}
+      </div>
+
+      {/* English prompt subtitle */}
+      {entry.promptText && (
+        <div style={{ fontSize: 11, opacity: 0.5, marginTop: 4, fontStyle: "italic" }}>{entry.promptText}</div>
+      )}
+
+      {/* Answer row */}
+      <div style={{ marginTop: 3, fontWeight: 500, lineHeight: 1.4, fontSize: 13 }}>
+        {entry.skipped ? (
+          <span style={{ color: "#94a3b8" }}>{entry.correctAnswer}</span>
+        ) : entry.correctionTokens?.length ? (
+          <CorrectionTokens tokens={entry.correctionTokens} wrapped={false} />
+        ) : (
+          <span style={{ color: entry.isWrongAttempt ? "#fca5a5" : "rgba(255,255,255,0.9)" }}>
+            {entry.userAnswer || "—"}
+          </span>
+        )}
+      </div>
+
+      {/* ── Expanded view ── */}
+      {isOpen && (() => {
+        const tokens = tokenizeWithHints(entry.promptText, entry.allHints);
+        const examples = entry.acceptedTranslations ?? [];
+        const effectiveIssues: FeedbackIssue[] = entry.feedbackIssues?.length
+          ? entry.feedbackIssues
+          : entry.feedbackKey
+            ? [{ feedbackKey: entry.feedbackKey, correctedSnippet: entry.correctedSnippet, feedbackExplanation: entry.feedbackExplanation }]
+            : (!entry.llmUsed && entry.qualityScore === 100 ? [{ feedbackKey: "perfect" }] : []);
+
+        return (
+          <div style={{ marginTop: 10, borderTop: "1px solid rgba(255,255,255,0.1)", paddingTop: 8, display: "flex", flexDirection: "column", gap: 10 }}>
+
+            {/* 1. Sentence with hint highlighting */}
+            <div>
+              {promptLabel && (
+                <div style={{ fontSize: 12, color: "rgba(255,255,255,0.6)", marginBottom: 4 }}>{promptLabel}</div>
+              )}
+              <div style={{ fontSize: 10, opacity: 0.45, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 }}>Sentence</div>
+              <div
+                style={{ fontSize: 13, lineHeight: 1.6 }}
+                onMouseLeave={() => { setHoveredHintIdx(null); stopAudio(); }}
+              >
+                {tokens.map((tok, i) => {
+                  if (tok.hintIndex === null) return (
+                    <span key={i} onMouseEnter={() => setHoveredHintIdx(null)}>{tok.text}</span>
+                  );
+                  const isRev = revealed.has(tok.hintIndex);
+                  const isHov = hoveredHintIdx === tok.hintIndex;
+                  return (
+                    <span
+                      key={i}
+                      onMouseEnter={() => {
+                        setHoveredHintIdx(tok.hintIndex!);
+                        const first = entry.allHints[tok.hintIndex!].learning.split("/")[0].trim();
+                        void playAudio(first);
+                      }}
+                      style={{
+                        color: isRev ? HINT_COLORS[tok.hintIndex % HINT_COLORS.length] : isHov ? "#93c5fd" : "inherit",
+                        borderBottom: isHov ? "1px solid #93c5fd" : isRev ? "none" : "1px dashed rgba(251,191,36,0.6)",
+                        cursor: "default", transition: "color 0.1s",
+                      }}
+                    >{tok.text}</span>
+                  );
+                })}
+              </div>
+
+              {/* Contextual hint pill display (BattleGame-style) */}
+              {hoveredHintIdx !== null && entry.allHints[hoveredHintIdx] && (() => {
+                const hint = entry.allHints[hoveredHintIdx];
+                const variants = hint.learning.split("/").map(v => v.trim()).filter(Boolean);
+                return (
+                  <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 6, flexWrap: "wrap" }}>
+                    {variants.map((v, vi) => (
+                      <span key={vi} style={{
+                        display: "inline-flex", alignItems: "center", gap: 4,
+                        padding: "2px 9px", borderRadius: 20, fontSize: 12,
+                        border: "1px solid rgba(147,197,253,0.3)", background: "rgba(147,197,253,0.07)",
+                        color: "#93c5fd",
+                      }}>
+                        <span style={{ width: 5, height: 5, borderRadius: "50%", display: "inline-block", flexShrink: 0, background: "rgba(147,197,253,0.4)" }} />
+                        {v}
+                      </span>
+                    ))}
+                    {hint.note && (
+                      <span style={{ fontSize: 11, fontStyle: "italic", color: "rgba(255,255,255,0.45)" }}>{hint.note}</span>
+                    )}
+                  </div>
+                );
+              })()}
+            </div>
+
+            {/* 2. You Said */}
+            {!entry.skipped && (
+              <div>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
+                  <div style={{ fontSize: 10, opacity: 0.45, textTransform: "uppercase", letterSpacing: "0.06em" }}>
+                    {previewExIdx !== null ? `Example ${previewExIdx + 1}` : "You Said"}
+                  </div>
+                  {examples.length > 0 && (
+                    <div style={{ display: "flex", gap: 4 }} onMouseLeave={() => setPreviewExIdx(null)}>
+                      {examples.slice(0, 2).map((_, ei) => (
+                        <div
+                          key={ei}
+                          onMouseEnter={() => setPreviewExIdx(ei)}
+                          style={{
+                            width: 20, height: 20, borderRadius: 4, fontSize: 10, fontWeight: 700,
+                            display: "flex", alignItems: "center", justifyContent: "center",
+                            cursor: "default", userSelect: "none",
+                            background: previewExIdx === ei ? "rgba(147,197,253,0.2)" : "rgba(255,255,255,0.07)",
+                            border: `1px solid ${previewExIdx === ei ? "rgba(147,197,253,0.5)" : "rgba(255,255,255,0.15)"}`,
+                            color: previewExIdx === ei ? "#93c5fd" : "rgba(255,255,255,0.4)",
+                            transition: "all 0.15s",
+                          }}
+                        >{ei + 1}</div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                {previewExIdx !== null ? (
+                  <div style={{ fontSize: 13, lineHeight: 1.5 }}>
+                    {diffExampleVsUser(entry.userAnswer, examples[previewExIdx]).map((tok, i) => (
+                      <span key={i} style={{ color: tok.matched ? "rgba(255,255,255,0.45)" : "#fbbf24" }}>
+                        {tok.word}{" "}
+                      </span>
+                    ))}
+                  </div>
+                ) : entry.correctionTokens?.length ? (
+                  <CorrectionTokens tokens={entry.correctionTokens} wrapped={false} />
+                ) : (
+                  <span style={{ fontSize: 13, color: "#86efac" }}>{entry.userAnswer}</span>
+                )}
+              </div>
+            )}
+
+            {/* 3. Feedback */}
+            {effectiveIssues.length > 0 && (
+              <div>
+                <div style={{ fontSize: 10, opacity: 0.45, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 }}>Feedback</div>
+                <FeedbackBadges issues={effectiveIssues} />
+              </div>
+            )}
+
+            {/* 4. Previous attempts */}
+            {wrongAttempts.length > 0 && (
+              <div>
+                <div style={{ fontSize: 10, opacity: 0.45, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 }}>
+                  Previous attempts ({wrongAttempts.length})
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                  {wrongAttempts.map((wa, wi) => {
+                    const waIssues: FeedbackIssue[] = wa.feedbackIssues?.length
+                      ? wa.feedbackIssues
+                      : wa.feedbackKey ? [{ feedbackKey: wa.feedbackKey, correctedSnippet: wa.correctedSnippet, feedbackExplanation: wa.feedbackExplanation }]
+                      : [];
+                    return (
+                      <div key={wi} style={{ background: "rgba(239,68,68,0.1)", borderRadius: 6, padding: "5px 8px" }}>
+                        {wa.correctionTokens?.length ? (
+                          <div style={{ fontSize: 12, lineHeight: 1.6, marginBottom: waIssues.length ? 4 : 0 }}>
+                            <CorrectionTokens tokens={wa.correctionTokens} wrapped={false} />
+                          </div>
+                        ) : (
+                          <div style={{ fontSize: 12, color: "#fca5a5", marginBottom: waIssues.length ? 3 : 0 }}>{wa.userAnswer}</div>
+                        )}
+                        {waIssues.length > 0 && <FeedbackBadges issues={waIssues} small />}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {extraBottom}
+          </div>
+        );
+      })()}
     </div>
   );
 }

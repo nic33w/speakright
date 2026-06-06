@@ -2,12 +2,13 @@
 // Practice specific words/phrases with LLM feedback — follows Common Mode Features spec
 import { useEffect, useRef, useState } from "react";
 import {
-  HINT_COLORS, FEEDBACK_MAP, FEEDBACK_COLORS, FEEDBACK_LABELS,
+  HINT_COLORS,
   HintItem, CorrectionToken, FeedbackIssue,
-  normalizeForMatch, checkFuzzyMatch, restoreAccentsInTokens,
-  tokenizeWithHints, diffExampleVsUser, calculateDistance, distanceToOpacity,
+  checkFuzzyMatch, restoreAccentsInTokens,
+  tokenizeWithHints,
 } from "./sharedGameUtils";
-import { FeedbackBadges, CorrectionTokens, HintCards } from "./sharedGameComponents";
+import { FeedbackBadges, CorrectionTokens, HintCards, HistoryLogEntry } from "./sharedGameComponents";
+import type { SharedHistoryEntry } from "./sharedGameUtils";
 
 type LangSpec = { code: string; name: string };
 
@@ -43,6 +44,7 @@ type HistoryEntry = {
   acceptedTranslations: string[];
   allHints: HintItem[];
   hintsUsed: number;
+  hintsRevealedIndices?: number[];
   isWrongAttempt: boolean;
   skipped: boolean;
   feedbackIssues?: FeedbackIssue[] | null;
@@ -194,11 +196,6 @@ export default function WordDrillGame({
   const chatBottomRef = useRef<HTMLDivElement>(null);
   const chatInputRef = useRef<HTMLTextAreaElement>(null);
 
-  // History log state
-  const [expandedLogEntry, setExpandedLogEntry] = useState<number | null>(null);
-  const [pinnedLogEntries, setPinnedLogEntries] = useState<Set<number>>(new Set());
-  const [previewExampleIndex, setPreviewExampleIndex] = useState<number | null>(null);
-
   // Auto-advance countdown after correct answer (1.0 → 0.0 over 1s)
   const [autoNextProgress, setAutoNextProgress] = useState<number | null>(null);
 
@@ -247,7 +244,6 @@ export default function WordDrillGame({
   const historyEndRef = useRef<HTMLDivElement>(null);
   const currentAudioRef = useRef<HTMLAudioElement | null>(null);
   const audioCacheRef = useRef<Map<string, string>>(new Map());
-  const expandTimerRef = useRef<number | null>(null);
   const autoNextTimerRef = useRef<number | null>(null);
   const autoNextDurationRef = useRef(1000);
 
@@ -999,6 +995,7 @@ export default function WordDrillGame({
           accepted_translations: currentSentence.accepted_translations,
           prompt_text: currentSentence.english,
           context: currentSentence.context,
+          valid_phrases: (currentSentence.hints ?? []).map(h => h.learning).filter(Boolean),
           learning: activeLearning,
           fluent,
         }),
@@ -1038,6 +1035,7 @@ export default function WordDrillGame({
           acceptedTranslations: currentSentence.accepted_translations,
           allHints: currentSentence.hints ?? [],
           hintsUsed: viewedHints.size,
+          hintsRevealedIndices: Array.from(viewedHints),
           isWrongAttempt: true,
           skipped: false,
           ...result,
@@ -1093,6 +1091,7 @@ export default function WordDrillGame({
       acceptedTranslations: currentSentence!.accepted_translations,
       allHints: currentSentence!.hints ?? [],
       hintsUsed: viewedHints.size,
+      hintsRevealedIndices: Array.from(viewedHints),
       isWrongAttempt: false,
       skipped: false,
       feedbackIssues, feedbackKey, correctedSnippet, feedbackExplanation, correctionTokens,
@@ -1130,6 +1129,7 @@ export default function WordDrillGame({
       acceptedTranslations: currentSentence.accepted_translations,
       allHints: currentSentence.hints ?? [],
       hintsUsed: viewedHints.size,
+      hintsRevealedIndices: Array.from(viewedHints),
       isWrongAttempt: false,
       skipped: true,
       qualityScore: 0,
@@ -1157,114 +1157,27 @@ export default function WordDrillGame({
     }
   }
 
-  // ── Sub-renderers ─────────────────────────────────────────────────────────
-
-  function renderExpandedHistoryEntry(entry: HistoryEntry, wrongAttempts: HistoryEntry[]) {
-    const tokens = tokenizeWithHints(entry.english, entry.allHints);
-    const entryIssues: FeedbackIssue[] = entry.feedbackIssues?.length
-      ? entry.feedbackIssues
-      : entry.feedbackKey ? [{ feedbackKey: entry.feedbackKey, correctedSnippet: entry.correctedSnippet, feedbackExplanation: entry.feedbackExplanation }]
-      : [];
-
-    return (
-      <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 8 }}>
-        <div>
-          <div style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em", opacity: 0.4, marginBottom: 4 }}>Sentence</div>
-          <div style={{ fontSize: 13, lineHeight: 1.6 }}>
-            {tokens.map((seg, si) => {
-              if (seg.hintIndex === null) return <span key={si} style={{ color: "rgba(255,255,255,0.75)" }}>{seg.text}</span>;
-              const isRevealed = entry.allHints.length > 0 && viewedHints.has(seg.hintIndex);
-              const color = isRevealed ? HINT_COLORS[seg.hintIndex % HINT_COLORS.length] : "#fbbf24";
-              return (
-                <span key={si}
-                  style={{
-                    color: isRevealed ? color : "rgba(255,255,255,0.85)",
-                    textDecoration: isRevealed ? "none" : "underline",
-                    textDecorationStyle: isRevealed ? undefined : "dashed",
-                    textDecorationColor: isRevealed ? undefined : "rgba(251,191,36,0.6)",
-                    cursor: "pointer",
-                  }}
-                  onMouseEnter={() => fetchAndPlayAudio(entry.allHints[seg.hintIndex!].learning, learningLocale)}
-                  onMouseLeave={() => stopAudio()}
-                >
-                  {seg.text}
-                </span>
-              );
-            })}
-          </div>
-        </div>
-
-        {!entry.skipped && (
-          <div>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-              <div style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em", opacity: 0.4 }}>You Said</div>
-              {entry.acceptedTranslations.slice(0, 2).map((_, n) => (
-                <button key={n}
-                  onMouseEnter={() => setPreviewExampleIndex(n)}
-                  onMouseLeave={() => setPreviewExampleIndex(null)}
-                  style={{
-                    fontSize: 10, padding: "1px 7px", borderRadius: 4, cursor: "pointer",
-                    background: previewExampleIndex === n ? "rgba(147,197,253,0.2)" : "rgba(255,255,255,0.07)",
-                    border: `1px solid ${previewExampleIndex === n ? "rgba(147,197,253,0.5)" : "rgba(255,255,255,0.15)"}`,
-                    color: previewExampleIndex === n ? "#93c5fd" : "rgba(255,255,255,0.5)",
-                    transition: "all 0.15s",
-                  }}
-                >[{n + 1}]</button>
-              ))}
-            </div>
-            {previewExampleIndex !== null ? (
-              <div style={{ fontSize: 13, lineHeight: 1.7, wordBreak: "break-word" }}>
-                {diffExampleVsUser(entry.userAnswer, entry.acceptedTranslations[previewExampleIndex]).map((tok, ti) => (
-                  <span key={ti} style={{ color: tok.matched ? "rgba(255,255,255,0.45)" : "#fbbf24", fontWeight: tok.matched ? 400 : 600 }}>
-                    {tok.word}{" "}
-                  </span>
-                ))}
-              </div>
-            ) : entry.correctionTokens?.length ? (
-              <CorrectionTokens tokens={entry.correctionTokens} />
-            ) : (
-              <div style={{ fontSize: 13, color: entry.isWrongAttempt ? "#fca5a5" : "#86efac" }}>{entry.userAnswer}</div>
-            )}
-          </div>
-        )}
-
-        {entryIssues.length > 0 && (
-          <div>
-            <div style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em", opacity: 0.4, marginBottom: 4 }}>Feedback</div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-              <FeedbackBadges issues={entryIssues} />
-            </div>
-          </div>
-        )}
-
-        {wrongAttempts.length > 0 && (
-          <div>
-            <div style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em", opacity: 0.4, marginBottom: 6 }}>
-              Previous attempts ({wrongAttempts.length})
-            </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-              {wrongAttempts.map(wa => {
-                const waIssues: FeedbackIssue[] = wa.feedbackIssues?.length
-                  ? wa.feedbackIssues
-                  : wa.feedbackKey ? [{ feedbackKey: wa.feedbackKey, correctedSnippet: wa.correctedSnippet, feedbackExplanation: wa.feedbackExplanation }]
-                  : [];
-                return (
-                  <div key={wa.entryId} style={{ padding: "6px 10px", borderRadius: 8, background: "rgba(239,68,68,0.12)", border: "1px solid rgba(239,68,68,0.2)" }}>
-                    <div style={{ fontSize: 12, color: "#fca5a5", marginBottom: waIssues.length ? 4 : 0 }}>{wa.userAnswer}</div>
-                    {wa.correctionTokens?.length ? <CorrectionTokens tokens={wa.correctionTokens} small /> : null}
-                    {waIssues.length > 0 && (
-                      <div style={{ display: "flex", flexDirection: "column", gap: 3, marginTop: 4 }}>
-                        <FeedbackBadges issues={waIssues} small />
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
-      </div>
-    );
+  function toSharedEntry(e: HistoryEntry): SharedHistoryEntry {
+    return {
+      entryId: e.entryId,
+      isWrongAttempt: e.isWrongAttempt,
+      skipped: e.skipped,
+      qualityScore: e.qualityScore,
+      llmUsed: e.llmUsed,
+      allHints: e.allHints,
+      hintsUsed: e.hintsUsed,
+      hintsRevealedIndices: e.hintsRevealedIndices,
+      promptText: e.english,
+      userAnswer: e.userAnswer,
+      correctAnswer: e.correctAnswer,
+      acceptedTranslations: e.acceptedTranslations,
+      correctionTokens: e.correctionTokens,
+      feedbackIssues: e.feedbackIssues,
+      feedbackKey: e.feedbackKey,
+      correctedSnippet: e.correctedSnippet,
+      feedbackExplanation: e.feedbackExplanation,
+      extraLabel: e.category,
+    };
   }
 
   // ── Floating grammar chat (Messenger style) ──────────────────────────────
@@ -2554,7 +2467,7 @@ export default function WordDrillGame({
                   {/* History content */}
                   {rightPanelMode === "history" && (
                   <div style={{ flex: 1, overflowY: "auto", padding: "12px 14px 40px", display: "flex", flexDirection: "column", gap: 8 }}>
-                    {history.map((entry, i) => {
+                    {history.map(entry => {
                       if (entry.isWrongAttempt && resolvedSentenceIds.has(entry.sentenceId)) return null;
 
                       // Freeform entries get a compact distinct look
@@ -2591,81 +2504,16 @@ export default function WordDrillGame({
                       }
 
                       const wrongAttempts = !entry.isWrongAttempt
-                        ? history.filter(e => e.sentenceId === entry.sentenceId && e.isWrongAttempt)
+                        ? history.filter(e => e.sentenceId === entry.sentenceId && e.isWrongAttempt).map(toSharedEntry)
                         : [];
-                      const isPinned = pinnedLogEntries.has(i);
-                      const isExpanded = expandedLogEntry === i || isPinned;
-                      const entryBg = entry.skipped ? "rgba(148,163,184,0.15)" : entry.isWrongAttempt ? "rgba(239,68,68,0.15)" : "rgba(59,130,246,0.2)";
-                      const entryBorder = isPinned ? "1px solid rgba(59,130,246,0.6)" : entry.skipped ? "1px solid rgba(148,163,184,0.2)" : entry.isWrongAttempt ? "1px solid rgba(239,68,68,0.25)" : "1px solid rgba(59,130,246,0.3)";
-                      const qualityHue = entry.qualityScore != null ? Math.round((entry.qualityScore / 100) * 217) : 0;
-                      const qualityFill = `hsl(${qualityHue},80%,58%)`;
-                      const totalHints = entry.allHints.length;
-                      const hintsUnusedPct = totalHints > 0 ? Math.round(((totalHints - (entry.hintsUsed ?? 0)) / totalHints) * 100) : 0;
                       return (
-                        <div key={entry.entryId}
-                          style={{
-                            padding: "8px 12px", borderRadius: 10,
-                            background: entryBg, border: entryBorder,
-                            fontSize: 13, lineHeight: 1.4, wordBreak: "break-word",
-                            cursor: "pointer", transition: "max-width 0.2s, width 0.2s",
-                            maxWidth: isExpanded ? "92%" : "75%",
-                            width: isExpanded ? "92%" : undefined,
-                          }}
-                          onMouseEnter={() => {
-                            void fetchAndPlayAudio(entry.correctAnswer, learningLocale);
-                            if (expandTimerRef.current) clearTimeout(expandTimerRef.current);
-                            expandTimerRef.current = window.setTimeout(() => setExpandedLogEntry(i), 250);
-                          }}
-                          onMouseLeave={() => {
-                            stopAudio();
-                            if (expandTimerRef.current) clearTimeout(expandTimerRef.current);
-                            if (!isPinned) setExpandedLogEntry(null);
-                          }}
-                          onClick={() => {
-                            setPinnedLogEntries(prev => {
-                              const next = new Set(prev);
-                              if (next.has(i)) next.delete(i); else next.add(i);
-                              return next;
-                            });
-                          }}
-                        >
-                          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                            {entry.skipped ? (
-                              <span style={{ fontSize: 12, color: "#94a3b8" }}>→</span>
-                            ) : (
-                              <>
-                                <span style={{ fontSize: 13, color: entry.isWrongAttempt ? "#fca5a5" : "#86efac" }}>
-                                  {entry.isWrongAttempt ? "✗" : "✓"}
-                                </span>
-                                {!entry.isWrongAttempt && entry.qualityScore != null && (
-                                  <div style={{ width: 56, height: 5, borderRadius: 3, background: "rgba(255,255,255,0.2)", overflow: "hidden", border: `1px solid ${qualityFill}66` }}>
-                                    <div style={{ height: "100%", width: `${entry.qualityScore}%`, background: qualityFill, transition: "width 0.3s" }} />
-                                  </div>
-                                )}
-                                {totalHints > 0 && (
-                                  <div style={{ width: 56, height: 5, borderRadius: 3, background: "rgba(255,255,255,0.2)", overflow: "hidden", border: "1px solid rgba(251,191,36,0.4)" }}>
-                                    <div style={{ height: "100%", width: `${hintsUnusedPct}%`, background: "#fbbf24", transition: "width 0.3s" }} />
-                                  </div>
-                                )}
-                                {entry.llmUsed && <span style={{ fontSize: 11, opacity: 0.5 }}>🤖</span>}
-                              </>
-                            )}
-                            <span style={{ marginLeft: "auto", fontSize: 10, opacity: 0.35, fontWeight: 600, textAlign: "right" }}>{entry.category}</span>
-                          </div>
-                          <div style={{ fontSize: 11, opacity: 0.5, marginTop: 4, fontStyle: "italic" }}>{entry.english}</div>
-                          <div style={{ marginTop: 3, fontWeight: 500, lineHeight: 1.4, fontSize: 13 }}>
-                            {entry.skipped ? (
-                              <span style={{ color: "#94a3b8" }}>{entry.correctAnswer}</span>
-                            ) : entry.correctionTokens?.length ? (
-                              <CorrectionTokens tokens={entry.correctionTokens} wrapped={false} />
-                            ) : (
-                              <span style={{ color: entry.isWrongAttempt ? "#fca5a5" : "rgba(255,255,255,0.9)" }}>
-                                {entry.userAnswer || "—"}
-                              </span>
-                            )}
-                          </div>
-                          {isExpanded && renderExpandedHistoryEntry(entry, wrongAttempts)}
-                        </div>
+                        <HistoryLogEntry
+                          key={entry.entryId}
+                          entry={toSharedEntry(entry)}
+                          wrongAttempts={wrongAttempts}
+                          apiBase={apiBase}
+                          locale={learningLocale}
+                        />
                       );
                     })}
                     <div ref={historyEndRef} />
@@ -3219,92 +3067,19 @@ export default function WordDrillGame({
           {/* History content */}
           {rightPanelMode === "history" && (
           <div style={{ flex: 1, overflowY: "auto", padding: "12px 14px 40px", display: "flex", flexDirection: "column", gap: 8 }}>
-            {history.map((entry, i) => {
+            {history.map(entry => {
               if (entry.isWrongAttempt && resolvedSentenceIds.has(entry.sentenceId)) return null;
-
               const wrongAttempts = !entry.isWrongAttempt
-                ? history.filter(e => e.sentenceId === entry.sentenceId && e.isWrongAttempt)
+                ? history.filter(e => e.sentenceId === entry.sentenceId && e.isWrongAttempt).map(toSharedEntry)
                 : [];
-
-              const isPinned = pinnedLogEntries.has(i);
-              const isExpanded = expandedLogEntry === i || isPinned;
-
-              const entryBg = entry.skipped ? "rgba(148,163,184,0.15)" : entry.isWrongAttempt ? "rgba(239,68,68,0.15)" : "rgba(59,130,246,0.2)";
-              const entryBorder = isPinned ? "1px solid rgba(59,130,246,0.6)" : entry.skipped ? "1px solid rgba(148,163,184,0.2)" : entry.isWrongAttempt ? "1px solid rgba(239,68,68,0.25)" : "1px solid rgba(59,130,246,0.3)";
-
-              const qualityHue = entry.qualityScore != null ? Math.round((entry.qualityScore / 100) * 217) : 0;
-              const qualityFill = `hsl(${qualityHue},80%,58%)`;
-              const totalHints = entry.allHints.length;
-              const hintsUnusedPct = totalHints > 0 ? Math.round(((totalHints - (entry.hintsUsed ?? 0)) / totalHints) * 100) : 0;
-
               return (
-                <div key={entry.entryId}
-                  style={{
-                    padding: "8px 12px", borderRadius: 10,
-                    background: entryBg, border: entryBorder,
-                    fontSize: 13, lineHeight: 1.4, wordBreak: "break-word",
-                    cursor: "pointer", transition: "max-width 0.2s, width 0.2s",
-                    maxWidth: isExpanded ? "92%" : "75%",
-                    width: isExpanded ? "92%" : undefined,
-                  }}
-                  onMouseEnter={() => {
-                    void fetchAndPlayAudio(entry.correctAnswer, learningLocale);
-                    if (expandTimerRef.current) clearTimeout(expandTimerRef.current);
-                    expandTimerRef.current = window.setTimeout(() => setExpandedLogEntry(i), 250);
-                  }}
-                  onMouseLeave={() => {
-                    stopAudio();
-                    if (expandTimerRef.current) clearTimeout(expandTimerRef.current);
-                    if (!isPinned) setExpandedLogEntry(null);
-                  }}
-                  onClick={() => {
-                    setPinnedLogEntries(prev => {
-                      const next = new Set(prev);
-                      if (next.has(i)) next.delete(i); else next.add(i);
-                      return next;
-                    });
-                  }}
-                >
-                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                    {entry.skipped ? (
-                      <span style={{ fontSize: 12, color: "#94a3b8" }}>→</span>
-                    ) : (
-                      <>
-                        <span style={{ fontSize: 13, color: entry.isWrongAttempt ? "#fca5a5" : "#86efac" }}>
-                          {entry.isWrongAttempt ? "✗" : "✓"}
-                        </span>
-                        {!entry.isWrongAttempt && entry.qualityScore != null && (
-                          <div style={{ width: 56, height: 5, borderRadius: 3, background: "rgba(255,255,255,0.2)", overflow: "hidden", border: `1px solid ${qualityFill}66` }}>
-                            <div style={{ height: "100%", width: `${entry.qualityScore}%`, background: qualityFill, transition: "width 0.3s" }} />
-                          </div>
-                        )}
-                        {totalHints > 0 && (
-                          <div style={{ width: 56, height: 5, borderRadius: 3, background: "rgba(255,255,255,0.2)", overflow: "hidden", border: "1px solid rgba(251,191,36,0.4)" }}>
-                            <div style={{ height: "100%", width: `${hintsUnusedPct}%`, background: "#fbbf24", transition: "width 0.3s" }} />
-                          </div>
-                        )}
-                        {entry.llmUsed && <span style={{ fontSize: 11, opacity: 0.5 }}>🤖</span>}
-                      </>
-                    )}
-                    <span style={{ marginLeft: "auto", fontSize: 10, opacity: 0.35, fontWeight: 600, textAlign: "right" }}>{entry.category}</span>
-                  </div>
-
-                  <div style={{ fontSize: 11, opacity: 0.5, marginTop: 4, fontStyle: "italic" }}>{entry.english}</div>
-
-                  <div style={{ marginTop: 3, fontWeight: 500, lineHeight: 1.4, fontSize: 13 }}>
-                    {entry.skipped ? (
-                      <span style={{ color: "#94a3b8" }}>{entry.correctAnswer}</span>
-                    ) : entry.correctionTokens?.length ? (
-                      <CorrectionTokens tokens={entry.correctionTokens} wrapped={false} />
-                    ) : (
-                      <span style={{ color: entry.isWrongAttempt ? "#fca5a5" : "rgba(255,255,255,0.9)" }}>
-                        {entry.userAnswer || "—"}
-                      </span>
-                    )}
-                  </div>
-
-                  {isExpanded && renderExpandedHistoryEntry(entry, wrongAttempts)}
-                </div>
+                <HistoryLogEntry
+                  key={entry.entryId}
+                  entry={toSharedEntry(entry)}
+                  wrongAttempts={wrongAttempts}
+                  apiBase={apiBase}
+                  locale={learningLocale}
+                />
               );
             })}
             <div ref={historyEndRef} />

@@ -2,11 +2,12 @@
 import React, { useEffect, useRef, useState, useCallback } from "react";
 import { normalizeNumberTokens } from "../numUtils";
 import {
-  FEEDBACK_MAP, FEEDBACK_COLORS, FEEDBACK_LABELS,
+  HINT_COLORS,
   HintItem, FeedbackIssue,
-  tokenizeWithHints, diffExampleVsUser, calculateDistance, distanceToOpacity,
+  tokenizeWithHints,
+  SharedHistoryEntry,
 } from "../sharedGameUtils";
-import { FeedbackBadges, CorrectionTokens, HintCards } from "../sharedGameComponents";
+import { FeedbackBadges, CorrectionTokens, HintCards, HistoryLogEntry } from "../sharedGameComponents";
 
 type LangSpec = { code: string; name: string };
 
@@ -107,8 +108,6 @@ const HUMAN_PLAYER: Omit<Player, "score"> = {
 };
 
 
-const HINT_COLORS = ["#f472b6", "#fb923c", "#a78bfa", "#34d399", "#60a5fa", "#fbbf24"];
-
 // ── Utility: normalize for fuzzy match ──
 function normalizeForMatch(text: string, langCode: string): string {
   return normalizeNumberTokens(text, langCode)
@@ -198,235 +197,42 @@ function Avatar({ player, size = 40 }: { player: Pick<Player, "initials" | "colo
   );
 }
 
-// ── History entry ──
-function HistoryEntry({
-  entry, players, apiBase, locale,
-}: {
-  entry: QuestionHistoryEntry;
-  players: Player[];
-  apiBase: string;
-  locale: string;
-}) {
-  const [expanded, setExpanded] = useState(false);
-  const [pinned, setPinned] = useState(false);
-  const [hoverTimer, setHoverTimer] = useState<ReturnType<typeof setTimeout> | null>(null);
-  const [previewExIdx, setPreviewExIdx] = useState<number | null>(null);
-  const [hoverAudio, setHoverAudio] = useState<HTMLAudioElement | null>(null);
-  const audioCacheRef = useRef<Map<string, string>>(new Map());
-
+function toSharedEntry(entry: QuestionHistoryEntry): SharedHistoryEntry {
   const pr = entry.playerResult;
-  const isCorrect = pr?.accepted === true;
   const isExpired = pr === null;
+  const userAnswer = pr?.correctionTokens
+    ? pr.correctionTokens.filter(t => t.status !== "remove").map(t => t.text).join("")
+    : "";
+  return {
+    entryId: entry.entryId,
+    isWrongAttempt: pr !== null && pr.accepted === false,
+    skipped: isExpired,
+    qualityScore: pr ? Math.round(pr.damageMultiplier * 100) : undefined,
+    allHints: entry.question.sentence.hints ?? [],
+    hintsUsed: entry.hintsRevealed.length,
+    hintsRevealedIndices: entry.hintsRevealed,
+    promptText: entry.question.sentence.english,
+    userAnswer,
+    correctAnswer: entry.question.sentence.spanish || entry.question.sentence.english,
+    acceptedTranslations: entry.question.sentence.accepted_translations,
+    correctionTokens: pr?.correctionTokens ?? null,
+    feedbackIssues: pr?.feedbackIssues ?? null,
+  };
+}
 
-  const bgColor = isCorrect
-    ? "rgba(59,130,246,0.2)"
-    : isExpired
-    ? "rgba(148,163,184,0.15)"
-    : "rgba(239,68,68,0.15)";
-
-  const qualityScore = pr ? Math.round(pr.damageMultiplier * 100) : 0;
-  const hue = (qualityScore / 100) * 217;
-  const hints = entry.question.sentence.hints ?? [];
-
-  async function playHoverAudio() {
-    const text = entry.question.sentence.spanish || entry.question.sentence.english;
-    const key = `${locale}:${text}`;
-    let url = audioCacheRef.current.get(key);
-    if (!url) {
-      try {
-        const resp = await fetch(`${apiBase}/api/trivia/audio`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ text, locale }),
-        });
-        const data = await resp.json();
-        url = `${apiBase}${data.audio_file}`;
-        audioCacheRef.current.set(key, url);
-      } catch { return; }
-    }
-    if (hoverAudio) { hoverAudio.pause(); }
-    const audio = new Audio(url);
-    setHoverAudio(audio);
-    audio.play().catch(() => {});
-  }
-
-  function stopHoverAudio() {
-    if (hoverAudio) { hoverAudio.pause(); setHoverAudio(null); }
-  }
-
-  const isOpen = pinned || expanded;
-
-  const tokens = tokenizeWithHints(entry.question.sentence.english, hints);
-  const examples = entry.question.sentence.accepted_translations ?? [];
-
-  const displayText = previewExIdx !== null ? (examples[previewExIdx] ?? "") : null;
-  const previewDiff = displayText && pr?.correctionTokens
-    ? diffExampleVsUser(pr.correctionTokens.filter(t => t.status !== "remove").map(t => t.text).join(""), displayText)
-    : null;
-
-  return (
-    <div
-      style={{
-        background: bgColor,
-        borderRadius: 8,
-        padding: "8px 10px",
-        cursor: "pointer",
-        transition: "background 0.15s",
-        marginBottom: 4,
-        fontSize: 12,
-      }}
-      onClick={() => setPinned(p => !p)}
-      onMouseEnter={() => {
-        playHoverAudio();
-        const t = setTimeout(() => setExpanded(true), 250);
-        setHoverTimer(t);
-      }}
-      onMouseLeave={() => {
-        stopHoverAudio();
-        if (hoverTimer) { clearTimeout(hoverTimer); setHoverTimer(null); }
-        if (!pinned) setExpanded(false);
-      }}
-    >
-      {/* Collapsed view */}
-      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-        <span style={{ fontSize: 14 }}>{isCorrect ? "✓" : isExpired ? "—" : "✗"}</span>
-        <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: "rgba(255,255,255,0.8)" }}>
-          {pr?.correctionTokens
-            ? pr.correctionTokens.filter(t => t.status !== "remove").map(t => t.text).join("")
-            : isExpired ? "— time expired" : entry.question.sentence.english}
-        </span>
-        {isCorrect && (
-          <div style={{ width: 56, height: 5, borderRadius: 3, background: "rgba(255,255,255,0.1)", flexShrink: 0 }}>
-            <div style={{ width: `${qualityScore}%`, height: "100%", borderRadius: 3, background: `hsl(${hue},80%,58%)` }} />
-          </div>
-        )}
-        {hints.length > 0 && (
-          <div style={{ width: 56, height: 5, borderRadius: 3, background: "rgba(255,255,255,0.1)", flexShrink: 0 }}>
-            <div style={{
-              width: `${((hints.length - entry.hintsRevealed.length) / hints.length) * 100}%`,
-              height: "100%", borderRadius: 3, background: "#fbbf24",
-            }} />
-          </div>
-        )}
-      </div>
-
-      {/* Expanded view */}
-      {isOpen && (
-        <div style={{ marginTop: 10, borderTop: "1px solid rgba(255,255,255,0.1)", paddingTop: 8 }}>
-          {/* English sentence */}
-          <div style={{ fontSize: 12, color: "rgba(255,255,255,0.6)", marginBottom: 2 }}>
-            {entry.question.difficulty === "easy" ? "🟢" : entry.question.difficulty === "medium" ? "🟡" : "🔴"}{" "}
-            {entry.roundType !== "free" && entry.spotlightWord && (
-              <span style={{ color: "#fbbf24", fontWeight: 600 }}>[{entry.spotlightWord}] </span>
-            )}
-          </div>
-          <div style={{ fontSize: 13, color: "rgba(255,255,255,0.85)", marginBottom: 8, lineHeight: 1.5 }}>
-            {tokens.map((tok, i) => {
-              if (tok.hintIndex === null) return <span key={i}>{tok.text}</span>;
-              const revealed = entry.hintsRevealed.includes(tok.hintIndex);
-              return (
-                <span
-                  key={i}
-                  style={{
-                    color: revealed ? HINT_COLORS[tok.hintIndex % HINT_COLORS.length] : "inherit",
-                    borderBottom: revealed ? "none" : "1px dashed #fbbf24",
-                  }}
-                >
-                  {tok.text}
-                </span>
-              );
-            })}
-          </div>
-
-          {/* You said */}
-          {pr && (
-            <div style={{ marginBottom: 8 }}>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
-                <div style={{ fontSize: 10, opacity: 0.45, textTransform: "uppercase", letterSpacing: "0.06em" }}>You said</div>
-                {examples.length > 0 && (
-                  <div style={{ display: "flex", gap: 4 }} onMouseLeave={() => setPreviewExIdx(null)}>
-                    {examples.slice(0, 2).map((_, ei) => (
-                      <div
-                        key={ei}
-                        onMouseEnter={() => setPreviewExIdx(ei)}
-                        style={{
-                          width: 20, height: 20, borderRadius: 4, fontSize: 10, fontWeight: 700,
-                          display: "flex", alignItems: "center", justifyContent: "center",
-                          cursor: "default", userSelect: "none",
-                          background: previewExIdx === ei ? "rgba(147,197,253,0.2)" : "rgba(255,255,255,0.07)",
-                          border: `1px solid ${previewExIdx === ei ? "rgba(147,197,253,0.5)" : "rgba(255,255,255,0.15)"}`,
-                          color: previewExIdx === ei ? "#93c5fd" : "rgba(255,255,255,0.4)",
-                        }}
-                      >
-                        {ei + 1}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-              {previewExIdx !== null && displayText ? (
-                <div style={{ fontSize: 13, lineHeight: 1.5 }}>
-                  {(previewDiff ?? diffExampleVsUser("", displayText)).map((tok, i) => (
-                    <span key={i} style={{ color: tok.matched ? "rgba(255,255,255,0.5)" : "#fbbf24" }}>
-                      {tok.word}{" "}
-                    </span>
-                  ))}
-                </div>
-              ) : pr.correctionTokens ? (
-                <div style={{ fontSize: 13, lineHeight: 1.5 }}>
-                  <CorrectionTokens tokens={pr.correctionTokens} wrapped={false} />
-                </div>
-              ) : (
-                <div style={{ fontSize: 13, color: pr.accepted ? "#86efac" : "#fca5a5" }}>
-                  {pr.accepted ? "✓ Correct" : "✗ Incorrect"}
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Feedback */}
-          {pr?.feedbackIssues && pr.feedbackIssues.length > 0 && (
-            <div style={{ marginBottom: 8 }}>
-              <div style={{ fontSize: 10, opacity: 0.45, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 }}>Feedback</div>
-              <FeedbackBadges issues={pr.feedbackIssues} small />
-            </div>
-          )}
-
-          {/* Previous attempts */}
-          {entry.wrongAttempts.length > 0 && (
-            <div style={{ marginBottom: 8 }}>
-              <div style={{ fontSize: 10, opacity: 0.45, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 }}>Previous attempts</div>
-              {entry.wrongAttempts.map((attempt, i) => (
-                <div key={i} style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)", borderRadius: 6, padding: "6px 8px", marginBottom: 4 }}>
-                  {attempt.correctionTokens && (
-                    <div style={{ fontSize: 12, marginBottom: 3, lineHeight: 1.4 }}>
-                      <CorrectionTokens tokens={attempt.correctionTokens} wrapped={false} />
-                    </div>
-                  )}
-                  {attempt.feedbackIssues?.length ? <FeedbackBadges issues={attempt.feedbackIssues} small /> : null}
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* Bot results */}
-          <div style={{ display: "flex", gap: 6 }}>
-            {entry.botStates.map(bs => {
-              const bot = players.find(p => p.id === bs.playerId);
-              if (!bot) return null;
-              return (
-                <div key={bs.playerId} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11, color: "rgba(255,255,255,0.5)" }}>
-                  <Avatar player={bot} size={18} />
-                  <span style={{ color: bs.isCorrect ? "#86efac" : "#fca5a5" }}>{bs.isCorrect ? "✓" : "✗"}</span>
-                  {bs.pointsAwarded > 0 && <span>+{bs.pointsAwarded}</span>}
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-    </div>
-  );
+function toSharedWrongAttempt(wa: WrongAttempt): SharedHistoryEntry {
+  return {
+    entryId: Math.random().toString(36).slice(2),
+    isWrongAttempt: true,
+    skipped: false,
+    allHints: [],
+    hintsUsed: 0,
+    promptText: "",
+    userAnswer: wa.correctionTokens?.filter(t => t.status !== "remove").map(t => t.text).join("") ?? "",
+    correctAnswer: "",
+    correctionTokens: wa.correctionTokens ?? null,
+    feedbackIssues: wa.feedbackIssues ?? null,
+  };
 }
 
 // ── Main component ──
@@ -1438,7 +1244,32 @@ export default function TriviaGame2({
             {renderBotCards(questionStateRef.current.botStates)}
             <div ref={historyColumnRef} style={{ flex: 1, overflowY: "auto", marginTop: 8 }}>
               {history.map(entry => (
-                <HistoryEntry key={entry.entryId} entry={entry} players={players} apiBase={apiBase} locale={locale} />
+                <HistoryLogEntry
+                  key={entry.entryId}
+                  entry={toSharedEntry(entry)}
+                  wrongAttempts={entry.wrongAttempts.map(toSharedWrongAttempt)}
+                  apiBase={apiBase}
+                  locale={locale}
+                  promptLabel={<>
+                    {entry.question.difficulty === "easy" ? "🟢" : entry.question.difficulty === "medium" ? "🟡" : "🔴"}{" "}
+                    {entry.roundType !== "free" && entry.spotlightWord && <span style={{ color: "#fbbf24", fontWeight: 600 }}>[{entry.spotlightWord}]</span>}
+                  </>}
+                  extraBottom={entry.botStates.length > 0 ? (
+                    <div style={{ display: "flex", gap: 6 }}>
+                      {entry.botStates.map(bs => {
+                        const bot = players.find(p => p.id === bs.playerId);
+                        if (!bot) return null;
+                        return (
+                          <div key={bs.playerId} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11, color: "rgba(255,255,255,0.5)" }}>
+                            <Avatar player={bot} size={18} />
+                            <span style={{ color: bs.isCorrect ? "#86efac" : "#fca5a5" }}>{bs.isCorrect ? "✓" : "✗"}</span>
+                            {bs.pointsAwarded > 0 && <span>+{bs.pointsAwarded}</span>}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : undefined}
+                />
               ))}
             </div>
           </div>
@@ -1544,7 +1375,32 @@ export default function TriviaGame2({
           {/* History */}
           <div ref={historyColumnRef} style={{ flex: "0 0 34%", overflowY: "auto" }}>
             {history.map(entry => (
-              <HistoryEntry key={entry.entryId} entry={entry} players={players} apiBase={apiBase} locale={locale} />
+              <HistoryLogEntry
+                key={entry.entryId}
+                entry={toSharedEntry(entry)}
+                wrongAttempts={entry.wrongAttempts.map(toSharedWrongAttempt)}
+                apiBase={apiBase}
+                locale={locale}
+                promptLabel={<>
+                  {entry.question.difficulty === "easy" ? "🟢" : entry.question.difficulty === "medium" ? "🟡" : "🔴"}{" "}
+                  {entry.roundType !== "free" && entry.spotlightWord && <span style={{ color: "#fbbf24", fontWeight: 600 }}>[{entry.spotlightWord}]</span>}
+                </>}
+                extraBottom={entry.botStates.length > 0 ? (
+                  <div style={{ display: "flex", gap: 6 }}>
+                    {entry.botStates.map(bs => {
+                      const bot = players.find(p => p.id === bs.playerId);
+                      if (!bot) return null;
+                      return (
+                        <div key={bs.playerId} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11, color: "rgba(255,255,255,0.5)" }}>
+                          <Avatar player={bot} size={18} />
+                          <span style={{ color: bs.isCorrect ? "#86efac" : "#fca5a5" }}>{bs.isCorrect ? "✓" : "✗"}</span>
+                          {bs.pointsAwarded > 0 && <span>+{bs.pointsAwarded}</span>}
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : undefined}
+              />
             ))}
           </div>
         </div>
