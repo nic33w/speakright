@@ -109,6 +109,7 @@ export default function TriviaGame({
   const [feedbackMessage, setFeedbackMessage] = useState<string>("");
   const [sessionId] = useState<string>(`trivia_${Date.now()}`);
   const [paused, setPaused] = useState<boolean>(false);
+  const [isPasteTarget, setIsPasteTarget] = useState(false);
 
   // Proximity-based scaling state
   const [mousePosition, setMousePosition] = useState<{ x: number; y: number } | null>(null);
@@ -211,7 +212,7 @@ export default function TriviaGame({
 
     if (transcript.length >= MIN_AUTO_SEND_LENGTH && timerActive && !paused) {
       const lengthIncrease = transcript.length - previousTranscriptLengthRef.current;
-      const isWisprInput = lengthIncrease >= 10;
+      const isWisprInput = lengthIncrease >= 3;
       const delayMs = isWisprInput ? 100 : AUTO_SEND_DELAY_MS;
 
       autoSendTimer.current = window.setTimeout(() => {
@@ -232,6 +233,20 @@ export default function TriviaGame({
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [transcript, paused]);
+
+  useEffect(() => {
+    function onPaste(e: ClipboardEvent) {
+      const tag = (document.activeElement as HTMLElement)?.tagName;
+      if (tag === "TEXTAREA" || tag === "INPUT") return;
+      const text = e.clipboardData?.getData("text/plain");
+      if (!text) return;
+      e.preventDefault();
+      setTranscript(prev => prev + text);
+      textareaRef.current?.focus();
+    }
+    document.addEventListener("paste", onPaste);
+    return () => document.removeEventListener("paste", onPaste);
+  }, []);
 
   function loadNextSentence() {
     const available = triviaQuestions.filter(s => !usedSentenceIds.has(s.id));
@@ -909,10 +924,10 @@ export default function TriviaGame({
                 }
               }}
               onMouseEnter={(e) => {
-                if (!busy && timerActive && !paused) {
-                  e.currentTarget.focus();
-                }
+                if (!busy && timerActive && !paused) e.currentTarget.focus();
+                setIsPasteTarget(true);
               }}
+              onMouseLeave={() => setIsPasteTarget(false)}
               placeholder={`Type or speak your answer in ${initialLearning.name}...`}
               disabled={!timerActive || busy || paused}
               autoFocus
@@ -921,11 +936,13 @@ export default function TriviaGame({
                 minHeight: '80px',
                 padding: '12px',
                 fontSize: '16px',
-                border: '2px solid #e5e7eb',
+                border: isPasteTarget ? '2px solid rgba(139,92,246,0.6)' : '2px solid #e5e7eb',
                 borderRadius: 8,
                 resize: 'vertical',
                 fontFamily: 'system-ui, sans-serif',
                 boxSizing: 'border-box',
+                boxShadow: isPasteTarget ? '0 0 0 3px rgba(139,92,246,0.12)' : 'none',
+                transition: 'border-color 0.15s ease, box-shadow 0.15s ease',
               }}
             />
             <div style={{

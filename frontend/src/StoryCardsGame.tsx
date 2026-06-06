@@ -117,10 +117,12 @@ export default function StoryCardsGame({
   const [hoverCard2Index, setHoverCard2Index] = useState<number | null>(null);
 
   const [transcript, setTranscript] = useState<string>("");
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const autoSendTimer = useRef<number | null>(null);
   const lastSentRef = useRef<number>(0);
   const previousTranscriptLengthRef = useRef<number>(0);
   const [busy, setBusy] = useState(false);
+  const [isPasteTarget, setIsPasteTarget] = useState(false);
 
   const [history, setHistory] = useState<any[]>([]);
   const [playingIndex, setPlayingIndex] = useState<number | null>(null);
@@ -216,7 +218,7 @@ export default function StoryCardsGame({
     if (transcript.length >= MIN_AUTO_SEND_LENGTH) {
       // Detect if this is Wispr input (large chunk added at once) vs typing (gradual)
       const lengthIncrease = transcript.length - previousTranscriptLengthRef.current;
-      const isWisprInput = lengthIncrease >= 10; // 10+ chars added at once = likely Wispr
+      const isWisprInput = lengthIncrease >= 3; // 3+ chars added at once = likely Wispr
       const delay = isWisprInput ? 100 : AUTO_SEND_DELAY_MS; // 100ms for Wispr, 1200ms for typing
 
       autoSendTimer.current = window.setTimeout(() => {
@@ -238,6 +240,20 @@ export default function StoryCardsGame({
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [transcript]);
+
+  useEffect(() => {
+    function onPaste(e: ClipboardEvent) {
+      const tag = (document.activeElement as HTMLElement)?.tagName;
+      if (tag === "TEXTAREA" || tag === "INPUT") return;
+      const text = e.clipboardData?.getData("text/plain");
+      if (!text) return;
+      e.preventDefault();
+      setTranscript(prev => prev + text);
+      textareaRef.current?.focus();
+    }
+    document.addEventListener("paste", onPaste);
+    return () => document.removeEventListener("paste", onPaste);
+  }, []);
 
   // cleanup highlights after animation duration
   useEffect(() => {
@@ -1026,16 +1042,23 @@ export default function StoryCardsGame({
                 Hold CTRL + WIN and Speak (Wispr will fill or paste transcript below). Auto-send after pause.
               </div>
               <textarea
+                ref={textareaRef}
                 value={transcript}
                 onChange={(e) => setTranscript(e.target.value)}
-                onMouseEnter={(e) => e.currentTarget.focus()}
+                onMouseEnter={(e) => { e.currentTarget.focus(); setIsPasteTarget(true); }}
+                onMouseLeave={() => setIsPasteTarget(false)}
                 placeholder={`Speak now in ${learning.name} (Wispr → this box) or type a sentence`}
                 rows={6}
                 style={{
                   width: '98%',
                   padding: 8,
                   fontSize: 14,
-                  resize: 'vertical'
+                  resize: 'vertical',
+                  border: isPasteTarget ? '2px solid rgba(139,92,246,0.6)' : '1px solid #d1d5db',
+                  borderRadius: 4,
+                  boxShadow: isPasteTarget ? '0 0 0 3px rgba(139,92,246,0.12)' : 'none',
+                  transition: 'border-color 0.15s ease, box-shadow 0.15s ease',
+                  outline: 'none',
                 }}
               />
               <div style={{ marginTop: 8, display: 'flex', gap: 8 }}>

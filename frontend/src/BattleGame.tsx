@@ -461,6 +461,7 @@ export default function BattleGame({
   const [variantSelections, setVariantSelections] = useState<Record<string, number>>({});
   const [revealLearnAfterRound, setRevealLearnAfterRound] = useState(false);
   const [selectedConversation, setSelectedConversation] = useState<ConversationData | null>(null);
+  const [isPasteTarget, setIsPasteTarget] = useState(false);
 
   // Proximity-based hint color
   const [closestHintIndex, setClosestHintIndex] = useState<number | null>(null);
@@ -588,7 +589,7 @@ export default function BattleGame({
 
     if (transcript.length >= MIN_AUTO_SEND_LENGTH && timerActive && (selectedDifficulty || freeformMode)) {
       const lengthIncrease = transcript.length - previousTranscriptLengthRef.current;
-      const isWisprInput = lengthIncrease >= 10;
+      const isWisprInput = lengthIncrease >= 3;
 
       if (isWisprInput) {
         autoSendTimer.current = window.setTimeout(() => {
@@ -610,6 +611,21 @@ export default function BattleGame({
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [transcript]);
+
+  // Route Wispr paste to main textarea when nothing is focused
+  useEffect(() => {
+    function onPaste(e: ClipboardEvent) {
+      const tag = (document.activeElement as HTMLElement)?.tagName;
+      if (tag === "TEXTAREA" || tag === "INPUT") return;
+      const text = e.clipboardData?.getData("text/plain");
+      if (!text) return;
+      e.preventDefault();
+      setTranscript(prev => prev + text);
+      textareaRef.current?.focus();
+    }
+    document.addEventListener("paste", onPaste);
+    return () => document.removeEventListener("paste", onPaste);
+  }, []);
 
   // Init hint refs when difficulty changes
   useEffect(() => {
@@ -2638,7 +2654,8 @@ export default function BattleGame({
                   ref={textareaRef}
                   value={transcript}
                   onChange={e => setTranscript(e.target.value)}
-                  onMouseEnter={() => textareaRef.current?.focus()}
+                  onMouseEnter={() => { textareaRef.current?.focus(); setIsPasteTarget(true); }}
+                  onMouseLeave={() => setIsPasteTarget(false)}
                   onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); void submitAnswer(); } }}
                   placeholder={freeformMode
                     ? `Translate any sentence in ${initialLearning.name}...`
@@ -2647,9 +2664,11 @@ export default function BattleGame({
                   autoFocus
                   style={{
                     width: "100%", minHeight: 56, padding: 12, fontSize: 16,
-                    border: "2px solid rgba(255,255,255,0.2)", borderRadius: 8,
-                    resize: "none", fontFamily: "system-ui, sans-serif",
+                    border: isPasteTarget ? "2px solid rgba(139,92,246,0.6)" : "2px solid rgba(255,255,255,0.2)",
+                    borderRadius: 8, resize: "none", fontFamily: "system-ui, sans-serif",
                     boxSizing: "border-box", background: "rgba(0,0,0,0.4)", color: "white",
+                    boxShadow: isPasteTarget ? "0 0 0 3px rgba(139,92,246,0.15)" : "none",
+                    transition: "border-color 0.15s ease, box-shadow 0.15s ease",
                   }}
                 />
                 <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>

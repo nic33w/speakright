@@ -98,6 +98,7 @@ export default function MessengerChat({
   const [transcript, setTranscript] = useState<string>("");
   const [isMockMode, setIsMockMode] = useState<boolean>(false);
   const [busy, setBusy] = useState<boolean>(false);
+  const [isPasteTarget, setIsPasteTarget] = useState(false);
   const [showLevelUp, setShowLevelUp] = useState<boolean>(false);
   const [newLevel, setNewLevel] = useState<string>("");
   const [currentSuggestions, setCurrentSuggestions] = useState<SuggestedReply[]>([]);
@@ -231,7 +232,7 @@ export default function MessengerChat({
 
     if (transcript.length >= MIN_AUTO_SEND_LENGTH && !busy) {
       const lengthIncrease = transcript.length - previousTranscriptLengthRef.current;
-      const isWisprInput = lengthIncrease >= 10;
+      const isWisprInput = lengthIncrease >= 3;
       const delayMs = isWisprInput ? 100 : AUTO_SEND_DELAY_MS;
 
       autoSendTimer.current = window.setTimeout(() => {
@@ -249,6 +250,20 @@ export default function MessengerChat({
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [transcript, busy]);
+
+  useEffect(() => {
+    function onPaste(e: ClipboardEvent) {
+      const tag = (document.activeElement as HTMLElement)?.tagName;
+      if (tag === "TEXTAREA" || tag === "INPUT") return;
+      const text = e.clipboardData?.getData("text/plain");
+      if (!text) return;
+      e.preventDefault();
+      setTranscript(prev => prev + text);
+      textareaRef.current?.focus();
+    }
+    document.addEventListener("paste", onPaste);
+    return () => document.removeEventListener("paste", onPaste);
+  }, []);
 
   // Helper function for delays
   function delay(ms: number): Promise<void> {
@@ -1406,7 +1421,9 @@ export default function MessengerChat({
               onKeyDown={handleKeyDown}
               onMouseEnter={(e) => {
                 if (!busy) e.currentTarget.focus();
+                setIsPasteTarget(true);
               }}
+              onMouseLeave={() => setIsPasteTarget(false)}
               placeholder={`press CTRL + Windows key to speak in ${learning.name}...`}
               disabled={busy}
               autoFocus
@@ -1416,13 +1433,15 @@ export default function MessengerChat({
                 maxHeight: '120px',
                 padding: '12px 16px',
                 fontSize: '16px',
-                border: '2px solid #e5e7eb',
+                border: isPasteTarget ? '2px solid rgba(139,92,246,0.6)' : '2px solid #e5e7eb',
                 borderRadius: 24,
                 resize: 'none',
                 fontFamily: 'system-ui, sans-serif',
                 boxSizing: 'border-box',
                 outline: 'none',
                 opacity: busy ? 0.6 : 1,
+                boxShadow: isPasteTarget ? '0 0 0 3px rgba(139,92,246,0.12)' : 'none',
+                transition: 'border-color 0.15s ease, box-shadow 0.15s ease',
               }}
             />
             <button

@@ -180,6 +180,8 @@ export default function WordDrillGame({
   const [freeformText, setFreeformText] = useState("");
   const [freeformResult, setFreeformResult] = useState<{ correction_tokens: { text: string; status: "ok" | "remove" | "add" }[]; feedback_message: string } | null>(null);
   const [freeformBusy, setFreeformBusy] = useState(false);
+  const [pasteTarget, setPasteTarget] = useState<"main" | "freeform" | null>(null);
+  const pasteTargetRef = useRef<"main" | "freeform" | null>(null);
   const [freeformPendingAutoSend, setFreeformPendingAutoSend] = useState(false);
   const [freeformPendingProgress, setFreeformPendingProgress] = useState<number | null>(null);
   const freeformRef = useRef<HTMLTextAreaElement>(null);
@@ -553,16 +555,21 @@ export default function WordDrillGame({
     return () => window.removeEventListener("keydown", onKey);
   }, [gameMode]);
 
-  // Wispr paste routing — when no textarea/input is focused, capture the paste and route to main textarea
+  // Wispr paste routing — routes to hovered textarea, or falls back to main textarea
   useEffect(() => {
     function onPaste(e: ClipboardEvent) {
       const tag = (document.activeElement as HTMLElement)?.tagName;
-      if (tag === "TEXTAREA" || tag === "INPUT") return; // already going to the right place
+      if (tag === "TEXTAREA" || tag === "INPUT") return; // already going to focused element
       const text = e.clipboardData?.getData("text/plain");
       if (!text) return;
       e.preventDefault();
-      setTranscript(prev => prev + text);
-      textareaRef.current?.focus();
+      if (pasteTargetRef.current === "freeform") {
+        setFreeformText(prev => prev + text);
+        freeformRef.current?.focus();
+      } else {
+        setTranscript(prev => prev + text);
+        textareaRef.current?.focus();
+      }
     }
     document.addEventListener("paste", onPaste);
     return () => document.removeEventListener("paste", onPaste);
@@ -1468,16 +1475,19 @@ export default function WordDrillGame({
           ref={textareaRef}
           value={transcript}
           onChange={e => setTranscript(e.target.value)}
-          onMouseEnter={() => { if (answerStatus === "idle" && !busy) textareaRef.current?.focus(); }}
+          onMouseEnter={() => { if (answerStatus === "idle" && !busy) textareaRef.current?.focus(); pasteTargetRef.current = "main"; setPasteTarget("main"); }}
+          onMouseLeave={() => { pasteTargetRef.current = null; setPasteTarget(null); }}
           onKeyDown={e => { if (e.key === "Escape") { cancelPendingAutoSend(true); return; } if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); void submitAnswer(); } }}
           placeholder={`Hold CTRL + WIN to say the ${learning.name} translation…`}
           disabled={busy || answerStatus === "correct" || answerStatus === "skipped"}
           style={{
             width: "100%", minHeight: 60, padding: 12, fontSize: 16,
-            border: "2px solid rgba(255,255,255,0.18)", borderRadius: 8,
-            resize: "none", fontFamily: "system-ui, sans-serif",
+            border: pasteTarget === "main" ? "2px solid rgba(139,92,246,0.6)" : "2px solid rgba(255,255,255,0.18)",
+            borderRadius: 8, resize: "none", fontFamily: "system-ui, sans-serif",
             boxSizing: "border-box", background: "rgba(0,0,0,0.4)", color: "white", outline: "none",
             opacity: (busy || answerStatus === "correct" || answerStatus === "skipped") ? 0.5 : 1,
+            boxShadow: pasteTarget === "main" ? "0 0 0 3px rgba(139,92,246,0.15)" : "none",
+            transition: "border-color 0.15s ease, box-shadow 0.15s ease",
           }}
         />
 
@@ -1552,7 +1562,8 @@ export default function WordDrillGame({
                 ref={freeformRef}
                 value={freeformText}
                 onChange={e => setFreeformText(e.target.value)}
-                onMouseEnter={() => freeformRef.current?.focus()}
+                onMouseEnter={() => { freeformRef.current?.focus(); pasteTargetRef.current = "freeform"; setPasteTarget("freeform"); }}
+                onMouseLeave={() => { pasteTargetRef.current = null; setPasteTarget(null); }}
                 onKeyDown={e => {
                   if (e.key === "Escape") { cancelFreeformPendingAutoSend(true); return; }
                   if (e.key === "Enter" && !e.shiftKey) {
@@ -1568,9 +1579,11 @@ export default function WordDrillGame({
                 style={{
                   flex: 1, padding: "8px 12px", fontSize: 14,
                   background: "rgba(0,0,0,0.3)", color: "white",
-                  border: "1px solid rgba(255,255,255,0.1)", borderRadius: 6,
-                  resize: "none", fontFamily: "system-ui, sans-serif", outline: "none",
+                  border: pasteTarget === "freeform" ? "1px solid rgba(139,92,246,0.6)" : "1px solid rgba(255,255,255,0.1)",
+                  borderRadius: 6, resize: "none", fontFamily: "system-ui, sans-serif", outline: "none",
                   opacity: freeformBusy ? 0.5 : 1, boxSizing: "border-box",
+                  boxShadow: pasteTarget === "freeform" ? "0 0 0 3px rgba(139,92,246,0.15)" : "none",
+                  transition: "border-color 0.15s ease, box-shadow 0.15s ease",
                 }}
               />
               {freeformPendingAutoSend ? (
@@ -3085,16 +3098,19 @@ export default function WordDrillGame({
                 ref={textareaRef}
                 value={transcript}
                 onChange={e => setTranscript(e.target.value)}
-                onMouseEnter={() => { if (answerStatus === "idle" && !busy) textareaRef.current?.focus(); }}
+                onMouseEnter={() => { if (answerStatus === "idle" && !busy) textareaRef.current?.focus(); pasteTargetRef.current = "main"; setPasteTarget("main"); }}
+                onMouseLeave={() => { pasteTargetRef.current = null; setPasteTarget(null); }}
                 onKeyDown={e => { if (e.key === "Escape") { cancelPendingAutoSend(true); return; } if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); void submitAnswer(); } }}
                 placeholder={`Hold CTRL + WIN to say the ${learning.name} translation…`}
                 disabled={busy || answerStatus === "correct" || answerStatus === "skipped"}
-                      style={{
+                style={{
                   width: "100%", minHeight: 60, padding: 12, fontSize: 16,
-                  border: "2px solid rgba(255,255,255,0.18)", borderRadius: 8,
-                  resize: "none", fontFamily: "system-ui, sans-serif",
+                  border: pasteTarget === "main" ? "2px solid rgba(139,92,246,0.6)" : "2px solid rgba(255,255,255,0.18)",
+                  borderRadius: 8, resize: "none", fontFamily: "system-ui, sans-serif",
                   boxSizing: "border-box", background: "rgba(0,0,0,0.4)", color: "white", outline: "none",
                   opacity: (busy || answerStatus === "correct" || answerStatus === "skipped") ? 0.5 : 1,
+                  boxShadow: pasteTarget === "main" ? "0 0 0 3px rgba(139,92,246,0.15)" : "none",
+                  transition: "border-color 0.15s ease, box-shadow 0.15s ease",
                 }}
               />
 

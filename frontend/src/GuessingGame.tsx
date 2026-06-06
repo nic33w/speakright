@@ -92,6 +92,7 @@ export default function GuessingGame({
   const [messages, setMessages] = useState<GameMessage[]>([]);
   const [transcript, setTranscript] = useState<string>("");
   const [busy, setBusy] = useState<boolean>(false);
+  const [isPasteTarget, setIsPasteTarget] = useState(false);
   const [isMockMode, setIsMockMode] = useState<boolean>(false);
   const [sessionId, setSessionId] = useState<string>("");
   const [guessCount, setGuessCount] = useState<number>(0);
@@ -143,7 +144,7 @@ export default function GuessingGame({
 
     if (gameState === "playing" && transcript.length >= MIN_AUTO_SEND_LENGTH && !busy) {
       const lengthIncrease = transcript.length - previousTranscriptLengthRef.current;
-      const isWisprInput = lengthIncrease >= 10;
+      const isWisprInput = lengthIncrease >= 3;
       const delayMs = isWisprInput ? 100 : AUTO_SEND_DELAY_MS;
 
       autoSendTimer.current = window.setTimeout(() => {
@@ -161,6 +162,20 @@ export default function GuessingGame({
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [transcript, busy, gameState]);
+
+  useEffect(() => {
+    function onPaste(e: ClipboardEvent) {
+      const tag = (document.activeElement as HTMLElement)?.tagName;
+      if (tag === "TEXTAREA" || tag === "INPUT") return;
+      const text = e.clipboardData?.getData("text/plain");
+      if (!text) return;
+      e.preventDefault();
+      setTranscript(prev => prev + text);
+      textareaRef.current?.focus();
+    }
+    document.addEventListener("paste", onPaste);
+    return () => document.removeEventListener("paste", onPaste);
+  }, []);
 
   async function startGame(theme: Theme) {
     setSelectedTheme(theme);
@@ -766,7 +781,9 @@ export default function GuessingGame({
                 onKeyDown={handleKeyDown}
                 onMouseEnter={(e) => {
                   if (!busy) e.currentTarget.focus();
+                  setIsPasteTarget(true);
                 }}
+                onMouseLeave={() => setIsPasteTarget(false)}
                 placeholder="Ask a yes/no question or make a guess..."
                 disabled={busy}
                 autoFocus
@@ -776,13 +793,15 @@ export default function GuessingGame({
                   maxHeight: '120px',
                   padding: '12px 16px',
                   fontSize: '16px',
-                  border: '2px solid #e5e7eb',
+                  border: isPasteTarget ? '2px solid rgba(139,92,246,0.6)' : '2px solid #e5e7eb',
                   borderRadius: 24,
                   resize: 'none',
                   fontFamily: 'system-ui, sans-serif',
                   boxSizing: 'border-box',
                   outline: 'none',
                   opacity: busy ? 0.6 : 1,
+                  boxShadow: isPasteTarget ? '0 0 0 3px rgba(139,92,246,0.12)' : 'none',
+                  transition: 'border-color 0.15s ease, box-shadow 0.15s ease',
                 }}
               />
               <button
