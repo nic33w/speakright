@@ -186,6 +186,9 @@ export function HintCards({
 //
 // wrongAttempts: wrong entries for the same sentence (WordDrill passes these
 //   externally; TriviaGame2 embeds them in the entry and maps them before passing).
+// hideTargetText: when true, hides the answer row in collapsed view and the You Said
+//   section when only hovering (not pinned). The user hears audio but doesn't see the
+//   Spanish text unless they click to pin. Default false.
 // promptLabel: optional node rendered above the sentence in expanded view
 //   (e.g. TriviaGame2's difficulty dot + spotlight word).
 // extraBottom: rendered after "Previous Attempts" (e.g. TriviaGame2 bot results).
@@ -194,6 +197,7 @@ export function HistoryLogEntry({
   wrongAttempts = [],
   apiBase = "http://localhost:8000",
   locale = "es-MX",
+  hideTargetText = false,
   promptLabel,
   extraBottom,
 }: {
@@ -201,16 +205,31 @@ export function HistoryLogEntry({
   wrongAttempts?: SharedHistoryEntry[];
   apiBase?: string;
   locale?: string;
+  hideTargetText?: boolean;
   promptLabel?: React.ReactNode;
   extraBottom?: React.ReactNode;
 }) {
   const [expanded, setExpanded] = useState(false);
   const [pinned, setPinned] = useState(false);
   const [hoverTimer, setHoverTimer] = useState<ReturnType<typeof setTimeout> | null>(null);
-  const [hoveredHintIdx, setHoveredHintIdx] = useState<number | null>(null);
   const [previewExIdx, setPreviewExIdx] = useState<number | null>(null);
   const [hoverAudio, setHoverAudio] = useState<HTMLAudioElement | null>(null);
   const audioCacheRef = useRef<Map<string, string>>(new Map());
+
+  // Pre-warm audio cache on mount so first hover plays instantly.
+  React.useEffect(() => {
+    const key = `${locale}:${entry.correctAnswer}`;
+    if (audioCacheRef.current.has(key) || !entry.correctAnswer) return;
+    fetch(`${apiBase}/api/trivia/audio`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text: entry.correctAnswer, locale }),
+    })
+      .then(r => r.json())
+      .then(data => { audioCacheRef.current.set(key, `${apiBase}${data.audio_file}`); })
+      .catch(() => {});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const isOpen = expanded || pinned;
   const qualityHue = entry.qualityScore != null ? Math.round((entry.qualityScore / 100) * 217) : 0;
@@ -306,8 +325,8 @@ export function HistoryLogEntry({
         <div style={{ fontSize: 11, opacity: 0.5, marginTop: 4, fontStyle: "italic" }}>{entry.promptText}</div>
       )}
 
-      {/* Answer row — hidden when expanded (the You Said section repeats it) */}
-      {!isOpen && (
+      {/* Answer row — hidden when expanded, and hidden when hideTargetText is on */}
+      {!isOpen && !hideTargetText && (
         <div style={{ marginTop: 3, fontWeight: 500, lineHeight: 1.4, fontSize: 13 }}>
           {entry.skipped ? (
             <span style={{ color: "#94a3b8" }}>{entry.correctAnswer}</span>
@@ -340,61 +359,22 @@ export function HistoryLogEntry({
                 <div style={{ fontSize: 12, color: "rgba(255,255,255,0.6)", marginBottom: 4 }}>{promptLabel}</div>
               )}
               <div style={{ fontSize: 10, opacity: 0.45, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 }}>Sentence</div>
-              <div
-                style={{ fontSize: 13, lineHeight: 1.6 }}
-                onMouseLeave={() => { setHoveredHintIdx(null); stopAudio(); }}
-              >
+              <div style={{ fontSize: 13, lineHeight: 1.6 }}>
                 {tokens.map((tok, i) => {
-                  if (tok.hintIndex === null) return (
-                    <span key={i} onMouseEnter={() => setHoveredHintIdx(null)}>{tok.text}</span>
-                  );
+                  if (tok.hintIndex === null) return <span key={i}>{tok.text}</span>;
                   const isRev = revealed.has(tok.hintIndex);
-                  const isHov = hoveredHintIdx === tok.hintIndex;
                   return (
-                    <span
-                      key={i}
-                      onMouseEnter={() => {
-                        setHoveredHintIdx(tok.hintIndex!);
-                        const first = entry.allHints[tok.hintIndex!].learning.split("/")[0].trim();
-                        void playAudio(first);
-                      }}
-                      style={{
-                        color: isRev ? HINT_COLORS[tok.hintIndex % HINT_COLORS.length] : isHov ? "#93c5fd" : "inherit",
-                        borderBottom: isHov ? "1px solid #93c5fd" : isRev ? "none" : "1px dashed rgba(251,191,36,0.6)",
-                        cursor: "default", transition: "color 0.1s",
-                      }}
-                    >{tok.text}</span>
+                    <span key={i} style={{
+                      color: isRev ? HINT_COLORS[tok.hintIndex % HINT_COLORS.length] : "inherit",
+                      borderBottom: isRev ? "none" : "1px dashed rgba(251,191,36,0.6)",
+                    }}>{tok.text}</span>
                   );
                 })}
               </div>
-
-              {/* Contextual hint pill display (BattleGame-style) */}
-              {hoveredHintIdx !== null && entry.allHints[hoveredHintIdx] && (() => {
-                const hint = entry.allHints[hoveredHintIdx];
-                const variants = hint.learning.split("/").map(v => v.trim()).filter(Boolean);
-                return (
-                  <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 6, flexWrap: "wrap" }}>
-                    {variants.map((v, vi) => (
-                      <span key={vi} style={{
-                        display: "inline-flex", alignItems: "center", gap: 4,
-                        padding: "2px 9px", borderRadius: 20, fontSize: 12,
-                        border: "1px solid rgba(147,197,253,0.3)", background: "rgba(147,197,253,0.07)",
-                        color: "#93c5fd",
-                      }}>
-                        <span style={{ width: 5, height: 5, borderRadius: "50%", display: "inline-block", flexShrink: 0, background: "rgba(147,197,253,0.4)" }} />
-                        {v}
-                      </span>
-                    ))}
-                    {hint.note && (
-                      <span style={{ fontSize: 11, fontStyle: "italic", color: "rgba(255,255,255,0.45)" }}>{hint.note}</span>
-                    )}
-                  </div>
-                );
-              })()}
             </div>
 
-            {/* 2. You Said */}
-            {!entry.skipped && (
+            {/* 2. You Said — hidden on hover-only when hideTargetText is on; shown when pinned */}
+            {!entry.skipped && (!hideTargetText || pinned) && (
               <div>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
                   <div style={{ fontSize: 10, opacity: 0.45, textTransform: "uppercase", letterSpacing: "0.06em" }}>

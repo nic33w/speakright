@@ -2444,7 +2444,7 @@ export default function WordDrillGame({
             {/* RIGHT — History / Info panel */}
             <div style={{ flex: "0 0 34%", display: "flex", flexDirection: "column", borderLeft: "1px solid rgba(255,255,255,0.08)", overflow: "hidden" }}>
               {/* Tab header */}
-              <div style={{ flexShrink: 0, display: "flex", borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
+              <div style={{ flexShrink: 0, display: "flex", alignItems: "center", borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
                     {(["history", "info"] as const).map(mode => (
                       <button key={mode} onClick={() => setRightPanelMode(mode)} style={{
                         flex: 1, padding: "10px 0", fontSize: 11, fontWeight: 600,
@@ -2455,6 +2455,16 @@ export default function WordDrillGame({
                         transition: "opacity 0.2s",
                       }}>{mode === "history" ? "History" : "Info (I)"}</button>
                     ))}
+                    {rightPanelMode === "history" && (
+                      <button onClick={() => setShowTargetText(s => !s)} title={showTargetText ? "Audio only — hide Spanish text" : "Show Spanish text"} style={{
+                        flexShrink: 0, padding: "4px 10px", marginRight: 8, fontSize: 12, fontWeight: 600, borderRadius: 6, cursor: "pointer",
+                        border: "1px solid",
+                        background: !showTargetText ? "rgba(251,191,36,0.2)" : "rgba(255,255,255,0.08)",
+                        borderColor: !showTargetText ? "rgba(251,191,36,0.5)" : "rgba(255,255,255,0.2)",
+                        color: !showTargetText ? "#fbbf24" : "rgba(255,255,255,0.6)",
+                        transition: "all 0.15s",
+                      }}>{!showTargetText ? "🔇 Audio only" : "👁 Show text"}</button>
+                    )}
                   </div>
 
                   {/* History content */}
@@ -2506,6 +2516,7 @@ export default function WordDrillGame({
                           wrongAttempts={wrongAttempts}
                           apiBase={apiBase}
                           locale={learningLocale}
+                          hideTargetText={!showTargetText}
                         />
                       );
                     })}
@@ -2932,7 +2943,7 @@ export default function WordDrillGame({
         {/* RIGHT — History / Info panel */}
         <div style={{ flex: "0 0 34%", display: "flex", flexDirection: "column", borderLeft: "1px solid rgba(255,255,255,0.08)", overflow: "hidden" }}>
           {/* Tab header */}
-          <div style={{ flexShrink: 0, display: "flex", borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
+          <div style={{ flexShrink: 0, display: "flex", alignItems: "center", borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
             {(["history", "info"] as const).map(mode => (
               <button key={mode} onClick={() => setRightPanelMode(mode)} style={{
                 flex: 1, padding: "10px 0", fontSize: 11, fontWeight: 600,
@@ -2943,6 +2954,16 @@ export default function WordDrillGame({
                 transition: "opacity 0.2s",
               }}>{mode === "history" ? "History" : "Info (I)"}</button>
             ))}
+            {rightPanelMode === "history" && (
+              <button onClick={() => setShowTargetText(s => !s)} title={showTargetText ? "Audio only — hide Spanish text" : "Show Spanish text"} style={{
+                flexShrink: 0, padding: "4px 10px", marginRight: 8, fontSize: 12, fontWeight: 600, borderRadius: 6, cursor: "pointer",
+                border: "1px solid",
+                background: !showTargetText ? "rgba(251,191,36,0.2)" : "rgba(255,255,255,0.08)",
+                borderColor: !showTargetText ? "rgba(251,191,36,0.5)" : "rgba(255,255,255,0.2)",
+                color: !showTargetText ? "#fbbf24" : "rgba(255,255,255,0.6)",
+                transition: "all 0.15s",
+              }}>{!showTargetText ? "🔇 Audio only" : "👁 Show text"}</button>
+            )}
           </div>
 
           {/* Info panel */}
