@@ -1,12 +1,8 @@
 // TriviaGame2.tsx — Multiplayer vs Bots game mode
 import React, { useEffect, useRef, useState, useCallback } from "react";
 import { normalizeNumberTokens } from "../numUtils";
-import {
-  HINT_COLORS,
-  HintItem, FeedbackIssue,
-  tokenizeWithHints,
-  SharedHistoryEntry,
-} from "../sharedGameUtils";
+import { HINT_COLORS, tokenizeWithHints } from "../sharedGameUtils";
+import type { HintItem, FeedbackIssue, SharedHistoryEntry } from "../sharedGameUtils";
 import { FeedbackBadges, CorrectionTokens, HintCards, HistoryLogEntry } from "../sharedGameComponents";
 
 type LangSpec = { code: string; name: string };

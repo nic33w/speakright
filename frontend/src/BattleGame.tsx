@@ -2,11 +2,8 @@
 // Battle mode: conversational battle with translation challenges
 import React, { useEffect, useState, useRef } from "react";
 import { normalizeNumberTokens } from "./numUtils";
-import {
-  HINT_COLORS, FEEDBACK_MAP, FEEDBACK_COLORS, FEEDBACK_LABELS,
-  HintItem, CorrectionToken, FeedbackIssue,
-  tokenizeWithHints, diffExampleVsUser, calculateDistance, distanceToOpacity,
-} from "./sharedGameUtils";
+import { HINT_COLORS, FEEDBACK_MAP, FEEDBACK_COLORS, FEEDBACK_LABELS, tokenizeWithHints, diffExampleVsUser, calculateDistance, distanceToOpacity } from "./sharedGameUtils";
+import type { HintItem, CorrectionToken, FeedbackIssue } from "./sharedGameUtils";
 import { FeedbackBadges, CorrectionTokens } from "./sharedGameComponents";
 import BATTLE_CONV_CAFE from './battle_conversations_es.json';
 import BATTLE_CONV_MARKET from './battle_conversations_es_2.json';
@@ -189,7 +186,6 @@ function PlayerLogEntryExpanded({ entry, hideLearnText, conversationId, wrongAtt
   const isPreview = previewExIdx !== null;
   const displayedText = isPreview ? (examples[previewExIdx!] ?? entry.textLearning ?? "") : (entry.textLearning ?? "");
   const previewDiff = isPreview && entry.textLearning ? diffExampleVsUser(entry.textLearning, displayedText) : null;
-  const feedbackText = entry.skipped ? "Skipped" : entry.damageDealt ? `+${entry.damageDealt} damage` : "";
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
@@ -347,21 +343,17 @@ function PlayerLogEntryExpanded({ entry, hideLearnText, conversationId, wrongAtt
       )}
 
       {/* 4. Feedback */}
-      {(feedbackText || entry.feedbackIssues?.length || entry.feedbackKey) && (() => {
+      {(entry.feedbackIssues?.length || entry.feedbackKey) && (() => {
         // Build effective issues list: prefer feedbackIssues array, fall back to single key, or infer "perfect"
         const effectiveIssues: FeedbackIssue[] = entry.feedbackIssues?.length
           ? entry.feedbackIssues
           : entry.feedbackKey
             ? [{ feedbackKey: entry.feedbackKey, correctedSnippet: entry.correctedSnippet, feedbackExplanation: entry.feedbackExplanation }]
             : (!entry.llmCalled && entry.qualityScore === 100 ? [{ feedbackKey: "perfect" }] : []);
+        if (!effectiveIssues.length) return null;
         return (
           <div style={{ borderTop: "1px solid rgba(255,255,255,0.1)", paddingTop: 7 }}>
             <div style={{ fontSize: 10, opacity: 0.45, marginBottom: 5, textTransform: "uppercase", letterSpacing: "0.06em" }}>Feedback</div>
-            {feedbackText && (
-              <div style={{ fontSize: 12, color: entry.skipped ? "#94a3b8" : "#86efac", marginBottom: effectiveIssues.length ? 5 : 0 }}>
-                {feedbackText}
-              </div>
-            )}
             <FeedbackBadges issues={effectiveIssues} />
           </div>
         );

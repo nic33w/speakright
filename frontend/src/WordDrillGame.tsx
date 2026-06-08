@@ -1,14 +1,9 @@
 // WordDrillGame.tsx
 // Practice specific words/phrases with LLM feedback — follows Common Mode Features spec
 import { useEffect, useRef, useState } from "react";
-import {
-  HINT_COLORS,
-  HintItem, CorrectionToken, FeedbackIssue,
-  checkFuzzyMatch, restoreAccentsInTokens,
-  tokenizeWithHints,
-} from "./sharedGameUtils";
+import { HINT_COLORS, checkFuzzyMatch, restoreAccentsInTokens, tokenizeWithHints } from "./sharedGameUtils";
+import type { HintItem, CorrectionToken, FeedbackIssue, SharedHistoryEntry } from "./sharedGameUtils";
 import { FeedbackBadges, CorrectionTokens, HintCards, HistoryLogEntry } from "./sharedGameComponents";
-import type { SharedHistoryEntry } from "./sharedGameUtils";
 
 type LangSpec = { code: string; name: string };
 
@@ -895,7 +890,6 @@ export default function WordDrillGame({
     setTotalSentences(0);
     setRoundSentencesShown(0);
     setHasCompletedRound(false);
-    setPinnedLogEntries(new Set());
     sentenceQueueRef.current = [];
     setCurrentSentence(null);
     setLearnComplete(false);
@@ -915,7 +909,6 @@ export default function WordDrillGame({
     setTotalSentences(0);
     setRoundSentencesShown(0);
     setHasCompletedRound(false);
-    setPinnedLogEntries(new Set());
     sentenceQueueRef.current = [];
     setCurrentSentence(null);
     setLearnComplete(false);

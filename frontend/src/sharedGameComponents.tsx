@@ -1,7 +1,8 @@
 // sharedGameComponents.tsx
 // Shared React components used across game modes.
 import React, { useRef, useState } from "react";
-import { FEEDBACK_MAP, FEEDBACK_COLORS, FEEDBACK_LABELS, FeedbackIssue, CorrectionToken, HintItem, HINT_COLORS, calculateDistance, distanceToOpacity, tokenizeWithHints, diffExampleVsUser, SharedHistoryEntry } from "./sharedGameUtils";
+import { FEEDBACK_MAP, FEEDBACK_COLORS, FEEDBACK_LABELS, HINT_COLORS, calculateDistance, distanceToOpacity, tokenizeWithHints, diffExampleVsUser } from "./sharedGameUtils";
+import type { FeedbackIssue, CorrectionToken, HintItem, SharedHistoryEntry } from "./sharedGameUtils";
 
 // ── FeedbackBadges ────────────────────────────────────────────────────────────
 // Renders a list of feedback issue pills with explanations.
@@ -300,23 +301,25 @@ export function HistoryLogEntry({
         )}
       </div>
 
-      {/* English prompt subtitle */}
-      {entry.promptText && (
+      {/* English prompt subtitle — hidden when expanded (the Sentence section repeats it with hint highlighting) */}
+      {entry.promptText && !isOpen && (
         <div style={{ fontSize: 11, opacity: 0.5, marginTop: 4, fontStyle: "italic" }}>{entry.promptText}</div>
       )}
 
-      {/* Answer row */}
-      <div style={{ marginTop: 3, fontWeight: 500, lineHeight: 1.4, fontSize: 13 }}>
-        {entry.skipped ? (
-          <span style={{ color: "#94a3b8" }}>{entry.correctAnswer}</span>
-        ) : entry.correctionTokens?.length ? (
-          <CorrectionTokens tokens={entry.correctionTokens} wrapped={false} />
-        ) : (
-          <span style={{ color: entry.isWrongAttempt ? "#fca5a5" : "rgba(255,255,255,0.9)" }}>
-            {entry.userAnswer || "—"}
-          </span>
-        )}
-      </div>
+      {/* Answer row — hidden when expanded (the You Said section repeats it) */}
+      {!isOpen && (
+        <div style={{ marginTop: 3, fontWeight: 500, lineHeight: 1.4, fontSize: 13 }}>
+          {entry.skipped ? (
+            <span style={{ color: "#94a3b8" }}>{entry.correctAnswer}</span>
+          ) : entry.correctionTokens?.length ? (
+            <CorrectionTokens tokens={entry.correctionTokens} wrapped={false} />
+          ) : (
+            <span style={{ color: entry.isWrongAttempt ? "#fca5a5" : "rgba(255,255,255,0.9)" }}>
+              {entry.userAnswer || "—"}
+            </span>
+          )}
+        </div>
+      )}
 
       {/* ── Expanded view ── */}
       {isOpen && (() => {
