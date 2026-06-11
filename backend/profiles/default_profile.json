@@ -1,6 +1,6 @@
 {
   "created_at": 1769845610,
-  "last_updated": 1781195173,
+  "last_updated": 1781209152,
   "ui_language": {
     "code": "en",
     "name": "English"
@@ -10,7 +10,7 @@
     "name": "Spanish"
   },
   "level": "beginner",
-  "level_confidence": 0.5,
+  "level_confidence": 0.8,
   "level_history": [
     {
       "timestamp": 1769845610,
@@ -30,31 +30,10 @@
     "prepositions"
   ],
   "avoid_topics": [],
-  "turn_count": 210,
+  "turn_count": 213,
   "corrections_needed": 120,
   "last_assessment_turn": 0,
   "recent_turns": [
-    {
-      "turn_id": "turn_1781153461405",
-      "user_input": "Te dije que no me gusta comprando contigo.",
-      "corrected_input": "Te dije que no me gusta comprar contigo.",
-      "had_errors": true,
-      "timestamp": 1781153470
-    },
-    {
-      "turn_id": "turn_1781153514679",
-      "user_input": "Prefiero ir a la playa.",
-      "corrected_input": "Prefiero ir a la playa.",
-      "had_errors": false,
-      "timestamp": 1781153525
-    },
-    {
-      "turn_id": "turn_1781153558873",
-      "user_input": "Me gusta hacer ejercicio en la playa.",
-      "corrected_input": "Me gusta hacer ejercicio en la playa.",
-      "had_errors": false,
-      "timestamp": 1781153570
-    },
     {
       "turn_id": "turn_1781153621976",
       "user_input": "Me gusta calistico. ¿Has intentado?",
@@ -103,6 +82,27 @@
       "corrected_input": "¿Qué estás haciendo?",
       "had_errors": true,
       "timestamp": 1781195173
+    },
+    {
+      "turn_id": "turn_1781209057144",
+      "user_input": "Si me lo diste",
+      "corrected_input": "Si me lo diste.",
+      "had_errors": false,
+      "timestamp": 1781209066
+    },
+    {
+      "turn_id": "turn_1781209115562",
+      "user_input": "Te di algo especial.",
+      "corrected_input": "Te di algo especial.",
+      "had_errors": false,
+      "timestamp": 1781209121
+    },
+    {
+      "turn_id": "turn_1781209144915",
+      "user_input": "¿Puedes adivinar qué es?",
+      "corrected_input": "¿Puedes adivinar qué es?",
+      "had_errors": false,
+      "timestamp": 1781209152
     }
   ]
 }

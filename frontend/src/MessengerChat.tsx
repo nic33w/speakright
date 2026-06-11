@@ -74,6 +74,7 @@ type MessengerMessage = {
   correctionTokens?: CorrectionToken[];
   hadErrors?: boolean;
   errorExplanation?: string;
+  suggestedNative?: string;
 
   // Character's side
   responseChunks?: ResponseChunk[];
@@ -138,6 +139,8 @@ export default function MessengerChat({
 
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
+  const pendingSuggestionRef = useRef<SuggestedReply | null>(null);
+  const lastSuggestionsRef = useRef<SuggestedReply[]>([]);
 
   // Initialize profile and fetch greeting suggestions on mount
   useEffect(() => {
@@ -222,6 +225,13 @@ export default function MessengerChat({
     }
   }, [messages]);
 
+  // Keep lastSuggestionsRef synced so typed attempts can be matched
+  useEffect(() => {
+    if (currentSuggestions.length > 0) {
+      lastSuggestionsRef.current = currentSuggestions;
+    }
+  }, [currentSuggestions]);
+
   useEffect(() => {
     function onPaste(e: ClipboardEvent) {
       const tag = (document.activeElement as HTMLElement)?.tagName;
@@ -257,13 +267,28 @@ export default function MessengerChat({
     setBusy(true);
     const userMsgId = Date.now();
 
+    // Detect if text matches a suggested reply (click path or typed-match path)
+    let matchedNative: string | undefined;
+    if (pendingSuggestionRef.current) {
+      matchedNative = pendingSuggestionRef.current.text_native;
+      pendingSuggestionRef.current = null;
+    } else {
+      const norm = (s: string) =>
+        s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "")
+         .replace(/[¿¡.,!?;:"""'']/g, "").replace(/\s+/g, " ").trim();
+      const normText = norm(text);
+      const match = lastSuggestionsRef.current.find(s => norm(s.text_target) === normText);
+      if (match) matchedNative = match.text_native;
+    }
+
     // IMMEDIATELY show user's message (before API call)
     const pendingUserMsg: MessengerMessage = {
       id: userMsgId,
       timestamp: new Date(),
       side: "user",
       userInput: text,
-      hadErrors: false // Will update after API response
+      hadErrors: false, // Will update after API response
+      suggestedNative: matchedNative,
     };
     setMessages((prev) => [...prev, pendingUserMsg]);
 
@@ -439,6 +464,7 @@ export default function MessengerChat({
   }
 
   function handleSuggestionClick(suggestion: SuggestedReply) {
+    pendingSuggestionRef.current = suggestion;
     // Stop any ongoing audio repeat
     currentlyPlayingSuggestionRef.current = null;
     if (audioRepeatTimeoutRef.current) {
@@ -899,6 +925,17 @@ export default function MessengerChat({
               {message.side === "user" ? (
                 // User message
                 <div>
+                  {message.suggestedNative && (
+                    <div style={{
+                      fontSize: 11,
+                      color: 'rgba(255,255,255,0.45)',
+                      textAlign: 'right',
+                      marginBottom: 3,
+                      paddingRight: 4,
+                    }}>
+                      {message.suggestedNative}
+                    </div>
+                  )}
                   {message.hadErrors ? (
                     <>
                       <div style={{
