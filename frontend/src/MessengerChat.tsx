@@ -75,6 +75,7 @@ type MessengerMessage = {
   hadErrors?: boolean;
   errorExplanation?: string;
   suggestedNative?: string;
+  userAudioFile?: string;
 
   // Character's side
   responseChunks?: ResponseChunk[];
@@ -89,6 +90,7 @@ type MessengerChatProps = {
 };
 
 const SESSION_ID = `sess_${Date.now()}`;
+const LOCALE_MAP: Record<string, string> = { es: "es-MX", id: "id-ID", en: "en-US" };
 
 export default function MessengerChat({
   apiBase = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000",
@@ -118,6 +120,7 @@ export default function MessengerChat({
   // Feature toggles for realistic chat simulation
   const [delayMessages, setDelayMessages] = useState<boolean>(false);
   const [streamLetters, setStreamLetters] = useState<boolean>(false);
+  const [audioEnabled, setAudioEnabled] = useState<boolean>(false);
 
   // For streaming effect: track which message is currently streaming and its displayed text
   const [streamingMessageId, setStreamingMessageId] = useState<number | null>(null);
@@ -141,6 +144,7 @@ export default function MessengerChat({
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const pendingSuggestionRef = useRef<SuggestedReply | null>(null);
   const lastSuggestionsRef = useRef<SuggestedReply[]>([]);
+  const suggestionAudioCacheRef = useRef<Map<string, string>>(new Map());
 
   // Initialize profile and fetch greeting suggestions on mount
   useEffect(() => {
@@ -251,6 +255,21 @@ export default function MessengerChat({
     return new Promise(resolve => setTimeout(resolve, ms));
   }
 
+  async function fetchAudioUrl(text: string, locale: string): Promise<string | null> {
+    try {
+      const res = await fetch(`${apiBase}/api/trivia/audio`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text, locale }),
+      });
+      if (!res.ok) return null;
+      const data = await res.json();
+      return data.audio_file as string;
+    } catch {
+      return null;
+    }
+  }
+
   // Helper function to stream text letter by letter
   async function streamText(messageId: number, chunkIndex: number, fullText: string): Promise<void> {
     const key = `${messageId}-${chunkIndex}`;
@@ -317,6 +336,14 @@ export default function MessengerChat({
 
       const data = await res.json();
 
+      // Generate user sentence audio if enabled (fetch before updating message so we can store URL)
+      let userAudioFile: string | undefined;
+      if (audioEnabled && data.corrected_input) {
+        const locale = LOCALE_MAP[learning.code] || "es-MX";
+        const audioPath = await fetchAudioUrl(data.corrected_input, locale);
+        if (audioPath) userAudioFile = audioPath;
+      }
+
       // UPDATE user's message with correction info (if any)
       setMessages((prev) => prev.map(msg => {
         if (msg.id !== userMsgId) return msg;
@@ -329,6 +356,7 @@ export default function MessengerChat({
           correctionTokens: tokens,
           hadErrors: data.had_errors,
           errorExplanation: data.error_explanation,
+          userAudioFile,
         };
       }));
 
@@ -386,6 +414,10 @@ export default function MessengerChat({
       // Update current suggestions for display and reset revealed state
       setCurrentSuggestions(data.suggested_replies || []);
       setRevealedSuggestionIds(new Set());
+      // Pre-seed audio cache for any suggestions that already have audio_file paths
+      for (const s of (data.suggested_replies || []) as SuggestedReply[]) {
+        if (s.audio_file) suggestionAudioCacheRef.current.set(s.id, s.audio_file);
+      }
       // Stop any ongoing audio repeat
       currentlyPlayingSuggestionRef.current = null;
       if (audioRepeatTimeoutRef.current) {
@@ -433,7 +465,10 @@ export default function MessengerChat({
         }
       }
 
-      // Play audio chunks sequentially
+      // Play user sentence audio first (if generated), then response audio
+      if (userAudioFile) {
+        await playAudioUrl(`${apiBase}${userAudioFile}`);
+      }
       await playResponseAudio(data.response_chunks);
 
     } catch (e) {
@@ -668,6 +703,15 @@ export default function MessengerChat({
                   style={{ cursor: 'pointer' }}
                 />
                 Stream text
+              </label>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, color: '#6b7280', cursor: 'pointer' }}>
+                <input
+                  type="checkbox"
+                  checked={audioEnabled}
+                  onChange={(e) => setAudioEnabled(e.target.checked)}
+                  style={{ cursor: 'pointer' }}
+                />
+                🔊 Audio
               </label>
               {/* Quiz History Button */}
               <button
@@ -983,7 +1027,28 @@ export default function MessengerChat({
                     color: 'rgba(255,255,255,0.7)',
                     marginTop: '4px',
                     textAlign: 'right',
+                    display: 'flex',
+                    justifyContent: 'flex-end',
+                    alignItems: 'center',
+                    gap: 6,
                   }}>
+                    {message.userAudioFile && (
+                      <button
+                        onMouseEnter={() => message.userAudioFile && void playAudioUrl(`${apiBase}${message.userAudioFile}`)}
+                        title="Replay your sentence"
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          cursor: 'pointer',
+                          fontSize: 13,
+                          opacity: 0.7,
+                          padding: '0 2px',
+                          color: 'white',
+                        }}
+                      >
+                        🔊
+                      </button>
+                    )}
                     {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                   </div>
                 </div>
@@ -1268,9 +1333,7 @@ export default function MessengerChat({
               }}>
                 {currentSuggestions.map((suggestion) => {
                   const isRevealed = revealedSuggestionIds.has(suggestion.id);
-                  const hasAudio = !!suggestion.audio_file;
 
-                  // Stop any current audio playback
                   const stopAudioRepeat = () => {
                     if (audioRepeatTimeoutRef.current) {
                       window.clearTimeout(audioRepeatTimeoutRef.current);
@@ -1279,91 +1342,138 @@ export default function MessengerChat({
                     currentlyPlayingSuggestionRef.current = null;
                   };
 
-                  // Function to play audio and schedule repeat for THIS suggestion only
-                  const startAudioRepeat = () => {
-                    if (!hasAudio) return;
-
-                    // Stop any existing playback first
+                  const playAudioForSuggestion = (url: string) => {
                     stopAudioRepeat();
-
-                    // Mark this suggestion as the one currently playing
                     currentlyPlayingSuggestionRef.current = suggestion.id;
-
                     const playAndRepeat = async () => {
-                      // Only continue if THIS suggestion is still the one being hovered
                       if (currentlyPlayingSuggestionRef.current !== suggestion.id) return;
-
-                      await playAudioUrl(`${apiBase}${suggestion.audio_file}`);
-
-                      // Small delay before repeat (500ms), but only if still hovering this one
+                      await playAudioUrl(`${apiBase}${url}`);
                       if (currentlyPlayingSuggestionRef.current === suggestion.id) {
                         audioRepeatTimeoutRef.current = window.setTimeout(playAndRepeat, 500);
                       }
                     };
-
                     void playAndRepeat();
                   };
 
+                  const handleAudioHover = async () => {
+                    const cached = suggestionAudioCacheRef.current.get(suggestion.id);
+                    if (cached) {
+                      playAudioForSuggestion(cached);
+                      return;
+                    }
+                    const locale = LOCALE_MAP[learning.code] || "es-MX";
+                    const audioPath = await fetchAudioUrl(suggestion.text_target, locale);
+                    if (audioPath) {
+                      suggestionAudioCacheRef.current.set(suggestion.id, audioPath);
+                      playAudioForSuggestion(audioPath);
+                    }
+                  };
+
                   return (
-                    <button
+                    <div
                       key={suggestion.id}
-                      onClick={() => {
-                        stopAudioRepeat();
-                        handleSuggestionClick(suggestion);
-                      }}
-                      onMouseEnter={() => {
-                        // Mark as revealed (stays visible)
-                        if (!isRevealed) {
-                          setRevealedSuggestionIds(prev => new Set([...prev, suggestion.id]));
-                        }
-                        // Start audio repeat for greetings with audio
-                        if (hasAudio) {
-                          startAudioRepeat();
-                        }
-                      }}
-                      onMouseLeave={() => {
-                        // Only stop if this suggestion is the one currently playing
-                        if (currentlyPlayingSuggestionRef.current === suggestion.id) {
-                          stopAudioRepeat();
-                        }
-                      }}
                       style={{
-                        padding: '10px 16px',
-                        background: isRevealed
-                          ? 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)'
-                          : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                        border: 'none',
-                        borderRadius: '20px',
-                        fontSize: '14px',
-                        color: 'white',
-                        cursor: 'pointer',
-                        transition: 'all 0.2s',
-                        boxShadow: isRevealed ? '0 4px 12px rgba(0,0,0,0.25)' : '0 2px 8px rgba(0,0,0,0.15)',
-                        fontWeight: 500,
                         display: 'flex',
                         flexDirection: 'column',
-                        alignItems: 'center',
-                        gap: isRevealed ? '4px' : '0',
-                        minWidth: isRevealed ? '120px' : 'auto',
+                        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                        borderRadius: 14,
+                        overflow: 'hidden',
+                        boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+                        minWidth: 110,
+                        maxWidth: 180,
+                        cursor: 'pointer',
                       }}
                     >
-                      <span>
+                      {/* Native text — click to send */}
+                      <div
+                        onClick={() => {
+                          stopAudioRepeat();
+                          handleSuggestionClick(suggestion);
+                        }}
+                        style={{
+                          padding: '8px 12px',
+                          fontSize: 13,
+                          color: 'white',
+                          fontWeight: 500,
+                          lineHeight: 1.3,
+                          userSelect: 'none',
+                        }}
+                      >
                         {suggestion.text_native}
-                        {hasAudio && <span style={{ marginLeft: 6, opacity: 0.7 }}>🔊</span>}
-                      </span>
+                      </div>
+
+                      {/* Revealed target text */}
                       {isRevealed && (
-                        <span style={{
-                          fontSize: '12px',
-                          opacity: 0.9,
+                        <div style={{
+                          padding: '4px 12px 6px',
+                          fontSize: 12,
+                          color: 'rgba(255,255,255,0.92)',
                           fontStyle: 'italic',
-                          borderTop: '1px solid rgba(255,255,255,0.3)',
-                          paddingTop: '4px',
-                          marginTop: '2px',
+                          borderTop: '1px solid rgba(255,255,255,0.2)',
+                          lineHeight: 1.3,
                         }}>
                           {suggestion.text_target}
-                        </span>
+                        </div>
                       )}
-                    </button>
+
+                      {/* Button row */}
+                      <div style={{
+                        display: 'flex',
+                        borderTop: '1px solid rgba(255,255,255,0.2)',
+                      }}>
+                        {/* Text reveal button — hidden once revealed */}
+                        {!isRevealed && (
+                          <button
+                            onMouseEnter={() => {
+                              setRevealedSuggestionIds(prev => new Set([...prev, suggestion.id]));
+                            }}
+                            onClick={() => {
+                              stopAudioRepeat();
+                              handleSuggestionClick(suggestion);
+                            }}
+                            title="Reveal target text"
+                            style={{
+                              flex: 1,
+                              background: 'rgba(255,255,255,0.08)',
+                              border: 'none',
+                              borderRight: (audioEnabled || !!suggestion.audio_file) ? '1px solid rgba(255,255,255,0.2)' : 'none',
+                              color: 'white',
+                              fontSize: 12,
+                              fontWeight: 600,
+                              padding: '5px 6px',
+                              cursor: 'pointer',
+                              transition: 'background 0.15s',
+                            }}
+                          >
+                            Aa
+                          </button>
+                        )}
+
+                        {/* Audio button — always for pre-generated audio, or when audioEnabled for on-demand */}
+                        {(audioEnabled || !!suggestion.audio_file) && (
+                          <button
+                            onMouseEnter={handleAudioHover}
+                            onMouseLeave={() => {
+                              if (currentlyPlayingSuggestionRef.current === suggestion.id) {
+                                stopAudioRepeat();
+                              }
+                            }}
+                            title="Hear target text"
+                            style={{
+                              background: 'rgba(255,255,255,0.08)',
+                              border: 'none',
+                              color: 'white',
+                              fontSize: 13,
+                              padding: '5px 10px',
+                              cursor: 'pointer',
+                              transition: 'background 0.15s',
+                            }}
+                          >
+                            🔊
+                          </button>
+                        )}
+                      </div>
+                    </div>
                   );
                 })}
               </div>
