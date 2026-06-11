@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import UsageDiagnostics from "./UsageDiagnostics";
 import HomeScreen from "./HomeScreen";
 import StoryCardsGame from "./StoryCardsGame";
 import TriviaGame from "./TriviaGame";
@@ -29,6 +30,8 @@ function App() {
 
   return (
     <>
+      <UsageDiagnostics currentMode={currentMode} />
+
       {currentMode === 'home' && (
         <HomeScreen onSelectMode={handleSelectMode} />
       )}

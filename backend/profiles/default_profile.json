@@ -1,6 +1,6 @@
 {
   "created_at": 1769845610,
-  "last_updated": 1781153750,
+  "last_updated": 1781194371,
   "ui_language": {
     "code": "en",
     "name": "English"
@@ -10,7 +10,7 @@
     "name": "Spanish"
   },
   "level": "beginner",
-  "level_confidence": 0.8,
+  "level_confidence": 0.5,
   "level_history": [
     {
       "timestamp": 1769845610,
@@ -30,24 +30,10 @@
     "prepositions"
   ],
   "avoid_topics": [],
-  "turn_count": 206,
-  "corrections_needed": 117,
+  "turn_count": 208,
+  "corrections_needed": 118,
   "last_assessment_turn": 0,
   "recent_turns": [
-    {
-      "turn_id": "turn_1772182024382",
-      "user_input": "Cuéntame por qué la cultura de Nicaragua es diferente a la de otros países en Latinoamérica.",
-      "corrected_input": "Cuéntame por qué la cultura de Nicaragua es diferente a la de otros países de Latinoamérica.",
-      "had_errors": true,
-      "timestamp": 1772182035
-    },
-    {
-      "turn_id": "turn_1772182091926",
-      "user_input": "¿Qué más se hace? Muy único, Nicaragua.",
-      "corrected_input": "¿Qué más se hace? Muy único, Nicaragua.",
-      "had_errors": false,
-      "timestamp": 1772182100
-    },
     {
       "turn_id": "turn_1772182137446",
       "user_input": "¿Cuál es único sobre la cultura de Nicaragua?",
@@ -103,6 +89,20 @@
       "corrected_input": "Mi amigo me enseñó a hacer piruetas.",
       "had_errors": true,
       "timestamp": 1781153750
+    },
+    {
+      "turn_id": "turn_1781194313434",
+      "user_input": "Nunca va a su clase.",
+      "corrected_input": "Nunca va a su clase.",
+      "had_errors": false,
+      "timestamp": 1781194322
+    },
+    {
+      "turn_id": "turn_1781194364610",
+      "user_input": "¿Qué haces?",
+      "corrected_input": "¿Qué estás haciendo?",
+      "had_errors": true,
+      "timestamp": 1781194371
     }
   ]
 }

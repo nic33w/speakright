@@ -178,6 +178,13 @@ def pick_asr_fixes(wispr_alts: Optional[List[Dict[str, Any]]]):
 # LLM and TTS helpers (expected to exist)
 from llm_call import call_llm_for_turn
 from tts_helpers import tts_bytes_for_chunk
+from usage_tracker import startup_commit, start_new_session, get_summary
+
+
+@app.on_event("startup")
+async def on_startup():
+    startup_commit()
+
 
 # --- Endpoints ---
 @app.post("/api/game/start")
@@ -322,6 +329,19 @@ def get_config():
         "mock_mode": MOCK_MODE,
         "has_azure_tts": bool(AZURE_SPEECH_KEY and AZURE_REGION)
     }
+
+
+class UsageSessionStartReq(BaseModel):
+    mode: str
+
+@app.post("/api/usage/session/start")
+def api_usage_session_start(req: UsageSessionStartReq):
+    start_new_session(req.mode)
+    return {"ok": True}
+
+@app.get("/api/usage")
+def api_usage():
+    return get_summary()
 
 
 # --- Greeting Suggestions Endpoint ---

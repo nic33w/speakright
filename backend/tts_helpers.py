@@ -8,6 +8,11 @@ import re
 from pathlib import Path
 from typing import Optional
 
+try:
+    from usage_tracker import add_azure_chars as _add_azure_chars
+except ImportError:
+    _add_azure_chars = None
+
 
 AZURE_SPEECH_KEY = os.getenv("AZURE_SPEECH_KEY")
 AZURE_REGION = os.getenv("AZURE_REGION")
@@ -89,7 +94,13 @@ def tts_bytes_for_chunk(text: str, lang_tag: str) -> bytes:
     # Not in mock mode - use real Azure TTS
     try:
         if AZURE_SPEECH_KEY and AZURE_REGION:
-            return azure_tts_bytes_real(text, locale=lang_tag)
+            result = azure_tts_bytes_real(text, locale=lang_tag)
+            if _add_azure_chars:
+                try:
+                    _add_azure_chars(len(text))
+                except Exception:
+                    pass
+            return result
     except Exception as e:
         print("Azure TTS failed:", e)
     # fallback to silence if Azure fails
