@@ -1,6 +1,6 @@
 {
   "created_at": 1769845610,
-  "last_updated": 1781194371,
+  "last_updated": 1781195173,
   "ui_language": {
     "code": "en",
     "name": "English"
@@ -30,24 +30,10 @@
     "prepositions"
   ],
   "avoid_topics": [],
-  "turn_count": 208,
-  "corrections_needed": 118,
+  "turn_count": 210,
+  "corrections_needed": 120,
   "last_assessment_turn": 0,
   "recent_turns": [
-    {
-      "turn_id": "turn_1772182137446",
-      "user_input": "¿Cuál es único sobre la cultura de Nicaragua?",
-      "corrected_input": "¿Qué es único sobre la cultura de Nicaragua?",
-      "had_errors": true,
-      "timestamp": 1772182147
-    },
-    {
-      "turn_id": "turn_1772182204945",
-      "user_input": "¿Pero cómo es diferente que otros países la cultura de Nicaragua?",
-      "corrected_input": "¿Pero cómo es diferente de otros países la cultura de Nicaragua?",
-      "had_errors": true,
-      "timestamp": 1772182214
-    },
     {
       "turn_id": "turn_1781153461405",
       "user_input": "Te dije que no me gusta comprando contigo.",
@@ -103,6 +89,20 @@
       "corrected_input": "¿Qué estás haciendo?",
       "had_errors": true,
       "timestamp": 1781194371
+    },
+    {
+      "turn_id": "turn_1781194912056",
+      "user_input": "¿Qué haces?",
+      "corrected_input": "¿Qué estás haciendo?",
+      "had_errors": true,
+      "timestamp": 1781194921
+    },
+    {
+      "turn_id": "turn_1781195161950",
+      "user_input": "¿Qué haces?",
+      "corrected_input": "¿Qué estás haciendo?",
+      "had_errors": true,
+      "timestamp": 1781195173
     }
   ]
 }

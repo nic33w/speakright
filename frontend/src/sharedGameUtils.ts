@@ -192,6 +192,33 @@ export function diffExampleVsUser(userText: string, exampleText: string): Array<
   return result;
 }
 
+// Full LCS diff producing CorrectionToken[]: "remove" for original-only words,
+// "add" for corrected-only words, "ok" for matched words.
+export function buildCorrectionTokens(original: string, corrected: string): CorrectionToken[] {
+  const norm = (w: string) => w.toLowerCase().replace(/[.,!?;:¿¡"""'']/g, "");
+  const aWords = original.trim().split(/\s+/);
+  const bWords = corrected.trim().split(/\s+/);
+  const aN = aWords.map(norm), bN = bWords.map(norm);
+  const m = aWords.length, n = bWords.length;
+  const dp: number[][] = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0));
+  for (let i = 1; i <= m; i++)
+    for (let j = 1; j <= n; j++)
+      dp[i][j] = aN[i - 1] === bN[j - 1] ? dp[i - 1][j - 1] + 1 : Math.max(dp[i - 1][j], dp[i][j - 1]);
+
+  const result: CorrectionToken[] = [];
+  let i = m, j = n;
+  while (i > 0 || j > 0) {
+    if (i > 0 && j > 0 && aN[i - 1] === bN[j - 1]) {
+      result.unshift({ text: bWords[j - 1] + " ", status: "ok" }); i--; j--;
+    } else if (j > 0 && (i === 0 || dp[i][j - 1] >= dp[i - 1][j])) {
+      result.unshift({ text: bWords[j - 1] + " ", status: "add" }); j--;
+    } else {
+      result.unshift({ text: aWords[i - 1] + " ", status: "remove" }); i--;
+    }
+  }
+  return result;
+}
+
 // ── Hint proximity ────────────────────────────────────────────────────────────
 
 // Euclidean distance from cursor to nearest edge of an element.

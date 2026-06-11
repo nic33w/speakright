@@ -1,7 +1,9 @@
 // MessengerChat.tsx
 // Persona-based adaptive language learning chat with Mateo
 import React, { useEffect, useState, useRef } from "react";
-import { GameTextarea } from "./sharedGameComponents";
+import { GameTextarea, CorrectionTokens } from "./sharedGameComponents";
+import { buildCorrectionTokens } from "./sharedGameUtils";
+import type { CorrectionToken } from "./sharedGameUtils";
 
 type LangSpec = { code: string; name: string };
 
@@ -69,6 +71,7 @@ type MessengerMessage = {
   // User side
   userInput?: string;
   correctedInput?: string;
+  correctionTokens?: CorrectionToken[];
   hadErrors?: boolean;
   errorExplanation?: string;
 
@@ -290,16 +293,19 @@ export default function MessengerChat({
       const data = await res.json();
 
       // UPDATE user's message with correction info (if any)
-      setMessages((prev) => prev.map(msg =>
-        msg.id === userMsgId
-          ? {
-              ...msg,
-              correctedInput: data.corrected_input,
-              hadErrors: data.had_errors,
-              errorExplanation: data.error_explanation
-            }
-          : msg
-      ));
+      setMessages((prev) => prev.map(msg => {
+        if (msg.id !== userMsgId) return msg;
+        const tokens = data.had_errors && msg.userInput && data.corrected_input
+          ? buildCorrectionTokens(msg.userInput, data.corrected_input)
+          : undefined;
+        return {
+          ...msg,
+          correctedInput: data.corrected_input,
+          correctionTokens: tokens,
+          hadErrors: data.had_errors,
+          errorExplanation: data.error_explanation,
+        };
+      }));
 
       // Delay before showing character's response (simulates typing)
       if (delayMessages) {
@@ -896,22 +902,20 @@ export default function MessengerChat({
                   {message.hadErrors ? (
                     <>
                       <div style={{
-                        background: '#fef3c7',
-                        color: '#92400e',
-                        padding: '12px 16px',
+                        background: 'rgba(251,191,36,0.15)',
+                        border: '1px solid rgba(251,191,36,0.35)',
+                        padding: '10px 14px',
                         borderRadius: '18px',
-                        fontSize: '16px',
-                        lineHeight: '1.4',
+                        fontSize: '15px',
+                        lineHeight: '1.6',
                         wordWrap: 'break-word',
-                        boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+                        boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
                         marginBottom: '8px',
                       }}>
-                        <div style={{ textDecoration: 'line-through', opacity: 0.6 }}>
-                          {message.userInput}
-                        </div>
-                        <div style={{ marginTop: '4px', fontWeight: 600 }}>
-                          → {message.correctedInput}
-                        </div>
+                        {message.correctionTokens
+                          ? <CorrectionTokens tokens={message.correctionTokens} wrapped={false} />
+                          : <span style={{ color: 'rgba(255,255,255,0.8)' }}>{message.correctedInput}</span>
+                        }
                       </div>
                       {message.errorExplanation && (
                         <div style={{
