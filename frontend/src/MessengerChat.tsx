@@ -1,6 +1,7 @@
 // MessengerChat.tsx
 // Persona-based adaptive language learning chat with Mateo
 import React, { useEffect, useState, useRef } from "react";
+import { GameTextarea } from "./sharedGameComponents";
 
 type LangSpec = { code: string; name: string };
 
@@ -83,8 +84,6 @@ type MessengerChatProps = {
   onBack?: () => void;
 };
 
-const MIN_AUTO_SEND_LENGTH = 8;
-const AUTO_SEND_DELAY_MS = 1200;
 const SESSION_ID = `sess_${Date.now()}`;
 
 export default function MessengerChat({
@@ -98,7 +97,6 @@ export default function MessengerChat({
   const [transcript, setTranscript] = useState<string>("");
   const [isMockMode, setIsMockMode] = useState<boolean>(false);
   const [busy, setBusy] = useState<boolean>(false);
-  const [isPasteTarget, setIsPasteTarget] = useState(false);
   const [showLevelUp, setShowLevelUp] = useState<boolean>(false);
   const [newLevel, setNewLevel] = useState<string>("");
   const [currentSuggestions, setCurrentSuggestions] = useState<SuggestedReply[]>([]);
@@ -135,10 +133,8 @@ export default function MessengerChat({
   const audioRepeatTimeoutRef = useRef<number | null>(null);
   const currentlyPlayingSuggestionRef = useRef<string | null>(null);
 
-  const autoSendTimer = useRef<number | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
-  const previousTranscriptLengthRef = useRef<number>(0);
 
   // Initialize profile and fetch greeting suggestions on mount
   useEffect(() => {
@@ -223,34 +219,6 @@ export default function MessengerChat({
     }
   }, [messages]);
 
-  // Auto-send logic (debounced for typing, immediate for Wispr)
-  useEffect(() => {
-    if (autoSendTimer.current) {
-      window.clearTimeout(autoSendTimer.current);
-      autoSendTimer.current = null;
-    }
-
-    if (transcript.length >= MIN_AUTO_SEND_LENGTH && !busy) {
-      const lengthIncrease = transcript.length - previousTranscriptLengthRef.current;
-      const isWisprInput = lengthIncrease >= 3;
-      const delayMs = isWisprInput ? 100 : AUTO_SEND_DELAY_MS;
-
-      autoSendTimer.current = window.setTimeout(() => {
-        void sendMessage();
-      }, delayMs);
-    }
-
-    previousTranscriptLengthRef.current = transcript.length;
-
-    return () => {
-      if (autoSendTimer.current) {
-        window.clearTimeout(autoSendTimer.current);
-        autoSendTimer.current = null;
-      }
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [transcript, busy]);
-
   useEffect(() => {
     function onPaste(e: ClipboardEvent) {
       const tag = (document.activeElement as HTMLElement)?.tagName;
@@ -279,8 +247,8 @@ export default function MessengerChat({
     }
   }
 
-  async function sendMessage() {
-    const text = transcript.trim();
+  async function sendMessage(textOverride?: string) {
+    const text = (textOverride ?? transcript).trim();
     if (!text || busy) return;
 
     setBusy(true);
@@ -444,13 +412,6 @@ export default function MessengerChat({
       setBusy(false);
       setIsTyping(false);
       setStreamingMessageId(null);
-
-      // Refocus textarea
-      setTimeout(() => {
-        if (textareaRef.current) {
-          textareaRef.current.focus();
-        }
-      }, 100);
     }
   }
 
@@ -571,13 +532,6 @@ export default function MessengerChat({
       e.preventDefault();
       const value = quizInputs.get(quizId) || "";
       void checkQuizAnswer(quizId, value);
-    }
-  }
-
-  function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      void sendMessage();
     }
   }
 
@@ -1388,26 +1342,16 @@ export default function MessengerChat({
           padding: '16px 20px',
           boxShadow: '0 -2px 8px rgba(0,0,0,0.1)',
         }}>
-          <div style={{
-            maxWidth: '800px',
-            margin: '0 auto',
-            display: 'flex',
-            gap: '12px',
-            alignItems: 'flex-end',
-          }}>
-            <textarea
-              ref={textareaRef}
+          <div style={{ maxWidth: '800px', margin: '0 auto' }}>
+            <GameTextarea
               value={transcript}
-              onChange={(e) => {
-                setTranscript(e.target.value);
-                // If user starts typing something custom, clear suggestions
-                const newValue = e.target.value;
+              onChange={(val) => {
+                setTranscript(val);
                 if (currentSuggestions.length > 0) {
                   const matchesSuggestion = currentSuggestions.some(
-                    s => s.text_target.startsWith(newValue) || newValue === ""
+                    s => s.text_target.startsWith(val) || val === ""
                   );
-                  if (!matchesSuggestion && newValue.length > 3) {
-                    // Stop any ongoing audio repeat
+                  if (!matchesSuggestion && val.length > 3) {
                     currentlyPlayingSuggestionRef.current = null;
                     if (audioRepeatTimeoutRef.current) {
                       window.clearTimeout(audioRepeatTimeoutRef.current);
@@ -1418,49 +1362,15 @@ export default function MessengerChat({
                   }
                 }
               }}
-              onKeyDown={handleKeyDown}
-              onMouseEnter={(e) => {
-                if (!busy) e.currentTarget.focus();
-                setIsPasteTarget(true);
-              }}
-              onMouseLeave={() => setIsPasteTarget(false)}
+              onSubmit={(val) => void sendMessage(val)}
+              busy={busy}
               placeholder={`press CTRL + Windows key to speak in ${learning.name}...`}
-              disabled={busy}
+              submitLabel="Send"
+              busyLabel="Sending..."
+              theme="light"
               autoFocus
-              style={{
-                flex: 1,
-                minHeight: '48px',
-                maxHeight: '120px',
-                padding: '12px 16px',
-                fontSize: '16px',
-                border: isPasteTarget ? '2px solid rgba(139,92,246,0.6)' : '2px solid #e5e7eb',
-                borderRadius: 24,
-                resize: 'none',
-                fontFamily: 'system-ui, sans-serif',
-                boxSizing: 'border-box',
-                outline: 'none',
-                opacity: busy ? 0.6 : 1,
-                boxShadow: isPasteTarget ? '0 0 0 3px rgba(139,92,246,0.12)' : 'none',
-                transition: 'border-color 0.15s ease, box-shadow 0.15s ease',
-              }}
+              textareaRef={textareaRef}
             />
-            <button
-              onClick={() => void sendMessage()}
-              disabled={!transcript.trim() || busy}
-              style={{
-                padding: '12px 24px',
-                fontSize: '16px',
-                background: transcript.trim() && !busy ? '#3b82f6' : '#d1d5db',
-                color: 'white',
-                border: 'none',
-                borderRadius: 24,
-                cursor: transcript.trim() && !busy ? 'pointer' : 'not-allowed',
-                fontWeight: 600,
-                transition: 'background 0.2s',
-              }}
-            >
-              {busy ? 'Sending...' : 'Send'}
-            </button>
           </div>
         </div>
       </div>

@@ -1,6 +1,6 @@
 // sharedGameComponents.tsx
 // Shared React components used across game modes.
-import React, { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { FEEDBACK_MAP, FEEDBACK_COLORS, FEEDBACK_LABELS, HINT_COLORS, calculateDistance, distanceToOpacity, tokenizeWithHints, diffExampleVsUser } from "./sharedGameUtils";
 import type { FeedbackIssue, CorrectionToken, HintItem, SharedHistoryEntry } from "./sharedGameUtils";
 
@@ -175,6 +175,192 @@ export function HintCards({
           );
         })}
       </div>
+    </div>
+  );
+}
+
+// ── GameTextarea ─────────────────────────────────────────────────────────────
+// Standard Wispr-aware textarea with pending auto-send progress bar.
+// Detects Wispr pastes (delta >= 3 chars) and shows a countdown bar the user
+// can cancel with Esc. Use theme="light" for messenger-style white UIs.
+export function GameTextarea({
+  value,
+  onChange,
+  onSubmit,
+  busy = false,
+  disabled = false,
+  placeholder = "Type your answer…",
+  submitLabel = "Send",
+  busyLabel = "Sending…",
+  theme = "dark",
+  autoFocus = false,
+  textareaRef: externalRef,
+}: {
+  value: string;
+  onChange: (val: string) => void;
+  onSubmit: (val: string) => void;
+  busy?: boolean;
+  disabled?: boolean;
+  placeholder?: string;
+  submitLabel?: string;
+  busyLabel?: string;
+  theme?: "dark" | "light";
+  autoFocus?: boolean;
+  textareaRef?: React.RefObject<HTMLTextAreaElement | null>;
+}) {
+  const internalRef = useRef<HTMLTextAreaElement>(null);
+  const textareaRef = externalRef ?? internalRef;
+  const prevLenRef = useRef(0);
+  const lastSentRef = useRef(0);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [pendingAutoSend, setPendingAutoSend] = useState(false);
+  const [pendingProgress, setPendingProgress] = useState<number | null>(null);
+  const [isFocused, setIsFocused] = useState(false);
+
+  const isDisabled = busy || disabled;
+
+  function cancel(clearText = false) {
+    if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
+    setPendingAutoSend(false);
+    setPendingProgress(null);
+    if (clearText) { onChange(""); prevLenRef.current = 0; setTimeout(() => textareaRef.current?.focus(), 50); }
+  }
+
+  function startPending(text: string, duration = 1500) {
+    cancel();
+    const t0 = Date.now();
+    setPendingAutoSend(true);
+    setPendingProgress(1.0);
+    timerRef.current = setInterval(() => {
+      const rem = Math.max(0, 1 - (Date.now() - t0) / duration);
+      setPendingProgress(rem);
+      if (rem <= 0) {
+        clearInterval(timerRef.current!);
+        timerRef.current = null;
+        setPendingAutoSend(false);
+        setPendingProgress(null);
+        if (text.trim()) { lastSentRef.current = Date.now(); onSubmit(text); }
+      }
+    }, 30);
+  }
+
+  useEffect(() => {
+    cancel();
+    if (isDisabled) return;
+    const delta = value.length - prevLenRef.current;
+    if (delta >= 3 && value.length > 2 && Date.now() - lastSentRef.current > 700) {
+      startPending(value);
+    }
+    prevLenRef.current = value.length;
+    return () => cancel();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value]);
+
+  useEffect(() => {
+    if (!isDisabled) setTimeout(() => textareaRef.current?.focus(), 50);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isDisabled]);
+
+  function handleSubmit() {
+    if (isDisabled || !value.trim()) return;
+    cancel();
+    lastSentRef.current = Date.now();
+    onSubmit(value);
+  }
+
+  const isDark = theme === "dark";
+
+  return (
+    <div>
+      <div style={{ display: "flex", gap: 12, alignItems: "flex-end" }}>
+        <textarea
+          ref={textareaRef}
+          value={value}
+          onChange={e => onChange(e.target.value)}
+          onKeyDown={e => {
+            if (e.key === "Escape") { cancel(true); return; }
+            if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSubmit(); }
+          }}
+          onMouseEnter={() => { if (!isDisabled) textareaRef.current?.focus(); }}
+          onFocus={() => setIsFocused(true)}
+          onBlur={() => setIsFocused(false)}
+          disabled={isDisabled}
+          placeholder={placeholder}
+          autoFocus={autoFocus}
+          rows={2}
+          style={{
+            flex: 1,
+            padding: isDark ? "10px 12px" : "12px 16px",
+            fontSize: isDark ? 15 : 16,
+            borderRadius: isDark ? 8 : 24,
+            background: isDark ? "rgba(255,255,255,0.07)" : "white",
+            border: isDark
+              ? "1px solid rgba(255,255,255,0.15)"
+              : `2px solid ${isFocused ? "rgba(139,92,246,0.6)" : "#e5e7eb"}`,
+            color: isDark ? "white" : "#1f2937",
+            resize: "none",
+            boxSizing: "border-box" as const,
+            outline: "none",
+            minHeight: isDark ? undefined : 48,
+            maxHeight: isDark ? undefined : 120,
+            opacity: isDisabled ? 0.6 : 1,
+            boxShadow: !isDark && isFocused ? "0 0 0 3px rgba(139,92,246,0.12)" : "none",
+            transition: "border-color 0.15s, box-shadow 0.15s",
+            fontFamily: "system-ui, sans-serif",
+          }}
+        />
+        <button
+          onClick={handleSubmit}
+          disabled={isDisabled || !value.trim()}
+          style={{
+            padding: isDark ? "8px 20px" : "12px 24px",
+            fontSize: isDark ? 13 : 16,
+            background: isDark
+              ? "linear-gradient(135deg, #7c3aed, #4f46e5)"
+              : value.trim() && !isDisabled ? "#3b82f6" : "#d1d5db",
+            color: "white",
+            border: "none",
+            borderRadius: isDark ? 8 : 24,
+            cursor: isDisabled || !value.trim() ? "not-allowed" : "pointer",
+            fontWeight: 600,
+            whiteSpace: "nowrap" as const,
+            transition: "background 0.2s",
+          }}
+        >
+          {busy ? busyLabel : submitLabel}
+        </button>
+      </div>
+      {isDark && (
+        <div style={{ marginTop: 6 }}>
+          <button
+            onClick={() => cancel(true)}
+            style={{
+              padding: "5px 12px", fontSize: 12, borderRadius: 6, cursor: "pointer",
+              background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.2)",
+              color: "rgba(255,255,255,0.6)", fontWeight: 500,
+            }}
+          >Clear</button>
+        </div>
+      )}
+      {pendingAutoSend && (
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 6 }}>
+          <div style={{ flex: 1, height: 3, background: isDark ? "rgba(255,255,255,0.1)" : "#e5e7eb", borderRadius: 2, overflow: "hidden" }}>
+            <div style={{
+              width: `${(pendingProgress ?? 0) * 100}%`, height: "100%",
+              background: isDark ? "#a78bfa" : "#3b82f6", borderRadius: 2,
+            }} />
+          </div>
+          <span style={{ fontSize: 11, color: isDark ? "rgba(255,255,255,0.4)" : "#9ca3af", whiteSpace: "nowrap" }}>
+            Sending…{" "}
+            <kbd style={{
+              fontSize: 10, padding: "1px 5px", borderRadius: 3,
+              background: isDark ? "rgba(255,255,255,0.1)" : "#f3f4f6",
+              border: `1px solid ${isDark ? "rgba(255,255,255,0.2)" : "#e5e7eb"}`,
+              color: isDark ? "white" : "#374151",
+            }}>Esc</kbd>{" "}to cancel
+          </span>
+        </div>
+      )}
     </div>
   );
 }

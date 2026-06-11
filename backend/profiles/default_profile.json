@@ -1,6 +1,6 @@
 {
   "created_at": 1769845610,
-  "last_updated": 1772182214,
+  "last_updated": 1781153750,
   "ui_language": {
     "code": "en",
     "name": "English"
@@ -10,7 +10,7 @@
     "name": "Spanish"
   },
   "level": "beginner",
-  "level_confidence": 0.6,
+  "level_confidence": 0.8,
   "level_history": [
     {
       "timestamp": 1769845610,
@@ -30,52 +30,10 @@
     "prepositions"
   ],
   "avoid_topics": [],
-  "turn_count": 200,
-  "corrections_needed": 113,
+  "turn_count": 206,
+  "corrections_needed": 117,
   "last_assessment_turn": 0,
   "recent_turns": [
-    {
-      "turn_id": "turn_1772174387950",
-      "user_input": "Do people dress very casually there?",
-      "corrected_input": "¿Las personas se visten muy casualmente allí?",
-      "had_errors": true,
-      "timestamp": 1772174396
-    },
-    {
-      "turn_id": "turn_1772174665582",
-      "user_input": "Thank you for watching!",
-      "corrected_input": "¡Gracias por mirar!",
-      "had_errors": true,
-      "timestamp": 1772174675
-    },
-    {
-      "turn_id": "turn_1772175141011",
-      "user_input": "¿Qué más me puedes enseñar sobre Nicaragua?",
-      "corrected_input": "¿Qué más me puedes enseñar sobre Nicaragua?",
-      "had_errors": false,
-      "timestamp": 1772175152
-    },
-    {
-      "turn_id": "turn_1772175198140",
-      "user_input": "¿Nunca probaste el gallo pinto o la comida de Nicaragua? ¿Sabes que hay dos restaurantes de Nicaragua en Los Angeles?",
-      "corrected_input": "¿Nunca probaste el gallo pinto o la comida de Nicaragua? ¿Sabes que hay dos restaurantes nicaragüenses en Los Ángeles?",
-      "had_errors": true,
-      "timestamp": 1772175210
-    },
-    {
-      "turn_id": "turn_1772175243682",
-      "user_input": "Nunca he probado comer el gallo pinto. ¿Cómo es el gallo pinto?",
-      "corrected_input": "Nunca he probado el gallo pinto.",
-      "had_errors": false,
-      "timestamp": 1772175250
-    },
-    {
-      "turn_id": "turn_1772175896514",
-      "user_input": "Solo son un arroz y los frijoles. No hay carne o pollo.",
-      "corrected_input": "Solo son arroz y frijoles. No hay carne ni pollo.",
-      "had_errors": true,
-      "timestamp": 1772175918
-    },
     {
       "turn_id": "turn_1772182024382",
       "user_input": "Cuéntame por qué la cultura de Nicaragua es diferente a la de otros países en Latinoamérica.",
@@ -103,6 +61,48 @@
       "corrected_input": "¿Pero cómo es diferente de otros países la cultura de Nicaragua?",
       "had_errors": true,
       "timestamp": 1772182214
+    },
+    {
+      "turn_id": "turn_1781153461405",
+      "user_input": "Te dije que no me gusta comprando contigo.",
+      "corrected_input": "Te dije que no me gusta comprar contigo.",
+      "had_errors": true,
+      "timestamp": 1781153470
+    },
+    {
+      "turn_id": "turn_1781153514679",
+      "user_input": "Prefiero ir a la playa.",
+      "corrected_input": "Prefiero ir a la playa.",
+      "had_errors": false,
+      "timestamp": 1781153525
+    },
+    {
+      "turn_id": "turn_1781153558873",
+      "user_input": "Me gusta hacer ejercicio en la playa.",
+      "corrected_input": "Me gusta hacer ejercicio en la playa.",
+      "had_errors": false,
+      "timestamp": 1781153570
+    },
+    {
+      "turn_id": "turn_1781153621976",
+      "user_input": "Me gusta calistico. ¿Has intentado?",
+      "corrected_input": "Me gusta calistenia. ¿Has intentado?",
+      "had_errors": true,
+      "timestamp": 1781153630
+    },
+    {
+      "turn_id": "turn_1781153677537",
+      "user_input": "Si puedo hacer un pino ¿y tú?",
+      "corrected_input": "Si puedo hacer un pino, ¿y tú?",
+      "had_errors": true,
+      "timestamp": 1781153684
+    },
+    {
+      "turn_id": "turn_1781153740315",
+      "user_input": "Mi amigo me enseñó pirouette.",
+      "corrected_input": "Mi amigo me enseñó a hacer piruetas.",
+      "had_errors": true,
+      "timestamp": 1781153750
     }
   ]
 }
