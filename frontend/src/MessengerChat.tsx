@@ -121,6 +121,10 @@ export default function MessengerChat({
   const [delayMessages, setDelayMessages] = useState<boolean>(false);
   const [streamLetters, setStreamLetters] = useState<boolean>(false);
   const [audioEnabled, setAudioEnabled] = useState<boolean>(false);
+  const [liveReactions, setLiveReactions] = useState<boolean>(true);
+
+  // Current reaction phase shown in the typing indicator
+  const [reactionPhase, setReactionPhase] = useState<'reading' | 'thinking' | 'typing' | null>(null);
 
   // For streaming effect: track which message is currently streaming and its displayed text
   const [streamingMessageId, setStreamingMessageId] = useState<number | null>(null);
@@ -229,6 +233,13 @@ export default function MessengerChat({
     }
   }, [messages]);
 
+  // Auto-scroll when reaction indicator appears so emoji isn't cut off
+  useEffect(() => {
+    if (reactionPhase !== null && messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [reactionPhase]);
+
   // Keep lastSuggestionsRef synced so typed attempts can be matched
   useEffect(() => {
     if (currentSuggestions.length > 0) {
@@ -324,17 +335,30 @@ export default function MessengerChat({
         ? JSON.stringify({ session_id: SESSION_ID })
         : JSON.stringify({ user_input: text, session_id: SESSION_ID });
 
-      const res = await fetch(endpoint, {
+      // Start API call immediately so it runs in parallel with reaction phases
+      const fetchPromise = fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body
       });
 
+      // Animate reaction phases while the API is running
+      if (liveReactions) {
+        await delay(300 + Math.random() * 200);   // ~0.3–0.5s before showing anything
+        setReactionPhase('reading');
+        await delay(900 + Math.random() * 600);   // ~0.9–1.5s
+        setReactionPhase('thinking');
+        await delay(700 + Math.random() * 500);   // ~0.7–1.2s
+        setReactionPhase('typing');
+      }
+
+      const res = await fetchPromise;
       if (!res.ok) {
         throw new Error('Turn API failed');
       }
 
       const data = await res.json();
+      setReactionPhase(null);
 
       // Generate user sentence audio if enabled (fetch before updating message so we can store URL)
       let userAudioFile: string | undefined;
@@ -360,8 +384,8 @@ export default function MessengerChat({
         };
       }));
 
-      // Delay before showing character's response (simulates typing)
-      if (delayMessages) {
+      // Delay before showing character's response (skip if liveReactions already showed phases)
+      if (delayMessages && !liveReactions) {
         setIsTyping(true);
         await delay(800 + Math.random() * 400); // 800-1200ms
         setIsTyping(false);
@@ -477,6 +501,7 @@ export default function MessengerChat({
     } finally {
       setBusy(false);
       setIsTyping(false);
+      setReactionPhase(null);
       setStreamingMessageId(null);
     }
   }
@@ -712,6 +737,15 @@ export default function MessengerChat({
                   style={{ cursor: 'pointer' }}
                 />
                 🔊 Audio
+              </label>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, color: '#6b7280', cursor: 'pointer' }}>
+                <input
+                  type="checkbox"
+                  checked={liveReactions}
+                  onChange={(e) => setLiveReactions(e.target.checked)}
+                  style={{ cursor: 'pointer' }}
+                />
+                💬 Reactions
               </label>
               {/* Quiz History Button */}
               <button
@@ -1271,7 +1305,7 @@ export default function MessengerChat({
           ))}
 
           {/* Typing indicator */}
-          {isTyping && (
+          {(isTyping || reactionPhase !== null) && (
             <div style={{
               alignSelf: 'flex-start',
               maxWidth: '70%',
@@ -1283,18 +1317,30 @@ export default function MessengerChat({
                 fontSize: '16px',
                 boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
                 display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
                 gap: 4,
               }}>
-                <span className="typing-dot" style={{ animationDelay: '0ms' }}>•</span>
-                <span className="typing-dot" style={{ animationDelay: '150ms' }}>•</span>
-                <span className="typing-dot" style={{ animationDelay: '300ms' }}>•</span>
+                {reactionPhase && (
+                  <span style={{ fontSize: 26, lineHeight: 1 }}>
+                    {reactionPhase === 'reading' ? '👀' : reactionPhase === 'thinking' ? '🤔' : '✍️'}
+                  </span>
+                )}
+                <div style={{ display: 'flex', gap: 4 }}>
+                  <span className="typing-dot" style={{ animationDelay: '0ms' }}>•</span>
+                  <span className="typing-dot" style={{ animationDelay: '150ms' }}>•</span>
+                  <span className="typing-dot" style={{ animationDelay: '300ms' }}>•</span>
+                </div>
               </div>
               <div style={{
                 fontSize: '12px',
                 color: 'rgba(255,255,255,0.7)',
                 marginTop: '4px',
               }}>
-                Sombongo is typing...
+                {reactionPhase
+                  ? `Sombongo is ${reactionPhase}...`
+                  : 'Sombongo is typing...'
+                }
               </div>
             </div>
           )}
