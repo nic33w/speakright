@@ -473,9 +473,6 @@ export default function MessengerChat({
     }
     // Fill textarea with target language version
     setTranscript(suggestion.text_target);
-    // Clear current suggestions and revealed state
-    setCurrentSuggestions([]);
-    setRevealedSuggestionIds(new Set());
     // Focus textarea
     if (textareaRef.current) {
       textareaRef.current.focus();
@@ -1388,20 +1385,6 @@ export default function MessengerChat({
               value={transcript}
               onChange={(val) => {
                 setTranscript(val);
-                if (currentSuggestions.length > 0) {
-                  const matchesSuggestion = currentSuggestions.some(
-                    s => s.text_target.startsWith(val) || val === ""
-                  );
-                  if (!matchesSuggestion && val.length > 3) {
-                    currentlyPlayingSuggestionRef.current = null;
-                    if (audioRepeatTimeoutRef.current) {
-                      window.clearTimeout(audioRepeatTimeoutRef.current);
-                      audioRepeatTimeoutRef.current = null;
-                    }
-                    setCurrentSuggestions([]);
-                    setRevealedSuggestionIds(new Set());
-                  }
-                }
               }}
               onSubmit={(val) => void sendMessage(val)}
               busy={busy}
