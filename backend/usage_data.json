@@ -7,12 +7,22 @@
         "mode": "messenger",
         "chars": 8,
         "started_at": "2026-06-11T09:19:47.368546"
+      },
+      {
+        "mode": "messenger",
+        "chars": 52,
+        "started_at": "2026-06-11T09:24:50.659546"
+      },
+      {
+        "mode": "messenger",
+        "chars": 55,
+        "started_at": "2026-06-11T14:56:34.302371"
       }
     ],
     "current_session": {
       "mode": "messenger",
-      "chars": 10,
-      "started_at": "2026-06-11T09:24:50.659546"
+      "chars": 169,
+      "started_at": "2026-06-11T14:57:45.449821"
     }
   }
 }

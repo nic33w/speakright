@@ -1,6 +1,6 @@
 {
   "created_at": 1769845610,
-  "last_updated": 1781209152,
+  "last_updated": 1781215646,
   "ui_language": {
     "code": "en",
     "name": "English"
@@ -10,7 +10,7 @@
     "name": "Spanish"
   },
   "level": "beginner",
-  "level_confidence": 0.8,
+  "level_confidence": 0.7,
   "level_history": [
     {
       "timestamp": 1769845610,
@@ -30,79 +30,79 @@
     "prepositions"
   ],
   "avoid_topics": [],
-  "turn_count": 213,
-  "corrections_needed": 120,
+  "turn_count": 227,
+  "corrections_needed": 124,
   "last_assessment_turn": 0,
   "recent_turns": [
     {
-      "turn_id": "turn_1781153621976",
-      "user_input": "Me gusta calistico. ¿Has intentado?",
-      "corrected_input": "Me gusta calistenia. ¿Has intentado?",
-      "had_errors": true,
-      "timestamp": 1781153630
-    },
-    {
-      "turn_id": "turn_1781153677537",
-      "user_input": "Si puedo hacer un pino ¿y tú?",
-      "corrected_input": "Si puedo hacer un pino, ¿y tú?",
-      "had_errors": true,
-      "timestamp": 1781153684
-    },
-    {
-      "turn_id": "turn_1781153740315",
-      "user_input": "Mi amigo me enseñó pirouette.",
-      "corrected_input": "Mi amigo me enseñó a hacer piruetas.",
-      "had_errors": true,
-      "timestamp": 1781153750
-    },
-    {
-      "turn_id": "turn_1781194313434",
-      "user_input": "Nunca va a su clase.",
-      "corrected_input": "Nunca va a su clase.",
+      "turn_id": "turn_1781209465620",
+      "user_input": "Me encanta el pastel de chocolate.",
+      "corrected_input": "Me encanta el pastel de chocolate.",
       "had_errors": false,
-      "timestamp": 1781194322
+      "timestamp": 1781209471
     },
     {
-      "turn_id": "turn_1781194364610",
-      "user_input": "¿Qué haces?",
-      "corrected_input": "¿Qué estás haciendo?",
-      "had_errors": true,
-      "timestamp": 1781194371
-    },
-    {
-      "turn_id": "turn_1781194912056",
-      "user_input": "¿Qué haces?",
-      "corrected_input": "¿Qué estás haciendo?",
-      "had_errors": true,
-      "timestamp": 1781194921
-    },
-    {
-      "turn_id": "turn_1781195161950",
-      "user_input": "¿Qué haces?",
-      "corrected_input": "¿Qué estás haciendo?",
-      "had_errors": true,
-      "timestamp": 1781195173
-    },
-    {
-      "turn_id": "turn_1781209057144",
-      "user_input": "Si me lo diste",
-      "corrected_input": "Si me lo diste.",
+      "turn_id": "turn_1781209494991",
+      "user_input": "Me encantan los postres de chocolate.",
+      "corrected_input": "Me encantan los postres de chocolate.",
       "had_errors": false,
-      "timestamp": 1781209066
+      "timestamp": 1781209500
     },
     {
-      "turn_id": "turn_1781209115562",
-      "user_input": "Te di algo especial.",
-      "corrected_input": "Te di algo especial.",
+      "turn_id": "turn_1781210583817",
+      "user_input": "¿Cuál es tu postre favorito?",
+      "corrected_input": "¿Cuál es tu postre favorito?",
       "had_errors": false,
-      "timestamp": 1781209121
+      "timestamp": 1781210592
     },
     {
-      "turn_id": "turn_1781209144915",
-      "user_input": "¿Puedes adivinar qué es?",
-      "corrected_input": "¿Puedes adivinar qué es?",
+      "turn_id": "turn_1781211336221",
+      "user_input": "no estoy seguro",
+      "corrected_input": "No estoy seguro.",
       "had_errors": false,
-      "timestamp": 1781209152
+      "timestamp": 1781211343
+    },
+    {
+      "turn_id": "turn_1781211361472",
+      "user_input": "¿Podrías ayudarme?",
+      "corrected_input": "¿Podrías ayudarme?",
+      "had_errors": false,
+      "timestamp": 1781211368
+    },
+    {
+      "turn_id": "turn_1781215337417",
+      "user_input": "¿El profesor no ve que duermes?",
+      "corrected_input": "¿El profesor no ve que estás durmiendo?",
+      "had_errors": true,
+      "timestamp": 1781215363
+    },
+    {
+      "turn_id": "turn_1781215419510",
+      "user_input": "¿Qué dice el profesor?",
+      "corrected_input": "¿Qué dice el profesor?",
+      "had_errors": false,
+      "timestamp": 1781215426
+    },
+    {
+      "turn_id": "turn_1781215509525",
+      "user_input": "¿El profesor no ve que comes?",
+      "corrected_input": "¿El profesor no ve que estás comiendo?",
+      "had_errors": true,
+      "timestamp": 1781215517
+    },
+    {
+      "turn_id": "turn_1781215604761",
+      "user_input": "Me da hambre.",
+      "corrected_input": "Me da hambre.",
+      "had_errors": false,
+      "timestamp": 1781215614
+    },
+    {
+      "turn_id": "turn_1781215634422",
+      "user_input": "how would i say, you're making me hungry",
+      "corrected_input": "Me estás haciendo hambre.",
+      "had_errors": true,
+      "timestamp": 1781215646
     }
   ]
 }
