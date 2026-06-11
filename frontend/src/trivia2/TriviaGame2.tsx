@@ -296,6 +296,13 @@ export default function TriviaGame2({
   const timerValueRef = useRef(30);
   const firstCorrectTimeRef = useRef<number | null>(null);
 
+  // Pause state
+  const [isPaused, setIsPaused] = useState(false);
+  const isPausedRef = useRef(false);
+  const questionStartTimeRef = useRef<number>(0);
+  const pauseStartTimeRef = useRef<number | null>(null);
+  const totalPausedMsRef = useRef(0);
+
   // UI refs
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const historyColumnRef = useRef<HTMLDivElement>(null);
@@ -391,10 +398,51 @@ export default function TriviaGame2({
     }, 30);
   }
 
+  function handlePause() {
+    if (isPausedRef.current || questionStateRef.current.ended) return;
+    isPausedRef.current = true;
+    pauseStartTimeRef.current = Date.now();
+    setIsPaused(true);
+    if (timerIntervalRef.current) { clearInterval(timerIntervalRef.current); timerIntervalRef.current = null; }
+    setTimerActive(false);
+    botTimerRefs.current.forEach(t => clearTimeout(t));
+    botTimerRefs.current = [];
+    cancelPendingAutoSend();
+  }
+
+  function handleResume() {
+    if (!isPausedRef.current) return;
+    const pauseDuration = Date.now() - (pauseStartTimeRef.current ?? Date.now());
+    totalPausedMsRef.current += pauseDuration;
+    isPausedRef.current = false;
+    pauseStartTimeRef.current = null;
+    setIsPaused(false);
+    // Restart countdown from current remaining seconds (don't go through the timerActive effect — it resets to 30)
+    if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
+    timerIntervalRef.current = setInterval(() => {
+      timerValueRef.current -= 1;
+      setTimerSeconds(timerValueRef.current);
+      if (timerValueRef.current <= 0) {
+        clearInterval(timerIntervalRef.current!);
+        timerIntervalRef.current = null;
+        handleTimerExpire();
+      }
+    }, 1000);
+    // Reschedule unresolved bots with adjusted remaining time
+    const elapsed = Date.now() - questionStartTimeRef.current - totalPausedMsRef.current;
+    questionStateRef.current.botStates.forEach(bs => {
+      if (!bs.resolved) {
+        const remaining = Math.max(0, bs.responseTime * 1000 - elapsed);
+        const t = setTimeout(() => resolveBotAnswer(bs.playerId), remaining);
+        botTimerRefs.current.push(t);
+      }
+    });
+  }
+
   // Wispr auto-send
   useEffect(() => {
     cancelPendingAutoSend();
-    if (phase !== "question" || busy || questionStateRef.current.ended) return;
+    if (phase !== "question" || busy || questionStateRef.current.ended || isPausedRef.current) return;
     const delta = transcript.length - previousLengthRef.current;
     if (delta >= 3 && transcript.length > 2 && Date.now() - lastSentRef.current > 700) {
       const q = questionsRef.current[qIdxRef.current];
@@ -523,6 +571,10 @@ export default function TriviaGame2({
     timerValueRef.current = 30;
     setTimerSeconds(30);
     setTimerActive(true);
+    questionStartTimeRef.current = Date.now();
+    totalPausedMsRef.current = 0;
+    isPausedRef.current = false;
+    setIsPaused(false);
     setPhase("question");
 
     // Clear old bot timers
@@ -1076,7 +1128,20 @@ export default function TriviaGame2({
 
         <div style={{ display: "flex", gap: 16, height: "calc(100vh - 80px)" }}>
           {/* Left: question + input */}
-          <div style={{ flex: "0 0 66%", display: "flex", flexDirection: "column", overflowY: "auto" }}>
+          <div style={{ flex: "0 0 66%", display: "flex", flexDirection: "column", overflowY: "auto", position: "relative" }}>
+            {isPaused && (
+              <div style={{
+                position: "absolute", inset: 0,
+                background: "rgba(30,27,75,0.88)",
+                borderRadius: 10,
+                display: "flex", flexDirection: "column",
+                alignItems: "center", justifyContent: "center",
+                gap: 16, zIndex: 10,
+              }}>
+                <div style={{ fontSize: 22, fontWeight: 700, color: "rgba(255,255,255,0.9)" }}>Game Paused</div>
+                <button onClick={handleResume} style={{ ...primaryBtnStyle, padding: "10px 28px" }}>▶ Resume</button>
+              </div>
+            )}
             {/* Header: round / question info */}
             <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
               <button onClick={onBack} style={{ ...backBtnStyle, marginBottom: 0 }}>←</button>
@@ -1095,7 +1160,7 @@ export default function TriviaGame2({
               {/* Timer bar */}
               <div style={{ width: 120, height: 6, background: "rgba(255,255,255,0.1)", borderRadius: 3, overflow: "hidden" }}>
                 <div style={{
-                  height: "100%", borderRadius: 3, transition: "width 1s linear",
+                  height: "100%", borderRadius: 3, transition: isPaused ? "none" : "width 1s linear",
                   width: `${(timerSeconds / 30) * 100}%`,
                   background: timerSeconds > 10 ? "#4ade80" : timerSeconds > 5 ? "#fbbf24" : "#f87171",
                 }} />
@@ -1103,6 +1168,14 @@ export default function TriviaGame2({
               <span style={{ fontSize: 13, fontWeight: 600, color: timerSeconds <= 5 ? "#f87171" : "rgba(255,255,255,0.7)", minWidth: 28, textAlign: "right" }}>
                 {timerSeconds}s
               </span>
+              <button
+                onClick={isPaused ? handleResume : handlePause}
+                disabled={questionStateRef.current.ended}
+                style={{ ...ghostBtnStyle, padding: "3px 9px", fontSize: 14, lineHeight: 1, minWidth: 30 }}
+                title={isPaused ? "Resume" : "Pause"}
+              >
+                {isPaused ? "▶" : "⏸"}
+              </button>
             </div>
 
             {/* Context */}
@@ -1186,8 +1259,8 @@ export default function TriviaGame2({
                     if (!busy && !questionStateRef.current.ended && transcript.trim()) submitAnswer(transcript);
                   }
                 }}
-                onMouseEnter={() => { if (!busy && !questionStateRef.current.ended) textareaRef.current?.focus(); }}
-                disabled={busy || questionStateRef.current.ended}
+                onMouseEnter={() => { if (!busy && !questionStateRef.current.ended && !isPaused) textareaRef.current?.focus(); }}
+                disabled={busy || questionStateRef.current.ended || isPaused}
                 placeholder="Type your translation…"
                 rows={2}
                 style={{
@@ -1199,21 +1272,22 @@ export default function TriviaGame2({
               />
               <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
                 <button
-                  onClick={() => { if (!busy && !questionStateRef.current.ended && transcript.trim()) submitAnswer(transcript); }}
-                  disabled={busy || questionStateRef.current.ended || !transcript.trim()}
+                  onClick={() => { if (!busy && !questionStateRef.current.ended && !isPaused && transcript.trim()) submitAnswer(transcript); }}
+                  disabled={busy || questionStateRef.current.ended || isPaused || !transcript.trim()}
                   style={{ ...primaryBtnStyle, padding: "8px 20px", fontSize: 13 }}
                 >
                   {busy ? "Checking…" : "Check"}
                 </button>
                 <button
                   onClick={() => { setTranscript(""); previousLengthRef.current = 0; textareaRef.current?.focus(); }}
+                  disabled={isPaused}
                   style={{ ...ghostBtnStyle, padding: "8px 14px", fontSize: 13 }}
                 >
                   Clear
                 </button>
                 <button
                   onClick={handleSkip}
-                  disabled={questionStateRef.current.ended}
+                  disabled={questionStateRef.current.ended || isPaused}
                   style={{ ...ghostBtnStyle, padding: "8px 14px", fontSize: 13, color: "rgba(255,255,255,0.45)", marginLeft: "auto" }}
                 >
                   Skip →

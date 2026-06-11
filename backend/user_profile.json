@@ -1001,6 +1001,480 @@
       "damage_multiplier": 0.0,
       "hints_used_count": 0,
       "hints_used_phrases": []
+    },
+    {
+      "timestamp": "2026-06-09T02:11:33.076793",
+      "conversation_id": "trivia2_spotlight_poner",
+      "difficulty": "easy",
+      "native": "Translate using the word 'poner': Put on some music",
+      "user_answer": "Porn Música",
+      "feedback_keys": [
+        "wrong_meaning"
+      ],
+      "issues": [
+        {
+          "feedback_key": "wrong_meaning",
+          "corrected_snippet": "poner musica",
+          "feedback_explanation": "Your answer is incorrect because 'porn' does not convey the intended meaning of 'poner'."
+        }
+      ],
+      "damage_multiplier": 0.0,
+      "hints_used_count": 0,
+      "hints_used_phrases": []
+    },
+    {
+      "timestamp": "2026-06-09T02:11:56.084213",
+      "conversation_id": "trivia2_spotlight_poner",
+      "difficulty": "easy",
+      "native": "Translate using the word 'poner': Put on some music",
+      "user_answer": "Bon Musica",
+      "feedback_keys": [
+        "missing_target_word"
+      ],
+      "issues": [
+        {
+          "feedback_key": "missing_target_word",
+          "corrected_snippet": null,
+          "feedback_explanation": "Your answer is correct, but this exercise requires you to use 'poner' — the word being practiced here."
+        }
+      ],
+      "damage_multiplier": 0.0,
+      "hints_used_count": 0,
+      "hints_used_phrases": []
+    },
+    {
+      "timestamp": "2026-06-09T02:12:49.973995",
+      "conversation_id": "trivia2_spotlight_poner",
+      "difficulty": "medium",
+      "native": "Translate using the word 'poner': It puts me in a bad mood",
+      "user_answer": "Me pone en mal humor.",
+      "feedback_keys": [
+        "perfect"
+      ],
+      "issues": [
+        {
+          "feedback_key": "perfect",
+          "corrected_snippet": null,
+          "feedback_explanation": null
+        }
+      ],
+      "damage_multiplier": 1.0,
+      "hints_used_count": 0,
+      "hints_used_phrases": []
+    },
+    {
+      "timestamp": "2026-06-09T02:13:17.105582",
+      "conversation_id": "trivia2_spotlight_poner",
+      "difficulty": "hard",
+      "native": "Translate using the word 'poner': They put him in charge",
+      "user_answer": "Lo pusieron en cargo.",
+      "feedback_keys": [
+        "unnatural_phrasing",
+        "missing_target_word"
+      ],
+      "issues": [
+        {
+          "feedback_key": "unnatural_phrasing",
+          "corrected_snippet": "lo pusieron a cargo",
+          "feedback_explanation": "'en cargo' is understandable but sounds awkward; a native speaker would say 'a cargo' instead."
+        },
+        {
+          "feedback_key": "missing_target_word",
+          "corrected_snippet": null,
+          "feedback_explanation": "Your answer is correct, but this exercise requires you to use 'poner' — the word being practiced here."
+        }
+      ],
+      "damage_multiplier": 0.6,
+      "hints_used_count": 0,
+      "hints_used_phrases": []
+    },
+    {
+      "timestamp": "2026-06-09T02:14:23.678554",
+      "conversation_id": "trivia2_free_dar",
+      "difficulty": "medium",
+      "native": "I realized too late",
+      "user_answer": "Me da cuenta más tarde.",
+      "feedback_keys": [
+        "wrong_conjugation",
+        "missing_content"
+      ],
+      "issues": [
+        {
+          "feedback_key": "wrong_conjugation",
+          "corrected_snippet": "me di cuenta",
+          "feedback_explanation": "The verb 'dar' is incorrectly conjugated; it should be 'di' instead of 'da' to express the past action of realizing."
+        },
+        {
+          "feedback_key": "missing_content",
+          "corrected_snippet": "muy tarde",
+          "feedback_explanation": "The phrase is missing 'muy' to accurately convey 'too late'."
+        }
+      ],
+      "damage_multiplier": 0.6,
+      "hints_used_count": 0,
+      "hints_used_phrases": []
+    },
+    {
+      "timestamp": "2026-06-09T02:15:07.707965",
+      "conversation_id": "trivia2_free_dar",
+      "difficulty": "medium",
+      "native": "I feel really bad / I'm so embarrassed",
+      "user_answer": "Mucho me da pena.",
+      "feedback_keys": [
+        "word_order",
+        "missing_minor_words"
+      ],
+      "issues": [
+        {
+          "feedback_key": "word_order",
+          "corrected_snippet": "me da mucha pena",
+          "feedback_explanation": "The word order is rearranged, making it sound awkward."
+        },
+        {
+          "feedback_key": "missing_minor_words",
+          "corrected_snippet": "mucha",
+          "feedback_explanation": "You dropped the word 'mucha', which is important for conveying the intensity of the feeling."
+        }
+      ],
+      "damage_multiplier": 0.7,
+      "hints_used_count": 0,
+      "hints_used_phrases": []
+    },
+    {
+      "timestamp": "2026-06-09T02:15:39.959833",
+      "conversation_id": "trivia2_free_dar",
+      "difficulty": "hard",
+      "native": "Thank him for me",
+      "user_answer": "Dale a gracias para mi.",
+      "feedback_keys": [
+        "missing_content",
+        "word_order"
+      ],
+      "issues": [
+        {
+          "feedback_key": "missing_content",
+          "corrected_snippet": "dale las gracias",
+          "feedback_explanation": "You omitted 'las' which is necessary to convey the complete meaning of 'thank him'."
+        },
+        {
+          "feedback_key": "word_order",
+          "corrected_snippet": "gracias para mi",
+          "feedback_explanation": "The phrase should be 'de mi parte' instead of 'para mi' to correctly express 'for me'."
+        }
+      ],
+      "damage_multiplier": 0.6,
+      "hints_used_count": 0,
+      "hints_used_phrases": []
+    },
+    {
+      "timestamp": "2026-06-09T02:16:31.980415",
+      "conversation_id": "trivia2_blitz_pasar",
+      "difficulty": "easy",
+      "native": "Translate using the word 'pasar': What's the matter with you? / What's wrong?",
+      "user_answer": "¿Qué te pasó?",
+      "feedback_keys": [
+        "missing_target_word"
+      ],
+      "issues": [
+        {
+          "feedback_key": "missing_target_word",
+          "corrected_snippet": null,
+          "feedback_explanation": "Your answer is correct, but this exercise requires you to use 'pasar' — the word being practiced here."
+        }
+      ],
+      "damage_multiplier": 0.0,
+      "hints_used_count": 0,
+      "hints_used_phrases": []
+    },
+    {
+      "timestamp": "2026-06-09T02:16:43.720083",
+      "conversation_id": "trivia2_blitz_pasar",
+      "difficulty": "easy",
+      "native": "Translate using the word 'pasar': What's the matter with you? / What's wrong?",
+      "user_answer": "¿Qué te pasó?",
+      "feedback_keys": [
+        "wrong_conjugation",
+        "missing_target_word"
+      ],
+      "issues": [
+        {
+          "feedback_key": "wrong_conjugation",
+          "corrected_snippet": "que te pasa",
+          "feedback_explanation": "You used 'paso' instead of the correct form 'pasa' for the present tense."
+        },
+        {
+          "feedback_key": "missing_target_word",
+          "corrected_snippet": null,
+          "feedback_explanation": "Your answer is correct, but this exercise requires you to use 'pasar' — the word being practiced here."
+        }
+      ],
+      "damage_multiplier": 0.0,
+      "hints_used_count": 0,
+      "hints_used_phrases": []
+    },
+    {
+      "timestamp": "2026-06-11T02:55:59.925826",
+      "conversation_id": "trivia2_free_volver",
+      "difficulty": "easy",
+      "native": "I'll be right back",
+      "user_answer": "Ya volvó.",
+      "feedback_keys": [
+        "wrong_conjugation",
+        "missing_minor_words"
+      ],
+      "issues": [
+        {
+          "feedback_key": "wrong_conjugation",
+          "corrected_snippet": "vuelvo",
+          "feedback_explanation": "The correct conjugation of the verb is 'vuelvo' instead of 'volvo'."
+        },
+        {
+          "feedback_key": "missing_minor_words",
+          "corrected_snippet": "ya vuelvo",
+          "feedback_explanation": "The phrase 'ya' is commonly used in this context to indicate immediacy."
+        }
+      ],
+      "damage_multiplier": 0.6,
+      "hints_used_count": 0,
+      "hints_used_phrases": []
+    },
+    {
+      "timestamp": "2026-06-11T02:56:10.622588",
+      "conversation_id": "trivia2_free_volver",
+      "difficulty": "easy",
+      "native": "I'll be right back",
+      "user_answer": "Ya vuelvo.",
+      "feedback_keys": [
+        "perfect"
+      ],
+      "issues": [
+        {
+          "feedback_key": "perfect",
+          "corrected_snippet": null,
+          "feedback_explanation": null
+        }
+      ],
+      "damage_multiplier": 1.0,
+      "hints_used_count": 0,
+      "hints_used_phrases": []
+    },
+    {
+      "timestamp": "2026-06-11T02:56:29.835679",
+      "conversation_id": "trivia2_free_volver",
+      "difficulty": "medium",
+      "native": "When are you seeing her again?",
+      "user_answer": "¿Cuándo vuelves a verla?",
+      "feedback_keys": [
+        "perfect"
+      ],
+      "issues": [
+        {
+          "feedback_key": "perfect",
+          "corrected_snippet": null,
+          "feedback_explanation": null
+        }
+      ],
+      "damage_multiplier": 1.0,
+      "hints_used_count": 0,
+      "hints_used_phrases": []
+    },
+    {
+      "timestamp": "2026-06-11T02:56:56.264479",
+      "conversation_id": "trivia2_free_volver",
+      "difficulty": "medium",
+      "native": "Let's try again",
+      "user_answer": "Volvimos a intentar.",
+      "feedback_keys": [
+        "wrong_tense",
+        "missing_content"
+      ],
+      "issues": [
+        {
+          "feedback_key": "wrong_tense",
+          "corrected_snippet": "vamos a volver a intentar",
+          "feedback_explanation": "The student used the past tense 'volvimos' instead of the present tense 'vamos a volver' which changes the meaning."
+        },
+        {
+          "feedback_key": "missing_content",
+          "corrected_snippet": "vamos a volver a intentar",
+          "feedback_explanation": "The core verb 'intentar' is present, but the phrase is incomplete without 'vamos a volver'."
+        }
+      ],
+      "damage_multiplier": 0.6,
+      "hints_used_count": 0,
+      "hints_used_phrases": []
+    },
+    {
+      "timestamp": "2026-06-11T02:57:35.279187",
+      "conversation_id": "trivia2_free_volver",
+      "difficulty": "hard",
+      "native": "Let's go back to that topic",
+      "user_answer": "Vamos a volver a ese tema.",
+      "feedback_keys": [
+        "perfect"
+      ],
+      "issues": [
+        {
+          "feedback_key": "perfect",
+          "corrected_snippet": null,
+          "feedback_explanation": null
+        }
+      ],
+      "damage_multiplier": 1.0,
+      "hints_used_count": 0,
+      "hints_used_phrases": []
+    },
+    {
+      "timestamp": "2026-06-11T02:57:58.618570",
+      "conversation_id": "trivia2_blitz_dar",
+      "difficulty": "easy",
+      "native": "Translate using the word 'dar': Either way / It's the same",
+      "user_answer": "Me da lo mismo.",
+      "feedback_keys": [
+        "missing_target_word"
+      ],
+      "issues": [
+        {
+          "feedback_key": "missing_target_word",
+          "corrected_snippet": null,
+          "feedback_explanation": "Your answer is correct, but this exercise requires you to use 'dar' — the word being practiced here."
+        }
+      ],
+      "damage_multiplier": 0.0,
+      "hints_used_count": 0,
+      "hints_used_phrases": []
+    },
+    {
+      "timestamp": "2026-06-11T02:58:12.506840",
+      "conversation_id": "trivia2_blitz_dar",
+      "difficulty": "easy",
+      "native": "Translate using the word 'dar': Either way / It's the same",
+      "user_answer": "Me da igual.",
+      "feedback_keys": [
+        "missing_target_word"
+      ],
+      "issues": [
+        {
+          "feedback_key": "missing_target_word",
+          "corrected_snippet": null,
+          "feedback_explanation": "Your answer is correct, but this exercise requires you to use 'dar' — the word being practiced here."
+        }
+      ],
+      "damage_multiplier": 0.0,
+      "hints_used_count": 0,
+      "hints_used_phrases": []
+    },
+    {
+      "timestamp": "2026-06-11T02:58:36.397192",
+      "conversation_id": "trivia2_blitz_dar",
+      "difficulty": "easy",
+      "native": "Translate using the word 'dar': Can you pass me the water?",
+      "user_answer": "¿Puedes darme el agua?",
+      "feedback_keys": [
+        "perfect"
+      ],
+      "issues": [
+        {
+          "feedback_key": "perfect",
+          "corrected_snippet": null,
+          "feedback_explanation": null
+        }
+      ],
+      "damage_multiplier": 1.0,
+      "hints_used_count": 0,
+      "hints_used_phrases": []
+    },
+    {
+      "timestamp": "2026-06-11T02:58:59.812421",
+      "conversation_id": "trivia2_blitz_dar",
+      "difficulty": "medium",
+      "native": "Translate using the word 'dar': Did you notice? / Did you realize?",
+      "user_answer": "¿Te das cuenta?",
+      "feedback_keys": [
+        "wrong_conjugation",
+        "missing_target_word"
+      ],
+      "issues": [
+        {
+          "feedback_key": "wrong_conjugation",
+          "corrected_snippet": "te diste cuenta",
+          "feedback_explanation": "You used the present tense 'das' instead of the correct past tense 'diste'."
+        },
+        {
+          "feedback_key": "missing_target_word",
+          "corrected_snippet": null,
+          "feedback_explanation": "Your answer is correct, but this exercise requires you to use 'dar' — the word being practiced here."
+        }
+      ],
+      "damage_multiplier": 0.0,
+      "hints_used_count": 0,
+      "hints_used_phrases": []
+    },
+    {
+      "timestamp": "2026-06-11T02:59:31.046847",
+      "conversation_id": "trivia2_blitz_dar",
+      "difficulty": "medium",
+      "native": "Translate using the word 'dar': It grosses me out",
+      "user_answer": "Me da osco",
+      "feedback_keys": [
+        "missing_target_word",
+        "asr_error"
+      ],
+      "issues": [
+        {
+          "feedback_key": "missing_target_word",
+          "corrected_snippet": null,
+          "feedback_explanation": "Your answer is correct, but this exercise requires you to use 'dar' — the word being practiced here."
+        },
+        {
+          "feedback_key": "asr_error",
+          "corrected_snippet": "asco → osco",
+          "feedback_explanation": "It seems 'asco' was misheard as 'osco', which changes the meaning."
+        }
+      ],
+      "damage_multiplier": 0.0,
+      "hints_used_count": 0,
+      "hints_used_phrases": []
+    },
+    {
+      "timestamp": "2026-06-11T02:59:59.737542",
+      "conversation_id": "trivia2_blitz_dar",
+      "difficulty": "hard",
+      "native": "Translate using the word 'dar': Thank him for me",
+      "user_answer": "Le da gracias por mí.",
+      "feedback_keys": [
+        "missing_target_word"
+      ],
+      "issues": [
+        {
+          "feedback_key": "missing_target_word",
+          "corrected_snippet": null,
+          "feedback_explanation": "Your answer is correct, but this exercise requires you to use 'dar' — the word being practiced here."
+        }
+      ],
+      "damage_multiplier": 0.0,
+      "hints_used_count": 0,
+      "hints_used_phrases": []
+    },
+    {
+      "timestamp": "2026-06-11T03:00:11.423302",
+      "conversation_id": "trivia2_blitz_dar",
+      "difficulty": "hard",
+      "native": "Translate using the word 'dar': Thank him for me",
+      "user_answer": "¿Le das gracias por mí?",
+      "feedback_keys": [
+        "missing_target_word"
+      ],
+      "issues": [
+        {
+          "feedback_key": "missing_target_word",
+          "corrected_snippet": null,
+          "feedback_explanation": "Your answer is correct, but this exercise requires you to use 'dar' — the word being practiced here."
+        }
+      ],
+      "damage_multiplier": 0.0,
+      "hints_used_count": 0,
+      "hints_used_phrases": []
     }
   ],
   "topics_to_practice": []
