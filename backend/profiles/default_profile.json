@@ -1,6 +1,6 @@
 {
   "created_at": 1769845610,
-  "last_updated": 1781222879,
+  "last_updated": 1781223997,
   "ui_language": {
     "code": "en",
     "name": "English"
@@ -31,45 +31,10 @@
     "punctuation"
   ],
   "avoid_topics": [],
-  "turn_count": 239,
+  "turn_count": 244,
   "corrections_needed": 129,
   "last_assessment_turn": 0,
   "recent_turns": [
-    {
-      "turn_id": "turn_1781216782568",
-      "user_input": "¿De dónde compras tus sombreros?",
-      "corrected_input": "¿De dónde compras los sombreros?",
-      "had_errors": true,
-      "timestamp": 1781216791
-    },
-    {
-      "turn_id": "turn_1781216928821",
-      "user_input": "¿Qué estilos recomiendas?",
-      "corrected_input": "¿Qué estilos recomiendas?",
-      "had_errors": false,
-      "timestamp": 1781216934
-    },
-    {
-      "turn_id": "turn_1781216966395",
-      "user_input": "¿Qué tal los colores?",
-      "corrected_input": "¿Qué tal los colores?",
-      "had_errors": false,
-      "timestamp": 1781216972
-    },
-    {
-      "turn_id": "turn_1781216993282",
-      "user_input": "¿Tienes un color favorito?",
-      "corrected_input": "¿Tienes un color favorito?",
-      "had_errors": false,
-      "timestamp": 1781217000
-    },
-    {
-      "turn_id": "turn_1781217121741",
-      "user_input": "Si voy de compras contigo ¿qué debería comprar?",
-      "corrected_input": "Si voy de compras contigo, ¿qué debería comprar?",
-      "had_errors": true,
-      "timestamp": 1781217127
-    },
     {
       "turn_id": "turn_1781217164179",
       "user_input": "Necesito una nueva ropa.",
@@ -104,6 +69,41 @@
       "corrected_input": "Cuéntame sobre Surinam.",
       "had_errors": false,
       "timestamp": 1781222879
+    },
+    {
+      "turn_id": "turn_1781223682942",
+      "user_input": "Cuéntame sobre el desarrollo.",
+      "corrected_input": "Cuéntame sobre el desarrollo.",
+      "had_errors": false,
+      "timestamp": 1781223689
+    },
+    {
+      "turn_id": "turn_1781223861536",
+      "user_input": "Cuéntame sobre El Salvador",
+      "corrected_input": "Cuéntame sobre El Salvador.",
+      "had_errors": false,
+      "timestamp": 1781223869
+    },
+    {
+      "turn_id": "turn_1781223888536",
+      "user_input": "Cuéntame sobre su casa.",
+      "corrected_input": "Cuéntame sobre su casa.",
+      "had_errors": false,
+      "timestamp": 1781223894
+    },
+    {
+      "turn_id": "turn_1781223908947",
+      "user_input": "Cuéntame sobre tu cama.",
+      "corrected_input": "Cuéntame sobre tu cama.",
+      "had_errors": false,
+      "timestamp": 1781223918
+    },
+    {
+      "turn_id": "turn_1781223992525",
+      "user_input": "Mi cama es azul.",
+      "corrected_input": "Mi cama es azul.",
+      "had_errors": false,
+      "timestamp": 1781223997
     }
   ]
 }
