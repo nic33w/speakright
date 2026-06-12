@@ -17,12 +17,17 @@
         "mode": "messenger",
         "chars": 55,
         "started_at": "2026-06-11T14:56:34.302371"
+      },
+      {
+        "mode": "messenger",
+        "chars": 210,
+        "started_at": "2026-06-11T14:57:45.449821"
       }
     ],
     "current_session": {
       "mode": "messenger",
-      "chars": 169,
-      "started_at": "2026-06-11T14:57:45.449821"
+      "chars": 0,
+      "started_at": "2026-06-11T17:07:00.928888"
     }
   }
 }

@@ -290,6 +290,23 @@ export default function MessengerChat({
     }
   }
 
+  function isCasualGreeting(text: string): boolean {
+    const norm = text
+      .toLowerCase()
+      .normalize("NFD").replace(/[̀-ͯ]/g, "")
+      .replace(/[¿¡.,!?;:"""'']/g, "")
+      .replace(/\s+/g, " ").trim();
+    const casuals = [
+      "hola", "hey", "hi", "hello", "sup", "yo", "ey", "howdy",
+      "buenas", "buenos dias", "buenas tardes", "buenas noches",
+      "que tal", "como estas", "como te va", "como estan",
+      "que hay", "que pasa", "que onda",
+      "whats up", "what up", "how are you", "how are you doing",
+      "hola como estas", "hola que tal",
+    ];
+    return casuals.includes(norm);
+  }
+
   async function sendMessage(textOverride?: string) {
     const text = (textOverride ?? transcript).trim();
     if (!text || busy) return;
@@ -326,12 +343,16 @@ export default function MessengerChat({
     setTranscript("");
 
     try {
-      // Determine endpoint: use premade-start for the first message (no character messages yet)
+      // Determine endpoint: use premade-start only when user picked a suggestion or typed a casual greeting
       const hasCharacterMessages = messages.some(m => m.side === "character");
-      const endpoint = !hasCharacterMessages
+      const isFirstMessage = !hasCharacterMessages;
+      const usedSuggestion = matchedNative !== undefined;
+      const usePremade = !isFirstMessage || usedSuggestion || isCasualGreeting(text);
+
+      const endpoint = (isFirstMessage && usePremade)
         ? `${apiBase}/api/messenger/premade-start`
         : `${apiBase}/api/messenger/turn`;
-      const body = !hasCharacterMessages
+      const body = (isFirstMessage && usePremade)
         ? JSON.stringify({ session_id: SESSION_ID })
         : JSON.stringify({ user_input: text, session_id: SESSION_ID });
 

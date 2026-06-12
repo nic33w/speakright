@@ -1,6 +1,6 @@
 {
   "created_at": 1769845610,
-  "last_updated": 1781215646,
+  "last_updated": 1781222879,
   "ui_language": {
     "code": "en",
     "name": "English"
@@ -10,7 +10,7 @@
     "name": "Spanish"
   },
   "level": "beginner",
-  "level_confidence": 0.7,
+  "level_confidence": 0.8,
   "level_history": [
     {
       "timestamp": 1769845610,
@@ -27,82 +27,83 @@
     "gender",
     "grammar structure",
     "verb conjugation",
-    "prepositions"
+    "prepositions",
+    "punctuation"
   ],
   "avoid_topics": [],
-  "turn_count": 227,
-  "corrections_needed": 124,
+  "turn_count": 239,
+  "corrections_needed": 129,
   "last_assessment_turn": 0,
   "recent_turns": [
     {
-      "turn_id": "turn_1781209465620",
-      "user_input": "Me encanta el pastel de chocolate.",
-      "corrected_input": "Me encanta el pastel de chocolate.",
-      "had_errors": false,
-      "timestamp": 1781209471
-    },
-    {
-      "turn_id": "turn_1781209494991",
-      "user_input": "Me encantan los postres de chocolate.",
-      "corrected_input": "Me encantan los postres de chocolate.",
-      "had_errors": false,
-      "timestamp": 1781209500
-    },
-    {
-      "turn_id": "turn_1781210583817",
-      "user_input": "¿Cuál es tu postre favorito?",
-      "corrected_input": "¿Cuál es tu postre favorito?",
-      "had_errors": false,
-      "timestamp": 1781210592
-    },
-    {
-      "turn_id": "turn_1781211336221",
-      "user_input": "no estoy seguro",
-      "corrected_input": "No estoy seguro.",
-      "had_errors": false,
-      "timestamp": 1781211343
-    },
-    {
-      "turn_id": "turn_1781211361472",
-      "user_input": "¿Podrías ayudarme?",
-      "corrected_input": "¿Podrías ayudarme?",
-      "had_errors": false,
-      "timestamp": 1781211368
-    },
-    {
-      "turn_id": "turn_1781215337417",
-      "user_input": "¿El profesor no ve que duermes?",
-      "corrected_input": "¿El profesor no ve que estás durmiendo?",
+      "turn_id": "turn_1781216782568",
+      "user_input": "¿De dónde compras tus sombreros?",
+      "corrected_input": "¿De dónde compras los sombreros?",
       "had_errors": true,
-      "timestamp": 1781215363
+      "timestamp": 1781216791
     },
     {
-      "turn_id": "turn_1781215419510",
-      "user_input": "¿Qué dice el profesor?",
-      "corrected_input": "¿Qué dice el profesor?",
+      "turn_id": "turn_1781216928821",
+      "user_input": "¿Qué estilos recomiendas?",
+      "corrected_input": "¿Qué estilos recomiendas?",
       "had_errors": false,
-      "timestamp": 1781215426
+      "timestamp": 1781216934
     },
     {
-      "turn_id": "turn_1781215509525",
-      "user_input": "¿El profesor no ve que comes?",
-      "corrected_input": "¿El profesor no ve que estás comiendo?",
-      "had_errors": true,
-      "timestamp": 1781215517
-    },
-    {
-      "turn_id": "turn_1781215604761",
-      "user_input": "Me da hambre.",
-      "corrected_input": "Me da hambre.",
+      "turn_id": "turn_1781216966395",
+      "user_input": "¿Qué tal los colores?",
+      "corrected_input": "¿Qué tal los colores?",
       "had_errors": false,
-      "timestamp": 1781215614
+      "timestamp": 1781216972
     },
     {
-      "turn_id": "turn_1781215634422",
-      "user_input": "how would i say, you're making me hungry",
-      "corrected_input": "Me estás haciendo hambre.",
+      "turn_id": "turn_1781216993282",
+      "user_input": "¿Tienes un color favorito?",
+      "corrected_input": "¿Tienes un color favorito?",
+      "had_errors": false,
+      "timestamp": 1781217000
+    },
+    {
+      "turn_id": "turn_1781217121741",
+      "user_input": "Si voy de compras contigo ¿qué debería comprar?",
+      "corrected_input": "Si voy de compras contigo, ¿qué debería comprar?",
       "had_errors": true,
-      "timestamp": 1781215646
+      "timestamp": 1781217127
+    },
+    {
+      "turn_id": "turn_1781217164179",
+      "user_input": "Necesito una nueva ropa.",
+      "corrected_input": "Necesito una nueva ropa.",
+      "had_errors": true,
+      "timestamp": 1781217170
+    },
+    {
+      "turn_id": "turn_1781217304412",
+      "user_input": "Tu hermano me dijo que nunca ir de compras contigo.",
+      "corrected_input": "Tu hermano me dijo que nunca va de compras contigo.",
+      "had_errors": true,
+      "timestamp": 1781217311
+    },
+    {
+      "turn_id": "turn_1781217327996",
+      "user_input": "¿Qué te gusta comprar?",
+      "corrected_input": "¿Qué te gusta comprar?",
+      "had_errors": false,
+      "timestamp": 1781217336
+    },
+    {
+      "turn_id": "turn_1781222836825",
+      "user_input": "Cuéntame sobre Perú.",
+      "corrected_input": "Cuéntame sobre Perú.",
+      "had_errors": false,
+      "timestamp": 1781222843
+    },
+    {
+      "turn_id": "turn_1781222870980",
+      "user_input": "Cuéntame sobre Surinam.",
+      "corrected_input": "Cuéntame sobre Surinam.",
+      "had_errors": false,
+      "timestamp": 1781222879
     }
   ]
 }
