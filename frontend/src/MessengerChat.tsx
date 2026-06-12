@@ -374,7 +374,7 @@ export default function MessengerChat({
 
       // Animate reaction phases while the API is running
       if (liveReactions) {
-        await delay(300 + Math.random() * 200);   // ~0.3–0.5s before showing anything
+        await delay(1200 + Math.random() * 600);   // ~1.2–1.8s before showing anything (showing the eyes)
         setReactionPhase('reading');
         await delay(900 + Math.random() * 600);   // ~0.9–1.5s
         setReactionPhase('thinking');
