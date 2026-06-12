@@ -149,6 +149,7 @@ export default function MessengerChat({
   const pendingSuggestionRef = useRef<SuggestedReply | null>(null);
   const lastSuggestionsRef = useRef<SuggestedReply[]>([]);
   const suggestionAudioCacheRef = useRef<Map<string, string>>(new Map());
+  const busyRef = useRef(false);
 
   // Initialize profile and fetch greeting suggestions on mount
   useEffect(() => {
@@ -219,6 +220,9 @@ export default function MessengerChat({
     void fetchConfig();
   }, [apiBase]);
 
+  // Keep busyRef in sync so the paste handler (closed over once) always sees current state
+  useEffect(() => { busyRef.current = busy; }, [busy]);
+
   // Auto-focus textarea on mount
   useEffect(() => {
     if (textareaRef.current && !busy) {
@@ -249,13 +253,18 @@ export default function MessengerChat({
 
   useEffect(() => {
     function onPaste(e: ClipboardEvent) {
-      const tag = (document.activeElement as HTMLElement)?.tagName;
-      if (tag === "TEXTAREA" || tag === "INPUT") return;
+      const el = document.activeElement;
+      // Let main textarea handle it natively only when it's focused and not disabled
+      if (el === textareaRef.current && !busyRef.current) return;
+      // Let other inputs (quiz answer fields etc.) handle their own paste
+      const tag = (el as HTMLElement)?.tagName;
+      if (tag === "INPUT") return;
       const text = e.clipboardData?.getData("text/plain");
       if (!text) return;
       e.preventDefault();
       setTranscript(prev => prev + text);
-      textareaRef.current?.focus();
+      // Focus the textarea only if it's currently enabled; otherwise it'll focus when busy clears
+      if (!busyRef.current) setTimeout(() => textareaRef.current?.focus(), 0);
     }
     document.addEventListener("paste", onPaste);
     return () => document.removeEventListener("paste", onPaste);

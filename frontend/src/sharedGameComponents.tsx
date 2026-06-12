@@ -257,7 +257,15 @@ export function GameTextarea({
   }, [value]);
 
   useEffect(() => {
-    if (!isDisabled) setTimeout(() => textareaRef.current?.focus(), 50);
+    if (!isDisabled) {
+      setTimeout(() => textareaRef.current?.focus(), 50);
+      // If text was pasted while disabled, prevLenRef is stale — detect and start auto-send
+      const delta = value.length - prevLenRef.current;
+      if (delta >= 3 && value.length > 2 && Date.now() - lastSentRef.current > 700) {
+        startPending(value);
+      }
+      prevLenRef.current = value.length;
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isDisabled]);
 
