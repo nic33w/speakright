@@ -35,6 +35,7 @@ type SentencePair = {
   audio_base64?: string | null; // optional per-sentence audio (base64)
   audio_file?: string | null; // optional per-sentence URL returned by backend (e.g. "/api/audio_file/<session>/<filename>")
   audio_filename?: string | null; // backend filename if provided
+  is_challenge?: boolean; // v2: last reply sentence is the learning-language challenge
 };
 
 type Message =
@@ -51,6 +52,82 @@ const LANG_OPTIONS: LangSpec[] = [
 
 const generateId = () => Math.random().toString(36).slice(2, 9);
 const VITE_MOCK_MODE = 0; //Boolean(import.meta.env.VITE_MOCK_MODE);
+
+// --- V2 Challenge Pair: 3-zone hover-reveal bubble ---
+function ChallengePair({
+  pair, flashActive, speakerName, bubbleColor, fluentName, learningName, onPlayAudio,
+}: {
+  pair: SentencePair;
+  flashActive: boolean;
+  speakerName: string;
+  bubbleColor: string;
+  fluentName: string;
+  learningName: string;
+  onPlayAudio: () => void;
+}) {
+  const [hovered, setHovered] = useState<"native" | "learning" | "audio" | null>(null);
+  const audioTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  function onAudioEnter() {
+    setHovered("audio");
+    audioTimerRef.current = setTimeout(onPlayAudio, 600);
+  }
+  function onAudioLeave() {
+    setHovered(null);
+    if (audioTimerRef.current) { clearTimeout(audioTimerRef.current); audioTimerRef.current = null; }
+  }
+
+  const zoneBase: React.CSSProperties = { padding: "5px 9px", borderRadius: 6, background: "rgba(0,0,0,0.2)" };
+  const labelStyle: React.CSSProperties = { fontSize: 10, opacity: 0.45, marginBottom: 3, textTransform: "uppercase", letterSpacing: "0.05em" };
+
+  return (
+    <div style={{ background: bubbleColor, color: "#e6eef8", padding: "10px 12px", borderRadius: 12, maxWidth: "85%", alignSelf: "flex-end", minWidth: 220, display: "flex", flexDirection: "column", gap: 5 }}>
+      {speakerName && <div style={{ fontSize: 11, opacity: 0.65, marginBottom: 2 }}>{speakerName}</div>}
+
+      {/* Zone 1: native translation — flashes visible on arrival, then blur until hover */}
+      <div style={zoneBase} onMouseEnter={() => setHovered("native")} onMouseLeave={() => setHovered(null)}>
+        <div style={labelStyle}>{fluentName}</div>
+        <span style={{
+          fontSize: 12, display: "inline-block",
+          filter: (flashActive || hovered === "native") ? "none" : "blur(4px)",
+          transition: "filter 0.4s",
+          userSelect: (flashActive || hovered === "native") ? "text" : "none",
+        }}>
+          {pair.native}
+        </span>
+      </div>
+
+      {/* Zone 2: learning sentence — blurred until hover */}
+      <div style={zoneBase} onMouseEnter={() => setHovered("learning")} onMouseLeave={() => setHovered(null)}>
+        <div style={labelStyle}>{learningName}</div>
+        <span style={{
+          fontSize: 16, fontWeight: 700, display: "inline-block",
+          filter: hovered === "learning" ? "none" : "blur(5px)",
+          transition: "filter 0.35s",
+          userSelect: hovered === "learning" ? "text" : "none",
+        }}>
+          {pair.learning}
+        </span>
+      </div>
+
+      {/* Zone 3: audio replay — hover triggers playback after 600ms */}
+      <div
+        style={{
+          ...zoneBase,
+          background: hovered === "audio" ? "rgba(14,165,164,0.3)" : "rgba(255,255,255,0.05)",
+          cursor: "pointer", textAlign: "center", fontSize: 12,
+          color: hovered === "audio" ? "#5eead4" : "#64748b",
+          transition: "background 0.2s, color 0.2s",
+          userSelect: "none",
+        }}
+        onMouseEnter={onAudioEnter}
+        onMouseLeave={onAudioLeave}
+      >
+        🔊 {hovered === "audio" ? "replaying…" : "hover to replay"}
+      </div>
+    </div>
+  );
+}
 
 export default function ChatWithWispr({
   apiBase = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000",
@@ -72,6 +149,11 @@ export default function ChatWithWispr({
   const [showLearning, setShowLearning] = useState(true);
   const [showExplanations, setShowExplanations] = useState(true);
   const [showSpaces, setShowSpaces] = useState(true); // for languages like Spanish
+  const [promptVersion, setPromptVersion] = useState<"v1" | "v2">("v1");
+
+  // V2 challenge pair flash state: pairId → true while native translation is flashing
+  const [challengeFlashActive, setChallengeFlashActive] = useState<Record<string, boolean>>({});
+  const processedChallengeIds = useRef<Set<string>>(new Set());
 
   const sessionIdRef = useRef<string>(generateId());
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
@@ -359,8 +441,8 @@ export default function ChatWithWispr({
           fluent_language: fluentLanguage,
           learning_language: learningLanguage,
           character_id: selectedCharacter.id,
-          input_language: fluentLanguage,
-          text: trimmed,
+          confirmed_native_joined: trimmed,
+          prompt_version: promptVersion,
         };
 
         const res = await fetch(`${apiBase}/api/confirm`, {
@@ -390,6 +472,7 @@ export default function ChatWithWispr({
           audio_base64: p.audio_base64 ?? null,
           audio_file: p.audio_file ?? null,
           audio_filename: p.audio_filename ?? null,
+          is_challenge: p.is_challenge ?? false,
         }));
 
         // remove status messages
@@ -435,9 +518,9 @@ export default function ChatWithWispr({
         fluent_language: fluentLanguage,
         learning_language: learningLanguage,
         character_id: selectedCharacter.id,
-        // when confirming, send both original learning sentences (if available) and the edited native text
         original_pairs: originalTurn?.userPairs?.map((p) => ({ native: p.native, learning: p.learning })) ?? [],
         confirmed_native_joined: editedNativeJoined,
+        prompt_version: promptVersion,
       };
 
       const res = await fetch(`${apiBase}/api/confirm`, {
@@ -467,6 +550,7 @@ export default function ChatWithWispr({
         audio_base64: p.audio_base64 ?? null,
         audio_file: p.audio_file ?? null,
         audio_filename: p.audio_filename ?? null,
+        is_challenge: p.is_challenge ?? false,
       }));
 
       setMessages((m) => m.filter((x) => x.kind !== "status"));
@@ -602,7 +686,13 @@ export default function ChatWithWispr({
       if (!res.ok) throw new Error(`load failed ${res.status}`);
       const data = await res.json();
       // Load messages; optionally set languages if stored
-      if (Array.isArray(data.messages)) setMessages(data.messages);
+      if (Array.isArray(data.messages)) {
+        // Mark all challenge pairs in loaded conversation as already-processed (no flash for history)
+        for (const m of data.messages) {
+          if (m.kind === "pair" && m.pair?.is_challenge) processedChallengeIds.current.add(m.pair.id);
+        }
+        setMessages(data.messages);
+      }
       if (data.fluent_language) setFluentLanguage(data.fluent_language);
       if (data.learning_language) setLearningLanguage(data.learning_language);
       sessionIdRef.current = data.session_id || sessionId;
@@ -660,6 +750,20 @@ export default function ChatWithWispr({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Flash native translation on new v2 challenge pairs for 2500ms, then hide
+  useEffect(() => {
+    for (const m of messages) {
+      if (m.kind !== "pair") continue;
+      const p = (m as Extract<Message, { kind: "pair" }>).pair;
+      if (!p.is_challenge || processedChallengeIds.current.has(p.id)) continue;
+      processedChallengeIds.current.add(p.id);
+      setChallengeFlashActive((prev) => ({ ...prev, [p.id]: true }));
+      setTimeout(() => {
+        setChallengeFlashActive((prev) => ({ ...prev, [p.id]: false }));
+      }, 2500);
+    }
+  }, [messages]);
+
   // Handler for Jump button
   function jumpToNewest() {
     const el = chatWindowRef.current;
@@ -673,6 +777,29 @@ export default function ChatWithWispr({
   function renderPair(m: Extract<Message, { kind: "pair" }>) {
     const { pair, side, speaker } = m;
     const isUser = side === "user";
+
+    // V2 challenge pair: render special 3-zone reveal component
+    if (!isUser && pair.is_challenge) {
+      let speakerName = "";
+      let bubbleColor = "#0b6b5b";
+      if (speaker === "pico") { speakerName = PICO.name; bubbleColor = PICO.color; }
+      else {
+        const char = CHARACTERS.find((c) => c.id === speaker);
+        if (char) { speakerName = char.name; bubbleColor = char.color; }
+      }
+      return (
+        <ChallengePair
+          key={m.turnId + ":" + pair.id}
+          pair={pair}
+          flashActive={challengeFlashActive[pair.id] ?? false}
+          speakerName={speakerName}
+          bubbleColor={bubbleColor}
+          fluentName={fluentLanguage.name}
+          learningName={learningLanguage.name}
+          onPlayAudio={() => { void playAudioForPair(pair); }}
+        />
+      );
+    }
 
     // Use speaker-specific styling for reply bubbles
     const wrapperStyle: React.CSSProperties = {
@@ -713,7 +840,7 @@ export default function ChatWithWispr({
           <div style={{ fontSize: 11, opacity: 0.7, marginBottom: 4 }}>{speakerName}</div>
         )}
         {showNative && <div style={{ fontSize: 12, opacity: 0.85, marginBottom: 6 }}>{pair.native}</div>}
-        {showLearning && <div style={{ fontSize: 16, fontWeight: 700 }}>{learningText}</div>}
+        {showLearning && learningText && <div style={{ fontSize: 16, fontWeight: 700 }}>{learningText}</div>}
       </div>
     );
   }
@@ -781,7 +908,7 @@ export default function ChatWithWispr({
       <div style={{ display: "flex", flexDirection: "column", flex: 1 }}>
         {/* Sticky toolbar */}
         <div style={{ ...styles.toolbar, position: "sticky", top: 0, zIndex: 40, background: "#071226" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
             {/* toggles */}
             <label style={styles.toggleLabel}>
               <input type="checkbox" checked={showNative} onChange={() => setShowNative((s) => !s)} /> Show {fluentLanguage.name}
@@ -794,6 +921,9 @@ export default function ChatWithWispr({
             </label>
             <label style={styles.toggleLabel}>
               <input type="checkbox" checked={showExplanations} onChange={() => setShowExplanations((s) => !s)} /> Show explanations
+            </label>
+            <label style={styles.toggleLabel}>
+              <input type="checkbox" checked={promptVersion === "v2"} onChange={() => setPromptVersion((v) => v === "v1" ? "v2" : "v1")} /> Challenge replies (v2)
             </label>
 
             {/* language selects */}

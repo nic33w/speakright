@@ -1,6 +1,6 @@
 {
   "created_at": 1769845610,
-  "last_updated": 1781223997,
+  "last_updated": 1781713384,
   "ui_language": {
     "code": "en",
     "name": "English"
@@ -31,52 +31,10 @@
     "punctuation"
   ],
   "avoid_topics": [],
-  "turn_count": 244,
-  "corrections_needed": 129,
+  "turn_count": 250,
+  "corrections_needed": 131,
   "last_assessment_turn": 0,
   "recent_turns": [
-    {
-      "turn_id": "turn_1781217164179",
-      "user_input": "Necesito una nueva ropa.",
-      "corrected_input": "Necesito una nueva ropa.",
-      "had_errors": true,
-      "timestamp": 1781217170
-    },
-    {
-      "turn_id": "turn_1781217304412",
-      "user_input": "Tu hermano me dijo que nunca ir de compras contigo.",
-      "corrected_input": "Tu hermano me dijo que nunca va de compras contigo.",
-      "had_errors": true,
-      "timestamp": 1781217311
-    },
-    {
-      "turn_id": "turn_1781217327996",
-      "user_input": "¿Qué te gusta comprar?",
-      "corrected_input": "¿Qué te gusta comprar?",
-      "had_errors": false,
-      "timestamp": 1781217336
-    },
-    {
-      "turn_id": "turn_1781222836825",
-      "user_input": "Cuéntame sobre Perú.",
-      "corrected_input": "Cuéntame sobre Perú.",
-      "had_errors": false,
-      "timestamp": 1781222843
-    },
-    {
-      "turn_id": "turn_1781222870980",
-      "user_input": "Cuéntame sobre Surinam.",
-      "corrected_input": "Cuéntame sobre Surinam.",
-      "had_errors": false,
-      "timestamp": 1781222879
-    },
-    {
-      "turn_id": "turn_1781223682942",
-      "user_input": "Cuéntame sobre el desarrollo.",
-      "corrected_input": "Cuéntame sobre el desarrollo.",
-      "had_errors": false,
-      "timestamp": 1781223689
-    },
     {
       "turn_id": "turn_1781223861536",
       "user_input": "Cuéntame sobre El Salvador",
@@ -104,6 +62,48 @@
       "corrected_input": "Mi cama es azul.",
       "had_errors": false,
       "timestamp": 1781223997
+    },
+    {
+      "turn_id": "turn_1781650458401",
+      "user_input": "Cuéntame una historia.",
+      "corrected_input": "Cuéntame una historia.",
+      "had_errors": false,
+      "timestamp": 1781650475
+    },
+    {
+      "turn_id": "turn_1781652334589",
+      "user_input": "Es el hongo tú.",
+      "corrected_input": "Eres el hongo tú.",
+      "had_errors": true,
+      "timestamp": 1781652344
+    },
+    {
+      "turn_id": "turn_1781652385885",
+      "user_input": "No, tú significa tú.",
+      "corrected_input": "No, tú significa 'you'.",
+      "had_errors": true,
+      "timestamp": 1781652394
+    },
+    {
+      "turn_id": "turn_1781713101349",
+      "user_input": "tengo hambre",
+      "corrected_input": "Tengo hambre.",
+      "had_errors": false,
+      "timestamp": 1781713121
+    },
+    {
+      "turn_id": "turn_1781713185335",
+      "user_input": "¿Qué debo comer?",
+      "corrected_input": "¿Qué debo comer?",
+      "had_errors": false,
+      "timestamp": 1781713198
+    },
+    {
+      "turn_id": "turn_1781713373898",
+      "user_input": "Quiero probar algo nuevo.",
+      "corrected_input": "Quiero probar algo nuevo.",
+      "had_errors": false,
+      "timestamp": 1781713384
     }
   ]
 }

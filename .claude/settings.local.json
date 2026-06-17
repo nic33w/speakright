@@ -10,7 +10,9 @@
       "Bash(curl -s \"http://localhost:5174/src/trivia2/TriviaGame2.tsx\")",
       "Bash(xargs grep -l \"worddrill\\\\|word_drill\\\\|usecases\")",
       "Bash(xargs grep -l \"poner\\\\|quedar\\\\|grammar_tags\\\\|reflexive\")",
-      "Bash(git *)"
+      "Bash(git *)",
+      "Bash(Get-ChildItem \"D:\\\\python_projects\\\\speakright\\\\backend\" -Filter \"*.py\")",
+      "Bash(Select-Object Name)"
     ]
   }
 }

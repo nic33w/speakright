@@ -594,6 +594,7 @@ class ProfileInitRequest(BaseModel):
 class MessengerTurnRequest(BaseModel):
     user_input: str
     session_id: str
+    prompt_version: Optional[str] = "v1"  # "v1" = standard, "v2" = challenge last sentence
 
 class ResponseChunk(BaseModel):
     text: str
@@ -602,6 +603,8 @@ class ResponseChunk(BaseModel):
     audio_file: Optional[str] = None
     locale: Optional[str] = None
     purpose: Optional[str] = None
+    native_text: Optional[str] = None   # v2: translation of challenge chunk
+    is_challenge: Optional[bool] = None  # v2: marks the last chunk as a learning challenge
 
 class SuggestedReply(BaseModel):
     id: str  # e.g. "r1", "r2", "r3"
@@ -875,7 +878,7 @@ def generate_turn_instruction(profile: Dict[str, Any]) -> str:
 - Assess if this turn shows level change signals (set confidence accordingly)
 - Decide response mode per chunk: use target audio for new vocab/patterns appropriate to level"""
 
-def build_layered_prompt(user_input: str, profile: Dict[str, Any]) -> tuple:
+def build_layered_prompt(user_input: str, profile: Dict[str, Any], prompt_version: str = "v1") -> tuple:
     """
     Build layered prompt following user's design:
     1. System Prompt (chat_system_prompt.txt)
@@ -1062,6 +1065,25 @@ SUGGESTION GENERATION RULES:
 
 Return ONLY valid JSON (no markdown, no commentary)."""
 
+    # V2 override: append challenge-last-sentence instructions
+    if prompt_version == "v2":
+        user_message += f"""
+
+V2 CHALLENGE FORMAT — OVERRIDES response_chunks rules above:
+- Generate 2 or more response_chunks total
+- ALL chunks except the LAST: language="ui", modality="text" (speak in {ui_lang})
+- The LAST chunk MUST be a challenge sentence in {target_lang}:
+  {{
+    "text": "<natural {target_lang} sentence at i+1 difficulty>",
+    "language": "target",
+    "modality": "audio",
+    "locale": "<appropriate locale for {target_lang}>",
+    "native_text": "<{ui_lang} translation of the challenge sentence>",
+    "is_challenge": true
+  }}
+- Difficulty: slightly above the learner's current level — comprehensible input that stretches them a little
+- The challenge sentence should flow naturally as the conclusion of the reply"""
+
     return full_system, user_message
 
 
@@ -1239,7 +1261,7 @@ def messenger_chat_turn(req: MessengerTurnRequest):
     profile = load_profile()
 
     # Build layered prompt
-    system_prompt, user_message = build_layered_prompt(req.user_input, profile)
+    system_prompt, user_message = build_layered_prompt(req.user_input, profile, req.prompt_version or "v1")
 
     if MOCK_MODE:
         # Mock response with sample quiz candidate for testing
@@ -1254,18 +1276,16 @@ def messenger_chat_turn(req: MessengerTurnRequest):
                 "quiz_prompt": "How do you say 'the store' in Spanish?"
             }]
 
+        mock_chunks_v1 = [{"text": "¡Hola! How can I help you today?", "language": "ui", "modality": "text", "purpose": "greeting"}]
+        mock_chunks_v2 = [
+            {"text": "Oh, interesting! Tell me more.", "language": "ui", "modality": "text", "purpose": "reaction"},
+            {"text": "¿Cuándo empezaste a aprender español?", "language": "target", "modality": "text", "locale": "es-MX", "native_text": "When did you start learning Spanish?", "is_challenge": True},
+        ]
         llm_response = {
             "corrected_input": req.user_input,
             "had_errors": False,
             "error_explanation": "",
-            "response_chunks": [
-                {
-                    "text": "¡Hola! How can I help you today?",
-                    "language": "ui",
-                    "modality": "text",
-                    "purpose": "greeting"
-                }
-            ],
+            "response_chunks": mock_chunks_v2 if (req.prompt_version or "v1") == "v2" else mock_chunks_v1,
             "quiz_candidates": mock_quiz,
             "level_assessment": {
                 "current_level": profile["level"],

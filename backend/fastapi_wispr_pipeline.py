@@ -119,6 +119,7 @@ class ConfirmRequest(BaseModel):
     confirmed_native_joined: Optional[str] = None
     original_spanish: Optional[str] = None
     confirmed_english: Optional[str] = None
+    prompt_version: Optional[str] = "v1"  # "v1" = standard, "v2" = challenge last sentence
 
 # --- utilities ---
 _sentence_splitter = re.compile(r'(?<=[.!?])\s+')
@@ -268,6 +269,52 @@ RULES:
 - Respond with ONLY valid JSON
 """
 
+def build_chat_system_prompt_v2(persona: dict, pico: dict, fluent: LangSpec, learning: LangSpec) -> str:
+    """V2: all reply sentences except last in native language; last is a learning-language challenge at i+1 difficulty."""
+    persona_name = persona.get("meta", {}).get("display_name", "Assistant")
+    persona_bio = persona.get("short_bio", {}).get(fluent.code, "")
+    if "prompt_text" in persona:
+        persona_bio = persona["prompt_text"]
+
+    style_instruction = language_style_instruction(learning)
+
+    return f"""You are generating responses for a language learning chat with TWO characters:
+
+1. **{persona_name}** (conversational partner):
+   - {persona_bio}
+   - Personality should shine through in replies
+
+2. **Pico** (grammar helper robot):
+   - Concise, supportive grammar helper
+   - Always explains in {fluent.name}
+
+{style_instruction}
+
+RESPONSE FORMAT (JSON):
+{{
+  "corrected_pairs": [
+    {{"native": "<{fluent.name}>", "learning": "<{learning.name}>"}}
+  ],
+  "reply_pairs": [
+    {{"native": "<reply sentence in {fluent.name}>", "learning": ""}},
+    {{"native": "<{fluent.name} translation of challenge>", "learning": "<challenge sentence in {learning.name}>", "is_challenge": true}}
+  ],
+  "correction_explanation": "<Pico's brief explanation in {fluent.name}>"
+}}
+
+REPLY RULES:
+- Generate 2 or more reply sentences total
+- ALL sentences EXCEPT the last: write in {fluent.name} only, set "learning" to ""
+- The LAST sentence is the learner's "challenge":
+  - "learning": a natural {learning.name} sentence at i+1 difficulty (comprehensible, slightly above beginner — useful vocab/grammar, not too hard or too easy)
+  - "native": its {fluent.name} translation
+  - "is_challenge": true
+  - Should flow naturally as the conclusion of {persona_name}'s reply
+- {persona_name}'s personality comes through in the {fluent.name} sentences
+- correction_explanation MUST be in {fluent.name}; leave empty or give encouragement if no errors
+- Respond with ONLY valid JSON
+"""
+
 # --- OpenAI helpers (modern client) ---
 def _ensure_openai_client():
     if MOCK_MODE:
@@ -321,7 +368,7 @@ If input_lang == out_lang, you may copy text into both fields.
             return json.loads(content[start:end+1])
         raise
 
-def call_openai_confirm_from_native(confirmed_native_joined: str, fluent: LangSpec, learning: LangSpec, original_pairs=None, character_id: str = "sombongo") -> Dict[str, Any]:
+def call_openai_confirm_from_native(confirmed_native_joined: str, fluent: LangSpec, learning: LangSpec, original_pairs=None, character_id: str = "sombongo", prompt_version: str = "v1") -> Dict[str, Any]:
     """
     Ask OpenAI to return 'corrected_pairs' and 'reply_pairs' arrays (aligned), plus an explanation.
     IMPORTANT: correction_explanation must be returned in the fluent/native language only.
@@ -333,8 +380,11 @@ def call_openai_confirm_from_native(confirmed_native_joined: str, fluent: LangSp
     persona = load_persona(character_id)
     pico = load_pico()
 
-    # Build two-character system prompt
-    system = build_chat_system_prompt(persona, pico, fluent, learning)
+    # Build system prompt (v1 standard or v2 challenge-last-sentence)
+    if prompt_version == "v2":
+        system = build_chat_system_prompt_v2(persona, pico, fluent, learning)
+    else:
+        system = build_chat_system_prompt(persona, pico, fluent, learning)
 
     user_msg = f"confirmed_native_joined: \"{confirmed_native_joined}\""
     if original_pairs:
@@ -447,8 +497,14 @@ async def receive_confirm(req: ConfirmRequest, background_tasks: BackgroundTasks
 
         corrected_pairs = [{"native": "I would like to reserve a table.", "learning": "Quisiera reservar una mesa."},
                            {"native": "Is 8 OK?", "learning": "¿A las 8 está bien?"}]
-        reply_pairs = [{"native": "Yes, 8 is perfect.", "learning": "Sí, a las 8 está perfecto."},
-                       {"native": "How many people will you be?", "learning": "¿Cuántas personas serán?"}]
+        if (req.prompt_version or "v1") == "v2":
+            reply_pairs = [
+                {"native": "Yes, 8 works perfectly!", "learning": ""},
+                {"native": "How many people will be coming?", "learning": "¿Cuántas personas vendrán?", "is_challenge": True},
+            ]
+        else:
+            reply_pairs = [{"native": "Yes, 8 is perfect.", "learning": "Sí, a las 8 está perfecto."},
+                           {"native": "How many people will you be?", "learning": "¿Cuántas personas serán?"}]
         corrected_with_audio = attach_audio(corrected_pairs)
         reply_with_audio = attach_audio(reply_pairs)
 
@@ -468,7 +524,8 @@ async def receive_confirm(req: ConfirmRequest, background_tasks: BackgroundTasks
     # REAL mode
     try:
         character_id = req.character_id or "sombongo"
-        result = call_openai_confirm_from_native(confirmed_native_joined or "", fluent, learning, original_pairs, character_id)
+        prompt_version = req.prompt_version or "v1"
+        result = call_openai_confirm_from_native(confirmed_native_joined or "", fluent, learning, original_pairs, character_id, prompt_version)
         corrected = result.get("corrected_pairs", [])
         reply = result.get("reply_pairs", [])
         explanation = result.get("correction_explanation", "")

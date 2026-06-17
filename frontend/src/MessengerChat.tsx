@@ -29,6 +29,8 @@ type ResponseChunk = {
   audio_file?: string;
   locale?: string;
   purpose?: string;
+  native_text?: string;   // v2: translation of challenge chunk
+  is_challenge?: boolean; // v2: marks last chunk as learning challenge
 };
 
 type SuggestedReply = {
@@ -92,6 +94,80 @@ type MessengerChatProps = {
 const SESSION_ID = `sess_${Date.now()}`;
 const LOCALE_MAP: Record<string, string> = { es: "es-MX", id: "id-ID", en: "en-US" };
 
+// --- V2 Challenge Pair: 3-zone hover-reveal card (light theme for messenger) ---
+function MessengerChallengePair({
+  chunk, flashActive, fluentName, learningName, onPlayAudio,
+}: {
+  chunk: ResponseChunk;
+  flashActive: boolean;
+  fluentName: string;
+  learningName: string;
+  onPlayAudio: () => void;
+}) {
+  const [hovered, setHovered] = useState<"native" | "learning" | "audio" | null>(null);
+  const audioTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  function onAudioEnter() {
+    setHovered("audio");
+    audioTimerRef.current = setTimeout(onPlayAudio, 600);
+  }
+  function onAudioLeave() {
+    setHovered(null);
+    if (audioTimerRef.current) { clearTimeout(audioTimerRef.current); audioTimerRef.current = null; }
+  }
+
+  const zoneBase: React.CSSProperties = { padding: "5px 9px", borderRadius: 6, background: "rgba(0,0,0,0.04)", cursor: "default" };
+  const labelStyle: React.CSSProperties = { fontSize: 10, color: "#9ca3af", marginBottom: 3, textTransform: "uppercase", letterSpacing: "0.05em" };
+
+  return (
+    <div style={{ background: "white", borderRadius: 18, padding: "12px 16px", boxShadow: "0 2px 8px rgba(0,0,0,0.15)", border: "2px solid rgba(99,102,241,0.2)", display: "flex", flexDirection: "column", gap: 5 }}>
+      <div style={{ fontSize: 10, color: "#6366f1", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 2 }}>✨ challenge</div>
+
+      {/* Zone 1: native translation — flashes on arrival, then blur until hover */}
+      <div style={zoneBase} onMouseEnter={() => setHovered("native")} onMouseLeave={() => setHovered(null)}>
+        <div style={labelStyle}>{fluentName}</div>
+        <span style={{
+          fontSize: 13, display: "inline-block", color: "#374151",
+          filter: (flashActive || hovered === "native") ? "none" : "blur(4px)",
+          transition: "filter 0.4s",
+          userSelect: (flashActive || hovered === "native") ? "text" : "none",
+        }}>
+          {chunk.native_text}
+        </span>
+      </div>
+
+      {/* Zone 2: learning sentence — blurred until hover */}
+      <div style={{ ...zoneBase, background: "rgba(59,130,246,0.05)" }} onMouseEnter={() => setHovered("learning")} onMouseLeave={() => setHovered(null)}>
+        <div style={labelStyle}>{learningName}</div>
+        <span style={{
+          fontSize: 16, fontWeight: 600, display: "inline-block", color: "#3b82f6",
+          filter: hovered === "learning" ? "none" : "blur(5px)",
+          transition: "filter 0.35s",
+          userSelect: hovered === "learning" ? "text" : "none",
+        }}>
+          {chunk.text}
+        </span>
+      </div>
+
+      {/* Zone 3: audio replay — hover 600ms triggers playback */}
+      <div
+        style={{
+          ...zoneBase,
+          background: hovered === "audio" ? "rgba(59,130,246,0.1)" : "rgba(0,0,0,0.03)",
+          cursor: "pointer", textAlign: "center", fontSize: 12,
+          color: hovered === "audio" ? "#3b82f6" : "#9ca3af",
+          transition: "background 0.2s, color 0.2s",
+          userSelect: "none",
+        }}
+        onMouseEnter={onAudioEnter}
+        onMouseLeave={onAudioLeave}
+      >
+        🔊 {hovered === "audio" ? "replaying…" : "hover to replay"}
+      </div>
+    </div>
+  );
+}
+
 export default function MessengerChat({
   apiBase = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000",
   fluent = { code: "en", name: "English" },
@@ -116,6 +192,13 @@ export default function MessengerChat({
     cost_cents: 0
   });
   const [lastTurnTokens, setLastTurnTokens] = useState<TokenUsage | null>(null);
+
+  // Prompt version toggle
+  const [promptVersion, setPromptVersion] = useState<"v1" | "v2">("v1");
+
+  // V2 challenge flash state: messageId → true while native translation is flashing
+  const [challengeFlashActive, setChallengeFlashActive] = useState<Record<number, boolean>>({});
+  const processedChallengeMessageIds = useRef<Set<number>>(new Set());
 
   // Feature toggles for realistic chat simulation
   const [delayMessages, setDelayMessages] = useState<boolean>(false);
@@ -244,6 +327,21 @@ export default function MessengerChat({
     }
   }, [reactionPhase]);
 
+  // Flash native translation on new v2 challenge chunks for 2500ms
+  useEffect(() => {
+    for (const m of messages) {
+      if (m.side !== "character") continue;
+      if (processedChallengeMessageIds.current.has(m.id)) continue;
+      const hasChallenge = m.responseChunks?.some(c => c.is_challenge);
+      if (!hasChallenge) continue;
+      processedChallengeMessageIds.current.add(m.id);
+      setChallengeFlashActive(prev => ({ ...prev, [m.id]: true }));
+      setTimeout(() => {
+        setChallengeFlashActive(prev => ({ ...prev, [m.id]: false }));
+      }, 2500);
+    }
+  }, [messages]);
+
   // Keep lastSuggestionsRef synced so typed attempts can be matched
   useEffect(() => {
     if (currentSuggestions.length > 0) {
@@ -363,7 +461,7 @@ export default function MessengerChat({
         : `${apiBase}/api/messenger/turn`;
       const body = (isFirstMessage && usePremade)
         ? JSON.stringify({ session_id: SESSION_ID })
-        : JSON.stringify({ user_input: text, session_id: SESSION_ID });
+        : JSON.stringify({ user_input: text, session_id: SESSION_ID, prompt_version: promptVersion });
 
       // Start API call immediately so it runs in parallel with reaction phases
       const fetchPromise = fetch(endpoint, {
@@ -777,6 +875,15 @@ export default function MessengerChat({
                 />
                 💬 Reactions
               </label>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, color: '#6366f1', cursor: 'pointer', fontWeight: promptVersion === "v2" ? 700 : 400 }}>
+                <input
+                  type="checkbox"
+                  checked={promptVersion === "v2"}
+                  onChange={() => setPromptVersion(v => v === "v1" ? "v2" : "v1")}
+                  style={{ cursor: 'pointer' }}
+                />
+                ✨ v2: last sentence in Spanish
+              </label>
               {/* Quiz History Button */}
               <button
                 onClick={() => setShowQuizHistory(!showQuizHistory)}
@@ -1118,7 +1225,9 @@ export default function MessengerChat({
                 </div>
               ) : (
                 // Character's message
-                <div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                  {/* Regular (non-challenge) chunks in white bubble */}
+                  {(message.responseChunks?.some(c => !c.is_challenge)) && (
                   <div style={{
                     background: 'white',
                     padding: '12px 16px',
@@ -1128,7 +1237,7 @@ export default function MessengerChat({
                     wordWrap: 'break-word',
                     boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
                   }}>
-                    {message.responseChunks?.map((chunk, idx) => {
+                    {message.responseChunks?.filter(c => !c.is_challenge).map((chunk, idx) => {
                       // Skip audio-only chunks with no display text (premade TTS playback)
                       if (chunk.modality === "audio" && !chunk.text) return null;
 
@@ -1138,7 +1247,7 @@ export default function MessengerChat({
                       const displayText = isStreaming ? (streamedText.get(streamKey) || "") : chunk.text;
 
                       return (
-                        <div key={idx} style={{ marginBottom: idx < (message.responseChunks?.length || 0) - 1 ? '8px' : 0 }}>
+                        <div key={idx} style={{ marginBottom: idx < ((message.responseChunks?.filter(c => !c.is_challenge).length) || 0) - 1 ? '8px' : 0 }}>
                           <span style={{
                             color: chunk.language === "target" ? '#3b82f6' : '#1f2937',
                             fontWeight: chunk.language === "target" ? 600 : 400,
@@ -1167,6 +1276,18 @@ export default function MessengerChat({
                       );
                     })}
                   </div>
+                  )}
+                  {/* V2 challenge chunk — separate 3-zone reveal card */}
+                  {message.responseChunks?.filter(c => c.is_challenge).map((chunk, idx) => (
+                    <MessengerChallengePair
+                      key={`challenge-${message.id}-${idx}`}
+                      chunk={chunk}
+                      flashActive={challengeFlashActive[message.id] ?? false}
+                      fluentName={fluent.name}
+                      learningName={learning.name}
+                      onPlayAudio={() => chunk.audio_file && void playAudioUrl(`${apiBase}${chunk.audio_file}`)}
+                    />
+                  ))}
 
                   {/* Suggested Replies removed - now only shown in sticky bar above chatbox */}
 
