@@ -1007,8 +1007,8 @@ OUTPUT SCHEMA (return exactly one JSON object):
     {{
       "text": "...",  // MOST chunks should have language="ui" (speak in {ui_lang}). Only use "target" for teaching vocabulary/phrases.
       "language": "ui" | "target",  // "ui" = {ui_lang}, "target" = {target_lang}
-      "modality": "text" | "audio",
-      "locale": "{target_code}-XX" | "{ui_code}-XX",  // if modality=="audio"
+      "modality": "text" | "audio",  // audio ONLY for language="target" chunks — NEVER audio for language="ui"
+      "locale": "{target_code}-XX",  // only set when modality=="audio"; always target locale, never ui locale
       "purpose": "greeting" | "question" | "feedback" | "encouragement"
     }}
   ],
@@ -1042,7 +1042,9 @@ OUTPUT SCHEMA (return exactly one JSON object):
 }}
 
 CRITICAL REMINDERS:
-- Your response_chunks should be MOSTLY in {ui_lang} (language="ui"). Only use "target" sparingly for teaching.
+- Your response_chunks should be MOSTLY in {ui_lang} (language="ui", modality="text"). Only use "target" sparingly for teaching.
+- NEVER set modality="audio" for a language="ui" chunk. Audio is ONLY for pure {target_lang} text.
+- A chunk with modality="audio" must have its "text" field contain ONLY {target_lang} — no {ui_lang} words, no mixed phrases.
 - If the user's sentence has no errors, set had_errors=false and copy user input to corrected_input verbatim.
 - Stay in character! Your personality should come through IN {ui_lang}.
 - If user writes in {ui_lang} or mixes languages, provide the full {target_lang} translation in corrected_input.
@@ -1074,13 +1076,14 @@ V2 CHALLENGE FORMAT — OVERRIDES response_chunks rules above:
 - ALL chunks except the LAST: language="ui", modality="text" (speak in {ui_lang})
 - The LAST chunk MUST be a challenge sentence in {target_lang}:
   {{
-    "text": "<natural {target_lang} sentence at i+1 difficulty>",
+    "text": "<natural {target_lang} sentence — PURE {target_lang} ONLY, absolutely zero {ui_lang} words>",
     "language": "target",
     "modality": "audio",
     "locale": "<appropriate locale for {target_lang}>",
     "native_text": "<{ui_lang} translation of the challenge sentence>",
     "is_challenge": true
   }}
+- The "text" field must be ONLY the {target_lang} sentence itself — absolutely NO intro phrases, labels, or preamble in ANY language (e.g. not "Try this:", "¡Intenta decir esto!", "How about:", "Let's try:", etc.)
 - Difficulty: slightly above the learner's current level — comprehensible input that stretches them a little
 - The challenge sentence should flow naturally as the conclusion of the reply"""
 
@@ -1307,8 +1310,23 @@ def messenger_chat_turn(req: MessengerTurnRequest):
         chunk_dict = chunk if isinstance(chunk, dict) else chunk.dict()
 
         if chunk_dict["modality"] == "audio":
+            # Never generate TTS for ui-language chunks — downgrade to text
+            if chunk_dict.get("language") != "target":
+                chunk_dict["modality"] = "text"
+                processed_chunks.append(ResponseChunk(**chunk_dict))
+                continue
+
             locale = chunk_dict.get("locale", "es-MX")
             text = chunk_dict["text"]
+
+            # Strip English intro phrases that the LLM sometimes prepends (e.g. "Try this: ¿...")
+            english_intro = re.match(r'^[A-Za-z][^¿¡\n]*?:\s*', text)
+            if english_intro:
+                stripped = text[english_intro.end():]
+                if stripped.strip():
+                    print(f"[TTS] Stripped English intro '{english_intro.group()}' from audio chunk")
+                    text = stripped.strip()
+                    chunk_dict["text"] = text
 
             # Generate TTS
             try:
