@@ -96,24 +96,49 @@ const LOCALE_MAP: Record<string, string> = { es: "es-MX", id: "id-ID", en: "en-U
 
 // --- V2 Challenge Pair: 3-zone hover-reveal card (light theme for messenger) ---
 function MessengerChallengePair({
-  chunk, fluentName, learningName, onPlayAudio,
+  chunk, fluentName, learningName, audioUrl,
 }: {
   chunk: ResponseChunk;
   fluentName: string;
   learningName: string;
-  onPlayAudio: () => Promise<void>;
+  audioUrl: string | undefined;
 }) {
   const [pinned, setPinned] = useState<Set<"native" | "learning">>(new Set());
   const [hovered, setHovered] = useState<"native" | "learning" | "audio" | null>(null);
   const isHoveringAudio = useRef(false);
+  const isLoopRunning = useRef(false);
+  const currentAudio = useRef<HTMLAudioElement | null>(null);
+
+  function stopAudio() {
+    if (currentAudio.current) {
+      currentAudio.current.pause();
+      currentAudio.current.currentTime = 0;
+      currentAudio.current = null;
+    }
+  }
+
+  function playOnce(): Promise<void> {
+    return new Promise((resolve) => {
+      if (!audioUrl) { resolve(); return; }
+      stopAudio();
+      const audio = new Audio(audioUrl);
+      currentAudio.current = audio;
+      audio.onended = () => { currentAudio.current = null; resolve(); };
+      audio.onerror = () => { currentAudio.current = null; resolve(); };
+      audio.play().catch(() => { currentAudio.current = null; resolve(); });
+    });
+  }
 
   async function startAudioLoop() {
+    if (isLoopRunning.current) return;
+    isLoopRunning.current = true;
     await new Promise(r => setTimeout(r, 500));
     while (isHoveringAudio.current) {
-      await onPlayAudio();
+      await playOnce();
       if (!isHoveringAudio.current) break;
       await new Promise(r => setTimeout(r, 700));
     }
+    isLoopRunning.current = false;
   }
 
   function onAudioEnter() {
@@ -124,6 +149,7 @@ function MessengerChallengePair({
   function onAudioLeave() {
     setHovered(null);
     isHoveringAudio.current = false;
+    stopAudio();
   }
 
   function togglePin(zone: "native" | "learning") {
@@ -215,7 +241,7 @@ export default function MessengerChat({
   const [lastTurnTokens, setLastTurnTokens] = useState<TokenUsage | null>(null);
 
   // Prompt version toggle
-  const [promptVersion, setPromptVersion] = useState<"v1" | "v2">("v1");
+  const [promptVersion, setPromptVersion] = useState<"v1" | "v2">("v2");
 
 
   // Feature toggles for realistic chat simulation
@@ -1223,7 +1249,7 @@ export default function MessengerChat({
                             chunk={chunk}
                             fluentName={fluent.name}
                             learningName={learning.name}
-                            onPlayAudio={async () => { if (chunk.audio_file) await playAudioUrl(`${apiBase}${chunk.audio_file}`); }}
+                            audioUrl={chunk.audio_file ? `${apiBase}${chunk.audio_file}` : undefined}
                           />
                         );
                       }
