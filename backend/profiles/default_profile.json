@@ -1,6 +1,6 @@
 {
   "created_at": 1769845610,
-  "last_updated": 1781713384,
+  "last_updated": 1781737759,
   "ui_language": {
     "code": "en",
     "name": "English"
@@ -31,79 +31,79 @@
     "punctuation"
   ],
   "avoid_topics": [],
-  "turn_count": 250,
-  "corrections_needed": 131,
+  "turn_count": 269,
+  "corrections_needed": 135,
   "last_assessment_turn": 0,
   "recent_turns": [
     {
-      "turn_id": "turn_1781223861536",
-      "user_input": "Cuéntame sobre El Salvador",
-      "corrected_input": "Cuéntame sobre El Salvador.",
+      "turn_id": "turn_1781728746474",
+      "user_input": "A mi gato le gusta ayudar a las personas.",
+      "corrected_input": "A mi gato le gusta ayudar a las personas.",
       "had_errors": false,
-      "timestamp": 1781223869
+      "timestamp": 1781728759
     },
     {
-      "turn_id": "turn_1781223888536",
-      "user_input": "Cuéntame sobre su casa.",
-      "corrected_input": "Cuéntame sobre su casa.",
+      "turn_id": "turn_1781728819399",
+      "user_input": "¿Quieres saber el nombre de mi gato?",
+      "corrected_input": "¿Quieres saber el nombre de mi gato?",
       "had_errors": false,
-      "timestamp": 1781223894
+      "timestamp": 1781728827
     },
     {
-      "turn_id": "turn_1781223908947",
-      "user_input": "Cuéntame sobre tu cama.",
-      "corrected_input": "Cuéntame sobre tu cama.",
+      "turn_id": "turn_1781728860020",
+      "user_input": "Se llama Picasso. Su color es rojo.",
+      "corrected_input": "Se llama Picasso. Su color es rojo.",
       "had_errors": false,
-      "timestamp": 1781223918
+      "timestamp": 1781728867
     },
     {
-      "turn_id": "turn_1781223992525",
-      "user_input": "Mi cama es azul.",
-      "corrected_input": "Mi cama es azul.",
+      "turn_id": "turn_1781733522293",
+      "user_input": "Puedo tocar el piano y dibujar.",
+      "corrected_input": "Puedo tocar el piano y dibujar.",
       "had_errors": false,
-      "timestamp": 1781223997
+      "timestamp": 1781733532
     },
     {
-      "turn_id": "turn_1781650458401",
-      "user_input": "Cuéntame una historia.",
-      "corrected_input": "Cuéntame una historia.",
-      "had_errors": false,
-      "timestamp": 1781650475
-    },
-    {
-      "turn_id": "turn_1781652334589",
-      "user_input": "Es el hongo tú.",
-      "corrected_input": "Eres el hongo tú.",
+      "turn_id": "turn_1781733586679",
+      "user_input": "Puedo dibujarte.",
+      "corrected_input": "Puedo dibujarte a ti.",
       "had_errors": true,
-      "timestamp": 1781652344
+      "timestamp": 1781733595
     },
     {
-      "turn_id": "turn_1781652385885",
-      "user_input": "No, tú significa tú.",
-      "corrected_input": "No, tú significa 'you'.",
+      "turn_id": "turn_1781737451513",
+      "user_input": "Pero no sé dibujar los hongos. Puedo dibujar té a ti como una planta.",
+      "corrected_input": "Pero no sé dibujar los hongos. Puedo dibujarte a ti como una planta.",
+      "had_errors": false,
+      "timestamp": 1781737468
+    },
+    {
+      "turn_id": "turn_1781737530379",
+      "user_input": "Puedo dibujarte con un sombrero.",
+      "corrected_input": "Puedo dibujarte con un sombrero.",
+      "had_errors": false,
+      "timestamp": 1781737539
+    },
+    {
+      "turn_id": "turn_1781737596335",
+      "user_input": "Tu sombrero sería rojo como un tomate.",
+      "corrected_input": "Tu sombrero sería rojo como un tomate.",
+      "had_errors": false,
+      "timestamp": 1781737604
+    },
+    {
+      "turn_id": "turn_1781737665415",
+      "user_input": "Quise dibujarte con un sombrero que tiene el color que es rojo de tomate.",
+      "corrected_input": "Quise dibujarte con un sombrero que es rojo como un tomate.",
       "had_errors": true,
-      "timestamp": 1781652394
+      "timestamp": 1781737676
     },
     {
-      "turn_id": "turn_1781713101349",
-      "user_input": "tengo hambre",
-      "corrected_input": "Tengo hambre.",
+      "turn_id": "turn_1781737749860",
+      "user_input": "O tal vez yo pueda dibujarte con sombrero que es negro como una sombra.",
+      "corrected_input": "O tal vez yo pueda dibujarte con un sombrero que es negro como una sombra.",
       "had_errors": false,
-      "timestamp": 1781713121
-    },
-    {
-      "turn_id": "turn_1781713185335",
-      "user_input": "¿Qué debo comer?",
-      "corrected_input": "¿Qué debo comer?",
-      "had_errors": false,
-      "timestamp": 1781713198
-    },
-    {
-      "turn_id": "turn_1781713373898",
-      "user_input": "Quiero probar algo nuevo.",
-      "corrected_input": "Quiero probar algo nuevo.",
-      "had_errors": false,
-      "timestamp": 1781713384
+      "timestamp": 1781737759
     }
   ]
 }

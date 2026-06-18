@@ -108,12 +108,17 @@ function MessengerChallengePair({
   const isHoveringAudio = useRef(false);
   const isLoopRunning = useRef(false);
   const currentAudio = useRef<HTMLAudioElement | null>(null);
+  const pendingResolve = useRef<(() => void) | null>(null);
 
   function stopAudio() {
     if (currentAudio.current) {
       currentAudio.current.pause();
       currentAudio.current.currentTime = 0;
       currentAudio.current = null;
+    }
+    if (pendingResolve.current) {
+      pendingResolve.current();
+      pendingResolve.current = null;
     }
   }
 
@@ -123,9 +128,11 @@ function MessengerChallengePair({
       stopAudio();
       const audio = new Audio(audioUrl);
       currentAudio.current = audio;
-      audio.onended = () => { currentAudio.current = null; resolve(); };
-      audio.onerror = () => { currentAudio.current = null; resolve(); };
-      audio.play().catch(() => { currentAudio.current = null; resolve(); });
+      pendingResolve.current = resolve;
+      const done = () => { currentAudio.current = null; pendingResolve.current = null; resolve(); };
+      audio.onended = done;
+      audio.onerror = done;
+      audio.play().catch(done);
     });
   }
 
@@ -160,13 +167,13 @@ function MessengerChallengePair({
     });
   }
 
-  const zoneBase: React.CSSProperties = { padding: "6px 10px", borderRadius: 6, cursor: "pointer", transition: "background 0.15s", display: "flex", alignItems: "center", justifyContent: "space-between" };
+  const zoneBase: React.CSSProperties = { padding: "3px 10px", borderRadius: 6, cursor: "pointer", transition: "background 0.15s", display: "flex", alignItems: "center", justifyContent: "space-between", border: "1px solid rgba(0,0,0,0.08)", minHeight: 26 };
 
   const nativeVisible = hovered === "native" || pinned.has("native");
   const learningVisible = hovered === "learning" || pinned.has("learning");
 
   return (
-    <div style={{ background: "white", borderRadius: 18, padding: "10px 14px", boxShadow: "0 2px 8px rgba(0,0,0,0.15)", border: "2px solid rgba(99,102,241,0.2)", display: "flex", flexDirection: "column", gap: 3 }}>
+    <div style={{ background: "white", borderRadius: 18, padding: "8px 14px", boxShadow: "0 2px 8px rgba(0,0,0,0.15)", border: "2px solid rgba(99,102,241,0.2)", display: "flex", flexDirection: "column", gap: 0 }}>
       {/* Zone 1: native */}
       <div
         style={{ ...zoneBase, background: pinned.has("native") ? "rgba(0,0,0,0.07)" : hovered === "native" ? "rgba(0,0,0,0.05)" : "rgba(0,0,0,0.03)" }}
@@ -189,7 +196,7 @@ function MessengerChallengePair({
         onClick={() => togglePin("learning")}
       >
         {learningVisible
-          ? <span style={{ fontSize: 16, fontWeight: 600, color: "#3b82f6" }}>{chunk.text}</span>
+          ? <span style={{ fontSize: 13, fontWeight: 600, color: "#3b82f6" }}>{chunk.text}</span>
           : <span style={{ fontSize: 12, color: "#93c5fd", fontStyle: "italic" }}>Show {learningName}</span>
         }
         {pinned.has("learning") && <span style={{ fontSize: 11, color: "#93c5fd", marginLeft: 6, flexShrink: 0 }}>📌</span>}

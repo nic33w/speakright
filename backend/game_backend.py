@@ -873,8 +873,7 @@ def generate_turn_instruction(profile: Dict[str, Any]) -> str:
     # Regular turn: light assessment + adaptive response
     return f"""Current learner level: {level}
 - Provide natural persona response following language mix rules (70-80% UI, 15-25% target text, 5-10% target audio)
-- Correct at most 1-2 high-priority errors gently
-- Show corrected version and explain briefly in UI language
+- Respond to the user's intended meaning — do NOT correct or mention errors in your response_chunks
 - Assess if this turn shows level change signals (set confidence accordingly)
 - Decide response mode per chunk: use target audio for new vocab/patterns appropriate to level"""
 
@@ -1045,9 +1044,9 @@ CRITICAL REMINDERS:
 - Your response_chunks should be MOSTLY in {ui_lang} (language="ui", modality="text"). Only use "target" sparingly for teaching.
 - NEVER set modality="audio" for a language="ui" chunk. Audio is ONLY for pure {target_lang} text.
 - A chunk with modality="audio" must have its "text" field contain ONLY {target_lang} — no {ui_lang} words, no mixed phrases.
-- If the user's sentence has no errors, set had_errors=false and copy user input to corrected_input verbatim.
 - Stay in character! Your personality should come through IN {ui_lang}.
-- If user writes in {ui_lang} or mixes languages, provide the full {target_lang} translation in corrected_input.
+- NEVER mention corrections or errors in your response_chunks. Respond as if the user spoke perfectly.
+- Pico handles corrections separately via corrected_input/had_errors/error_explanation — fill those fields accurately but keep them out of your conversational response.
 
 QUIZ CANDIDATE RULES:
 - ONLY tag SIGNIFICANT errors (verb conjugation, gender, prepositions, vocabulary gaps, grammar structure, ser/estar, por/para)

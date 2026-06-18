@@ -1,12 +1,12 @@
 {
   "azure": {
-    "monthly_chars": 349,
+    "monthly_chars": 1077,
     "month_key": "2026-06",
     "pending_sessions": [],
     "current_session": {
-      "mode": "messenger",
-      "chars": 139,
-      "started_at": "2026-06-17T09:18:11.489356"
+      "mode": "unknown",
+      "chars": 253,
+      "started_at": "2026-06-17T16:04:28.717968"
     }
   }
 }
