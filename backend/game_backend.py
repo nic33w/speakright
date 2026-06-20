@@ -1080,7 +1080,7 @@ Return ONLY valid JSON (no markdown, no commentary)."""
         user_message += f"""
 
 V2 CHALLENGE FORMAT — OVERRIDES response_chunks rules above:
-- Generate 2 or more response_chunks total
+- Default to exactly 2 response_chunks: one {ui_lang} text chunk, then the {target_lang} audio challenge. Only use more than 2 when the reply genuinely requires it (e.g. a multi-part reaction that truly can't fit in one sentence). Keep extra chunks rare — 2 is the norm.
 - ALL chunks except the LAST: language="ui", modality="text" (speak in {ui_lang})
 - The LAST chunk MUST be a challenge sentence in {target_lang}:
   {{
