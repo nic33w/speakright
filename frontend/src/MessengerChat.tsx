@@ -1312,7 +1312,7 @@ export default function MessengerChat({
                   {(() => {
                     const visibleCount = visibleChunkCounts.get(message.id) ?? (message.responseChunks?.length ?? 0);
                     return (message.responseChunks || []).slice(0, visibleCount).map((chunk, idx) => {
-                      if (chunk.is_challenge) {
+                      if (chunk.language === "target" && chunk.modality === "audio" && chunk.text) {
                         return (
                           <MessengerChallengePair
                             key={`challenge-${message.id}-${idx}`}
