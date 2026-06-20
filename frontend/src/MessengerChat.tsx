@@ -1315,7 +1315,6 @@ export default function MessengerChat({
                   ) : (
                     // Clean bubble: perfect Spanish (also the pending state while API is in-flight)
                     <div
-                      className={processingMsgId === message.id ? 'bubble-processing' : ''}
                       style={{
                         background: '#3b82f6',
                         color: 'white',
@@ -1327,7 +1326,9 @@ export default function MessengerChat({
                         boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
                       }}
                     >
-                      {message.userInput}
+                      <span className={processingMsgId === message.id ? 'text-wave' : ''}>
+                        {message.userInput}
+                      </span>
                     </div>
                   )}
                   <div style={{
@@ -1844,12 +1845,23 @@ export default function MessengerChat({
           from { opacity: 0; transform: translateY(-4px); }
           to   { opacity: 1; transform: translateY(0); }
         }
-        @keyframes processingPulse {
-          0%, 100% { opacity: 1; }
-          50% { opacity: 0.45; }
+        @keyframes textWave {
+          0%   { background-position: 200% center; }
+          100% { background-position: -200% center; }
         }
-        .bubble-processing {
-          animation: processingPulse 1.3s ease-in-out infinite;
+        .text-wave {
+          background: linear-gradient(90deg,
+            rgba(255,255,255,0.45) 0%,
+            rgba(255,255,255,1)    35%,
+            rgba(190,215,255,0.9)  50%,
+            rgba(255,255,255,1)    65%,
+            rgba(255,255,255,0.45) 100%
+          );
+          background-size: 200% 100%;
+          -webkit-background-clip: text;
+          background-clip: text;
+          -webkit-text-fill-color: transparent;
+          animation: textWave 1.8s linear infinite;
         }
         @keyframes fadeInScale {
           0% { opacity: 0; transform: translate(-50%, -50%) scale(0.8); }
