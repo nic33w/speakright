@@ -558,14 +558,28 @@ export default function MessengerChat({
       // UPDATE user's message with correction info (if any)
       setMessages((prev) => prev.map(msg => {
         if (msg.id !== userMsgId) return msg;
-        // Only build correction diff tokens for Spanish-intent messages with errors
+        // Build correction diff for any Spanish-intent message with errors
         const tokens = data.had_errors && data.input_intent !== "english" && msg.userInput && data.corrected_input
           ? buildCorrectionTokens(msg.userInput, data.corrected_input)
           : undefined;
+        // Fallback: if had_errors but tokens are empty/all-ok (LLM didn't change corrected_input),
+        // force a diff showing the original as removed and the corrected as added
+        const effectiveTokens = (() => {
+          if (!tokens || !data.had_errors) return tokens;
+          const hasChange = tokens.some(t => t.status !== "ok");
+          if (hasChange) return tokens;
+          if (msg.userInput && data.corrected_input && msg.userInput.trim() !== data.corrected_input.trim()) {
+            return [
+              { text: msg.userInput, status: "remove" as const },
+              { text: " " + data.corrected_input, status: "add" as const },
+            ];
+          }
+          return tokens;
+        })();
         return {
           ...msg,
           correctedInput: data.corrected_input,
-          correctionTokens: tokens,
+          correctionTokens: effectiveTokens,
           hadErrors: data.had_errors,
           errorExplanation: data.error_explanation,
           userAudioFile,
