@@ -263,6 +263,8 @@ export default function MessengerChat({
 
   // Current reaction phase shown in the typing indicator
   const [reactionPhase, setReactionPhase] = useState<'reading' | 'thinking' | 'typing' | null>(null);
+  // Which user message is currently being analyzed (shows pulsing dots while API is in-flight)
+  const [processingMsgId, setProcessingMsgId] = useState<number | null>(null);
 
   // For streaming effect: track which message is currently streaming and its displayed text
   const [streamingMessageId, setStreamingMessageId] = useState<number | null>(null);
@@ -498,6 +500,7 @@ export default function MessengerChat({
       suggestedNative: matchedNative,
     };
     setMessages((prev) => [...prev, pendingUserMsg]);
+    setProcessingMsgId(userMsgId);
 
     // Clear textarea right away
     setTranscript("");
@@ -516,30 +519,18 @@ export default function MessengerChat({
         ? JSON.stringify({ session_id: SESSION_ID })
         : JSON.stringify({ user_input: text, session_id: SESSION_ID, prompt_version: promptVersion });
 
-      // Start API call immediately so it runs in parallel with reaction phases
-      const fetchPromise = fetch(endpoint, {
+      // Start API call — LLM generates response while processing indicator shows on user bubble
+      const res = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body
       });
 
-      // Animate reaction phases while the API is running
-      if (liveReactions) {
-        await delay(1200 + Math.random() * 600);   // ~1.2–1.8s before showing anything (showing the eyes)
-        setReactionPhase('reading');
-        await delay(900 + Math.random() * 600);   // ~0.9–1.5s
-        setReactionPhase('thinking');
-        await delay(700 + Math.random() * 500);   // ~0.7–1.2s
-        setReactionPhase('typing');
-      }
-
-      const res = await fetchPromise;
       if (!res.ok) {
         throw new Error('Turn API failed');
       }
 
       const data = await res.json();
-      setReactionPhase(null);
 
       // Generate user sentence audio if enabled (fetch before updating message so we can store URL)
       let userAudioFile: string | undefined;
@@ -588,6 +579,25 @@ export default function MessengerChat({
         };
       }));
 
+      // Clear processing indicator — correction is now visible; let user read it first
+      setProcessingMsgId(null);
+
+      const chunks: ResponseChunk[] = data.response_chunks || [];
+      const wordCount = text.trim().split(/\s+/).length;
+      const firstChunkLen = (chunks[0]?.text || '').length;
+
+      // Brief pause so user can read their correction, then character reacts
+      await delay(900);
+      if (liveReactions) {
+        setReactionPhase('reading');
+        await delay(Math.min(2200, Math.max(700, wordCount * 220)));
+        setReactionPhase('thinking');
+        await delay(400 + Math.random() * 300);
+        setReactionPhase('typing');
+        await delay(Math.min(2800, Math.max(800, firstChunkLen * 38)));
+      }
+      setReactionPhase(null);
+
       // Add character's response — all chunks stored, revealed one bubble at a time
       const characterMsgId = Date.now() + 1;
       const characterMsg: MessengerMessage = {
@@ -601,7 +611,6 @@ export default function MessengerChat({
       setMessages((prev) => [...prev, characterMsg]);
 
       // Reveal each chunk as its own bubble, with a delay based on the previous chunk's length
-      const chunks: ResponseChunk[] = data.response_chunks || [];
       for (let i = 0; i < chunks.length; i++) {
         setVisibleChunkCounts(prev => new Map(prev).set(characterMsgId, i + 1));
 
@@ -685,6 +694,7 @@ export default function MessengerChat({
       setBusy(false);
       setIsTyping(false);
       setReactionPhase(null);
+      setProcessingMsgId(null);
       setStreamingMessageId(null);
     }
   }
@@ -1211,6 +1221,7 @@ export default function MessengerChat({
                       marginBottom: 4,
                       paddingRight: 4,
                       fontStyle: 'italic',
+                      animation: 'fadeIn 0.35s ease-out',
                     }}>
                       {message.userTranslation}
                     </div>
@@ -1241,6 +1252,7 @@ export default function MessengerChat({
                           alignItems: 'center',
                           gap: 8,
                           fontSize: 14,
+                          animation: 'fadeIn 0.35s ease-out',
                         }}>
                           <span style={{ opacity: 0.5, fontSize: 12 }}>🇲🇽</span>
                           <span style={{ color: 'rgba(255,255,255,0.95)', fontStyle: 'italic', flex: 1 }}>
@@ -1280,6 +1292,7 @@ export default function MessengerChat({
                         wordWrap: 'break-word',
                         boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
                         marginBottom: '8px',
+                        animation: 'fadeIn 0.35s ease-out',
                       }}>
                         {message.correctionTokens
                           ? <CorrectionTokens tokens={message.correctionTokens} wrapped={false} />
@@ -1300,17 +1313,20 @@ export default function MessengerChat({
                       )}
                     </>
                   ) : (
-                    // Clean bubble: perfect Spanish
-                    <div style={{
-                      background: '#3b82f6',
-                      color: 'white',
-                      padding: '12px 16px',
-                      borderRadius: '18px',
-                      fontSize: '16px',
-                      lineHeight: '1.4',
-                      wordWrap: 'break-word',
-                      boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
-                    }}>
+                    // Clean bubble: perfect Spanish (also the pending state while API is in-flight)
+                    <div
+                      className={processingMsgId === message.id ? 'bubble-processing' : ''}
+                      style={{
+                        background: '#3b82f6',
+                        color: 'white',
+                        padding: '12px 16px',
+                        borderRadius: '18px',
+                        fontSize: '16px',
+                        lineHeight: '1.4',
+                        wordWrap: 'break-word',
+                        boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+                      }}
+                    >
                       {message.userInput}
                     </div>
                   )}
@@ -1824,6 +1840,17 @@ export default function MessengerChat({
       </div>
 
       <style>{`
+        @keyframes fadeIn {
+          from { opacity: 0; transform: translateY(-4px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes processingPulse {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.45; }
+        }
+        .bubble-processing {
+          animation: processingPulse 1.3s ease-in-out infinite;
+        }
         @keyframes fadeInScale {
           0% { opacity: 0; transform: translate(-50%, -50%) scale(0.8); }
           100% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
