@@ -1310,6 +1310,11 @@ export default function MessengerChat({
                     alignItems: 'center',
                     gap: 6,
                   }}>
+                    {message.inputIntent === "spanish" && !message.hadErrors && (
+                      <span style={{ fontSize: 11, color: 'rgba(134,239,172,0.85)' }}>
+                        ✓ sounds natural
+                      </span>
+                    )}
                     {message.userAudioFile && message.inputIntent !== "english" && (
                       <button
                         onMouseEnter={() => message.userAudioFile && void playAudioUrl(`${apiBase}${message.userAudioFile}`)}
