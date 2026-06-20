@@ -1093,7 +1093,8 @@ V2 CHALLENGE FORMAT — OVERRIDES response_chunks rules above:
   }}
 - The "text" field must be ONLY the {target_lang} sentence itself — absolutely NO intro phrases, labels, or preamble in ANY language (e.g. not "Try this:", "¡Intenta decir esto!", "How about:", "Let's try:", etc.)
 - Difficulty: slightly above the learner's current level — comprehensible input that stretches them a little
-- The challenge sentence should flow naturally as the conclusion of the reply"""
+- The challenge sentence should flow naturally as the conclusion of the reply
+- CRITICAL — avoid repetition: The {ui_lang} text chunk should ONLY react/acknowledge what the user said (a short natural response). Do NOT include a follow-up question or prompt in the {ui_lang} chunk — the {target_lang} challenge is the ONLY forward-moving piece. The two chunks should complement each other, not say the same thing twice in different languages."""
 
     return full_system, user_message
 
