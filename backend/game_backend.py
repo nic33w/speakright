@@ -1069,7 +1069,11 @@ QUIZ CANDIDATE RULES:
 SUGGESTION GENERATION RULES:
 - Generate {max_suggestions} short, natural replies the user might want to say
 - Show suggestions in {ui_lang} (text_native) with translations in {target_lang} (text_target)
-- Vary the types: one question, one empathetic response, one playful/challenge
+- Include exactly one of each type, in this fixed order:
+    1. question — ask the character something relevant to the current topic
+    2. empathy — react to or follow up on what the character just said
+    3. playful — a light challenge or humorous take
+    4. pivot — shift to a fresh topic to keep the conversation from getting narrow (e.g. ask about the character's life, mention the user's plans, bring up a new shared interest)
 - Keep suggestions brief (5-10 words max)
 - Match the character's personality and context
 
