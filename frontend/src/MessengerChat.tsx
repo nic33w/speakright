@@ -78,6 +78,7 @@ type MessengerMessage = {
   errorExplanation?: string;
   suggestedNative?: string;
   userAudioFile?: string;
+  inputIntent?: "english" | "spanish";
 
   // Character's side
   responseChunks?: ResponseChunk[];
@@ -543,13 +544,20 @@ export default function MessengerChat({
       if (audioEnabled && data.corrected_input) {
         const locale = LOCALE_MAP[learning.code] || "es-MX";
         const audioPath = await fetchAudioUrl(data.corrected_input, locale);
-        if (audioPath) userAudioFile = audioPath;
+        if (audioPath) {
+          userAudioFile = audioPath;
+          // Auto-play for translation mode — user spoke English, play how it sounds in Spanish
+          if (data.input_intent === "english") {
+            void playAudioUrl(`${apiBase}${audioPath}`);
+          }
+        }
       }
 
       // UPDATE user's message with correction info (if any)
       setMessages((prev) => prev.map(msg => {
         if (msg.id !== userMsgId) return msg;
-        const tokens = data.had_errors && msg.userInput && data.corrected_input
+        // Only build correction diff tokens for Spanish-intent messages with errors
+        const tokens = data.had_errors && data.input_intent !== "english" && msg.userInput && data.corrected_input
           ? buildCorrectionTokens(msg.userInput, data.corrected_input)
           : undefined;
         return {
@@ -559,6 +567,7 @@ export default function MessengerChat({
           hadErrors: data.had_errors,
           errorExplanation: data.error_explanation,
           userAudioFile,
+          inputIntent: (data.input_intent as "english" | "spanish") ?? "spanish",
         };
       }));
 
@@ -1168,7 +1177,60 @@ export default function MessengerChat({
                       {message.suggestedNative}
                     </div>
                   )}
-                  {message.hadErrors ? (
+                  {message.inputIntent === "english" ? (
+                    // Translation mode: user spoke English — show clean bubble + Spanish card below
+                    <>
+                      <div style={{
+                        background: '#3b82f6',
+                        color: 'white',
+                        padding: '12px 16px',
+                        borderRadius: '18px',
+                        fontSize: '16px',
+                        lineHeight: '1.4',
+                        wordWrap: 'break-word',
+                        boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+                      }}>
+                        {message.userInput}
+                      </div>
+                      {message.correctedInput && (
+                        <div style={{
+                          marginTop: 6,
+                          background: 'rgba(255,255,255,0.12)',
+                          border: '1px solid rgba(255,255,255,0.2)',
+                          borderRadius: 12,
+                          padding: '8px 12px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 8,
+                          fontSize: 14,
+                        }}>
+                          <span style={{ opacity: 0.5, fontSize: 12 }}>🇲🇽</span>
+                          <span style={{ color: 'rgba(255,255,255,0.95)', fontStyle: 'italic', flex: 1 }}>
+                            {message.correctedInput}
+                          </span>
+                          {message.userAudioFile && (
+                            <button
+                              onMouseEnter={() => message.userAudioFile && void playAudioUrl(`${apiBase}${message.userAudioFile}`)}
+                              title="Hear it in Spanish"
+                              style={{
+                                background: 'none',
+                                border: 'none',
+                                cursor: 'pointer',
+                                fontSize: 14,
+                                opacity: 0.8,
+                                padding: '0 2px',
+                                color: 'white',
+                                flexShrink: 0,
+                              }}
+                            >
+                              🔊
+                            </button>
+                          )}
+                        </div>
+                      )}
+                    </>
+                  ) : message.hadErrors ? (
+                    // Correction mode: user attempted Spanish but made errors
                     <>
                       <div style={{
                         background: 'rgba(251,191,36,0.15)',
@@ -1200,6 +1262,7 @@ export default function MessengerChat({
                       )}
                     </>
                   ) : (
+                    // Clean bubble: perfect Spanish
                     <div style={{
                       background: '#3b82f6',
                       color: 'white',
@@ -1223,7 +1286,7 @@ export default function MessengerChat({
                     alignItems: 'center',
                     gap: 6,
                   }}>
-                    {message.userAudioFile && (
+                    {message.userAudioFile && message.inputIntent !== "english" && (
                       <button
                         onMouseEnter={() => message.userAudioFile && void playAudioUrl(`${apiBase}${message.userAudioFile}`)}
                         title="Replay your sentence"

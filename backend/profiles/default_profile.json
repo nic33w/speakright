@@ -1,6 +1,6 @@
 {
   "created_at": 1769845610,
-  "last_updated": 1781737759,
+  "last_updated": 1781915873,
   "ui_language": {
     "code": "en",
     "name": "English"
@@ -10,7 +10,7 @@
     "name": "Spanish"
   },
   "level": "beginner",
-  "level_confidence": 0.8,
+  "level_confidence": 0.7,
   "level_history": [
     {
       "timestamp": 1769845610,
@@ -31,79 +31,89 @@
     "punctuation"
   ],
   "avoid_topics": [],
-  "turn_count": 269,
-  "corrections_needed": 135,
+  "turn_count": 279,
+  "corrections_needed": 136,
   "last_assessment_turn": 0,
   "recent_turns": [
     {
-      "turn_id": "turn_1781728746474",
-      "user_input": "A mi gato le gusta ayudar a las personas.",
-      "corrected_input": "A mi gato le gusta ayudar a las personas.",
+      "turn_id": "turn_1781915321210",
+      "user_input": "¿Qué compraste hoy en el centro?",
+      "corrected_input": "¿Qué compraste hoy en el centro?",
       "had_errors": false,
-      "timestamp": 1781728759
+      "input_intent": "spanish",
+      "timestamp": 1781915335
     },
     {
-      "turn_id": "turn_1781728819399",
-      "user_input": "¿Quieres saber el nombre de mi gato?",
-      "corrected_input": "¿Quieres saber el nombre de mi gato?",
+      "turn_id": "turn_1781915367195",
+      "user_input": "¿Qué quieres comprar?",
+      "corrected_input": "¿Qué quieres comprar?",
       "had_errors": false,
-      "timestamp": 1781728827
+      "input_intent": "spanish",
+      "timestamp": 1781915373
     },
     {
-      "turn_id": "turn_1781728860020",
-      "user_input": "Se llama Picasso. Su color es rojo.",
-      "corrected_input": "Se llama Picasso. Su color es rojo.",
+      "turn_id": "turn_1781915427706",
+      "user_input": "Quizás una camisa nueva.",
+      "corrected_input": "Quizás una camisa nueva.",
       "had_errors": false,
-      "timestamp": 1781728867
+      "input_intent": "spanish",
+      "timestamp": 1781915435
     },
     {
-      "turn_id": "turn_1781733522293",
-      "user_input": "Puedo tocar el piano y dibujar.",
-      "corrected_input": "Puedo tocar el piano y dibujar.",
+      "turn_id": "turn_1781915478615",
+      "user_input": "Quizás, o sea, Rojo, Tomate o Negro.",
+      "corrected_input": "Quizás, o sea, rojo, tomate o negro.",
       "had_errors": false,
-      "timestamp": 1781733532
+      "input_intent": "spanish",
+      "timestamp": 1781915488
     },
     {
-      "turn_id": "turn_1781733586679",
-      "user_input": "Puedo dibujarte.",
-      "corrected_input": "Puedo dibujarte a ti.",
+      "turn_id": "turn_1781915536083",
+      "user_input": "Quiero un color que no atraiga mosquitos.",
+      "corrected_input": "Quiero un color que no atraiga mosquitos.",
+      "had_errors": false,
+      "input_intent": "spanish",
+      "timestamp": 1781915544
+    },
+    {
+      "turn_id": "turn_1781915584686",
+      "user_input": "¿Sabes por qué esos colores no atraen mosquitos?",
+      "corrected_input": "¿Sabes por qué esos colores no atraen mosquitos?",
+      "had_errors": false,
+      "input_intent": "spanish",
+      "timestamp": 1781915602
+    },
+    {
+      "turn_id": "turn_1781915648144",
+      "user_input": "Yo leí que la mezcla es como",
+      "corrected_input": "Yo leí que la mezcla es como...",
+      "had_errors": false,
+      "input_intent": "spanish",
+      "timestamp": 1781915656
+    },
+    {
+      "turn_id": "turn_1781915682095",
+      "user_input": "Leí que los mosquitos aman el color cyan.",
+      "corrected_input": "Leí que los mosquitos aman el color cyan.",
+      "had_errors": false,
+      "input_intent": "spanish",
+      "timestamp": 1781915688
+    },
+    {
+      "turn_id": "turn_1781915728112",
+      "user_input": "Eso no es verdad. Los mosquitos se atraen por colores.",
+      "corrected_input": "Eso no es verdad. Los mosquitos se atraen por colores.",
+      "had_errors": false,
+      "input_intent": "spanish",
+      "timestamp": 1781915736
+    },
+    {
+      "turn_id": "turn_1781915861821",
+      "user_input": "but i thought mosquitos are attracted to darker colors. so its not true that they dislike darker colors",
+      "corrected_input": "pero pensé que los mosquitos son atraídos por colores oscuros. así que no es verdad que deseen colores oscuros.",
       "had_errors": true,
-      "timestamp": 1781733595
-    },
-    {
-      "turn_id": "turn_1781737451513",
-      "user_input": "Pero no sé dibujar los hongos. Puedo dibujar té a ti como una planta.",
-      "corrected_input": "Pero no sé dibujar los hongos. Puedo dibujarte a ti como una planta.",
-      "had_errors": false,
-      "timestamp": 1781737468
-    },
-    {
-      "turn_id": "turn_1781737530379",
-      "user_input": "Puedo dibujarte con un sombrero.",
-      "corrected_input": "Puedo dibujarte con un sombrero.",
-      "had_errors": false,
-      "timestamp": 1781737539
-    },
-    {
-      "turn_id": "turn_1781737596335",
-      "user_input": "Tu sombrero sería rojo como un tomate.",
-      "corrected_input": "Tu sombrero sería rojo como un tomate.",
-      "had_errors": false,
-      "timestamp": 1781737604
-    },
-    {
-      "turn_id": "turn_1781737665415",
-      "user_input": "Quise dibujarte con un sombrero que tiene el color que es rojo de tomate.",
-      "corrected_input": "Quise dibujarte con un sombrero que es rojo como un tomate.",
-      "had_errors": true,
-      "timestamp": 1781737676
-    },
-    {
-      "turn_id": "turn_1781737749860",
-      "user_input": "O tal vez yo pueda dibujarte con sombrero que es negro como una sombra.",
-      "corrected_input": "O tal vez yo pueda dibujarte con un sombrero que es negro como una sombra.",
-      "had_errors": false,
-      "timestamp": 1781737759
+      "input_intent": "english",
+      "timestamp": 1781915873
     }
   ]
 }

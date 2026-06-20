@@ -622,6 +622,7 @@ class MessengerTurnResponse(BaseModel):
     corrected_input: str
     had_errors: bool
     error_explanation: str
+    input_intent: str  # "english" | "spanish"
     response_chunks: List[ResponseChunk]
     suggested_replies: Optional[List[SuggestedReply]] = []
     profile_updated: bool
@@ -1002,6 +1003,7 @@ OUTPUT SCHEMA (return exactly one JSON object):
   "corrected_input": "...",  // The corrected version of user's input in {target_lang}. If no correction needed, copy user input exactly.
   "had_errors": true/false,  // ONLY true if corrected_input is DIFFERENT from user input. If they're the same, set false.
   "error_explanation": "...",  // Brief explanation in {ui_lang}. Only needed if had_errors=true.
+  "input_intent": "english" | "spanish",  // "english" = user was primarily speaking {ui_lang} (even with some {target_lang} mixed in). "spanish" = user was primarily attempting {target_lang} (even if they dropped in {ui_lang} words they didn't know). Judge by INTENT, not word count.
   "response_chunks": [
     {{
       "text": "...",  // MOST chunks should have language="ui" (speak in {ui_lang}). Only use "target" for teaching vocabulary/phrases.
@@ -1047,6 +1049,7 @@ CRITICAL REMINDERS:
 - Stay in character! Your personality should come through IN {ui_lang}.
 - NEVER mention corrections or errors in your response_chunks. Respond as if the user spoke perfectly.
 - Pico handles corrections separately via corrected_input/had_errors/error_explanation — fill those fields accurately but keep them out of your conversational response.
+- input_intent: "english" if the user was primarily speaking {ui_lang} (even with some {target_lang} thrown in); "spanish" if the user was clearly attempting {target_lang} (even if they got stuck on words and used {ui_lang} for those). Example: "I went to the store today, gracias!" = "english". "Fui al store porque no tenía food" = "spanish".
 
 QUIZ CANDIDATE RULES:
 - ONLY tag SIGNIFICANT errors (verb conjugation, gender, prepositions, vocabulary gaps, grammar structure, ser/estar, por/para)
@@ -1362,6 +1365,7 @@ def messenger_chat_turn(req: MessengerTurnRequest):
         "user_input": req.user_input,
         "corrected_input": llm_response.get("corrected_input", req.user_input),
         "had_errors": llm_response.get("had_errors", False),
+        "input_intent": llm_response.get("input_intent", "spanish"),
         "timestamp": int(time.time())
     })
     if len(profile["recent_turns"]) > 10:
@@ -1413,6 +1417,7 @@ def messenger_chat_turn(req: MessengerTurnRequest):
         corrected_input=llm_response.get("corrected_input", req.user_input),
         had_errors=llm_response.get("had_errors", False),
         error_explanation=llm_response.get("error_explanation", ""),
+        input_intent=llm_response.get("input_intent", "spanish"),
         response_chunks=processed_chunks,
         suggested_replies=suggested_replies,
         profile_updated=profile_updated,
