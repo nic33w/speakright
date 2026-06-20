@@ -79,6 +79,7 @@ type MessengerMessage = {
   suggestedNative?: string;
   userAudioFile?: string;
   inputIntent?: "english" | "spanish";
+  userTranslation?: string;
 
   // Character's side
   responseChunks?: ResponseChunk[];
@@ -250,6 +251,7 @@ export default function MessengerChat({
 
   // Prompt version toggle
   const [promptVersion, setPromptVersion] = useState<"v1" | "v2">("v2");
+  const [showUserTranslation, setShowUserTranslation] = useState<boolean>(true);
 
 
   // Feature toggles for realistic chat simulation
@@ -568,6 +570,7 @@ export default function MessengerChat({
           errorExplanation: data.error_explanation,
           userAudioFile,
           inputIntent: (data.input_intent as "english" | "spanish") ?? "spanish",
+          userTranslation: data.user_translation ?? undefined,
         };
       }));
 
@@ -904,6 +907,15 @@ export default function MessengerChat({
                 />
                 💬 Reactions
               </label>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, color: '#6b7280', cursor: 'pointer' }}>
+                <input
+                  type="checkbox"
+                  checked={showUserTranslation}
+                  onChange={(e) => setShowUserTranslation(e.target.checked)}
+                  style={{ cursor: 'pointer' }}
+                />
+                🌐 Translation
+              </label>
               <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, color: '#6366f1', cursor: 'pointer', fontWeight: promptVersion === "v2" ? 700 : 400 }}>
                 <input
                   type="checkbox"
@@ -1175,6 +1187,18 @@ export default function MessengerChat({
                       paddingRight: 4,
                     }}>
                       {message.suggestedNative}
+                    </div>
+                  )}
+                  {showUserTranslation && message.userTranslation && message.inputIntent === "spanish" && (
+                    <div style={{
+                      fontSize: 11,
+                      color: 'rgba(255,255,255,0.5)',
+                      textAlign: 'right',
+                      marginBottom: 4,
+                      paddingRight: 4,
+                      fontStyle: 'italic',
+                    }}>
+                      {message.userTranslation}
                     </div>
                   )}
                   {message.inputIntent === "english" ? (
