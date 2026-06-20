@@ -1000,9 +1000,9 @@ CURRENT USER INPUT: {user_input}
 
 OUTPUT SCHEMA (return exactly one JSON object):
 {{
-  "corrected_input": "...",  // The corrected version of user's input in {target_lang}. If no correction needed, copy user input exactly.
-  "had_errors": true/false,  // ONLY true if corrected_input is DIFFERENT from user input. If they're the same, set false.
-  "error_explanation": "...",  // Brief explanation in {ui_lang}. Only needed if had_errors=true.
+  "corrected_input": "...",  // Corrected OR naturalized version in {target_lang}. Fix grammar errors if present. If grammar is correct but phrasing sounds unnatural, rewrite as a native speaker would say it. If already correct AND natural, copy user input exactly.
+  "had_errors": true/false,  // true if: (a) grammar/vocabulary is wrong, OR (b) phrasing is correct but clearly unnatural — no native speaker would say it that way (unnecessary subject pronouns, word-for-word English translation, redundant words, overly formal register in casual context). false if correct AND natural. Minor differences (accents, punctuation, capitalization) = false.
+  "error_explanation": "...",  // Brief explanation in {ui_lang}. Only needed if had_errors=true. For naturalness issues, explain what sounds more native (e.g. "Natives usually drop subject pronouns in Spanish").
   "input_intent": "english" | "spanish",  // "english" = user was primarily speaking {ui_lang} (even with some {target_lang} mixed in). "spanish" = user was primarily attempting {target_lang} (even if they dropped in {ui_lang} words they didn't know). Judge by INTENT, not word count.
   "response_chunks": [
     {{
@@ -1053,11 +1053,14 @@ CRITICAL REMINDERS:
 
 QUIZ CANDIDATE RULES:
 - ONLY tag SIGNIFICANT errors (verb conjugation, gender, prepositions, vocabulary gaps, grammar structure, ser/estar, por/para)
+- Also tag clearly unnatural phrasing when had_errors=true for naturalness reasons
 - DO NOT tag minor errors (accents, punctuation, typos, capitalization)
 - For vocabulary gaps (user used {ui_lang}), type="translation"
 - For grammar/conjugation errors, type="correction"
-- "original": what the user said (wrong or in native language)
-- "corrected": the correct {target_lang} word/phrase (THIS IS THE QUIZ ANSWER)
+- For unnatural-but-correct phrasing, type="naturalness", error_type="phrasing"
+  e.g. original="Yo tengo veinte años de edad", corrected="Tengo veinte años", quiz_prompt="How would a native speaker say 'Yo tengo veinte años de edad'?"
+- "original": what the user said (wrong, unnatural, or in native language)
+- "corrected": the correct/natural {target_lang} word/phrase (THIS IS THE QUIZ ANSWER)
 - "quiz_prompt": question in {ui_lang} like "How do you say 'X' in {target_lang}?"
 
 SUGGESTION GENERATION RULES:
