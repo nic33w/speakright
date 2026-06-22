@@ -4,6 +4,7 @@ from pathlib import Path
 
 USAGE_FILE = Path(__file__).resolve().parent / "usage_data.json"
 MAX_AZURE_CHARS = 500_000
+MAX_OPENAI_BUDGET_CENTS = 1000.0  # $10.00
 
 _data: dict | None = None
 
@@ -15,7 +16,10 @@ def _default_data() -> dict:
             "month_key": datetime.now().strftime("%Y-%m"),
             "pending_sessions": [],
             "current_session": None,
-        }
+        },
+        "openai": {
+            "total_cost_cents": 0.0,
+        },
     }
 
 
@@ -39,6 +43,8 @@ def _get() -> dict:
     global _data
     if _data is None:
         _data = _load_from_file()
+        if "openai" not in _data:
+            _data["openai"] = {"total_cost_cents": 0.0}
     return _data
 
 
@@ -86,6 +92,15 @@ def start_new_session(mode: str):
     _save()
 
 
+def add_openai_cost(cost_cents: float):
+    """Accumulate OpenAI API cost. Called after each successful LLM call."""
+    if cost_cents <= 0:
+        return
+    d = _get()
+    d["openai"]["total_cost_cents"] = d["openai"].get("total_cost_cents", 0.0) + cost_cents
+    _save()
+
+
 def add_azure_chars(n: int):
     """Increment the current session's Azure TTS character count. Call after each real Azure TTS call."""
     d = _get()
@@ -103,6 +118,7 @@ def add_azure_chars(n: int):
 def get_summary() -> dict:
     d = _get()
     azure = d["azure"]
+    total_cost_cents = d["openai"].get("total_cost_cents", 0.0)
     return {
         "azure": {
             "monthly_chars": azure.get("monthly_chars", 0),
@@ -110,5 +126,10 @@ def get_summary() -> dict:
             "pending_sessions": azure.get("pending_sessions", []),
             "current_session": azure.get("current_session"),
             "max_chars": MAX_AZURE_CHARS,
-        }
+        },
+        "openai": {
+            "total_cost_cents": round(total_cost_cents, 4),
+            "budget_cents": MAX_OPENAI_BUDGET_CENTS,
+            "remaining_cents": round(max(0.0, MAX_OPENAI_BUDGET_CENTS - total_cost_cents), 4),
+        },
     }

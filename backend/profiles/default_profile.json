@@ -1,6 +1,6 @@
 {
   "created_at": 1769845610,
-  "last_updated": 1781915873,
+  "last_updated": 1782160540,
   "ui_language": {
     "code": "en",
     "name": "English"
@@ -10,7 +10,7 @@
     "name": "Spanish"
   },
   "level": "beginner",
-  "level_confidence": 0.7,
+  "level_confidence": 0.6,
   "level_history": [
     {
       "timestamp": 1769845610,
@@ -28,92 +28,94 @@
     "grammar structure",
     "verb conjugation",
     "prepositions",
-    "punctuation"
+    "punctuation",
+    "grammar",
+    "natural expressions"
   ],
   "avoid_topics": [],
-  "turn_count": 279,
-  "corrections_needed": 136,
+  "turn_count": 342,
+  "corrections_needed": 174,
   "last_assessment_turn": 0,
   "recent_turns": [
     {
-      "turn_id": "turn_1781915321210",
-      "user_input": "¿Qué compraste hoy en el centro?",
-      "corrected_input": "¿Qué compraste hoy en el centro?",
-      "had_errors": false,
-      "input_intent": "spanish",
-      "timestamp": 1781915335
-    },
-    {
-      "turn_id": "turn_1781915367195",
-      "user_input": "¿Qué quieres comprar?",
-      "corrected_input": "¿Qué quieres comprar?",
-      "had_errors": false,
-      "input_intent": "spanish",
-      "timestamp": 1781915373
-    },
-    {
-      "turn_id": "turn_1781915427706",
-      "user_input": "Quizás una camisa nueva.",
-      "corrected_input": "Quizás una camisa nueva.",
-      "had_errors": false,
-      "input_intent": "spanish",
-      "timestamp": 1781915435
-    },
-    {
-      "turn_id": "turn_1781915478615",
-      "user_input": "Quizás, o sea, Rojo, Tomate o Negro.",
-      "corrected_input": "Quizás, o sea, rojo, tomate o negro.",
-      "had_errors": false,
-      "input_intent": "spanish",
-      "timestamp": 1781915488
-    },
-    {
-      "turn_id": "turn_1781915536083",
-      "user_input": "Quiero un color que no atraiga mosquitos.",
-      "corrected_input": "Quiero un color que no atraiga mosquitos.",
-      "had_errors": false,
-      "input_intent": "spanish",
-      "timestamp": 1781915544
-    },
-    {
-      "turn_id": "turn_1781915584686",
-      "user_input": "¿Sabes por qué esos colores no atraen mosquitos?",
-      "corrected_input": "¿Sabes por qué esos colores no atraen mosquitos?",
-      "had_errors": false,
-      "input_intent": "spanish",
-      "timestamp": 1781915602
-    },
-    {
-      "turn_id": "turn_1781915648144",
-      "user_input": "Yo leí que la mezcla es como",
-      "corrected_input": "Yo leí que la mezcla es como...",
-      "had_errors": false,
-      "input_intent": "spanish",
-      "timestamp": 1781915656
-    },
-    {
-      "turn_id": "turn_1781915682095",
-      "user_input": "Leí que los mosquitos aman el color cyan.",
-      "corrected_input": "Leí que los mosquitos aman el color cyan.",
-      "had_errors": false,
-      "input_intent": "spanish",
-      "timestamp": 1781915688
-    },
-    {
-      "turn_id": "turn_1781915728112",
-      "user_input": "Eso no es verdad. Los mosquitos se atraen por colores.",
-      "corrected_input": "Eso no es verdad. Los mosquitos se atraen por colores.",
-      "had_errors": false,
-      "input_intent": "spanish",
-      "timestamp": 1781915736
-    },
-    {
-      "turn_id": "turn_1781915861821",
-      "user_input": "but i thought mosquitos are attracted to darker colors. so its not true that they dislike darker colors",
-      "corrected_input": "pero pensé que los mosquitos son atraídos por colores oscuros. así que no es verdad que deseen colores oscuros.",
+      "turn_id": "turn_1782159211925",
+      "user_input": "¿Cuáles son las principales atracciones?",
+      "corrected_input": "¿Cuáles son las principales atracciones de Honduras?",
       "had_errors": true,
-      "input_intent": "english",
-      "timestamp": 1781915873
+      "input_intent": "spanish",
+      "timestamp": 1782159221
+    },
+    {
+      "turn_id": "turn_1782159846023",
+      "user_input": "Cuéntame sobre Nicaragua.",
+      "corrected_input": "Cuéntame sobre Nicaragua.",
+      "had_errors": false,
+      "input_intent": "spanish",
+      "timestamp": 1782159854
+    },
+    {
+      "turn_id": "turn_1782159888907",
+      "user_input": "Cuéntame más sobre los vulcanes.",
+      "corrected_input": "Cuéntame más sobre los volcanes.",
+      "had_errors": true,
+      "input_intent": "spanish",
+      "timestamp": 1782159901
+    },
+    {
+      "turn_id": "turn_1782160146721",
+      "user_input": "Son pericosos estos volcanes.",
+      "corrected_input": "Son peligrosos estos volcanes.",
+      "had_errors": true,
+      "input_intent": "spanish",
+      "timestamp": 1782160156
+    },
+    {
+      "turn_id": "turn_1782160225356",
+      "user_input": "Cuando los turistas van a Nicaragua, ¿qué visitan a menudo?",
+      "corrected_input": "Cuando los turistas van a Nicaragua, ¿qué visitan a menudo?",
+      "had_errors": false,
+      "input_intent": "spanish",
+      "timestamp": 1782160234
+    },
+    {
+      "turn_id": "turn_1782160287722",
+      "user_input": "Cuéntame más sobre la cultura.",
+      "corrected_input": "Cuéntame más sobre la cultura.",
+      "had_errors": false,
+      "input_intent": "spanish",
+      "timestamp": 1782160295
+    },
+    {
+      "turn_id": "turn_1782160343658",
+      "user_input": "Quiero saber cuáles son las reglas sociales y cuáles son los comportamientos que se consideran normales allí pero no normales en América.",
+      "corrected_input": "Quiero saber cuáles son las reglas sociales y cuáles son los comportamientos que se consideran normales allí pero no normales en América.",
+      "had_errors": false,
+      "input_intent": "spanish",
+      "timestamp": 1782160351
+    },
+    {
+      "turn_id": "turn_1782160404657",
+      "user_input": "¿La gente abra a uno cuando se conocen por primera vez? ¿Y el género importa?",
+      "corrected_input": "¿La gente abraza a uno cuando se conocen por primera vez? ¿Y el género importa?",
+      "had_errors": true,
+      "input_intent": "spanish",
+      "timestamp": 1782160413
+    },
+    {
+      "turn_id": "turn_1782160462206",
+      "user_input": "Así que los hombres se abrazan a uno cuando se conocen por primera vez.",
+      "corrected_input": "Así que los hombres se abrazan cuando se conocen por primera vez.",
+      "had_errors": true,
+      "input_intent": "spanish",
+      "timestamp": 1782160473
+    },
+    {
+      "turn_id": "turn_1782160531813",
+      "user_input": "depende. Tendría que hacer lo que entiendo.",
+      "corrected_input": "Depende. Tendría que hacer lo que entiendo.",
+      "had_errors": true,
+      "input_intent": "spanish",
+      "timestamp": 1782160540
     }
   ]
 }

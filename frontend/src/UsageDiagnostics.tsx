@@ -18,8 +18,15 @@ interface AzureUsage {
   max_chars: number;
 }
 
+interface OpenAIUsage {
+  total_cost_cents: number;
+  budget_cents: number;
+  remaining_cents: number;
+}
+
 interface UsageSummary {
   azure: AzureUsage;
+  openai?: OpenAIUsage;
 }
 
 interface Props {
@@ -29,6 +36,10 @@ interface Props {
 function formatChars(n: number): string {
   if (n >= 1000) return `${(n / 1000).toFixed(1)}k`;
   return String(n);
+}
+
+function formatDollars(cents: number): string {
+  return `$${(cents / 100).toFixed(2)}`;
 }
 
 export default function UsageDiagnostics({ currentMode }: Props) {
@@ -155,11 +166,45 @@ export default function UsageDiagnostics({ currentMode }: Props) {
         </div>
       )}
 
-      {/* OpenAI placeholder */}
-      <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 6, opacity: 0.35 }}>
-        <span style={{ color: "#94a3b8", width: 68, flexShrink: 0 }}>OPENAI</span>
-        <span style={{ color: "#64748b" }}>· · · coming soon</span>
-      </div>
+      {/* OpenAI row */}
+      {(() => {
+        const oai = usage?.openai;
+        const spentPct = oai ? (oai.total_cost_cents / oai.budget_cents) * 100 : 0;
+        const remainingPct = 100 - spentPct;
+        const barColor = remainingPct < 10 ? "#ef4444" : remainingPct < 30 ? "#f59e0b" : "#10b981";
+        return (
+          <div style={{ marginTop: 6 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 4 }}>
+              <span style={{ color: "#94a3b8", width: 68, flexShrink: 0 }}>OPENAI</span>
+              <span style={{ color: "#e2e8f0", flex: "0 0 auto" }}>
+                {oai ? formatDollars(oai.total_cost_cents) : "$0.00"} used ({oai ? spentPct.toFixed(1) : "0.0"}%)
+              </span>
+              <span style={{ color: "#64748b", fontSize: 10 }}>
+                / {oai ? formatDollars(oai.budget_cents) : "$10.00"} · no reset
+              </span>
+            </div>
+            <div style={{
+              display: "flex",
+              height: 10,
+              borderRadius: 4,
+              overflow: "hidden",
+              background: "rgba(255,255,255,0.06)",
+            }}>
+              {oai && oai.total_cost_cents > 0 && (
+                <div
+                  title={`Spent: ${formatDollars(oai.total_cost_cents)}`}
+                  style={{
+                    width: `${Math.min(spentPct, 100)}%`,
+                    background: barColor,
+                    minWidth: 2,
+                    opacity: 0.5,
+                  }}
+                />
+              )}
+            </div>
+          </div>
+        );
+      })()}
 
       <style>{`
         @keyframes diagnostics-pulse {

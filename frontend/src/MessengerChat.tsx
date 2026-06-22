@@ -428,6 +428,11 @@ export default function MessengerChat({
     return Math.min(3500, Math.max(900, text.length * 55));
   }
 
+  // Pause after a chunk appears so user can read it before the writing icon shows
+  function readingDelay(text: string): number {
+    return Math.min(2500, Math.max(600, text.length * 35));
+  }
+
   async function fetchAudioUrl(text: string, locale: string): Promise<string | null> {
     try {
       const res = await fetch(`${apiBase}/api/trivia/audio`, {
@@ -621,6 +626,7 @@ export default function MessengerChat({
         }
 
         if (i < chunks.length - 1) {
+          await delay(readingDelay(chunks[i].text || ''));
           setIsTyping(true);
           await delay(chunkRevealDelay(chunks[i].text || ''));
           setIsTyping(false);
@@ -1861,7 +1867,7 @@ export default function MessengerChat({
           -webkit-background-clip: text;
           background-clip: text;
           -webkit-text-fill-color: transparent;
-          animation: textWave 1.8s linear infinite;
+          animation: textWave 3s linear infinite;
         }
         @keyframes fadeInScale {
           0% { opacity: 0; transform: translate(-50%, -50%) scale(0.8); }

@@ -12,6 +12,11 @@ try:
 except Exception:
     OpenAI = None
 
+try:
+    from usage_tracker import add_openai_cost as _add_openai_cost
+except Exception:
+    _add_openai_cost = None
+
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 AZURE_OPENAI_API_KEY = os.getenv("AZURE_OPENAI_API_KEY")
 AZURE_OPENAI_BASE_URL = os.getenv("AZURE_OPENAI_BASE_URL")
@@ -683,6 +688,8 @@ def call_llm_for_messenger(
         output_cost_per_token = 0.00000060  # $0.60 / 1,000,000
         cost_dollars = (prompt_tokens * input_cost_per_token) + (completion_tokens * output_cost_per_token)
         cost_cents = cost_dollars * 100  # Convert to cents
+        if _add_openai_cost and cost_cents > 0:
+            _add_openai_cost(cost_cents)
 
         _log_debug("TOKEN USAGE", f"Prompt: {prompt_tokens}, Completion: {completion_tokens}, Total: {total_tokens}, Cost: {cost_cents:.4f} cents")
 
