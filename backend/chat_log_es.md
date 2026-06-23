@@ -1,11 +1,13 @@
-# Chat Log
+# Chat Log — Spanish
 
 **Instructions for reviewer:** Go through each entry below and evaluate two things:
 
 1. **Correction quality** — Was the correction accurate? If the original sentence was changed, was the change actually necessary and correct? If it was marked 'sounds natural', was that a fair assessment?
-2. **Naturalness** — Does the corrected sentence sound like something a native Spanish speaker would actually say in casual conversation? Flag anything that sounds overly formal, unnatural, or awkward.
+2. **Naturalness** — Does the corrected sentence sound like something a native speaker would actually say in casual conversation? Flag anything that sounds overly formal, unnatural, or awkward.
 
-Note: Punctuation and accent marks (e.g. missing tildes like 'esta' vs 'está') are intentionally not corrected by the app — please ignore those.
+Note: Punctuation and accent marks are intentionally not corrected by the app — please ignore those.
+
+---
 
 ---
 ### 2026-06-23 14:31:28  (session: sess_1782249824034)
@@ -58,3 +60,15 @@ Me gusta relajarme y caminar en la playa.
 
 **Feedback:**
 You need to use 'relajarme' instead of 'relajar' to indicate that you like to relax yourself.
+
+---
+### 2026-06-23 16:40:15  (session: sess_1782257941534)
+
+**You said:**
+¿Qué ejercicio te gusta?
+
+**Corrected:**
+¿Qué ejercicio te gusta hacer?
+
+**Feedback:**
+Native speakers often add 'hacer' to specify the action of exercising.

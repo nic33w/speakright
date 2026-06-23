@@ -48,17 +48,21 @@ CONV_ROOT.mkdir(exist_ok=True, parents=True)
 QUIZ_DIR = API_ROOT / "quiz_items"
 QUIZ_DIR.mkdir(exist_ok=True, parents=True)
 
-LOG_FILE = API_ROOT / "chat_log.md"
-if not LOG_FILE.exists():
-    LOG_FILE.write_text(
-        "# Chat Log\n\n"
-        "**Instructions for reviewer:** Go through each entry below and evaluate two things:\n\n"
-        "1. **Correction quality** — Was the correction accurate? If the original sentence was changed, was the change actually necessary and correct? If it was marked 'sounds natural', was that a fair assessment?\n"
-        "2. **Naturalness** — Does the corrected sentence sound like something a native Spanish speaker would actually say in casual conversation? Flag anything that sounds overly formal, unnatural, or awkward.\n\n"
-        "Note: Punctuation and accent marks (e.g. missing tildes like 'esta' vs 'está') are intentionally not corrected by the app — please ignore those.\n\n"
-        "---\n",
-        encoding="utf-8"
-    )
+def get_log_file(lang_code: str) -> Path:
+    path = API_ROOT / f"chat_log_{lang_code}.md"
+    if not path.exists():
+        lang_names = {"es": "Spanish", "id": "Indonesian"}
+        lang_name = lang_names.get(lang_code, lang_code.upper())
+        path.write_text(
+            f"# Chat Log — {lang_name}\n\n"
+            "**Instructions for reviewer:** Go through each entry below and evaluate two things:\n\n"
+            "1. **Correction quality** — Was the correction accurate? If the original sentence was changed, was the change actually necessary and correct? If it was marked 'sounds natural', was that a fair assessment?\n"
+            "2. **Naturalness** — Does the corrected sentence sound like something a native speaker would actually say in casual conversation? Flag anything that sounds overly formal, unnatural, or awkward.\n\n"
+            "Note: Punctuation and accent marks are intentionally not corrected by the app — please ignore those.\n\n"
+            "---\n",
+            encoding="utf-8"
+        )
+    return path
 DEFAULT_QUIZ_PATH = QUIZ_DIR / "default_quiz.json"
 
 DEFAULT_PROFILE_PATH = PROFILE_DIR / "default_profile.json"
@@ -1157,7 +1161,7 @@ def update_profile_from_assessment(
     return profile, False
 
 
-def append_chat_log(session_id: str, user_input: str, corrected_input: str, had_errors: bool, error_explanation: str, input_intent: str):
+def append_chat_log(session_id: str, user_input: str, corrected_input: str, had_errors: bool, error_explanation: str, input_intent: str, lang_code: str = "es"):
     from datetime import datetime
     ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     lines = [f"\n---\n### {ts}  (session: {session_id})\n"]
@@ -1176,7 +1180,7 @@ def append_chat_log(session_id: str, user_input: str, corrected_input: str, had_
         lines.append("**Feedback:** ✓ sounds natural\n")
 
     try:
-        with open(LOG_FILE, "a", encoding="utf-8") as f:
+        with open(get_log_file(lang_code), "a", encoding="utf-8") as f:
             f.write("\n".join(lines))
     except Exception as e:
         print(f"[LOG] Failed to write chat log: {e}")
@@ -1467,6 +1471,7 @@ def messenger_chat_turn(req: MessengerTurnRequest):
         had_errors=llm_response.get("had_errors", False),
         error_explanation=llm_response.get("error_explanation", ""),
         input_intent=llm_response.get("input_intent", "spanish"),
+        lang_code=profile.get("target_language", {}).get("code", "es"),
     )
     return MessengerTurnResponse(
         turn_id=turn_id,

@@ -1,6 +1,6 @@
 {
   "created_at": 1769845610,
-  "last_updated": 1782250900,
+  "last_updated": 1782258015,
   "ui_language": {
     "code": "en",
     "name": "English"
@@ -10,7 +10,7 @@
     "name": "Spanish"
   },
   "level": "beginner",
-  "level_confidence": 0.8,
+  "level_confidence": 0.6,
   "level_history": [
     {
       "timestamp": 1769845610,
@@ -33,18 +33,10 @@
     "natural expressions"
   ],
   "avoid_topics": [],
-  "turn_count": 351,
-  "corrections_needed": 178,
+  "turn_count": 352,
+  "corrections_needed": 179,
   "last_assessment_turn": 0,
   "recent_turns": [
-    {
-      "turn_id": "turn_1782160531813",
-      "user_input": "depende. Tendría que hacer lo que entiendo.",
-      "corrected_input": "Depende. Tendría que hacer lo que entiendo.",
-      "had_errors": true,
-      "input_intent": "spanish",
-      "timestamp": 1782160540
-    },
     {
       "turn_id": "turn_1782249583683",
       "user_input": "¿Quieres ir a la playa o ir a la montaña?",
@@ -116,6 +108,14 @@
       "had_errors": true,
       "input_intent": "spanish",
       "timestamp": 1782250900
+    },
+    {
+      "turn_id": "turn_1782258001638",
+      "user_input": "¿Qué ejercicio te gusta?",
+      "corrected_input": "¿Qué ejercicio te gusta hacer?",
+      "had_errors": true,
+      "input_intent": "spanish",
+      "timestamp": 1782258015
     }
   ]
 }
