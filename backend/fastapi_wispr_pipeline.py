@@ -30,6 +30,10 @@ AUDIO_ROOT.mkdir(exist_ok=True, parents=True)
 CONV_ROOT = Path(__file__).resolve().parent / "conversations"
 CONV_ROOT.mkdir(exist_ok=True, parents=True)
 
+LOG_FILE = Path(__file__).resolve().parent / "chat_log.md"
+if not LOG_FILE.exists():
+    LOG_FILE.write_text("# Chat Log\n", encoding="utf-8")
+
 PROMPTS_ROOT = Path(__file__).resolve().parent / "prompts"
 
 # --- defaults / voices ---
@@ -426,6 +430,51 @@ def call_openai_confirm_from_native(confirmed_native_joined: str, fluent: LangSp
     }
     return result
 
+def append_chat_log(
+    session_id: str,
+    original_pairs: List[Dict[str, str]],
+    corrected_pairs: List[Dict[str, str]],
+    reply_pairs: List[Dict[str, str]],
+    correction_explanation: str,
+    learning: LangSpec,
+    fluent: LangSpec,
+):
+    from datetime import datetime
+    ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    lines = [f"\n---\n### {ts}  (session: {session_id})\n"]
+
+    original_learning = " ".join(p.get("learning", "") for p in original_pairs if p.get("learning"))
+    if not original_learning:
+        original_learning = " ".join(p.get("native", "") for p in original_pairs)
+    lines.append(f"**You said ({learning.name}):**\n{original_learning}\n")
+
+    lines.append("**Correction:**")
+    for i, cp in enumerate(corrected_pairs):
+        orig = original_pairs[i].get("learning", "") if i < len(original_pairs) else ""
+        corr = cp.get("learning", "")
+        if orig and corr and orig.strip() != corr.strip():
+            lines.append(f"- Original:   {orig}")
+            lines.append(f"- Corrected:  {corr}")
+        else:
+            lines.append(f"- {corr or orig}  ✓ No correction")
+    if not corrected_pairs:
+        lines.append("(none)")
+    lines.append("")
+
+    if correction_explanation:
+        lines.append(f"**Pico's note:**\n{correction_explanation}\n")
+
+    reply_text = " ".join(p.get("native", "") for p in reply_pairs if p.get("native"))
+    if reply_text:
+        lines.append(f"**Character replied ({fluent.name}):**\n{reply_text}\n")
+
+    try:
+        with open(LOG_FILE, "a", encoding="utf-8") as f:
+            f.write("\n".join(lines))
+    except Exception:
+        logger.warning("Failed to write chat log")
+
+
 # --- Endpoints ---
 
 @app.post("/api/transcript")
@@ -510,6 +559,15 @@ async def receive_confirm(req: ConfirmRequest, background_tasks: BackgroundTasks
 
         # Include speakers info in mock response
         character_id = req.character_id or "sombongo"
+        append_chat_log(
+            session_id=req.session_id or "mock",
+            original_pairs=original_pairs,
+            corrected_pairs=corrected_pairs,
+            reply_pairs=reply_pairs,
+            correction_explanation="Mock: minor wording adjusted for politeness.",
+            learning=learning,
+            fluent=fluent,
+        )
         return JSONResponse({
             "turn_id": f"turn_{generate_id()}",
             "corrected_pairs": corrected_with_audio,
@@ -552,6 +610,15 @@ async def receive_confirm(req: ConfirmRequest, background_tasks: BackgroundTasks
             audio_file_url = f"/api/audio_file/{safe_session}/{filename}"
             reply_with_audio.append({**p, "audio_base64": b64, "audio_file": audio_file_url, "audio_filename": filename})
 
+        append_chat_log(
+            session_id=req.session_id or "unknown",
+            original_pairs=original_pairs,
+            corrected_pairs=corrected,
+            reply_pairs=reply,
+            correction_explanation=explanation,
+            learning=learning,
+            fluent=fluent,
+        )
         # Return corrected pairs, reply pairs, and the correction explanation (explicitly in native language per prompt)
         return JSONResponse({
             "turn_id": f"turn_{generate_id()}",

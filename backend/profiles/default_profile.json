@@ -1,6 +1,6 @@
 {
   "created_at": 1769845610,
-  "last_updated": 1782160540,
+  "last_updated": 1782250900,
   "ui_language": {
     "code": "en",
     "name": "English"
@@ -10,7 +10,7 @@
     "name": "Spanish"
   },
   "level": "beginner",
-  "level_confidence": 0.6,
+  "level_confidence": 0.8,
   "level_history": [
     {
       "timestamp": 1769845610,
@@ -33,82 +33,10 @@
     "natural expressions"
   ],
   "avoid_topics": [],
-  "turn_count": 342,
-  "corrections_needed": 174,
+  "turn_count": 351,
+  "corrections_needed": 178,
   "last_assessment_turn": 0,
   "recent_turns": [
-    {
-      "turn_id": "turn_1782159211925",
-      "user_input": "¿Cuáles son las principales atracciones?",
-      "corrected_input": "¿Cuáles son las principales atracciones de Honduras?",
-      "had_errors": true,
-      "input_intent": "spanish",
-      "timestamp": 1782159221
-    },
-    {
-      "turn_id": "turn_1782159846023",
-      "user_input": "Cuéntame sobre Nicaragua.",
-      "corrected_input": "Cuéntame sobre Nicaragua.",
-      "had_errors": false,
-      "input_intent": "spanish",
-      "timestamp": 1782159854
-    },
-    {
-      "turn_id": "turn_1782159888907",
-      "user_input": "Cuéntame más sobre los vulcanes.",
-      "corrected_input": "Cuéntame más sobre los volcanes.",
-      "had_errors": true,
-      "input_intent": "spanish",
-      "timestamp": 1782159901
-    },
-    {
-      "turn_id": "turn_1782160146721",
-      "user_input": "Son pericosos estos volcanes.",
-      "corrected_input": "Son peligrosos estos volcanes.",
-      "had_errors": true,
-      "input_intent": "spanish",
-      "timestamp": 1782160156
-    },
-    {
-      "turn_id": "turn_1782160225356",
-      "user_input": "Cuando los turistas van a Nicaragua, ¿qué visitan a menudo?",
-      "corrected_input": "Cuando los turistas van a Nicaragua, ¿qué visitan a menudo?",
-      "had_errors": false,
-      "input_intent": "spanish",
-      "timestamp": 1782160234
-    },
-    {
-      "turn_id": "turn_1782160287722",
-      "user_input": "Cuéntame más sobre la cultura.",
-      "corrected_input": "Cuéntame más sobre la cultura.",
-      "had_errors": false,
-      "input_intent": "spanish",
-      "timestamp": 1782160295
-    },
-    {
-      "turn_id": "turn_1782160343658",
-      "user_input": "Quiero saber cuáles son las reglas sociales y cuáles son los comportamientos que se consideran normales allí pero no normales en América.",
-      "corrected_input": "Quiero saber cuáles son las reglas sociales y cuáles son los comportamientos que se consideran normales allí pero no normales en América.",
-      "had_errors": false,
-      "input_intent": "spanish",
-      "timestamp": 1782160351
-    },
-    {
-      "turn_id": "turn_1782160404657",
-      "user_input": "¿La gente abra a uno cuando se conocen por primera vez? ¿Y el género importa?",
-      "corrected_input": "¿La gente abraza a uno cuando se conocen por primera vez? ¿Y el género importa?",
-      "had_errors": true,
-      "input_intent": "spanish",
-      "timestamp": 1782160413
-    },
-    {
-      "turn_id": "turn_1782160462206",
-      "user_input": "Así que los hombres se abrazan a uno cuando se conocen por primera vez.",
-      "corrected_input": "Así que los hombres se abrazan cuando se conocen por primera vez.",
-      "had_errors": true,
-      "input_intent": "spanish",
-      "timestamp": 1782160473
-    },
     {
       "turn_id": "turn_1782160531813",
       "user_input": "depende. Tendría que hacer lo que entiendo.",
@@ -116,6 +44,78 @@
       "had_errors": true,
       "input_intent": "spanish",
       "timestamp": 1782160540
+    },
+    {
+      "turn_id": "turn_1782249583683",
+      "user_input": "¿Quieres ir a la playa o ir a la montaña?",
+      "corrected_input": "¿Quieres ir a la playa o a la montaña?",
+      "had_errors": true,
+      "input_intent": "spanish",
+      "timestamp": 1782249597
+    },
+    {
+      "turn_id": "turn_1782249720285",
+      "user_input": "¿Prefiere ir a otro país o a otras ciudades?",
+      "corrected_input": "¿Prefieres ir a otro país o a otra ciudad?",
+      "had_errors": true,
+      "input_intent": "spanish",
+      "timestamp": 1782249734
+    },
+    {
+      "turn_id": "turn_1782249876468",
+      "user_input": "¿Prefieres ir a México o Perú?",
+      "corrected_input": "¿Prefieres ir a México o a Perú?",
+      "had_errors": false,
+      "input_intent": "spanish",
+      "timestamp": 1782249886
+    },
+    {
+      "turn_id": "turn_1782250277726",
+      "user_input": "¿Has estado en alguno?",
+      "corrected_input": "¿Has estado en alguno?",
+      "had_errors": true,
+      "input_intent": "spanish",
+      "timestamp": 1782250288
+    },
+    {
+      "turn_id": "turn_1782250477821",
+      "user_input": "Fui a las playas de Bali.",
+      "corrected_input": "Fui a las playas de Bali.",
+      "had_errors": false,
+      "input_intent": "spanish",
+      "timestamp": 1782250488
+    },
+    {
+      "turn_id": "turn_1782250650817",
+      "user_input": "¿Qué parte de Bali recomiendas?",
+      "corrected_input": "Error occurred",
+      "had_errors": false,
+      "input_intent": "spanish",
+      "timestamp": 1782250652
+    },
+    {
+      "turn_id": "turn_1782250767077",
+      "user_input": "¿Qué partes de Bali recomiendas?",
+      "corrected_input": "¿Qué partes de Bali recomiendas?",
+      "had_errors": false,
+      "input_intent": "spanish",
+      "timestamp": 1782250778
+    },
+    {
+      "turn_id": "turn_1782250832026",
+      "user_input": "Sabes, Sanur es muy tranquilo y hermoso.",
+      "corrected_input": "Sabes, Sanur es muy tranquilo y hermoso.",
+      "had_errors": false,
+      "input_intent": "spanish",
+      "timestamp": 1782250843
+    },
+    {
+      "turn_id": "turn_1782250889466",
+      "user_input": "Me gusta relajar y caminar en la playa.",
+      "corrected_input": "Me gusta relajarme y caminar en la playa.",
+      "had_errors": true,
+      "input_intent": "spanish",
+      "timestamp": 1782250900
     }
   ]
 }

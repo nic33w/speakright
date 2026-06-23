@@ -47,6 +47,18 @@ CONV_ROOT.mkdir(exist_ok=True, parents=True)
 
 QUIZ_DIR = API_ROOT / "quiz_items"
 QUIZ_DIR.mkdir(exist_ok=True, parents=True)
+
+LOG_FILE = API_ROOT / "chat_log.md"
+if not LOG_FILE.exists():
+    LOG_FILE.write_text(
+        "# Chat Log\n\n"
+        "**Instructions for reviewer:** Go through each entry below and evaluate two things:\n\n"
+        "1. **Correction quality** — Was the correction accurate? If the original sentence was changed, was the change actually necessary and correct? If it was marked 'sounds natural', was that a fair assessment?\n"
+        "2. **Naturalness** — Does the corrected sentence sound like something a native Spanish speaker would actually say in casual conversation? Flag anything that sounds overly formal, unnatural, or awkward.\n\n"
+        "Note: Punctuation and accent marks (e.g. missing tildes like 'esta' vs 'está') are intentionally not corrected by the app — please ignore those.\n\n"
+        "---\n",
+        encoding="utf-8"
+    )
 DEFAULT_QUIZ_PATH = QUIZ_DIR / "default_quiz.json"
 
 DEFAULT_PROFILE_PATH = PROFILE_DIR / "default_profile.json"
@@ -1145,6 +1157,31 @@ def update_profile_from_assessment(
     return profile, False
 
 
+def append_chat_log(session_id: str, user_input: str, corrected_input: str, had_errors: bool, error_explanation: str, input_intent: str):
+    from datetime import datetime
+    ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    lines = [f"\n---\n### {ts}  (session: {session_id})\n"]
+
+    lines.append(f"**You said:**\n{user_input}\n")
+
+    was_corrected = corrected_input and corrected_input.strip() != user_input.strip()
+    if was_corrected:
+        lines.append(f"**Corrected:**\n{corrected_input}\n")
+    else:
+        lines.append("**Corrected:** ✓ No change\n")
+
+    if error_explanation:
+        lines.append(f"**Feedback:**\n{error_explanation}\n")
+    elif not had_errors and input_intent == "spanish":
+        lines.append("**Feedback:** ✓ sounds natural\n")
+
+    try:
+        with open(LOG_FILE, "a", encoding="utf-8") as f:
+            f.write("\n".join(lines))
+    except Exception as e:
+        print(f"[LOG] Failed to write chat log: {e}")
+
+
 # --- Messenger Endpoints ---
 
 @app.post("/api/messenger/profile/init")
@@ -1423,6 +1460,14 @@ def messenger_chat_turn(req: MessengerTurnRequest):
     pending_quiz = get_pending_quiz(profile["turn_count"])
 
     # Build response
+    append_chat_log(
+        session_id=req.session_id or "unknown",
+        user_input=req.user_input,
+        corrected_input=llm_response.get("corrected_input", req.user_input),
+        had_errors=llm_response.get("had_errors", False),
+        error_explanation=llm_response.get("error_explanation", ""),
+        input_intent=llm_response.get("input_intent", "spanish"),
+    )
     return MessengerTurnResponse(
         turn_id=turn_id,
         corrected_input=llm_response.get("corrected_input", req.user_input),

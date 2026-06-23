@@ -1,11 +1,11 @@
 {
   "azure": {
-    "monthly_chars": 4547,
+    "monthly_chars": 4805,
     "month_key": "2026-06",
     "pending_sessions": [],
     "current_session": null
   },
   "openai": {
-    "total_cost_cents": 31.0
+    "total_cost_cents": 31.601454999999998
   }
 }
