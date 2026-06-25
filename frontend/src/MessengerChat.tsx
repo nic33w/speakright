@@ -4,6 +4,8 @@ import React, { useEffect, useState, useRef } from "react";
 import { GameTextarea, CorrectionTokens } from "./sharedGameComponents";
 import { buildCorrectionTokens } from "./sharedGameUtils";
 import type { CorrectionToken } from "./sharedGameUtils";
+import { PIVOTS } from "./data/sombongo_pivots";
+import type { Pivot } from "./data/sombongo_pivots";
 
 type LangSpec = { code: string; name: string };
 
@@ -291,6 +293,10 @@ export default function MessengerChat({
   const suggestionAudioCacheRef = useRef<Map<string, string>>(new Map());
   const busyRef = useRef(false);
 
+  // Pivot shuffle state — cycle through all pivots before repeating
+  const pivotShuffleRef = useRef<number[]>([]);
+  const pivotCursorRef = useRef<number>(0);
+
   // Initialize profile and fetch greeting suggestions on mount
   useEffect(() => {
     async function initProfile() {
@@ -421,6 +427,68 @@ export default function MessengerChat({
   // Helper function for delays
   function delay(ms: number): Promise<void> {
     return new Promise(resolve => setTimeout(resolve, ms));
+  }
+
+  function getNextPivot(): Pivot {
+    if (pivotCursorRef.current >= pivotShuffleRef.current.length) {
+      const indices = Array.from({ length: PIVOTS.length }, (_, i) => i);
+      for (let i = indices.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [indices[i], indices[j]] = [indices[j], indices[i]];
+      }
+      pivotShuffleRef.current = indices;
+      pivotCursorRef.current = 0;
+    }
+    return PIVOTS[pivotShuffleRef.current[pivotCursorRef.current++]];
+  }
+
+  async function handlePivot() {
+    if (busy) return;
+    const pivot = getNextPivot();
+    setBusy(true);
+    setIsTyping(true);
+
+    await delay(1500);
+    setIsTyping(false);
+
+    const charMsgId1 = Date.now();
+    setMessages(prev => [...prev, {
+      id: charMsgId1,
+      timestamp: new Date(),
+      side: "character",
+      responseChunks: [{ text: pivot.opening_message, language: "ui" as const, modality: "text" as const }],
+    }]);
+
+    await delay(800);
+    setIsTyping(true);
+
+    const locale = LOCALE_MAP[learning.code] || "es-MX";
+    const audioPath = await fetchAudioUrl(pivot.audio_message, locale);
+
+    await delay(700);
+    setIsTyping(false);
+
+    const charMsgId2 = Date.now();
+    setMessages(prev => [...prev, {
+      id: charMsgId2,
+      timestamp: new Date(),
+      side: "character",
+      responseChunks: [{
+        text: pivot.audio_message,
+        language: "target" as const,
+        modality: "audio" as const,
+        audio_file: audioPath ?? undefined,
+        locale,
+        native_text: pivot.audio_message_translation,
+      }],
+    }]);
+
+    if (audioPath) await playAudioUrl(`${apiBase}${audioPath}`);
+
+    setCurrentSuggestions(pivot.quick_replies);
+    setRevealedSuggestionIds(new Set());
+
+    setBusy(false);
   }
 
   // Delay before revealing the next chunk — proportional to text length, simulating typing time
@@ -1640,7 +1708,7 @@ export default function MessengerChat({
         </div>
 
         {/* Suggestions Bar - Sticky above chatbox */}
-        {currentSuggestions.length > 0 && !busy && (
+        {!busy && (
           <div style={{
             position: 'sticky',
             bottom: 'calc(100px)',  // Above chatbox
@@ -1655,19 +1723,44 @@ export default function MessengerChat({
               maxWidth: '800px',
               margin: '0 auto',
             }}>
-              <div style={{
-                fontSize: '12px',
-                color: '#6b7280',
-                marginBottom: '8px',
-                fontWeight: 600,
-              }}>
-                💬 Quick replies (hover to see {learning.name}):
-              </div>
+              {currentSuggestions.length > 0 && (
+                <div style={{
+                  fontSize: '12px',
+                  color: '#6b7280',
+                  marginBottom: '8px',
+                  fontWeight: 600,
+                }}>
+                  💬 Quick replies (hover to see {learning.name}):
+                </div>
+              )}
               <div style={{
                 display: 'flex',
                 flexWrap: 'wrap',
                 gap: '8px',
+                alignItems: 'flex-start',
               }}>
+                {/* Pivot button — always first */}
+                <button
+                  onClick={() => void handlePivot()}
+                  title={messages.length === 0 ? "Start conversation" : "Change topic"}
+                  style={{
+                    background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
+                    border: 'none',
+                    borderRadius: 14,
+                    padding: '10px 14px',
+                    fontSize: 20,
+                    cursor: 'pointer',
+                    boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+                    transition: 'opacity 0.15s, transform 0.1s',
+                    lineHeight: 1,
+                    flexShrink: 0,
+                  }}
+                  onMouseEnter={e => (e.currentTarget.style.opacity = '0.85')}
+                  onMouseLeave={e => (e.currentTarget.style.opacity = '1')}
+                >
+                  {messages.length === 0 ? "👋" : "🎲"}
+                </button>
+
                 {currentSuggestions.map((suggestion) => {
                   const isRevealed = revealedSuggestionIds.has(suggestion.id);
 
