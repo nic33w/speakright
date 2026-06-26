@@ -1,7 +1,7 @@
 {
   "id":"suggestion_system_v1",
-  "max_suggestions":4,
-  "suggestion_types":["question","empathy","playful","pivot"],
+  "max_suggestions":3,
+  "suggestion_types":["question","playful","pivot"],
   "display_policy":{"show_chips":true,"show_target_buttons":true,"chips_label_locale":"user_native"},
   "translation_policy":{
     "preferred": "use_cached_translation_if_exists",

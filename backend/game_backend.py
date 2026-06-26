@@ -29,6 +29,7 @@ def parse_bool_env(varname: str, default: bool = True) -> bool:
     return str(val).strip().lower() in ("1", "true", "yes", "on")
 
 MOCK_MODE = parse_bool_env("MOCK_MODE", default=True)
+ENABLE_QUIZZING = parse_bool_env("ENABLE_QUIZZING", default=False)
 AZURE_SPEECH_KEY = os.getenv("AZURE_SPEECH_KEY")
 AZURE_REGION = os.getenv("AZURE_REGION")
 
@@ -915,10 +916,10 @@ def build_layered_prompt(user_input: str, profile: Dict[str, Any], prompt_versio
     persona_data = load_persona_json(PERSONA)
     if not persona_data:
         raise ValueError(f"Persona '{PERSONA}' not found")
+    character_name = persona_data["meta"]["display_name"]
 
     # Load helper configurations
     suggestion_config = load_helper_json("suggestion_system") or {}
-    pico_config = load_helper_json("pico_grammar_robot") or {}
 
     # Layer 1: System Prompt
     system_file = PROMPTS_DIR / "chat_system_prompt.txt"
@@ -1008,6 +1009,26 @@ EXAMPLE GREETINGS (in {ui_lang}):
 
     # Build user message
     max_suggestions = suggestion_config.get("max_suggestions", 3)
+    is_assessment_turn = profile.get("turn_count", 0) > 0 and profile.get("turn_count", 0) % 5 == 0
+
+    if ENABLE_QUIZZING:
+        quiz_candidates_schema = '  "quiz_candidates": [\n    {\n      "type": "correction" | "translation" | "naturalness",\n      "original": "...",\n      "corrected": "...",\n      "error_type": "...",\n      "quiz_prompt": "..."\n    }\n  ],'
+        quiz_rules_section = f"""
+QUIZ CANDIDATE RULES:
+- ONLY tag SIGNIFICANT errors (verb conjugation, gender, prepositions, vocabulary gaps, grammar structure, ser/estar, por/para)
+- Also tag clearly unnatural phrasing when had_errors=true for naturalness reasons
+- DO NOT tag minor errors (accents, punctuation, typos, capitalization)
+- For vocabulary gaps (user used {ui_lang}), type="translation"; for grammar errors, type="correction"; for unnatural phrasing, type="naturalness"
+- "original": what the user said; "corrected": the correct/natural {target_lang} word/phrase (QUIZ ANSWER)
+- "quiz_prompt": question in {ui_lang} like "How do you say 'X' in {target_lang}?\""""
+    else:
+        quiz_candidates_schema = ''
+        quiz_rules_section = ''
+
+    if is_assessment_turn:
+        level_assessment_schema = '  "level_assessment": {\n    "current_level": "beginner" | "intermediate" | "advanced",\n    "confidence": 0.0-1.0,\n    "should_update": true/false,\n    "reasoning": "1 short phrase — only required when should_update=true",\n    "add_comfortable": [],\n    "add_weak": [],\n    "remove_weak": []\n  }'
+    else:
+        level_assessment_schema = ''
 
     user_message = f"""{context_str}
 
@@ -1034,64 +1055,35 @@ OUTPUT SCHEMA (return exactly one JSON object):
   "suggested_replies": [
     {{
       "id": "r1",
-      "text_native": "...",  // Short suggestion in {ui_lang}
-      "text_target": "..."   // Translation in {target_lang}
-    }}
-  ],  // Generate {max_suggestions} varied suggestions (mix of: question, followup, empathy)
-  "quiz_candidates": [
-    {{
-      "type": "correction" | "translation",
-      "original": "sunscreen",
-      "corrected": "bloqueador solar",
-      "error_type": "vocabulary",
-      "quiz_prompt": "How do you say 'sunscreen' in Spanish?"
+      "text_target": "...",  // Natural {target_lang} phrasing — write this first
+      "text_native": "..."   // {ui_lang} translation of text_target
     }}
   ],
-  // NOTE: "corrected" field IS the answer. "quiz_prompt" is the question in {ui_lang}.
-  // The user will see quiz_prompt and must answer with "corrected".
-  "level_assessment": {{
-    "current_level": "beginner" | "intermediate" | "advanced",
-    "confidence": 0.0-1.0,
-    "should_update": true/false,
-    "reasoning": "...",
-    "add_comfortable": [],
-    "add_weak": [],
-    "remove_weak": []
-  }}
+{quiz_candidates_schema}
+{level_assessment_schema}
 }}
 
 CRITICAL REMINDERS:
 - Your response_chunks should be MOSTLY in {ui_lang} (language="ui", modality="text"). Only use "target" sparingly for teaching.
 - NEVER set modality="audio" for a language="ui" chunk. Audio is ONLY for pure {target_lang} text.
 - A chunk with modality="audio" must have its "text" field contain ONLY {target_lang} — no {ui_lang} words, no mixed phrases.
+- NEVER use target-language audio to repeat, paraphrase, or demonstrate the corrected version of what the user said. Audio must be an organic part of your character's own response — not a correction or teaching moment about the user's mistake.
 - Stay in character! Your personality should come through IN {ui_lang}.
 - NEVER mention corrections or errors in your response_chunks. Respond as if the user spoke perfectly.
 - Pico handles corrections separately via corrected_input/had_errors/error_explanation — fill those fields accurately but keep them out of your conversational response.
 - input_intent: "english" if the user was primarily speaking {ui_lang} (even with some {target_lang} thrown in); "spanish" if the user was clearly attempting {target_lang} (even if they got stuck on words and used {ui_lang} for those). Example: "I went to the store today, gracias!" = "english". "Fui al store porque no tenía food" = "spanish".
 - NATURALNESS IS STRICT: Body sensations, physical feelings, emotions, idioms, and colloquial expressions almost NEVER translate word-for-word from {ui_lang} to {target_lang}. If the user expressed any of these by guessing at a {target_lang} word from the {ui_lang} equivalent, flag it even if the word technically exists. Example: "gaseoso" technically means carbonated/fizzy — it does NOT mean feeling gassy. The correct native expression is "me da gases." Always ask: would a native speaker actually say this, or does it just sound like translated {ui_lang}?
-
-QUIZ CANDIDATE RULES:
-- ONLY tag SIGNIFICANT errors (verb conjugation, gender, prepositions, vocabulary gaps, grammar structure, ser/estar, por/para)
-- Also tag clearly unnatural phrasing when had_errors=true for naturalness reasons
-- DO NOT tag minor errors (accents, punctuation, typos, capitalization)
-- For vocabulary gaps (user used {ui_lang}), type="translation"
-- For grammar/conjugation errors, type="correction"
-- For unnatural-but-correct phrasing, type="naturalness", error_type="phrasing"
-  e.g. original="Yo tengo veinte años de edad", corrected="Tengo veinte años", quiz_prompt="How would a native speaker say 'Yo tengo veinte años de edad'?"
-- "original": what the user said (wrong, unnatural, or in native language)
-- "corrected": the correct/natural {target_lang} word/phrase (THIS IS THE QUIZ ANSWER)
-- "quiz_prompt": question in {ui_lang} like "How do you say 'X' in {target_lang}?"
-
+{quiz_rules_section}
 SUGGESTION GENERATION RULES:
-- Generate {max_suggestions} short, natural replies the user might want to say
-- Show suggestions in {ui_lang} (text_native) with translations in {target_lang} (text_target)
+- Generate {max_suggestions} short replies THE USER would say TO {character_name} — phrased in first person, NOT things the character would say
+- Write each suggestion naturally in {target_lang} first (text_target) — use phrasing a native {target_lang} speaker would actually say
+- text_native is the {ui_lang} translation of text_target — translate naturally, not word-for-word
 - Include exactly one of each type, in this fixed order:
-    1. question — ask the character something relevant to the current topic
-    2. empathy — react to or follow up on what the character just said
-    3. playful — a light challenge or humorous take
-    4. pivot — shift to a fresh topic to keep the conversation from getting narrow (e.g. ask about the character's life, mention the user's plans, bring up a new shared interest)
+    1. question — something the user asks {character_name} about the topic
+    2. playful — something funny or teasing the user says to {character_name}
+    3. pivot — something the user says to shift to a new topic (about user's own life, a new interest, etc.)
 - Keep suggestions brief (5-10 words max)
-- Match the character's personality and context
+- Sound like the user talking TO {character_name}, never like {character_name} talking
 
 Return ONLY valid JSON (no markdown, no commentary)."""
 
