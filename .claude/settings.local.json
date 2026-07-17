@@ -12,7 +12,8 @@
       "Bash(xargs grep -l \"poner\\\\|quedar\\\\|grammar_tags\\\\|reflexive\")",
       "Bash(git *)",
       "Bash(Get-ChildItem \"D:\\\\python_projects\\\\speakright\\\\backend\" -Filter \"*.py\")",
-      "Bash(Select-Object Name)"
+      "Bash(Select-Object Name)",
+      "Bash(python -c ' *)"
     ]
   }
 }

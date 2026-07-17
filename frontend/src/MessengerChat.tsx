@@ -98,6 +98,13 @@ type MessengerChatProps = {
 const SESSION_ID = `sess_${Date.now()}`;
 const LOCALE_MAP: Record<string, string> = { es: "es-MX", id: "id-ID", en: "en-US" };
 
+function loadPivotSet(key: string): Set<string> {
+  try { return new Set(JSON.parse(localStorage.getItem(key) ?? '[]') as string[]); } catch { return new Set(); }
+}
+function savePivotSet(key: string, s: Set<string>) {
+  localStorage.setItem(key, JSON.stringify([...s]));
+}
+
 // --- V2 Challenge Pair: 3-zone hover-reveal card (light theme for messenger) ---
 function MessengerChallengePair({
   chunk, fluentName, learningName, audioUrl,
@@ -294,8 +301,15 @@ export default function MessengerChat({
   const busyRef = useRef(false);
 
   // Pivot shuffle state — cycle through all pivots before repeating
-  const pivotShuffleRef = useRef<number[]>([]);
+  const pivotShuffleRef = useRef<string[]>([]);
   const pivotCursorRef = useRef<number>(0);
+
+  // Pivot editor state (persisted in localStorage)
+  const [showPivotEditor, setShowPivotEditor] = useState(false);
+  const [starredPivots, setStarredPivots] = useState<Set<string>>(() => loadPivotSet('pivot_starred'));
+  const [dislikedPivots, setDislikedPivots] = useState<Set<string>>(() => loadPivotSet('pivot_disliked'));
+  const [deletedPivots, setDeletedPivots] = useState<Set<string>>(() => loadPivotSet('pivot_deleted'));
+  const [shownPivots, setShownPivots] = useState<Set<string>>(() => loadPivotSet('pivot_shown'));
 
   // Initialize profile and fetch greeting suggestions on mount
   useEffect(() => {
@@ -430,21 +444,59 @@ export default function MessengerChat({
   }
 
   function getNextPivot(): Pivot {
+    const available = PIVOTS.filter(p => !deletedPivots.has(p.id));
+    if (available.length === 0) return PIVOTS[0];
+    // Drop any since-deleted IDs from the current queue
+    pivotShuffleRef.current = pivotShuffleRef.current.filter(id => !deletedPivots.has(id));
     if (pivotCursorRef.current >= pivotShuffleRef.current.length) {
-      const indices = Array.from({ length: PIVOTS.length }, (_, i) => i);
-      for (let i = indices.length - 1; i > 0; i--) {
+      const ids = available.map(p => p.id);
+      for (let i = ids.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
-        [indices[i], indices[j]] = [indices[j], indices[i]];
+        [ids[i], ids[j]] = [ids[j], ids[i]];
       }
-      pivotShuffleRef.current = indices;
+      pivotShuffleRef.current = ids;
       pivotCursorRef.current = 0;
     }
-    return PIVOTS[pivotShuffleRef.current[pivotCursorRef.current++]];
+    const nextId = pivotShuffleRef.current[pivotCursorRef.current++];
+    return PIVOTS.find(p => p.id === nextId) ?? available[0];
+  }
+
+  function toggleStar(id: string) {
+    setStarredPivots(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      savePivotSet('pivot_starred', next);
+      return next;
+    });
+  }
+
+  function toggleDislike(id: string) {
+    setDislikedPivots(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      savePivotSet('pivot_disliked', next);
+      return next;
+    });
+  }
+
+  function deletePivot(id: string) {
+    setDeletedPivots(prev => {
+      const next = new Set(prev);
+      next.add(id);
+      savePivotSet('pivot_deleted', next);
+      return next;
+    });
   }
 
   async function handlePivot() {
     if (busy) return;
     const pivot = getNextPivot();
+    setShownPivots(prev => {
+      const next = new Set(prev);
+      next.add(pivot.id);
+      savePivotSet('pivot_shown', next);
+      return next;
+    });
     setBusy(true);
     setIsTyping(true);
 
@@ -890,6 +942,13 @@ export default function MessengerChat({
       void checkQuizAnswer(quizId, value);
     }
   }
+
+  const pivotEditorList = PIVOTS
+    .filter(p => !deletedPivots.has(p.id))
+    .sort((a, b) => {
+      const score = (id: string) => starredPivots.has(id) ? 0 : dislikedPivots.has(id) ? 2 : 1;
+      return score(a.id) - score(b.id);
+    });
 
   return (
     <>
@@ -1761,6 +1820,28 @@ export default function MessengerChat({
                   {messages.length === 0 ? "👋" : "🎲"}
                 </button>
 
+                {/* Edit pivot list */}
+                <button
+                  onClick={() => setShowPivotEditor(true)}
+                  title="Manage conversation starters"
+                  style={{
+                    background: 'rgba(0,0,0,0.05)',
+                    border: '1px solid rgba(0,0,0,0.1)',
+                    borderRadius: 10,
+                    padding: '7px 9px',
+                    fontSize: 14,
+                    cursor: 'pointer',
+                    color: '#9ca3af',
+                    flexShrink: 0,
+                    lineHeight: 1,
+                    transition: 'background 0.15s, color 0.15s',
+                  }}
+                  onMouseEnter={e => { e.currentTarget.style.background = 'rgba(0,0,0,0.1)'; e.currentTarget.style.color = '#6b7280'; }}
+                  onMouseLeave={e => { e.currentTarget.style.background = 'rgba(0,0,0,0.05)'; e.currentTarget.style.color = '#9ca3af'; }}
+                >
+                  ✏️
+                </button>
+
                 {currentSuggestions.map((suggestion) => {
                   const isRevealed = revealedSuggestionIds.has(suggestion.id);
 
@@ -1938,6 +2019,136 @@ export default function MessengerChat({
           </div>
         </div>
       </div>
+
+      {/* Pivot Editor Modal */}
+      {showPivotEditor && (
+        <div
+          onClick={() => setShowPivotEditor(false)}
+          style={{
+            position: 'fixed', inset: 0, zIndex: 1000,
+            background: 'rgba(0,0,0,0.5)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{
+              background: 'white', borderRadius: 16,
+              width: '90%', maxWidth: 680, maxHeight: '82vh',
+              display: 'flex', flexDirection: 'column',
+              boxShadow: '0 20px 60px rgba(0,0,0,0.3)',
+            }}
+          >
+            {/* Header */}
+            <div style={{
+              padding: '16px 20px', borderBottom: '1px solid #e5e7eb',
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              flexShrink: 0,
+            }}>
+              <div>
+                <div style={{ fontWeight: 700, fontSize: 16, color: '#111827' }}>
+                  Conversation Starters
+                </div>
+                <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 3 }}>
+                  {pivotEditorList.length} topics · {shownPivots.size} shown · ⭐ star · 👎 dislike · 🗑️ delete
+                </div>
+              </div>
+              <button
+                onClick={() => setShowPivotEditor(false)}
+                style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', color: '#9ca3af', padding: '4px 8px', lineHeight: 1 }}
+              >✕</button>
+            </div>
+
+            {/* List */}
+            <div style={{ overflowY: 'auto', padding: '4px 0' }}>
+              {pivotEditorList.map((pivot, i) => {
+                const isStarred = starredPivots.has(pivot.id);
+                const isDisliked = dislikedPivots.has(pivot.id);
+                const isShown = shownPivots.has(pivot.id);
+                return (
+                  <div
+                    key={pivot.id}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 10,
+                      padding: '10px 16px',
+                      background: isStarred ? 'rgba(251,191,36,0.07)' : isDisliked ? 'rgba(239,68,68,0.04)' : 'transparent',
+                      borderBottom: '1px solid #f3f4f6',
+                    }}
+                  >
+                    {/* Row number */}
+                    <span style={{ fontSize: 11, color: '#d1d5db', width: 20, textAlign: 'right', flexShrink: 0 }}>
+                      {i + 1}
+                    </span>
+
+                    {/* Message text */}
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{
+                        fontSize: 13, lineHeight: 1.4,
+                        color: isDisliked ? '#9ca3af' : '#1f2937',
+                        textDecoration: isDisliked ? 'line-through' : 'none',
+                      }}>
+                        {pivot.opening_message}
+                      </div>
+                      <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 2, fontStyle: 'italic' }}>
+                        {pivot.audio_message}
+                      </div>
+                    </div>
+
+                    {/* Shown badge */}
+                    {isShown && (
+                      <span style={{
+                        fontSize: 10, background: '#e0f2fe', color: '#0284c7',
+                        borderRadius: 6, padding: '2px 6px', flexShrink: 0, fontWeight: 600,
+                      }}>shown</span>
+                    )}
+
+                    {/* Star */}
+                    <button
+                      onClick={() => toggleStar(pivot.id)}
+                      title={isStarred ? 'Unstar' : 'Star'}
+                      style={{
+                        background: 'none', border: 'none', fontSize: 16,
+                        cursor: 'pointer', padding: '2px 4px', flexShrink: 0,
+                        opacity: isStarred ? 1 : 0.25, transition: 'opacity 0.15s',
+                      }}
+                      onMouseEnter={e => (e.currentTarget.style.opacity = '1')}
+                      onMouseLeave={e => (e.currentTarget.style.opacity = isStarred ? '1' : '0.25')}
+                    >⭐</button>
+
+                    {/* Dislike */}
+                    <button
+                      onClick={() => toggleDislike(pivot.id)}
+                      title={isDisliked ? 'Undo dislike' : 'Dislike'}
+                      style={{
+                        background: 'none', border: 'none', fontSize: 16,
+                        cursor: 'pointer', padding: '2px 4px', flexShrink: 0,
+                        opacity: isDisliked ? 1 : 0.25, transition: 'opacity 0.15s',
+                      }}
+                      onMouseEnter={e => (e.currentTarget.style.opacity = '1')}
+                      onMouseLeave={e => (e.currentTarget.style.opacity = isDisliked ? '1' : '0.25')}
+                    >👎</button>
+
+                    {/* Delete — only shown when disliked */}
+                    {isDisliked ? (
+                      <button
+                        onClick={() => deletePivot(pivot.id)}
+                        title="Delete permanently"
+                        style={{
+                          background: '#fee2e2', border: 'none', borderRadius: 6,
+                          fontSize: 12, cursor: 'pointer', color: '#dc2626',
+                          padding: '3px 8px', flexShrink: 0, fontWeight: 600,
+                        }}
+                      >🗑️</button>
+                    ) : (
+                      <div style={{ width: 42, flexShrink: 0 }} />
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
 
       <style>{`
         @keyframes fadeIn {

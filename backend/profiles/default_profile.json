@@ -1,6 +1,6 @@
 {
   "created_at": 1769845610,
-  "last_updated": 1782258015,
+  "last_updated": 1782438784,
   "ui_language": {
     "code": "en",
     "name": "English"
@@ -10,7 +10,7 @@
     "name": "Spanish"
   },
   "level": "beginner",
-  "level_confidence": 0.6,
+  "level_confidence": 0.5,
   "level_history": [
     {
       "timestamp": 1769845610,
@@ -30,92 +30,94 @@
     "prepositions",
     "punctuation",
     "grammar",
-    "natural expressions"
+    "natural expressions",
+    "reflexive verbs",
+    "article agreement"
   ],
   "avoid_topics": [],
-  "turn_count": 352,
-  "corrections_needed": 179,
+  "turn_count": 372,
+  "corrections_needed": 191,
   "last_assessment_turn": 0,
   "recent_turns": [
     {
-      "turn_id": "turn_1782249583683",
-      "user_input": "¿Quieres ir a la playa o ir a la montaña?",
-      "corrected_input": "¿Quieres ir a la playa o a la montaña?",
-      "had_errors": true,
-      "input_intent": "spanish",
-      "timestamp": 1782249597
-    },
-    {
-      "turn_id": "turn_1782249720285",
-      "user_input": "¿Prefiere ir a otro país o a otras ciudades?",
-      "corrected_input": "¿Prefieres ir a otro país o a otra ciudad?",
-      "had_errors": true,
-      "input_intent": "spanish",
-      "timestamp": 1782249734
-    },
-    {
-      "turn_id": "turn_1782249876468",
-      "user_input": "¿Prefieres ir a México o Perú?",
-      "corrected_input": "¿Prefieres ir a México o a Perú?",
+      "turn_id": "turn_1782428576472",
+      "user_input": "Yo también podría usar un caballo.",
+      "corrected_input": "Yo también podría usar un caballo.",
       "had_errors": false,
       "input_intent": "spanish",
-      "timestamp": 1782249886
+      "timestamp": 1782428585
     },
     {
-      "turn_id": "turn_1782250277726",
-      "user_input": "¿Has estado en alguno?",
-      "corrected_input": "¿Has estado en alguno?",
-      "had_errors": true,
-      "input_intent": "spanish",
-      "timestamp": 1782250288
-    },
-    {
-      "turn_id": "turn_1782250477821",
-      "user_input": "Fui a las playas de Bali.",
-      "corrected_input": "Fui a las playas de Bali.",
+      "turn_id": "turn_1782428619180",
+      "user_input": "Un caballo marrón",
+      "corrected_input": "Un caballo marrón.",
       "had_errors": false,
       "input_intent": "spanish",
-      "timestamp": 1782250488
+      "timestamp": 1782428625
     },
     {
-      "turn_id": "turn_1782250650817",
-      "user_input": "¿Qué parte de Bali recomiendas?",
+      "turn_id": "turn_1782428704163",
+      "user_input": "Yo lo dejaré quedarse gratis.",
+      "corrected_input": "Yo lo dejaré quedarse gratis.",
+      "had_errors": true,
+      "input_intent": "spanish",
+      "timestamp": 1782428710
+    },
+    {
+      "turn_id": "turn_1782429168278",
+      "user_input": "Por supuesto que se emocionan.",
+      "corrected_input": "Por supuesto que se emocionan.",
+      "had_errors": false,
+      "input_intent": "spanish",
+      "timestamp": 1782429177
+    },
+    {
+      "turn_id": "turn_1782429252427",
+      "user_input": "¿Conoces algún buen chiste?",
+      "corrected_input": "¿Conoces algún buen chiste?",
+      "had_errors": false,
+      "input_intent": "spanish",
+      "timestamp": 1782429262
+    },
+    {
+      "turn_id": "turn_1782429295252",
+      "user_input": "¿Por qué usan Twitter?",
       "corrected_input": "Error occurred",
       "had_errors": false,
       "input_intent": "spanish",
-      "timestamp": 1782250652
+      "timestamp": 1782429303
     },
     {
-      "turn_id": "turn_1782250767077",
-      "user_input": "¿Qué partes de Bali recomiendas?",
-      "corrected_input": "¿Qué partes de Bali recomiendas?",
-      "had_errors": false,
-      "input_intent": "spanish",
-      "timestamp": 1782250778
-    },
-    {
-      "turn_id": "turn_1782250832026",
-      "user_input": "Sabes, Sanur es muy tranquilo y hermoso.",
-      "corrected_input": "Sabes, Sanur es muy tranquilo y hermoso.",
-      "had_errors": false,
-      "input_intent": "spanish",
-      "timestamp": 1782250843
-    },
-    {
-      "turn_id": "turn_1782250889466",
-      "user_input": "Me gusta relajar y caminar en la playa.",
-      "corrected_input": "Me gusta relajarme y caminar en la playa.",
+      "turn_id": "turn_1782429379561",
+      "user_input": "Yo debería contarles de mis productos.",
+      "corrected_input": "Debería contarles sobre mis productos.",
       "had_errors": true,
       "input_intent": "spanish",
-      "timestamp": 1782250900
+      "timestamp": 1782429391
     },
     {
-      "turn_id": "turn_1782258001638",
-      "user_input": "¿Qué ejercicio te gusta?",
-      "corrected_input": "¿Qué ejercicio te gusta hacer?",
+      "turn_id": "turn_1782438358137",
+      "user_input": "¿Qué tipo de productos son?",
+      "corrected_input": "¿Qué tipo de productos son?",
+      "had_errors": false,
+      "input_intent": "spanish",
+      "timestamp": 1782438368
+    },
+    {
+      "turn_id": "turn_1782438509520",
+      "user_input": "Quizá lo cen enío saldrá.",
+      "corrected_input": "Quizá lo cené en el salón.",
       "had_errors": true,
       "input_intent": "spanish",
-      "timestamp": 1782258015
+      "timestamp": 1782438520
+    },
+    {
+      "turn_id": "turn_1782438774912",
+      "user_input": "La sombrero hongo",
+      "corrected_input": "El sombrero hongo",
+      "had_errors": true,
+      "input_intent": "spanish",
+      "timestamp": 1782438784
     }
   ]
 }
