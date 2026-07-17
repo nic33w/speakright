@@ -1,6 +1,6 @@
 {
   "created_at": 1769845610,
-  "last_updated": 1782438784,
+  "last_updated": 1784250413,
   "ui_language": {
     "code": "en",
     "name": "English"
@@ -10,7 +10,7 @@
     "name": "Spanish"
   },
   "level": "beginner",
-  "level_confidence": 0.5,
+  "level_confidence": 0.9,
   "level_history": [
     {
       "timestamp": 1769845610,
@@ -20,57 +20,20 @@
   ],
   "comfortable_with": [],
   "weak_points": [
-    "tisco",
-    "past tense",
-    "vocabulary",
-    "adjective agreement",
     "gender",
     "grammar structure",
     "verb conjugation",
     "prepositions",
-    "punctuation",
     "grammar",
     "natural expressions",
     "reflexive verbs",
     "article agreement"
   ],
   "avoid_topics": [],
-  "turn_count": 372,
-  "corrections_needed": 191,
+  "turn_count": 376,
+  "corrections_needed": 194,
   "last_assessment_turn": 0,
   "recent_turns": [
-    {
-      "turn_id": "turn_1782428576472",
-      "user_input": "Yo también podría usar un caballo.",
-      "corrected_input": "Yo también podría usar un caballo.",
-      "had_errors": false,
-      "input_intent": "spanish",
-      "timestamp": 1782428585
-    },
-    {
-      "turn_id": "turn_1782428619180",
-      "user_input": "Un caballo marrón",
-      "corrected_input": "Un caballo marrón.",
-      "had_errors": false,
-      "input_intent": "spanish",
-      "timestamp": 1782428625
-    },
-    {
-      "turn_id": "turn_1782428704163",
-      "user_input": "Yo lo dejaré quedarse gratis.",
-      "corrected_input": "Yo lo dejaré quedarse gratis.",
-      "had_errors": true,
-      "input_intent": "spanish",
-      "timestamp": 1782428710
-    },
-    {
-      "turn_id": "turn_1782429168278",
-      "user_input": "Por supuesto que se emocionan.",
-      "corrected_input": "Por supuesto que se emocionan.",
-      "had_errors": false,
-      "input_intent": "spanish",
-      "timestamp": 1782429177
-    },
     {
       "turn_id": "turn_1782429252427",
       "user_input": "¿Conoces algún buen chiste?",
@@ -118,6 +81,38 @@
       "had_errors": true,
       "input_intent": "spanish",
       "timestamp": 1782438784
+    },
+    {
+      "turn_id": "turn_1784250213115",
+      "user_input": "Llegas con muchas tacos.",
+      "corrected_input": "Llegas con muchos tacos.",
+      "had_errors": true,
+      "input_intent": "spanish",
+      "timestamp": 1784250224
+    },
+    {
+      "turn_id": "turn_1784250282751",
+      "user_input": "Quizás un cen",
+      "corrected_input": "Quizás una cena.",
+      "had_errors": true,
+      "input_intent": "spanish",
+      "timestamp": 1784250292
+    },
+    {
+      "turn_id": "turn_1784250349957",
+      "user_input": "Claro me encantaría cenar contigo.",
+      "corrected_input": "Claro, me encantaría cenar contigo.",
+      "had_errors": true,
+      "input_intent": "spanish",
+      "timestamp": 1784250357
+    },
+    {
+      "turn_id": "turn_1784250405696",
+      "user_input": "me gustaría comer pollo con vegetales.",
+      "corrected_input": "Me gustaría comer pollo con vegetales.",
+      "had_errors": false,
+      "input_intent": "spanish",
+      "timestamp": 1784250413
     }
   ]
 }

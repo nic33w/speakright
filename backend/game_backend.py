@@ -72,6 +72,11 @@ PERSONA = "sombongo"  # Current character
 # Quiz scheduling: show quiz after N turns
 QUIZ_TURNS_DELAY = 3
 
+# Profile weak_points list: cap size (keep most recent) and reject items that
+# contradict the app's own STT-tolerance rules (accents/punctuation are never penalized).
+MAX_WEAK_POINTS = 8
+DISALLOWED_WEAK_POINTS = {"punctuation", "capitalization", "accents", "accent marks", "accent"}
+
 app = FastAPI(title="Story Cards Game Backend")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
@@ -1130,12 +1135,18 @@ def update_profile_from_assessment(
 
     # Update weak_points
     for item in assessment.get("add_weak", []):
+        if item.strip().lower() in DISALLOWED_WEAK_POINTS:
+            continue
         if item not in profile["weak_points"]:
             profile["weak_points"].append(item)
 
     for item in assessment.get("remove_weak", []):
         if item in profile["weak_points"]:
             profile["weak_points"].remove(item)
+
+    # Cap size, keeping the most recently added entries
+    if len(profile["weak_points"]) > MAX_WEAK_POINTS:
+        profile["weak_points"] = profile["weak_points"][-MAX_WEAK_POINTS:]
 
     # Update level if assessment says so and confidence is high
     if should_update and confidence >= 0.7 and new_level != current_level:
@@ -1374,27 +1385,23 @@ def messenger_chat_turn(req: MessengerTurnRequest):
                     text = stripped.strip()
                     chunk_dict["text"] = text
 
-            # Generate TTS
-            try:
-                wav_bytes = tts_bytes_for_chunk(text, locale)
-            except Exception as e:
-                print(f"TTS failed for chunk, using silence: {e}")
-                wav_bytes = generate_silent_wav(duration_secs=min(3.0, 0.25 * len(text.split())))
+            # Check content-hash cache before generating fresh TTS (chunks repeat: greetings,
+            # suggested replies, common challenge sentences)
+            cache_url, cache_hit, cache_disk_path = get_cached_audio_path(text, locale)
 
-            # Save audio file
-            safe_session = re.sub(r'[^a-zA-Z0-9_\-]', '_', str(req.session_id))
-            session_dir = AUDIO_ROOT / f"messenger_{safe_session}"
-            session_dir.mkdir(parents=True, exist_ok=True)
+            if cache_hit:
+                chunk_dict["audio_file"] = cache_url
+            else:
+                try:
+                    wav_bytes = tts_bytes_for_chunk(text, locale)
+                except Exception as e:
+                    print(f"TTS failed for chunk, using silence: {e}")
+                    wav_bytes = generate_silent_wav(duration_secs=min(3.0, 0.25 * len(text.split())))
 
-            ts = int(time.time() * 1000)
-            lang_code = locale.split('-')[0] if locale else "unknown"
-            filename = f"{turn_id}_{lang_code}_{ts}.wav"
-            filepath = session_dir / filename
+                with open(cache_disk_path, "wb") as f:
+                    f.write(wav_bytes)
 
-            with open(filepath, "wb") as f:
-                f.write(wav_bytes)
-
-            chunk_dict["audio_file"] = f"/api/audio_file/messenger_{safe_session}/{filename}"
+                chunk_dict["audio_file"] = cache_url
 
         processed_chunks.append(ResponseChunk(**chunk_dict))
 

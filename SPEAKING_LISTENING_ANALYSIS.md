@@ -274,6 +274,8 @@ Rewrite CLAUDE.md per the §6 outline (mode inventory table, single-backend real
 ### Plan 2 — Quick correctness fixes (Sonnet-sized)
 (1) `game_backend.py:1452` gate → `candidate.get("quiz_prompt") or candidate.get("prompt_target")`; (2) decide and set `ENABLE_QUIZZING` explicitly in `.env`; (3) remove the `is_answered` flip-flop; (4) prune/cap `weak_points` on write in `update_profile_from_assessment`; (5) messenger TTS chunks → cache path. Each verified by driving a messenger turn in MOCK_MODE=0-with-test-keys or via targeted unit checks.
 
+**Status (2026-07-16):** Items 4 and 5 done. `MAX_WEAK_POINTS = 8` cap + `DISALLOWED_WEAK_POINTS` rejection list added in `game_backend.py` (near `update_profile_from_assessment`); `profiles/default_profile.json` cleaned of `"tisco"`/`"punctuation"` junk. Messenger's per-chunk TTS generation now checks `get_cached_audio_path()` before calling `tts_bytes_for_chunk`, same pattern as `/api/trivia/audio`. Items 1–3 (quiz pipeline fixes) **held** — user has `ENABLE_QUIZZING` off by default and is undecided whether to keep the Pico Quiz pop-up feature at all; revisit once that's decided.
+
 ### Plan 3 — Frontend shared-layer consolidation (Opus-sized, mechanical but wide)
 Create `config.ts`; add `useAudioPlayer` + (if needed) `useWisprAutoSend`; migrate all 6 auto-send duplicates and 4+ audio duplicates; delete local `checkFuzzyMatch`/`normalizeForMatch`/`calculateDistance` re-implementations; consider a `MODES` registry object consumed by both `App.tsx` and `HomeScreen.tsx` to collapse the 3-place union-type edit. High file-count, low ambiguity; needs careful per-mode behavior preservation (each duplicate has small drift — diff before deleting). Verify each mode's send/audio behavior manually after migration.
 
@@ -403,11 +405,11 @@ The through-line: **every phase reuses the cost discipline you've already built*
 
 | Location | Issue |
 |---|---|
-| `game_backend.py:1452` | Quiz candidates gated on `prompt_target`, schema emits `quiz_prompt` → candidates never stored |
-| `game_backend.py:32` | `ENABLE_QUIZZING` defaults False — quiz schema never requested by default |
-| `game_backend.py:771,790` | `is_answered` set True then immediately False |
+| `game_backend.py:1452` | Quiz candidates gated on `prompt_target`, schema emits `quiz_prompt` → candidates never stored — **not fixed**, held pending decision on whether to keep the quiz feature (user has it off) |
+| `game_backend.py:32` | `ENABLE_QUIZZING` defaults False — quiz schema never requested by default — **not fixed**, same hold |
+| `game_backend.py:771,790` | `is_answered` set True then immediately False — **not fixed**, same hold |
 | `NumberRush.tsx:65` + `frontend/public/` | Required `number_audio/` static files absent; no generation script; digit fallback (`NumberRush.tsx:583`) makes it a visual game |
-| `profiles/default_profile.json` | Level never updated in 372 turns; `weak_points` accumulates junk incl. `"punctuation"` (contradicts app rules) with no pruning |
+| `profiles/default_profile.json` | Level never updated in 372 turns; `weak_points` accumulated junk incl. `"punctuation"` (contradicts app rules) with no pruning — **fixed 2026-07-16**: cap + rejection list added in `update_profile_from_assessment`, existing junk removed from the profile file |
 | `tts_helpers.py` vs `scripts/generate_*.py` | Conflicting default voices (Gadis vs Ardi for id-ID); voice not part of audio cache key |
 | `llm_call.py:532,687` | Pricing constants hardcoded twice, not tied to actual model |
 | CLAUDE.md | Multiple factually wrong statements (two-backend model, reachable modes, CORS, model name, "copy from BattleGame") — see §6 |

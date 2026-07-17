@@ -297,3 +297,50 @@ El sombrero hongo
 
 **Feedback:**
 In Spanish, 'sombrero' is masculine, so it should be 'el sombrero'.
+
+---
+### 2026-07-16 18:03:44  (session: sess_1784250141933)
+
+**You said:**
+Llegas con muchas tacos.
+
+**Corrected:**
+Llegas con muchos tacos.
+
+**Feedback:**
+Use 'muchos' instead of 'muchas' for masculine nouns like 'tacos'.
+
+---
+### 2026-07-16 18:04:52  (session: sess_1784250141933)
+
+**You said:**
+Quizás un cen
+
+**Corrected:**
+Quizás una cena.
+
+**Feedback:**
+Use 'una' instead of 'un' for feminine nouns like 'cena'.
+
+---
+### 2026-07-16 18:05:57  (session: sess_1784250141933)
+
+**You said:**
+Claro me encantaría cenar contigo.
+
+**Corrected:**
+Claro, me encantaría cenar contigo.
+
+**Feedback:**
+The sentence needed a comma for clarity.
+
+---
+### 2026-07-16 18:06:53  (session: sess_1784250141933)
+
+**You said:**
+me gustaría comer pollo con vegetales.
+
+**Corrected:**
+Me gustaría comer pollo con vegetales.
+
+**Feedback:** ✓ sounds natural

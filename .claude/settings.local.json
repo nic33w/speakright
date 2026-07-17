@@ -13,7 +13,9 @@
       "Bash(git *)",
       "Bash(Get-ChildItem \"D:\\\\python_projects\\\\speakright\\\\backend\" -Filter \"*.py\")",
       "Bash(Select-Object Name)",
-      "Bash(python -c ' *)"
+      "Bash(python -c ' *)",
+      "Bash(python -c \"import ast; ast.parse\\(open\\('game_backend.py', encoding='utf-8'\\).read\\(\\)\\)\")",
+      "Bash(python -c \"import json; json.load\\(open\\('profiles/default_profile.json', encoding='utf-8'\\)\\)\")"
     ]
   }
 }
