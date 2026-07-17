@@ -1475,6 +1475,57 @@
       "damage_multiplier": 0.0,
       "hints_used_count": 0,
       "hints_used_phrases": []
+    },
+    {
+      "timestamp": "2026-07-17T22:02:44.621906",
+      "conversation_id": "cafe_encounter",
+      "difficulty": "hard",
+      "native": "Perfect! I hope they have outdoor seating because it's a beautiful day.",
+      "user_answer": "Perfecto. Espero que tengan besos afuera porque es un día hermoso.",
+      "feedback_keys": [
+        "missing_content",
+        "wrong_meaning"
+      ],
+      "issues": [
+        {
+          "feedback_key": "missing_content",
+          "corrected_snippet": "mesas afuera",
+          "feedback_explanation": "You omitted the word 'mesas', which is essential to convey the meaning of outdoor seating."
+        },
+        {
+          "feedback_key": "wrong_meaning",
+          "corrected_snippet": "besos",
+          "feedback_explanation": "You used 'besos' instead of 'mesas', changing the meaning from 'tables' to 'kisses', which is incorrect."
+        }
+      ],
+      "damage_multiplier": 0.6,
+      "hints_used_count": 0,
+      "hints_used_phrases": []
+    },
+    {
+      "timestamp": "2026-07-17T22:03:24.591868",
+      "conversation_id": "cafe_encounter",
+      "difficulty": "hard",
+      "native": "Could you recommend something? I'm not sure what to get because there are so many options.",
+      "user_answer": "¿Me puedes recomendar algo? No estoy seguro de lo que pedir porque hay tantas opciones.",
+      "feedback_keys": [
+        "perfect"
+      ],
+      "issues": [
+        {
+          "feedback_key": "perfect",
+          "corrected_snippet": null,
+          "feedback_explanation": null
+        }
+      ],
+      "damage_multiplier": 1.0,
+      "hints_used_count": 1,
+      "hints_used_phrases": [
+        {
+          "native": "because there are so many options",
+          "learning": "porque hay tantas opciones / porque hay muchas opciones"
+        }
+      ]
     }
   ],
   "topics_to_practice": []

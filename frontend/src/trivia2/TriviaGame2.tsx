@@ -1,9 +1,10 @@
 // TriviaGame2.tsx — Multiplayer vs Bots game mode
 import React, { useEffect, useRef, useState, useCallback } from "react";
-import { normalizeNumberTokens } from "../numUtils";
-import { HINT_COLORS, tokenizeWithHints } from "../sharedGameUtils";
+import { API_BASE, localeFor } from "../config";
+import { HINT_COLORS, tokenizeWithHints, checkFuzzyMatch } from "../sharedGameUtils";
 import type { HintItem, FeedbackIssue, SharedHistoryEntry } from "../sharedGameUtils";
-import { FeedbackBadges, CorrectionTokens, HintCards, HistoryLogEntry } from "../sharedGameComponents";
+import { FeedbackBadges, CorrectionTokens, HintCards, HistoryLogEntry, AutoSendBar } from "../sharedGameComponents";
+import { useWisprAutoSend, useAudioPlayer } from "../sharedGameHooks";
 
 type LangSpec = { code: string; name: string };
 
@@ -102,28 +103,6 @@ const BOTS: Omit<Player, "score">[] = [
 const HUMAN_PLAYER: Omit<Player, "score"> = {
   id: "human", name: "You", isHuman: true, accuracy: 0, responseRange: [0, 0], initials: ":P", color: "#ffd500ff",
 };
-
-
-// ── Utility: normalize for fuzzy match ──
-function normalizeForMatch(text: string, langCode: string): string {
-  return normalizeNumberTokens(text, langCode)
-    .toLowerCase()
-    .normalize("NFD").replace(/[̀-ͯ]/g, "")
-    .replace(/[—–—–]/g, " ")
-    .replace(/[¡¿!?.,:;"""''()[\]{}\-]/g, " ")
-    .replace(/[^\x00-\x7f]/g, "")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
-function checkFuzzyMatch(userAnswer: string, acceptedList: string[], langCode: string): string | null {
-  const normUser = normalizeForMatch(userAnswer, langCode).replace(/\s/g, "");
-  for (const accepted of acceptedList) {
-    const normAccepted = normalizeForMatch(accepted, langCode).replace(/\s/g, "");
-    if (normUser === normAccepted) return accepted;
-  }
-  return null;
-}
 
 
 // ── Sentence selection ──
@@ -236,7 +215,7 @@ export default function TriviaGame2({
   fluent,
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   learning: _learning,
-  apiBase = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000",
+  apiBase = API_BASE,
   onBack,
 }: TriviaGame2Props) {
   const sessionId = useRef(
@@ -274,13 +253,9 @@ export default function TriviaGame2({
   const [timerActive, setTimerActive] = useState(false);
   const [liveResult, setLiveResult] = useState<PlayerResult | null>(null);
   const [liveRejected, setLiveRejected] = useState(false);
-  const [pendingAutoSend, setPendingAutoSend] = useState(false);
-  const [pendingProgress, setPendingProgress] = useState<number | null>(null);
-
   // Hint state
   const [viewedHints, setViewedHints] = useState<Set<number>>(new Set());
-  const [hintAudio, setHintAudio] = useState<HTMLAudioElement | null>(null);
-  const hintAudioCache = useRef<Map<string, string>>(new Map());
+  const hintAudioPlayer = useAudioPlayer(apiBase);
 
   // Refs for stale-closure avoidance
   const questionStateRef = useRef<QuestionState>({
@@ -306,12 +281,23 @@ export default function TriviaGame2({
   // UI refs
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const historyColumnRef = useRef<HTMLDivElement>(null);
-  const previousLengthRef = useRef(0);
-  const lastSentRef = useRef(0);
-  const pendingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const autoSend = useWisprAutoSend({
+    value: transcript,
+    // Re-checked at fire time, not paste time: the question can end mid-window.
+    onSubmit: val => {
+      if (questionStateRef.current.ended || isPausedRef.current) return;
+      submitAnswer(val);
+    },
+    disabled: phase !== "question" || busy,
+    // An answer that already matches doesn't need as long a window to reconsider.
+    windowMs: val => {
+      const q = questionsRef.current[qIdxRef.current];
+      return q && checkFuzzyMatch(val.trim(), q.sentence.accepted_translations, activeLearning.code) !== null ? 1000 : 2000;
+    },
+  });
   const currentRoundType = roundTypes[roundIndex] ?? "spotlight";
   const currentQuestion = questions[qIdx] ?? null;
-  const locale = activeLearning.code === "id" ? "id-ID" : "es-MX";
+  const locale = localeFor(activeLearning.code);
 
   // Sync refs
   useEffect(() => { playersRef.current = players; }, [players]);
@@ -374,28 +360,8 @@ export default function TriviaGame2({
   }, [timerActive, qIdx]);
 
   function cancelPendingAutoSend(clearText = false) {
-    if (pendingTimerRef.current) { clearInterval(pendingTimerRef.current); pendingTimerRef.current = null; }
-    setPendingAutoSend(false);
-    setPendingProgress(null);
-    if (clearText) { setTranscript(""); previousLengthRef.current = 0; setTimeout(() => textareaRef.current?.focus(), 50); }
-  }
-
-  function startPendingAutoSend(currentTranscript: string, duration = 2000) {
-    cancelPendingAutoSend();
-    const startTime = Date.now();
-    setPendingAutoSend(true);
-    setPendingProgress(1.0);
-    pendingTimerRef.current = setInterval(() => {
-      const remaining = Math.max(0, 1 - (Date.now() - startTime) / duration);
-      setPendingProgress(remaining);
-      if (remaining <= 0) {
-        clearInterval(pendingTimerRef.current!);
-        pendingTimerRef.current = null;
-        setPendingAutoSend(false);
-        setPendingProgress(null);
-        if (currentTranscript.trim()) submitAnswer(currentTranscript);
-      }
-    }, 30);
+    autoSend.cancel();
+    if (clearText) { setTranscript(""); autoSend.resetLength(); setTimeout(() => textareaRef.current?.focus(), 50); }
   }
 
   function handlePause() {
@@ -440,20 +406,6 @@ export default function TriviaGame2({
   }
 
   // Wispr auto-send
-  useEffect(() => {
-    cancelPendingAutoSend();
-    if (phase !== "question" || busy || questionStateRef.current.ended || isPausedRef.current) return;
-    const delta = transcript.length - previousLengthRef.current;
-    if (delta >= 3 && transcript.length > 2 && Date.now() - lastSentRef.current > 700) {
-      const q = questionsRef.current[qIdxRef.current];
-      const isMatch = q ? checkFuzzyMatch(transcript.trim(), q.sentence.accepted_translations, activeLearning.code) !== null : false;
-      startPendingAutoSend(transcript, isMatch ? 1000 : 2000);
-    }
-    previousLengthRef.current = transcript.length;
-    return () => cancelPendingAutoSend();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [transcript]);
-
   // ── Fetch words ──
   async function fetchWords(): Promise<string[]> {
     const resp = await fetch(`${apiBase}/api/worddrill/words?lang=${drillLang ?? "es"}`);
@@ -563,7 +515,7 @@ export default function TriviaGame2({
     firstCorrectTimeRef.current = null;
 
     setTranscript("");
-    previousLengthRef.current = 0;
+    autoSend.resetLength();
     setBusy(false);
     setLiveResult(null);
     setLiveRejected(false);
@@ -677,7 +629,7 @@ export default function TriviaGame2({
     const q = questionsRef.current[qIdxRef.current];
     if (!q) return;
 
-    lastSentRef.current = Date.now();
+    autoSend.notifySent();
     setBusy(true);
     setLiveRejected(false);
 
@@ -756,7 +708,7 @@ export default function TriviaGame2({
         setLiveRejected(true);
         setBusy(false);
         setTranscript("");
-        previousLengthRef.current = 0;
+        autoSend.resetLength();
         setTimeout(() => textareaRef.current?.focus(), 50);
       }
     } catch {
@@ -889,25 +841,7 @@ export default function TriviaGame2({
   }
 
   async function playHintAudio(hint: HintItem) {
-    const text = hint.learning.split("/")[0].trim();
-    const key = `${locale}:${text}`;
-    let url = hintAudioCache.current.get(key);
-    if (!url) {
-      try {
-        const resp = await fetch(`${apiBase}/api/trivia/audio`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ text, locale }),
-        });
-        const data = await resp.json();
-        url = `${apiBase}${data.audio_file}`;
-        hintAudioCache.current.set(key, url);
-      } catch { return; }
-    }
-    if (hintAudio) { hintAudio.pause(); }
-    const audio = new Audio(url);
-    setHintAudio(audio);
-    audio.play().catch(() => {});
+    await hintAudioPlayer.play(hint.learning.split("/")[0].trim(), locale);
   }
 
   async function playHintText(text: string) {
@@ -915,7 +849,7 @@ export default function TriviaGame2({
   }
 
   function stopHintAudio() {
-    if (hintAudio) { hintAudio.pause(); setHintAudio(null); }
+    hintAudioPlayer.stop();
   }
 
   // Sorted players for display
@@ -1256,7 +1190,7 @@ export default function TriviaGame2({
                   if (e.key === "Escape") { cancelPendingAutoSend(true); return; }
                   if (e.key === "Enter" && !e.shiftKey) {
                     e.preventDefault();
-                    if (!busy && !questionStateRef.current.ended && transcript.trim()) submitAnswer(transcript);
+                    if (!questionStateRef.current.ended) autoSend.submit();
                   }
                 }}
                 onMouseEnter={() => { if (!busy && !questionStateRef.current.ended && !isPaused) textareaRef.current?.focus(); }}
@@ -1272,14 +1206,14 @@ export default function TriviaGame2({
               />
               <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
                 <button
-                  onClick={() => { if (!busy && !questionStateRef.current.ended && !isPaused && transcript.trim()) submitAnswer(transcript); }}
+                  onClick={() => { if (!questionStateRef.current.ended && !isPaused) autoSend.submit(); }}
                   disabled={busy || questionStateRef.current.ended || isPaused || !transcript.trim()}
                   style={{ ...primaryBtnStyle, padding: "8px 20px", fontSize: 13 }}
                 >
                   {busy ? "Checking…" : "Check"}
                 </button>
                 <button
-                  onClick={() => { setTranscript(""); previousLengthRef.current = 0; textareaRef.current?.focus(); }}
+                  onClick={() => cancelPendingAutoSend(true)}
                   disabled={isPaused}
                   style={{ ...ghostBtnStyle, padding: "8px 14px", fontSize: 13 }}
                 >
@@ -1293,16 +1227,7 @@ export default function TriviaGame2({
                   Skip →
                 </button>
               </div>
-              {pendingAutoSend && (
-                <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 6 }}>
-                  <div style={{ flex: 1, height: 3, background: "rgba(255,255,255,0.1)", borderRadius: 2, overflow: "hidden" }}>
-                    <div style={{ width: `${(pendingProgress ?? 0) * 100}%`, height: "100%", background: "#a78bfa", borderRadius: 2 }} />
-                  </div>
-                  <span style={{ fontSize: 11, color: "rgba(255,255,255,0.4)", whiteSpace: "nowrap" }}>
-                    Sending… <kbd style={{ fontSize: 10, background: "rgba(255,255,255,0.1)", padding: "1px 5px", borderRadius: 3, border: "1px solid rgba(255,255,255,0.2)" }}>Esc</kbd> to cancel
-                  </span>
-                </div>
-              )}
+              {autoSend.pending && <AutoSendBar progress={autoSend.progress} />}
             </div>
 
             {/* Live feedback */}

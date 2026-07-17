@@ -2,7 +2,34 @@
 // Shared React components used across game modes.
 import React, { useEffect, useRef, useState } from "react";
 import { FEEDBACK_MAP, FEEDBACK_COLORS, FEEDBACK_LABELS, HINT_COLORS, calculateDistance, distanceToOpacity, tokenizeWithHints, diffExampleVsUser } from "./sharedGameUtils";
+import { useAudioPlayer, useWisprAutoSend } from "./sharedGameHooks";
+import { API_BASE, DEFAULT_LOCALE } from "./config";
 import type { FeedbackIssue, CorrectionToken, HintItem, SharedHistoryEntry } from "./sharedGameUtils";
+
+// ── AutoSendBar ───────────────────────────────────────────────────────────────
+// The countdown for a pending auto-send. Render only while pending.
+export function AutoSendBar({ progress, theme = "dark" }: { progress: number | null; theme?: "dark" | "light" }) {
+  const isDark = theme === "dark";
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 6 }}>
+      <div style={{ flex: 1, height: 3, background: isDark ? "rgba(255,255,255,0.1)" : "#e5e7eb", borderRadius: 2, overflow: "hidden" }}>
+        <div style={{
+          width: `${(progress ?? 0) * 100}%`, height: "100%",
+          background: isDark ? "#a78bfa" : "#3b82f6", borderRadius: 2,
+        }} />
+      </div>
+      <span style={{ fontSize: 11, color: isDark ? "rgba(255,255,255,0.4)" : "#9ca3af", whiteSpace: "nowrap" }}>
+        Sending…{" "}
+        <kbd style={{
+          fontSize: 10, padding: "1px 5px", borderRadius: 3,
+          background: isDark ? "rgba(255,255,255,0.1)" : "#f3f4f6",
+          border: `1px solid ${isDark ? "rgba(255,255,255,0.2)" : "#e5e7eb"}`,
+          color: isDark ? "white" : "#374151",
+        }}>Esc</kbd>{" "}to cancel
+      </span>
+    </div>
+  );
+}
 
 // ── FeedbackBadges ────────────────────────────────────────────────────────────
 // Renders a list of feedback issue pills with explanations.
@@ -210,71 +237,22 @@ export function GameTextarea({
 }) {
   const internalRef = useRef<HTMLTextAreaElement>(null);
   const textareaRef = externalRef ?? internalRef;
-  const prevLenRef = useRef(0);
-  const lastSentRef = useRef(0);
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const [pendingAutoSend, setPendingAutoSend] = useState(false);
-  const [pendingProgress, setPendingProgress] = useState<number | null>(null);
   const [isFocused, setIsFocused] = useState(false);
 
   const isDisabled = busy || disabled;
+  const autoSend = useWisprAutoSend({ value, onSubmit, disabled: isDisabled });
 
-  function cancel(clearText = false) {
-    if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
-    setPendingAutoSend(false);
-    setPendingProgress(null);
-    if (clearText) { onChange(""); prevLenRef.current = 0; setTimeout(() => textareaRef.current?.focus(), 50); }
-  }
-
-  function startPending(text: string, duration = 1500) {
-    cancel();
-    const t0 = Date.now();
-    setPendingAutoSend(true);
-    setPendingProgress(1.0);
-    timerRef.current = setInterval(() => {
-      const rem = Math.max(0, 1 - (Date.now() - t0) / duration);
-      setPendingProgress(rem);
-      if (rem <= 0) {
-        clearInterval(timerRef.current!);
-        timerRef.current = null;
-        setPendingAutoSend(false);
-        setPendingProgress(null);
-        if (text.trim()) { lastSentRef.current = Date.now(); onSubmit(text); }
-      }
-    }, 30);
+  function clearInput() {
+    autoSend.cancel();
+    onChange("");
+    autoSend.resetLength();
+    setTimeout(() => textareaRef.current?.focus(), 50);
   }
 
   useEffect(() => {
-    cancel();
-    if (isDisabled) return;
-    const delta = value.length - prevLenRef.current;
-    if (delta >= 3 && value.length > 2 && Date.now() - lastSentRef.current > 700) {
-      startPending(value);
-    }
-    prevLenRef.current = value.length;
-    return () => cancel();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [value]);
-
-  useEffect(() => {
-    if (!isDisabled) {
-      setTimeout(() => textareaRef.current?.focus(), 50);
-      // If text was pasted while disabled, prevLenRef is stale — detect and start auto-send
-      const delta = value.length - prevLenRef.current;
-      if (delta >= 3 && value.length > 2 && Date.now() - lastSentRef.current > 700) {
-        startPending(value);
-      }
-      prevLenRef.current = value.length;
-    }
+    if (!isDisabled) setTimeout(() => textareaRef.current?.focus(), 50);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isDisabled]);
-
-  function handleSubmit() {
-    if (isDisabled || !value.trim()) return;
-    cancel();
-    lastSentRef.current = Date.now();
-    onSubmit(value);
-  }
 
   const isDark = theme === "dark";
 
@@ -286,8 +264,8 @@ export function GameTextarea({
           value={value}
           onChange={e => onChange(e.target.value)}
           onKeyDown={e => {
-            if (e.key === "Escape") { cancel(true); return; }
-            if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSubmit(); }
+            if (e.key === "Escape") { clearInput(); return; }
+            if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); autoSend.submit(); }
           }}
           onMouseEnter={() => { if (!isDisabled) textareaRef.current?.focus(); }}
           onFocus={() => setIsFocused(true)}
@@ -318,7 +296,7 @@ export function GameTextarea({
           }}
         />
         <button
-          onClick={handleSubmit}
+          onClick={autoSend.submit}
           disabled={isDisabled || !value.trim()}
           style={{
             padding: isDark ? "8px 20px" : "12px 24px",
@@ -341,7 +319,7 @@ export function GameTextarea({
       {isDark && (
         <div style={{ marginTop: 6 }}>
           <button
-            onClick={() => cancel(true)}
+            onClick={clearInput}
             style={{
               padding: "5px 12px", fontSize: 12, borderRadius: 6, cursor: "pointer",
               background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.2)",
@@ -350,25 +328,7 @@ export function GameTextarea({
           >Clear</button>
         </div>
       )}
-      {pendingAutoSend && (
-        <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 6 }}>
-          <div style={{ flex: 1, height: 3, background: isDark ? "rgba(255,255,255,0.1)" : "#e5e7eb", borderRadius: 2, overflow: "hidden" }}>
-            <div style={{
-              width: `${(pendingProgress ?? 0) * 100}%`, height: "100%",
-              background: isDark ? "#a78bfa" : "#3b82f6", borderRadius: 2,
-            }} />
-          </div>
-          <span style={{ fontSize: 11, color: isDark ? "rgba(255,255,255,0.4)" : "#9ca3af", whiteSpace: "nowrap" }}>
-            Sending…{" "}
-            <kbd style={{
-              fontSize: 10, padding: "1px 5px", borderRadius: 3,
-              background: isDark ? "rgba(255,255,255,0.1)" : "#f3f4f6",
-              border: `1px solid ${isDark ? "rgba(255,255,255,0.2)" : "#e5e7eb"}`,
-              color: isDark ? "white" : "#374151",
-            }}>Esc</kbd>{" "}to cancel
-          </span>
-        </div>
-      )}
+      {autoSend.pending && <AutoSendBar progress={autoSend.progress} theme={theme} />}
     </div>
   );
 }
@@ -389,8 +349,8 @@ export function GameTextarea({
 export function HistoryLogEntry({
   entry,
   wrongAttempts = [],
-  apiBase = "http://localhost:8000",
-  locale = "es-MX",
+  apiBase = API_BASE,
+  locale = DEFAULT_LOCALE,
   hideTargetText = false,
   promptLabel,
   extraBottom,
@@ -407,21 +367,11 @@ export function HistoryLogEntry({
   const [pinned, setPinned] = useState(false);
   const [hoverTimer, setHoverTimer] = useState<ReturnType<typeof setTimeout> | null>(null);
   const [previewExIdx, setPreviewExIdx] = useState<number | null>(null);
-  const [hoverAudio, setHoverAudio] = useState<HTMLAudioElement | null>(null);
-  const audioCacheRef = useRef<Map<string, string>>(new Map());
+  const audio = useAudioPlayer(apiBase);
 
   // Pre-warm audio cache on mount so first hover plays instantly.
   React.useEffect(() => {
-    const key = `${locale}:${entry.correctAnswer}`;
-    if (audioCacheRef.current.has(key) || !entry.correctAnswer) return;
-    fetch(`${apiBase}/api/trivia/audio`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text: entry.correctAnswer, locale }),
-    })
-      .then(r => r.json())
-      .then(data => { audioCacheRef.current.set(key, `${apiBase}${data.audio_file}`); })
-      .catch(() => {});
+    audio.prefetch(entry.correctAnswer, locale);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -431,31 +381,6 @@ export function HistoryLogEntry({
   const totalHints = entry.allHints.length;
   const hintsUnusedPct = totalHints > 0 ? Math.round(((totalHints - entry.hintsUsed) / totalHints) * 100) : 0;
   const revealed = new Set(entry.hintsRevealedIndices ?? []);
-
-  async function playAudio(text: string) {
-    const key = `${locale}:${text}`;
-    let url = audioCacheRef.current.get(key);
-    if (!url) {
-      try {
-        const resp = await fetch(`${apiBase}/api/trivia/audio`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ text, locale }),
-        });
-        const data = await resp.json();
-        url = `${apiBase}${data.audio_file}`;
-        audioCacheRef.current.set(key, url);
-      } catch { return; }
-    }
-    if (hoverAudio) { hoverAudio.pause(); }
-    const audio = new Audio(url);
-    setHoverAudio(audio);
-    audio.play().catch(() => {});
-  }
-
-  function stopAudio() {
-    if (hoverAudio) { hoverAudio.pause(); setHoverAudio(null); }
-  }
 
   const entryBg = entry.skipped
     ? "rgba(148,163,184,0.15)"
@@ -476,12 +401,12 @@ export function HistoryLogEntry({
         transition: "max-width 0.2s, width 0.2s",
       }}
       onMouseEnter={() => {
-        void playAudio(entry.correctAnswer);
+        void audio.play(entry.correctAnswer, locale);
         const t = setTimeout(() => setExpanded(true), 250);
         setHoverTimer(t);
       }}
       onMouseLeave={() => {
-        stopAudio();
+        audio.stop();
         if (hoverTimer) { clearTimeout(hoverTimer); setHoverTimer(null); }
         if (!pinned) setExpanded(false);
       }}

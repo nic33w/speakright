@@ -1,6 +1,7 @@
 // HomeScreen.tsx
 // Simple home screen to choose between Story Cards Game and Trivia Game
 import React, { useState, useEffect } from "react";
+import { API_BASE } from "./config";
 
 type LangSpec = { code: string; name: string };
 
@@ -16,7 +17,7 @@ const LANG_OPTIONS: LangSpec[] = [
 ];
 
 export default function HomeScreen({
-  apiBase = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000",
+  apiBase = API_BASE,
   onSelectMode,
 }: HomeScreenProps) {
   const [fluent, setFluent] = useState<LangSpec>(LANG_OPTIONS[0]); // English

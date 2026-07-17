@@ -4,6 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import { HINT_COLORS, checkFuzzyMatch, restoreAccentsInTokens, tokenizeWithHints } from "./sharedGameUtils";
 import type { HintItem, CorrectionToken, FeedbackIssue, SharedHistoryEntry } from "./sharedGameUtils";
 import { FeedbackBadges, CorrectionTokens, HintCards, HistoryLogEntry } from "./sharedGameComponents";
+import { useAudioPlayer, useWisprAutoSend } from "./sharedGameHooks";
+import { API_BASE, localeFor } from "./config";
 
 type LangSpec = { code: string; name: string };
 
@@ -90,7 +92,6 @@ type UseCaseStatus = "pending" | "correct" | "close" | "skipped";
 type GameMode = "practice" | "learn";
 
 
-const LEARNING_LOCALE: Record<string, string> = { es: "es-MX", id: "id-ID", en: "en-US" };
 
 function shuffle<T>(arr: T[]): T[] {
   for (let i = arr.length - 1; i > 0; i--) {
@@ -131,7 +132,7 @@ type WordDrillGameProps = {
 };
 
 export default function WordDrillGame({
-  apiBase = (import.meta as any).env?.VITE_API_BASE_URL || "http://localhost:8000",
+  apiBase = API_BASE,
   fluent = { code: "en", name: "English" },
   learning = { code: "es", name: "Spanish" },
   onBack,
@@ -143,7 +144,7 @@ export default function WordDrillGame({
     : drillLang === "es"
     ? { code: "es", name: "Spanish" }
     : learning;
-  const learningLocale = LEARNING_LOCALE[activeLearning.code] ?? "es-MX";
+  const learningLocale = localeFor(activeLearning.code);
 
   // ── State ────────────────────────────────────────────────────────────────
   const [selectedWord, setSelectedWord] = useState<string | null>(null);
@@ -177,11 +178,7 @@ export default function WordDrillGame({
   const [freeformBusy, setFreeformBusy] = useState(false);
   const [pasteTarget, setPasteTarget] = useState<"main" | "freeform" | null>(null);
   const pasteTargetRef = useRef<"main" | "freeform" | null>(null);
-  const [freeformPendingAutoSend, setFreeformPendingAutoSend] = useState(false);
-  const [freeformPendingProgress, setFreeformPendingProgress] = useState<number | null>(null);
   const freeformRef = useRef<HTMLTextAreaElement>(null);
-  const freeformPendingTimerRef = useRef<number | null>(null);
-  const freeformPreviousLengthRef = useRef<number>(0);
 
   // Grammar chat state
   const [chatOpen, setChatOpen] = useState(false);
@@ -195,10 +192,6 @@ export default function WordDrillGame({
   const [autoNextProgress, setAutoNextProgress] = useState<number | null>(null);
 
   const [totalCostCents, setTotalCostCents] = useState(0);
-
-  // Pending auto-send countdown (1.0 → 0.0 over 1s, shown after Wispr paste)
-  const [pendingAutoSend, setPendingAutoSend] = useState(false);
-  const [pendingProgress, setPendingProgress] = useState<number | null>(null);
 
   // Learn mode state
   const [gameMode, setGameMode] = useState<GameMode | null>(null);
@@ -232,13 +225,9 @@ export default function WordDrillGame({
 
   // ── Refs ─────────────────────────────────────────────────────────────────
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const pendingTimerRef = useRef<number | null>(null);
-  const lastSentRef = useRef<number>(0);
-  const previousLengthRef = useRef<number>(0);
   const entryIdCounter = useRef<number>(0);
   const historyEndRef = useRef<HTMLDivElement>(null);
-  const currentAudioRef = useRef<HTMLAudioElement | null>(null);
-  const audioCacheRef = useRef<Map<string, string>>(new Map());
+  const audioPlayer = useAudioPlayer(apiBase);
   const autoNextTimerRef = useRef<number | null>(null);
   const autoNextDurationRef = useRef(1000);
 
@@ -255,6 +244,21 @@ export default function WordDrillGame({
   const bulletRevealIdxRef = useRef(0);
   const lastPlayedAudioRef = useRef<{ text: string; locale: string } | null>(null);
   const bulletAudioTimerRef = useRef<number | null>(null);
+
+  const autoSend = useWisprAutoSend({
+    value: transcript,
+    onSubmit: () => void submitAnswer(),
+    disabled: busy || answerStatus !== "idle",
+    // An answer that already matches doesn't need as long a window to reconsider.
+    windowMs: val => currentSentence && checkFuzzyMatch(val.trim(), currentSentence.accepted_translations, activeLearning.code) !== null ? 1000 : 2000,
+  });
+
+  const freeformAutoSend = useWisprAutoSend({
+    value: freeformText,
+    onSubmit: () => void submitFreeform(),
+    disabled: freeformBusy || !(gameMode === "learn" && (answerStatus === "correct" || answerStatus === "skipped")),
+    windowMs: 2000,
+  });
 
   // ── Effects ──────────────────────────────────────────────────────────────
 
@@ -310,86 +314,14 @@ export default function WordDrillGame({
   }, [answerStatus]);
 
   function cancelPendingAutoSend(clearText = false) {
-    if (pendingTimerRef.current) { window.clearInterval(pendingTimerRef.current); pendingTimerRef.current = null; }
-    setPendingAutoSend(false);
-    setPendingProgress(null);
-    if (clearText) { setTranscript(""); textareaRef.current?.focus(); }
-  }
-
-  function startPendingAutoSend(duration = 2000) {
-    cancelPendingAutoSend();
-    const DURATION = duration;
-    const startTime = Date.now();
-    setPendingAutoSend(true);
-    setPendingProgress(1.0);
-    pendingTimerRef.current = window.setInterval(() => {
-      const remaining = Math.max(0, 1 - (Date.now() - startTime) / DURATION);
-      setPendingProgress(remaining);
-      if (remaining <= 0) {
-        window.clearInterval(pendingTimerRef.current!);
-        pendingTimerRef.current = null;
-        setPendingAutoSend(false);
-        setPendingProgress(null);
-        void submitAnswer();
-      }
-    }, 30);
+    autoSend.cancel();
+    if (clearText) { setTranscript(""); autoSend.resetLength(); textareaRef.current?.focus(); }
   }
 
   function cancelFreeformPendingAutoSend(clearText = false) {
-    if (freeformPendingTimerRef.current) { window.clearInterval(freeformPendingTimerRef.current); freeformPendingTimerRef.current = null; }
-    setFreeformPendingAutoSend(false);
-    setFreeformPendingProgress(null);
-    if (clearText) { setFreeformText(""); freeformRef.current?.focus(); }
+    freeformAutoSend.cancel();
+    if (clearText) { setFreeformText(""); freeformAutoSend.resetLength(); freeformRef.current?.focus(); }
   }
-
-  function startFreeformPendingAutoSend(duration = 2000) {
-    cancelFreeformPendingAutoSend();
-    const startTime = Date.now();
-    setFreeformPendingAutoSend(true);
-    setFreeformPendingProgress(1.0);
-    freeformPendingTimerRef.current = window.setInterval(() => {
-      const remaining = Math.max(0, 1 - (Date.now() - startTime) / duration);
-      setFreeformPendingProgress(remaining);
-      if (remaining <= 0) {
-        window.clearInterval(freeformPendingTimerRef.current!);
-        freeformPendingTimerRef.current = null;
-        setFreeformPendingAutoSend(false);
-        setFreeformPendingProgress(null);
-        void submitFreeform();
-      }
-    }, 30);
-  }
-
-  // Wispr auto-send
-  useEffect(() => {
-    cancelPendingAutoSend();
-
-    if (transcript.length > 2 && answerStatus === "idle" && !busy) {
-      const increase = transcript.length - previousLengthRef.current;
-      if (increase >= 3 && Date.now() - lastSentRef.current > 700) {
-        const isMatch = currentSentence
-          ? checkFuzzyMatch(transcript.trim(), currentSentence.accepted_translations, activeLearning.code) !== null
-          : false;
-        startPendingAutoSend(isMatch ? 1000 : 2000);
-      }
-    }
-    previousLengthRef.current = transcript.length;
-    return () => cancelPendingAutoSend();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [transcript]);
-
-  // Freeform Wispr auto-send
-  useEffect(() => {
-    cancelFreeformPendingAutoSend();
-    const isShown = gameModeRef.current === "learn" && (answerStatus === "correct" || answerStatus === "skipped");
-    if (isShown && freeformText.length > 2 && !freeformBusy) {
-      const increase = freeformText.length - freeformPreviousLengthRef.current;
-      if (increase >= 3) startFreeformPendingAutoSend(2000);
-    }
-    freeformPreviousLengthRef.current = freeformText.length;
-    return () => cancelFreeformPendingAutoSend();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [freeformText]);
 
   // Demo phase animation: reveal context → EN → play audio → reveal ES text
   useEffect(() => {
@@ -489,6 +421,7 @@ export default function WordDrillGame({
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gameMode, learnPhase]);
 
   // Global learn-mode hotkeys: R, S, A, 0, I, 1-9
@@ -657,7 +590,7 @@ export default function WordDrillGame({
       });
       const data = await resp.json();
       setFreeformText("");
-      freeformPreviousLengthRef.current = 0;
+      freeformAutoSend.resetLength();
       setFreeformResult(data);
       setHistory(prev => [...prev, {
         entryId: `${++entryIdCounter.current}`,
@@ -725,33 +658,13 @@ export default function WordDrillGame({
   // ── Audio helpers ─────────────────────────────────────────────────────────
 
   function stopAudio() {
-    if (currentAudioRef.current) { currentAudioRef.current.pause(); currentAudioRef.current = null; }
+    audioPlayer.stop();
   }
 
+  // onEnded fires only when the clip actually finishes — not when stopAudio cuts it.
   async function fetchAndPlayAudio(text: string, locale: string, onEnded?: () => void) {
-    const key = `${locale}:${text}`;
-    let url = audioCacheRef.current.get(key);
-    if (!url) {
-      try {
-        const resp = await fetch(`${apiBase}/api/trivia/audio`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ text, locale }),
-        });
-        const data = await resp.json();
-        url = `${apiBase}${data.audio_file}`;
-        audioCacheRef.current.set(key, url);
-      } catch { return; }
-    }
-    stopAudio();
     lastPlayedAudioRef.current = { text, locale };
-    const audio = new Audio(url);
-    currentAudioRef.current = audio;
-    if (onEnded) {
-      audio.onended = onEnded;
-      audio.onerror = onEnded;
-    }
-    audio.play().catch(() => {});
+    if (await audioPlayer.play(text, locale)) onEnded?.();
   }
 
   // ── Hint proximity ────────────────────────────────────────────────────────
@@ -774,8 +687,8 @@ export default function WordDrillGame({
     setFreeformResult(null);
     setFreeformBusy(false);
     cancelFreeformPendingAutoSend();
-    freeformPreviousLengthRef.current = 0;
-    previousLengthRef.current = 0;
+    freeformAutoSend.resetLength();
+    autoSend.resetLength();
   }
 
   async function loadSentencesForWord(word: string, langOverride?: "es" | "id") {
@@ -851,8 +764,8 @@ export default function WordDrillGame({
     setFreeformResult(null);
     setFreeformBusy(false);
     cancelFreeformPendingAutoSend();
-    freeformPreviousLengthRef.current = 0;
-    previousLengthRef.current = 0;
+    freeformAutoSend.resetLength();
+    autoSend.resetLength();
     learnPhaseRef.current = "explanation";
     setLearnPhase("explanation");
     demoAnimStepRef.current = 0;
@@ -956,7 +869,7 @@ export default function WordDrillGame({
     setFeedbackMessage("");
     setLastCheckResult(null);
     setViewedHints(new Set());
-    previousLengthRef.current = 0;
+    autoSend.resetLength();
     stopAudio();
   }
 
@@ -967,7 +880,7 @@ export default function WordDrillGame({
     const userAnswer = transcript.trim();
     if (!userAnswer) return;
 
-    lastSentRef.current = Date.now();
+    autoSend.notifySent();
     setBusy(true);
     setAnswerStatus("checking");
 
@@ -1357,7 +1270,7 @@ export default function WordDrillGame({
           onChange={e => setTranscript(e.target.value)}
           onMouseEnter={() => { if (answerStatus === "idle" && !busy) textareaRef.current?.focus(); pasteTargetRef.current = "main"; setPasteTarget("main"); }}
           onMouseLeave={() => { pasteTargetRef.current = null; setPasteTarget(null); }}
-          onKeyDown={e => { if (e.key === "Escape") { cancelPendingAutoSend(true); return; } if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); void submitAnswer(); } }}
+          onKeyDown={e => { if (e.key === "Escape") { cancelPendingAutoSend(true); return; } if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); autoSend.submit(); } }}
           placeholder={`Hold CTRL + WIN to say the ${learning.name} translation…`}
           disabled={busy || answerStatus === "correct" || answerStatus === "skipped"}
           style={{
@@ -1405,16 +1318,16 @@ export default function WordDrillGame({
                 style={{ padding: "8px 16px", fontSize: 14, background: "rgba(255,255,255,0.06)", color: "#94a3b8", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 6, cursor: !busy ? "pointer" : "not-allowed", opacity: !busy ? 1 : 0.35 }}>
                 Skip
               </button>
-              {pendingAutoSend ? (
+              {autoSend.pending ? (
                 <button onClick={() => cancelPendingAutoSend(true)}
                   style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 22px", fontSize: 14, fontWeight: 600, background: "linear-gradient(135deg, #d97706, #b45309)", color: "white", border: "none", borderRadius: 6, cursor: "pointer" }}>
-                  {pendingProgress !== null && (() => {
+                  {autoSend.progress !== null && (() => {
                     const r = 10, circ = 2 * Math.PI * r;
                     return (
                       <svg width={26} height={26} style={{ transform: "rotate(-90deg)", flexShrink: 0 }}>
                         <circle cx={13} cy={13} r={r} fill="none" stroke="rgba(255,255,255,0.2)" strokeWidth={2.5} />
                         <circle cx={13} cy={13} r={r} fill="none" stroke="white" strokeWidth={2.5}
-                          strokeDasharray={circ} strokeDashoffset={circ * (1 - pendingProgress)}
+                          strokeDasharray={circ} strokeDashoffset={circ * (1 - autoSend.progress)}
                           strokeLinecap="round" />
                       </svg>
                     );
@@ -1448,8 +1361,7 @@ export default function WordDrillGame({
                   if (e.key === "Escape") { cancelFreeformPendingAutoSend(true); return; }
                   if (e.key === "Enter" && !e.shiftKey) {
                     e.preventDefault();
-                    if (freeformPendingAutoSend) { cancelFreeformPendingAutoSend(false); void submitFreeform(); return; }
-                    if (freeformText.trim()) void submitFreeform();
+                    if (freeformText.trim()) freeformAutoSend.submit();
                     else handleNext();
                   }
                 }}
@@ -1466,16 +1378,16 @@ export default function WordDrillGame({
                   transition: "border-color 0.15s ease, box-shadow 0.15s ease",
                 }}
               />
-              {freeformPendingAutoSend ? (
+              {freeformAutoSend.pending ? (
                 <button onClick={() => cancelFreeformPendingAutoSend(true)}
                   style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 14px", fontSize: 14, fontWeight: 600, flexShrink: 0, background: "linear-gradient(135deg, #d97706, #b45309)", color: "white", border: "none", borderRadius: 6, cursor: "pointer" }}>
-                  {freeformPendingProgress !== null && (() => {
+                  {freeformAutoSend.progress !== null && (() => {
                     const r = 9, circ = 2 * Math.PI * r;
                     return (
                       <svg width={22} height={22} style={{ transform: "rotate(-90deg)", flexShrink: 0 }}>
                         <circle cx={11} cy={11} r={r} fill="none" stroke="rgba(255,255,255,0.2)" strokeWidth={2.5} />
                         <circle cx={11} cy={11} r={r} fill="none" stroke="white" strokeWidth={2.5}
-                          strokeDasharray={circ} strokeDashoffset={circ * (1 - freeformPendingProgress)}
+                          strokeDasharray={circ} strokeDashoffset={circ * (1 - freeformAutoSend.progress)}
                           strokeLinecap="round" />
                       </svg>
                     );
@@ -2862,7 +2774,7 @@ export default function WordDrillGame({
                 onChange={e => setTranscript(e.target.value)}
                 onMouseEnter={() => { if (answerStatus === "idle" && !busy) textareaRef.current?.focus(); pasteTargetRef.current = "main"; setPasteTarget("main"); }}
                 onMouseLeave={() => { pasteTargetRef.current = null; setPasteTarget(null); }}
-                onKeyDown={e => { if (e.key === "Escape") { cancelPendingAutoSend(true); return; } if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); void submitAnswer(); } }}
+                onKeyDown={e => { if (e.key === "Escape") { cancelPendingAutoSend(true); return; } if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); autoSend.submit(); } }}
                 placeholder={`Hold CTRL + WIN to say the ${learning.name} translation…`}
                 disabled={busy || answerStatus === "correct" || answerStatus === "skipped"}
                 style={{
@@ -2911,16 +2823,16 @@ export default function WordDrillGame({
                       style={{ padding: "8px 16px", fontSize: 14, background: "rgba(255,255,255,0.06)", color: "#94a3b8", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 6, cursor: !busy ? "pointer" : "not-allowed", opacity: !busy ? 1 : 0.35 }}>
                       Skip
                     </button>
-                    {pendingAutoSend ? (
+                    {autoSend.pending ? (
                       <button onClick={() => cancelPendingAutoSend(true)}
                         style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 22px", fontSize: 14, fontWeight: 600, background: "linear-gradient(135deg, #d97706, #b45309)", color: "white", border: "none", borderRadius: 6, cursor: "pointer" }}>
-                        {pendingProgress !== null && (() => {
+                        {autoSend.progress !== null && (() => {
                           const r = 10, circ = 2 * Math.PI * r;
                           return (
                             <svg width={26} height={26} style={{ transform: "rotate(-90deg)", flexShrink: 0 }}>
                               <circle cx={13} cy={13} r={r} fill="none" stroke="rgba(255,255,255,0.2)" strokeWidth={2.5} />
                               <circle cx={13} cy={13} r={r} fill="none" stroke="white" strokeWidth={2.5}
-                                strokeDasharray={circ} strokeDashoffset={circ * (1 - pendingProgress)}
+                                strokeDasharray={circ} strokeDashoffset={circ * (1 - autoSend.progress)}
                                 strokeLinecap="round" />
                             </svg>
                           );

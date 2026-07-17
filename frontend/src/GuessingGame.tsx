@@ -1,6 +1,9 @@
 // GuessingGame.tsx
 // Yes/No guessing game - LLM picks something, user asks questions
 import React, { useEffect, useState, useRef } from "react";
+import { API_BASE } from "./config";
+import { useWisprAutoSend } from "./sharedGameHooks";
+import { AutoSendBar } from "./sharedGameComponents";
 
 type LangSpec = { code: string; name: string };
 
@@ -78,11 +81,8 @@ const VOCABULARY_HINTS: Record<string, Array<{spanish: string; english: string}>
   ]
 };
 
-const MIN_AUTO_SEND_LENGTH = 8;
-const AUTO_SEND_DELAY_MS = 1200;
-
 export default function GuessingGame({
-  apiBase = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000",
+  apiBase = API_BASE,
   fluent = { code: "en", name: "English" },
   learning = { code: "es", name: "Spanish" },
   onBack,
@@ -100,10 +100,14 @@ export default function GuessingGame({
   const [revealedAnswer, setRevealedAnswer] = useState<string>("");
   const [showHints, setShowHints] = useState<boolean>(false);
 
-  const autoSendTimer = useRef<number | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
-  const previousTranscriptLengthRef = useRef<number>(0);
+
+  const autoSend = useWisprAutoSend({
+    value: transcript,
+    onSubmit: () => void sendMessage(),
+    disabled: busy || gameState !== "playing",
+  });
 
   // Fetch config from backend to detect mock mode
   useEffect(() => {
@@ -134,34 +138,6 @@ export default function GuessingGame({
       messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
     }
   }, [messages]);
-
-  // Auto-send logic
-  useEffect(() => {
-    if (autoSendTimer.current) {
-      window.clearTimeout(autoSendTimer.current);
-      autoSendTimer.current = null;
-    }
-
-    if (gameState === "playing" && transcript.length >= MIN_AUTO_SEND_LENGTH && !busy) {
-      const lengthIncrease = transcript.length - previousTranscriptLengthRef.current;
-      const isWisprInput = lengthIncrease >= 3;
-      const delayMs = isWisprInput ? 100 : AUTO_SEND_DELAY_MS;
-
-      autoSendTimer.current = window.setTimeout(() => {
-        void sendMessage();
-      }, delayMs);
-    }
-
-    previousTranscriptLengthRef.current = transcript.length;
-
-    return () => {
-      if (autoSendTimer.current) {
-        window.clearTimeout(autoSendTimer.current);
-        autoSendTimer.current = null;
-      }
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [transcript, busy, gameState]);
 
   useEffect(() => {
     function onPaste(e: ClipboardEvent) {
@@ -197,6 +173,7 @@ export default function GuessingGame({
     const text = transcript.trim();
     if (!text || busy) return;
 
+    autoSend.notifySent();
     setBusy(true);
     setGuessCount(prev => prev + 1);
 
@@ -337,9 +314,15 @@ export default function GuessingGame({
   }
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
+    if (e.key === 'Escape') {
+      autoSend.cancel();
+      setTranscript("");
+      autoSend.resetLength();
+      return;
+    }
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      void sendMessage();
+      autoSend.submit();
     }
   }
 
@@ -805,7 +788,7 @@ export default function GuessingGame({
                 }}
               />
               <button
-                onClick={() => void sendMessage()}
+                onClick={autoSend.submit}
                 disabled={!transcript.trim() || busy}
                 style={{
                   padding: '12px 24px',
@@ -822,6 +805,11 @@ export default function GuessingGame({
                 {busy ? 'Sending...' : 'Send'}
               </button>
             </div>
+            {autoSend.pending && (
+              <div style={{ maxWidth: '800px', margin: '0 auto' }}>
+                <AutoSendBar progress={autoSend.progress} theme="light" />
+              </div>
+            )}
           </div>
         )}
       </div>

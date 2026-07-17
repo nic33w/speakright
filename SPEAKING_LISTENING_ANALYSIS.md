@@ -279,6 +279,25 @@ Rewrite CLAUDE.md per the §6 outline (mode inventory table, single-backend real
 ### Plan 3 — Frontend shared-layer consolidation (Opus-sized, mechanical but wide)
 Create `config.ts`; add `useAudioPlayer` + (if needed) `useWisprAutoSend`; migrate all 6 auto-send duplicates and 4+ audio duplicates; delete local `checkFuzzyMatch`/`normalizeForMatch`/`calculateDistance` re-implementations; consider a `MODES` registry object consumed by both `App.tsx` and `HomeScreen.tsx` to collapse the 3-place union-type edit. High file-count, low ambiguity; needs careful per-mode behavior preservation (each duplicate has small drift — diff before deleting). Verify each mode's send/audio behavior manually after migration.
 
+**Status (2026-07-17): done, except the MODES registry (deferred by choice — it touches routing, not dedup, and reviews better on its own).**
+
+Landed:
+- **`frontend/src/config.ts`** — `API_BASE`, `LOCALE_MAP`, `DEFAULT_LOCALE`, `localeFor()`. All 9 inline `apiBase` defaults and every inline locale map/ternary now import it; `UsageDiagnostics.tsx`'s hardcoded copy is gone. Only legacy `ChatWithWispr.tsx` still has its own (left alone deliberately).
+- **`frontend/src/sharedGameHooks.ts`** (new file — hooks can't live in `sharedGameComponents.tsx` without breaking Fast Refresh's "components-only export" rule):
+  - `useAudioPlayer(apiBase)` — fetch → cache (`locale:text`) → play → stop. `play`/`playUrl` resolve `true` on completion, `false` when `stop()` interrupted, so callers chaining follow-on state (WordDrill's demo animation) don't fire on a stop. One player per component instance, so hover-preview and turn-playback don't cut each other off.
+  - `useWisprAutoSend({ value, onSubmit, disabled, windowMs })` — the single auto-send implementation. `GameTextarea` now wraps it; the other 6 modes call it directly and keep only their own textarea markup. `AutoSendBar` (in `sharedGameComponents.tsx`) renders the countdown.
+- **Fuzzy matching** — `normalizeForMatch` strengthened to the union of the local variants (dashes/punctuation → space, non-printable-ASCII dropped, whitespace removed); local copies deleted from `BattleGame`, `TriviaGame`, `TriviaGame2`, plus `TriviaGame`'s duplicate `calculateDistance`.
+
+Behavior changes worth knowing (drift resolved deliberately, not preserved):
+- **Typing no longer auto-sends.** The 6 duplicates auto-sent typed text after a 1200ms debounce and fired pastes after 100ms with no cancel window. All modes now match the documented spec: paste-only, ~1.5s cancelable window, Enter to send manually. This is the only option that leaves one implementation.
+- `windowMs` is the one intentional escape hatch: WordDrill and TriviaGame2 keep their adaptive 1000ms-if-already-matching / 2000ms window, which is a real feature rather than accidental drift.
+- Messenger's chunk playback now stops previous audio before playing (it used to overlap); StoryCards' click-to-play is now stoppable by a hover elsewhere, and its sequential loops stop rather than fighting whatever started playing.
+- TriviaGame gained the client audio cache it never had — repeated questions no longer re-request TTS.
+
+Verified: no new type errors and no new lint findings vs. the HEAD baseline (lint 64 → 53 problems, since the deleted duplicates took their own violations with them); `vite build` clean. Driven in a real browser against a MOCK_MODE backend: Messenger, Trivia, WordDrill, and Guessing each do the full paste → cancel-window → auto-send → submit round trip with zero JS errors, and WordDrill's hint hover proves the audio hook fetches once and serves the repeat from cache. Battle, Story Cards, and Word Showdown mount cleanly with zero JS errors but their inputs sit behind multi-step gameplay (Battle's defend phase; Showdown's "Start Game" is disabled because its word list doesn't populate in mock mode) — **their send paths are typechecked and mount-verified but not exercised end-to-end.** All three are experimental modes.
+
+Note for whoever runs the tests next: `npx tsc --noEmit` at the repo root silently checks *nothing* — the root `tsconfig.json` is a solution file with `files: []`. Use `npx tsc -p tsconfig.app.json --noEmit`. The app has ~30 pre-existing type errors and ~53 lint findings on `main`, so both tools are only meaningful as a diff against baseline.
+
 ### Plan 4 — Backend modularization (Opus/Fable-sized)
 Split `game_backend.py` (1990 lines) into routers: `routers/messenger.py`, `routers/quiz.py`, `routers/checks.py` (trivia/battle/worddrill), `routers/audio.py`, `routers/misc.py`, with `main.py` assembling the app. Extract `prompt_fragments.py` and `_call_openai_json` (§7.6–7); move messenger prompt assembly into `prompts/` alongside its templates; centralize `VOICE_MAP`/pricing/locale constants in `settings.py`. Restructure the messenger prompt for cache-friendly static-prefix ordering (§9) in the same pass since it touches the same code. Riskiest plan — needs regression passes over every mode; do after Plans 1–3 so the docs and conventions exist to guide it.
 

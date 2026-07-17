@@ -1,12 +1,17 @@
 # Shared Game Components
 
-Reference for building new game modes. Import everything from these two files.
+Reference for building new game modes. Import everything from these files.
 
 ```ts
 import { /* components */ } from "./sharedGameComponents";
+import { /* hooks */ }      from "./sharedGameHooks";
 import type { /* types */ } from "./sharedGameUtils";
 import { /* utils/constants */ } from "./sharedGameUtils";
+import { API_BASE, LOCALE_MAP, localeFor } from "./config";
 ```
+
+Hooks live in `sharedGameHooks.ts` rather than alongside the components because
+Fast Refresh requires a component file to export only components.
 
 ---
 
@@ -60,9 +65,9 @@ The standard input control: Wispr auto-send timing, Enter-to-submit, Escape-to-c
 />
 ```
 
-**Auto-send behavior:** when `value` grows by ≥3 characters in one update (a Wispr paste) and is longer than 2 characters, it starts a ~1.5s visual pending-send window and then calls `onSubmit(value)` — unless less than 700ms have passed since the last send. Enter (without Shift) submits immediately; Shift+Enter inserts a newline; Escape cancels a pending auto-send and clears the text. This is the canonical implementation of the auto-send behavior described in CLAUDE.md's "Common mode features" section — don't reimplement it per mode.
+**Auto-send behavior:** delegated to `useWisprAutoSend` (see Hooks below) — a ≥3-char paste opens a ~1.5s cancelable window, then submits; typing never auto-sends. Enter (without Shift) submits immediately; Shift+Enter inserts a newline; Escape cancels a pending auto-send and clears the text.
 
-Currently imported only by `MessengerChat.tsx`; `BattleGame.tsx`, `GuessingGame.tsx`, `StoryCardsGame.tsx`, `TriviaGame.tsx`, `WordDrillGame.tsx`, and `trivia2/TriviaGame2.tsx` each still have their own local copy of this logic — prefer migrating to `GameTextarea` over patching a local copy.
+`MessengerChat.tsx` uses this component. The other modes keep their own textarea markup (timers, skip buttons, custom countdowns) but all call `useWisprAutoSend` — so the timing lives in exactly one place. Use `GameTextarea` for a new mode unless you need custom chrome; if you do, call the hook rather than re-deriving the timing.
 
 ---
 
@@ -76,8 +81,8 @@ Scrollable row of 130px hint cards. Proximity glow on the nearest unrevealed car
   hints={currentSentence.hints ?? []}
   viewedHints={viewedHints}      // Set<number> of revealed indices
   onReveal={idx => setViewedHints(prev => new Set([...prev, idx]))}
-  onPlayAudio={text => fetchAndPlayAudio(text, learningLocale)}
-  onStopAudio={stopAudio}
+  onPlayAudio={text => void audio.play(text, learningLocale)}
+  onStopAudio={audio.stop}
 />
 ```
 
@@ -110,8 +115,8 @@ Self-contained history log entry. Manages expand/pin/audio/preview state interna
   key={entry.entryId}
   entry={sharedEntry}                  // SharedHistoryEntry — see type below
   wrongAttempts={wrongAttempts}        // SharedHistoryEntry[] of prior wrong attempts
-  apiBase={apiBase}                    // defaults to "http://localhost:8000"
-  locale={learningLocale}              // e.g. "es-MX", "id-ID"
+  apiBase={apiBase}                    // defaults to API_BASE from config.ts
+  locale={learningLocale}              // localeFor(activeLearning.code)
   hideTargetText={!showTargetText}     // hides answer text; user hears audio only
   promptLabel={<>🟢 [word]</>}        // optional JSX shown above sentence when expanded
   extraBottom={<BotResults />}        // optional JSX after Previous Attempts
@@ -194,6 +199,79 @@ const resolvedIds = new Set(history.filter(e => !e.isWrongAttempt).map(e => e.se
 
 ---
 
+## Hooks — `sharedGameHooks.ts`
+
+### `useAudioPlayer(apiBase?)`
+
+Fetch → cache → play → stop for TTS audio. Replaces the per-mode audio cache every mode used to hand-roll.
+
+```tsx
+const audio = useAudioPlayer(apiBase);
+
+await audio.play(text, locale);   // fetch (cached by `locale:text`) + play
+await audio.playUrl(url);         // play a URL the backend already gave you
+audio.prefetch(text, locale);     // warm the cache so first play is instant
+audio.stop();                     // halt playback
+```
+
+- `play`/`playUrl` resolve **`true`** when the clip ran to completion and **`false`** when `stop()` cut it short (or the fetch failed). Chain follow-on state off the boolean — `if (await audio.play(t, l)) advance()` — so a stop never fires it. Awaiting them in a loop plays clips in sequence.
+- Both stop this player's current audio first.
+- **One player per component instance.** Each instance only stops its own audio, so a hover-preview player and a turn-playback player coexist without cutting each other off (this is why `MessengerChallengePair` has its own).
+- Audio stops automatically on unmount.
+
+### `useWisprAutoSend({ value, onSubmit, disabled?, windowMs? })`
+
+The single implementation of Wispr auto-send. `GameTextarea` wraps it; modes with their own textarea UI call it directly.
+
+```tsx
+const autoSend = useWisprAutoSend({
+  value: transcript,
+  onSubmit: () => void submitAnswer(),
+  disabled: busy || answerStatus !== "idle",
+});
+
+<textarea
+  value={transcript}
+  onChange={e => setTranscript(e.target.value)}
+  onKeyDown={e => {
+    if (e.key === "Escape") { autoSend.cancel(); setTranscript(""); autoSend.resetLength(); return; }
+    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); autoSend.submit(); }
+  }}
+/>
+{autoSend.pending && <AutoSendBar progress={autoSend.progress} />}
+```
+
+Returns `{ pending, progress, cancel, submit, notifySent, resetLength }`:
+
+| Member | Use |
+|---|---|
+| `pending` / `progress` | Drive `<AutoSendBar>` (or your own countdown). `progress` runs 1 → 0. |
+| `submit()` | Manual send (Enter / button). Pre-empts a pending window and records the guard. |
+| `cancel()` | Drop a pending send (Esc, timer expiry, question ended). Does not clear text. |
+| `notifySent()` | Call when a send happens outside the hook, so the 700ms guard still applies. |
+| `resetLength()` | Call after clearing the input, so the next paste isn't measured against a stale length. |
+
+**Behavior:** a `value` growth of ≥3 chars in one update (a paste — i.e. Wispr dictation) opens a ~1.5s cancelable window, then calls `onSubmit(value)`. Typing never auto-sends. A send within the last 700ms suppresses the next auto-send. `windowMs` accepts a number or `(value) => number` to vary the window — `WordDrillGame` and `TriviaGame2` shorten it to 1000ms when the answer already fuzzy-matches. Don't pass it without that kind of reason.
+
+### `<AutoSendBar progress={...} theme? />` *(in `sharedGameComponents.tsx`)*
+
+The countdown bar + "Esc to cancel" hint. Render only while `autoSend.pending`. `theme="light"` for white UIs.
+
+---
+
+## Config — `config.ts`
+
+```ts
+API_BASE              // VITE_API_BASE_URL or http://localhost:8000
+LOCALE_MAP            // { es: "es-MX", id: "id-ID", en: "en-US" }
+DEFAULT_LOCALE        // "es-MX"
+localeFor(langCode)   // code → locale, falling back to Spanish
+```
+
+Use `apiBase = API_BASE` as the prop default and `localeFor(code)` for locales. Don't re-declare either inline — that duplication is what this module exists to end.
+
+---
+
 ## Types — `sharedGameUtils.ts`
 
 ```ts
@@ -228,10 +306,10 @@ type SharedHistoryEntry = {
 ## Utility Functions — `sharedGameUtils.ts`
 
 ### `checkFuzzyMatch(userAnswer, accepted[], langCode)`
-Fast local check before calling the LLM. Strips accents, punctuation, and whitespace, then compares. Returns the matched accepted translation or `null`. Always try this first — if it matches, skip the API call entirely.
+Fast local check before calling the LLM. Returns the matched accepted translation or `null`. Always try this first — if it matches, skip the API call entirely. Used by `BattleGame`, `TriviaGame`, `TriviaGame2`, and `WordDrillGame`; it is the only fuzzy matcher — don't write another.
 
 ### `normalizeForMatch(text, langCode)`
-Strips accents, punctuation, whitespace. Used internally by `checkFuzzyMatch`.
+Lowercases, strips accents, turns dashes and punctuation into spaces, drops anything left that isn't printable ASCII, then removes all whitespace. Used internally by `checkFuzzyMatch`. Deliberately aggressive: a match must never hinge on accents, punctuation, or spacing.
 
 ### `restoreAccentsInTokens(tokens, acceptedTranslations, langCode)`
 Call this on correction tokens returned by the LLM before rendering. The LLM strips accents; this restores them by matching against the accepted translations list.
@@ -297,27 +375,6 @@ POST /api/trivia/audio
 → { audio_file: "/battle_audio/..." }
 ```
 
-Backend caches generated files — the same text/locale pair is only generated once. `HistoryLogEntry` calls this automatically. For live playback, maintain your own cache — **there is no `useAudioPlayer` hook yet**; every mode below currently pastes a variant of this snippet in place (`WordDrillGame.tsx`, `TriviaGame.tsx`, `MessengerChat.tsx`, `StoryCardsGame.tsx`). If you're adding a mode, copy this pattern for now, but treat it as a stopgap: a shared `useAudioPlayer(apiBase)` hook wrapping fetch-cache-play-stop should eventually replace all of these (see CLAUDE.md's Shared Conventions table) — if you build it, migrate the existing copies and delete this snippet in favor of a usage example.
+Backend caches generated files — the same text/locale pair is only generated once. Use `useAudioPlayer` (above) rather than calling this endpoint by hand; it adds a client-side cache on top, so a repeat play costs no request at all.
 
-```ts
-const audioCacheRef = useRef<Map<string, string>>(new Map());
-
-async function fetchAndPlayAudio(text: string, locale: string) {
-  const key = `${locale}:${text}`;
-  let url = audioCacheRef.current.get(key);
-  if (!url) {
-    const data = await fetch(`${apiBase}/api/trivia/audio`, {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text, locale }),
-    }).then(r => r.json());
-    url = `${apiBase}${data.audio_file}`;
-    audioCacheRef.current.set(key, url);
-  }
-  currentAudioRef.current?.pause();
-  const audio = new Audio(url);
-  currentAudioRef.current = audio;
-  audio.play().catch(() => {});
-}
-```
-
-Locale strings: `"es-MX"` for Spanish, `"id-ID"` for Indonesian, `"en-US"` for English.
+Locale strings come from `config.ts` — call `localeFor(langCode)` instead of writing `"es-MX"` inline.

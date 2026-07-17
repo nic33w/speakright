@@ -2,6 +2,9 @@
 // Full component with card-replacement highlight + +points animation
 import React, { useEffect, useState, useRef } from "react";
 import CARDS_DECK_150_RAW from './cards_deck_150.json';
+import { API_BASE, LOCALE_MAP, localeFor } from "./config";
+import { useAudioPlayer, useWisprAutoSend } from "./sharedGameHooks";
+import { AutoSendBar } from "./sharedGameComponents";
 
 type LangSpec = { code: string; name: string };
 
@@ -36,9 +39,6 @@ const LANG_OPTIONS: LangSpec[] = [
 
 const CARD_DECK_150: Card2[] = CARDS_DECK_150_RAW as Card2[];
 
-const MIN_AUTO_SEND_LENGTH = 8; // characters
-const AUTO_SEND_DELAY_MS = 1200; // debounce delay after typing stops
-
 // small seed deck (you should move to cards.ts if you want a central deck)
 const CARD_DECK: Card[] = [
   { id: "c_camino", type: "spanish_word", value: "camino", display_text: "camino", points: 5 },
@@ -71,12 +71,8 @@ function drawCards2(deck: Card2[], count = 7) {
 }
 
 function getHintForLearningLang(card: Card2, learningCode: string): string {
-  const hintMap: Record<string, keyof Card2["hints"]> = {
-    "es": "es-MX",
-    "id": "id-ID",
-    "en": "en-US"
-  };
-  const hintKey = hintMap[learningCode] || "en-US";
+  // Card hints are keyed by locale, so LOCALE_MAP doubles as the lookup.
+  const hintKey = (LOCALE_MAP[learningCode] ?? "en-US") as keyof Card2["hints"];
   return card.hints[hintKey] || card.text_en;
 }
 
@@ -92,7 +88,7 @@ type StoryCardsGameProps = {
 };
 
 export default function StoryCardsGame({
-  apiBase = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000",
+  apiBase = API_BASE,
   fluent: initialFluent,
   learning: initialLearning,
   onBack,
@@ -118,9 +114,6 @@ export default function StoryCardsGame({
 
   const [transcript, setTranscript] = useState<string>("");
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
-  const autoSendTimer = useRef<number | null>(null);
-  const lastSentRef = useRef<number>(0);
-  const previousTranscriptLengthRef = useRef<number>(0);
   const [busy, setBusy] = useState(false);
   const [isPasteTarget, setIsPasteTarget] = useState(false);
 
@@ -135,8 +128,14 @@ export default function StoryCardsGame({
   // State for tracking which side of "Show More" button is hovered (left=normal, right=no spaces)
   const [showMoreHoverSide, setShowMoreHoverSide] = useState<'left' | 'right' | null>(null);
 
+  const autoSend = useWisprAutoSend({
+    value: transcript,
+    onSubmit: () => void submitTurn(),
+    disabled: busy,
+  });
+
   // hover playback control refs
-  const currentAudioRef = useRef<HTMLAudioElement | null>(null);
+  const audioPlayer = useAudioPlayer(apiBase);
   const hoverTimerRef = useRef<number | null>(null);
   const isHoveringRef = useRef<boolean>(false);
   const historyScrollRef = useRef<HTMLDivElement | null>(null);
@@ -208,38 +207,6 @@ export default function StoryCardsGame({
     }
     void fetchConfig();
   }, [apiBase]);
-
-  // auto-send logic (debounced for typing, immediate for Wispr)
-  useEffect(() => {
-    if (autoSendTimer.current) {
-      window.clearTimeout(autoSendTimer.current);
-      autoSendTimer.current = null;
-    }
-    if (transcript.length >= MIN_AUTO_SEND_LENGTH) {
-      // Detect if this is Wispr input (large chunk added at once) vs typing (gradual)
-      const lengthIncrease = transcript.length - previousTranscriptLengthRef.current;
-      const isWisprInput = lengthIncrease >= 3; // 3+ chars added at once = likely Wispr
-      const delay = isWisprInput ? 100 : AUTO_SEND_DELAY_MS; // 100ms for Wispr, 1200ms for typing
-
-      autoSendTimer.current = window.setTimeout(() => {
-        const now = Date.now();
-        if (now - lastSentRef.current > 700) {
-          void submitTurn();
-        }
-      }, delay);
-    }
-
-    // Update previous length for next comparison
-    previousTranscriptLengthRef.current = transcript.length;
-
-    return () => {
-      if (autoSendTimer.current) {
-        window.clearTimeout(autoSendTimer.current);
-        autoSendTimer.current = null;
-      }
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [transcript]);
 
   useEffect(() => {
     function onPaste(e: ClipboardEvent) {
@@ -383,7 +350,7 @@ export default function StoryCardsGame({
     const text = transcript.trim();
     if (!text || text.length < 2) return;
 
-    lastSentRef.current = Date.now();
+    autoSend.notifySent();
     setBusy(true);
 
     try {
@@ -439,7 +406,7 @@ export default function StoryCardsGame({
         for (const a of data.audio_files) audioList.push({ purpose: a.purpose, audio_file: a.audio_file, lang: a.lang });
       } else if (data.audio_file_en || data.audio_file_learning) {
         if (data.audio_file_en) audioList.push({ purpose: "native_translation", audio_file: data.audio_file_en, lang: "en-US" });
-        if (data.audio_file_learning) audioList.push({ purpose: "corrected_sentence", audio_file: data.audio_file_learning, lang: learning.code === "es" ? "es-MX" : (learning.code === "id" ? "id-ID" : "en-US") });
+        if (data.audio_file_learning) audioList.push({ purpose: "corrected_sentence", audio_file: data.audio_file_learning, lang: localeFor(learning.code) });
       } else if (data.audio_chunks && Array.isArray(data.audio_chunks)) {
         for (const c of data.audio_chunks) audioList.push({ purpose: c.purpose, audio_file: c.audio_file, lang: c.lang });
       }
@@ -454,7 +421,9 @@ export default function StoryCardsGame({
       for (const a of playOrder) {
         if (!a || !a.audio_file) continue;
         const url = a.audio_file.startsWith("http") ? a.audio_file : `${apiBase}${a.audio_file}`;
-        await playAudioUrl(url);
+        // A stop (hover elsewhere, navigation) ends the sequence rather than
+        // letting the remaining clips fight whatever started playing.
+        if (!await audioPlayer.playUrl(url)) break;
       }
 
       // update visible cards if backend suggested new ones (server authoritative)
@@ -465,7 +434,7 @@ export default function StoryCardsGame({
       }
 
       setTranscript("");
-      previousTranscriptLengthRef.current = 0; // Reset after submit
+      autoSend.resetLength(); // Reset after submit
     } catch (e) {
       console.error(e);
       alert("Turn failed — see console.");
@@ -474,62 +443,11 @@ export default function StoryCardsGame({
     }
   }
 
-  function playAudioUrl(url: string) {
-    return new Promise<void>((resolve) => {
-      try {
-        const audio = new Audio(url);
-        audio.onended = () => resolve();
-        audio.onerror = () => resolve();
-        audio.play().catch(() => resolve());
-      } catch (e) {
-        resolve();
-      }
-    });
-  }
-
   // hover/preview helpers (improved to continue to learning audio)
   function stopCurrentAudio() {
-    try {
-      isHoveringRef.current = false;
-      const a = currentAudioRef.current;
-      if (a) {
-        a.pause();
-        a.currentTime = 0;
-      }
-    } catch (e) {
-      // ignore
-    } finally {
-      currentAudioRef.current = null;
-      setHoverIndex(null);
-    }
-  }
-
-  function playAudioElement(url: string): Promise<void> {
-    return new Promise((resolve) => {
-      try {
-        if (currentAudioRef.current) {
-          try { currentAudioRef.current.pause(); currentAudioRef.current.currentTime = 0; } catch (e) {}
-          currentAudioRef.current = null;
-        }
-        const audio = new Audio(url);
-        currentAudioRef.current = audio;
-        audio.onended = () => {
-          currentAudioRef.current = null;
-          resolve();
-        };
-        audio.onerror = () => {
-          currentAudioRef.current = null;
-          resolve();
-        };
-        audio.play().catch(() => {
-          currentAudioRef.current = null;
-          resolve();
-        });
-      } catch (e) {
-        currentAudioRef.current = null;
-        resolve();
-      }
-    });
+    isHoveringRef.current = false;
+    audioPlayer.stop();
+    setHoverIndex(null);
   }
 
   async function startHoverPlayForHistory(h: any, idx: number, mode: 'both' | 'learning' = 'both') {
@@ -540,7 +458,7 @@ export default function StoryCardsGame({
       for (const a of h.audio_files) audioList.push({ audio_file: a.audio_file, lang: a.lang, purpose: a.purpose });
     } else if (h.audio_file_en || h.audio_file_learning) {
       if (h.audio_file_en) audioList.push({ audio_file: h.audio_file_en, lang: "en-US", purpose: "native_translation" });
-      if (h.audio_file_learning) audioList.push({ audio_file: h.audio_file_learning, lang: learning.code === "es" ? "es-MX" : (learning.code === "id" ? "id-ID" : "en-US"), purpose: "corrected_sentence" });
+      if (h.audio_file_learning) audioList.push({ audio_file: h.audio_file_learning, lang: localeFor(learning.code), purpose: "corrected_sentence" });
     } else if (Array.isArray(h.audio_chunks) && h.audio_chunks.length) {
       for (const c of h.audio_chunks) audioList.push({ audio_file: c.audio_file ?? c.file ?? c.src, lang: c.lang, purpose: c.purpose });
     }
@@ -567,7 +485,7 @@ export default function StoryCardsGame({
         if (!isHoveringRef.current) break;
         const url = a.audio_file.startsWith("http") ? a.audio_file : `${apiBase}${a.audio_file}`;
         // eslint-disable-next-line no-await-in-loop
-        await playAudioElement(url);
+        if (!await audioPlayer.playUrl(url)) break;
         if (!isHoveringRef.current) break;
       }
     } catch (e) {
@@ -590,7 +508,7 @@ export default function StoryCardsGame({
         for (const a of h.audio_files) audioList.push({ purpose: a.purpose, audio_file: a.audio_file, lang: a.lang });
     } else if (h.audio_file_en || h.audio_file_learning) {
         if (h.audio_file_en) audioList.push({ purpose: "native_translation", audio_file: h.audio_file_en, lang: "en-US" });
-        if (h.audio_file_learning) audioList.push({ purpose: "corrected_sentence", audio_file: h.audio_file_learning, lang: learning.code === "es" ? "es-MX" : (learning.code === "id" ? "id-ID" : "en-US") });
+        if (h.audio_file_learning) audioList.push({ purpose: "corrected_sentence", audio_file: h.audio_file_learning, lang: localeFor(learning.code) });
     } else if (Array.isArray(h.audio_chunks) && h.audio_chunks.length) {
         for (const c of h.audio_chunks) {
         audioList.push({ purpose: c.purpose, audio_file: c.audio_file ?? c.file ?? c.src, lang: c.lang });
@@ -612,7 +530,7 @@ export default function StoryCardsGame({
         if (!a || !a.audio_file) continue;
         const url = a.audio_file.startsWith("http") ? a.audio_file : `${apiBase}${a.audio_file}`;
         // eslint-disable-next-line no-await-in-loop
-        await playAudioUrl(url);
+        if (!await audioPlayer.playUrl(url)) break;
         }
     } catch (e) {
         console.error("Error during history playback", e);
@@ -638,7 +556,7 @@ export default function StoryCardsGame({
       audioList.push({
         purpose: "corrected_sentence",
         audio_file: h.audio_file_learning,
-        lang: learning.code === "es" ? "es-MX" : (learning.code === "id" ? "id-ID" : "en-US")
+        lang: localeFor(learning.code)
       });
     } else if (Array.isArray(h.audio_chunks) && h.audio_chunks.length) {
       for (const c of h.audio_chunks) {
@@ -658,7 +576,7 @@ export default function StoryCardsGame({
         const url = corrected.audio_file.startsWith("http")
           ? corrected.audio_file
           : `${apiBase}${corrected.audio_file}`;
-        await playAudioUrl(url);
+        await audioPlayer.playUrl(url);
       }
     } catch (e) {
       console.error("Error during learning audio playback", e);
@@ -1039,12 +957,21 @@ export default function StoryCardsGame({
               boxShadow: '0 -2px 8px rgba(0,0,0,0.1)'
             }}>
               <div style={{ marginBottom: 6, color: '#666', fontSize: 13 }}>
-                Hold CTRL + WIN and Speak (Wispr will fill or paste transcript below). Auto-send after pause.
+                Hold CTRL + WIN and Speak (Wispr will fill or paste transcript below). Auto-sends shortly after — Esc cancels.
               </div>
               <textarea
                 ref={textareaRef}
                 value={transcript}
                 onChange={(e) => setTranscript(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Escape') {
+                    autoSend.cancel();
+                    setTranscript('');
+                    autoSend.resetLength();
+                    return;
+                  }
+                  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); autoSend.submit(); }
+                }}
                 onMouseEnter={(e) => { e.currentTarget.focus(); setIsPasteTarget(true); }}
                 onMouseLeave={() => setIsPasteTarget(false)}
                 placeholder={`Speak now in ${learning.name} (Wispr → this box) or type a sentence`}
@@ -1061,9 +988,10 @@ export default function StoryCardsGame({
                   outline: 'none',
                 }}
               />
+              {autoSend.pending && <AutoSendBar progress={autoSend.progress} theme="light" />}
               <div style={{ marginTop: 8, display: 'flex', gap: 8 }}>
                 <button
-                  onClick={() => void submitTurn()}
+                  onClick={autoSend.submit}
                   disabled={busy}
                   style={{ padding: '8px 16px' }}
                 >

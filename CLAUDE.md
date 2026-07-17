@@ -76,7 +76,7 @@ Shared backend endpoints used by multiple modes: `/api/config` (mock-mode flag f
 
 **`usage_tracker.py`** — tracks spend against `MAX_AZURE_CHARS = 500_000` chars/month and `MAX_OPENAI_BUDGET_CENTS = 1000.0` ($10), surfaced via `/api/usage` and the `UsageDiagnostics.tsx` battery bars shown on every screen.
 
-**Frontend shared layer** — `sharedGameUtils.ts` (types + pure functions) and `sharedGameComponents.tsx` (React components), documented in `frontend/src/SHARED_COMPONENTS.md`. **Import from these — do not copy.** Adoption is uneven today (see Shared Conventions below); new code should use the shared exports, and if you touch a mode still using a local copy, prefer migrating it over patching the duplicate.
+**Frontend shared layer** — `config.ts` (`API_BASE`, `LOCALE_MAP`/`localeFor`), `sharedGameUtils.ts` (types + pure functions), `sharedGameHooks.ts` (`useAudioPlayer`, `useWisprAutoSend`), and `sharedGameComponents.tsx` (React components), documented in `frontend/src/SHARED_COMPONENTS.md`. **Import from these — do not copy.** Hooks are a separate file from components because Fast Refresh requires component files to export only components. Every active mode now imports the shared versions of auto-send, audio, fuzzy matching, apiBase, and locales — there are no per-mode duplicates left to migrate, so a new duplicate is a regression.
 
 ## Data files
 
@@ -102,16 +102,16 @@ Shared backend endpoints used by multiple modes: `/api/config` (mock-mode flag f
 
 | Invariant | Implementation | Adopted by |
 |---|---|---|
-| Wispr auto-send timing (paste of ≥3 chars → send after ~1.5s pending window; guard 700ms since last send) | `GameTextarea` component, `sharedGameComponents.tsx` | `MessengerChat.tsx` only. **Not migrated**: `BattleGame.tsx`, `GuessingGame.tsx`, `StoryCardsGame.tsx`, `TriviaGame.tsx`, `WordDrillGame.tsx`, `trivia2/TriviaGame2.tsx` each have their own copy |
-| Never penalize accents/punctuation/capitalization | Stated in the `check_trivia_answer` prompt (`llm_call.py`) and quiz-candidate rules (`game_backend.py`); normalization helpers `normalizeForMatch` (frontend, `sharedGameUtils.ts`) | Backend has 3 near-identical normalize functions (`_normalize_for_llm`, `normalize_for_match`, `normalize_answer`) — not yet consolidated |
-| Fuzzy-match before calling the LLM | `checkFuzzyMatch`, `sharedGameUtils.ts` | Re-implemented locally in `BattleGame.tsx`, `TriviaGame.tsx`, `trivia2/TriviaGame2.tsx` — **not migrated** |
-| Audio fetch/cache/play | Manual pattern documented in `SHARED_COMPONENTS.md` (no hook yet — `useAudioPlayer` does not exist) | Each of `WordDrillGame.tsx`, `TriviaGame.tsx`, `MessengerChat.tsx`, `StoryCardsGame.tsx` has its own cache `Map` |
-| `apiBase` default (`VITE_API_BASE_URL` env or `http://localhost:8000`) | No shared config module yet — repeated inline in ~9 files | `UsageDiagnostics.tsx` hardcodes its own copy instead |
-| Locale map (`es`→`es-MX`, `id`→`id-ID`, `en`→`en-US`) | No shared module yet | Repeated inline in `MessengerChat.tsx`, `game_backend.py`, `llm_call.py` |
+| Wispr auto-send timing (paste of ≥3 chars → send after ~1.5s cancelable window; typing never auto-sends; guard 700ms since last send) | `useWisprAutoSend` hook, `sharedGameHooks.ts`; `AutoSendBar` renders the countdown; `GameTextarea` wraps both | **All 7 modes.** `MessengerChat.tsx` via `GameTextarea`; `BattleGame.tsx`, `GuessingGame.tsx`, `StoryCardsGame.tsx`, `TriviaGame.tsx`, `WordDrillGame.tsx`, `trivia2/TriviaGame2.tsx` call the hook directly and keep only their own textarea markup |
+| Never penalize accents/punctuation/capitalization | Stated in the `check_trivia_answer` prompt (`llm_call.py`) and quiz-candidate rules (`game_backend.py`); normalization helper `normalizeForMatch` (frontend, `sharedGameUtils.ts`) | Frontend consolidated. Backend still has 3 near-identical normalize functions (`_normalize_for_llm`, `normalize_for_match`, `normalize_answer`) — not yet consolidated |
+| Fuzzy-match before calling the LLM | `checkFuzzyMatch`, `sharedGameUtils.ts` | **All 4 checking modes**: `BattleGame.tsx`, `TriviaGame.tsx`, `trivia2/TriviaGame2.tsx`, `WordDrillGame.tsx` |
+| Audio fetch/cache/play | `useAudioPlayer(apiBase)` hook, `sharedGameHooks.ts` — client-side cache keyed `locale:text`, one player per component instance | **All audio modes**: `WordDrillGame.tsx`, `TriviaGame.tsx`, `MessengerChat.tsx`, `StoryCardsGame.tsx`, and `HistoryLogEntry` |
+| `apiBase` default (`VITE_API_BASE_URL` env or `http://localhost:8000`) | `API_BASE`, `frontend/src/config.ts` | Every mode + `UsageDiagnostics.tsx` + `HomeScreen.tsx`. Only legacy `ChatWithWispr.tsx` still has its own copy |
+| Locale map (`es`→`es-MX`, `id`→`id-ID`, `en`→`en-US`) | `LOCALE_MAP` / `localeFor()`, `frontend/src/config.ts` | All frontend modes. Backend still repeats it inline in `game_backend.py` and `llm_call.py` — keep the three in sync |
 | Casual register per language (Indonesian `-kah`/`aja` vs `saja`, Spanish Latin American/Mexican lean) | `_language_style_instruction()`, `llm_call.py`; also checked in `check_trivia_answer`'s `register_too_formal` feedback key | Backend-only, single source — good, keep it that way |
 | STT/ASR tolerance rules | Inline in relevant LLM prompts (`llm_call.py`) | No shared prompt-fragment module yet |
 
-**"Import, never copy" applies to `sharedGameComponents.tsx` / `sharedGameUtils.ts`.** When building a new mode, check `SHARED_COMPONENTS.md` first for an existing component/util before writing one. Do not tell a future agent to "copy constants from BattleGame.tsx" — that instruction is outdated; `FEEDBACK_MAP`, `FEEDBACK_COLORS`, `FEEDBACK_LABELS`, `HINT_COLORS`, `checkFuzzyMatch`, `normalizeForMatch`, `calculateDistance`, `distanceToOpacity`, `tokenizeWithHints`, `diffExampleVsUser` all live in `sharedGameUtils.ts` — import them.
+**"Import, never copy" applies to `config.ts` / `sharedGameUtils.ts` / `sharedGameHooks.ts` / `sharedGameComponents.tsx`.** When building a new mode, check `SHARED_COMPONENTS.md` first for an existing component/hook/util before writing one. Do not tell a future agent to "copy constants from BattleGame.tsx" — that instruction is outdated; `FEEDBACK_MAP`, `FEEDBACK_COLORS`, `FEEDBACK_LABELS`, `HINT_COLORS`, `checkFuzzyMatch`, `normalizeForMatch`, `calculateDistance`, `distanceToOpacity`, `tokenizeWithHints`, `diffExampleVsUser` all live in `sharedGameUtils.ts`; `useAudioPlayer` and `useWisprAutoSend` in `sharedGameHooks.ts`; `API_BASE` and `localeFor` in `config.ts` — import them.
 
 See `frontend/src/SHARED_COMPONENTS.md` for full component/util API reference (props, types, request/response shapes for `/api/worddrill/check`, `/api/battle/check`, `/api/trivia/audio`).
 
@@ -125,18 +125,18 @@ See `frontend/src/SHARED_COMPONENTS.md` for full component/util API reference (p
 
 1. Add the mode key to the union type in **3 places**: `App.tsx` (state type + `handleSelectMode` param type) and `HomeScreen.tsx` (`onSelectMode` prop type). There is no shared registry yet — all three must be edited by hand and kept in sync.
 2. Add a card to `HomeScreen.tsx` and a render block to `App.tsx`.
-3. Use `sharedGameComponents.tsx`/`sharedGameUtils.ts` for textarea input, feedback badges, correction diffs, hints, and history log — see `SHARED_COMPONENTS.md`. Don't hand-roll auto-send timing or fuzzy matching; use `GameTextarea` and `checkFuzzyMatch`.
+3. Use the shared layer for textarea input, feedback badges, correction diffs, hints, and history log — see `SHARED_COMPONENTS.md`. Don't hand-roll auto-send timing, audio caching, fuzzy matching, apiBase, or locales; use `GameTextarea` (or `useWisprAutoSend` + `AutoSendBar` if you need custom chrome), `useAudioPlayer`, `checkFuzzyMatch`, and `config.ts`.
 4. Decide the audio pattern up front (live/cached/static — see Architecture above) based on whether the content is a closed, reusable set.
 5. If the mode should track usage, call `/api/usage/session/start`.
 
 ## Common mode features (reference spec)
 
-The following is the intended UX spec for a fully-built mode (textarea behavior, feedback area, history log, hints). It describes the target design, not every mode's current state — `pronounblitz` and `numbers` in particular are far from this. When building or extending a mode, use `sharedGameComponents.tsx`/`sharedGameUtils.ts` (per Shared Conventions above) to implement it — do not hand-write these behaviors from scratch, and do not copy from `BattleGame.tsx`.
+The following is the intended UX spec for a fully-built mode (textarea behavior, feedback area, history log, hints). It describes the target design, not every mode's current state — `pronounblitz` and `numbers` in particular are far from this. When building or extending a mode, use the shared layer (per Shared Conventions above) to implement it — do not hand-write these behaviors from scratch, and do not copy from `BattleGame.tsx`.
 
 ### 1. Textarea Input
 - **Auto-focus**: focuses textarea when a sentence/prompt exists, not busy, answer not yet accepted
 - **Hover-focus**: `onMouseEnter` focuses textarea if not busy/disabled
-- **Wispr auto-send**: on a growth of ≥3 chars in one update (paste), start a ~1.5s pending-send window (visually indicated); guard against double-send within 700ms of the last send — this is exactly what `GameTextarea` implements
+- **Wispr auto-send**: on a growth of ≥3 chars in one update (paste), start a ~1.5s pending-send window (visually indicated); typing does not auto-send; guard against double-send within 700ms of the last send — this is exactly what `useWisprAutoSend` implements (and `GameTextarea` wraps)
 - **Manual send**: Enter submits, Shift+Enter inserts newline, Escape cancels a pending auto-send and clears
 - **Clear button**: clears input, re-focuses
 - **Skip button**: shows correct answer, adds to history as skipped, enables Next

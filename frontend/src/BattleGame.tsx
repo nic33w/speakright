@@ -1,10 +1,11 @@
 // BattleGame.tsx
 // Battle mode: conversational battle with translation challenges
 import React, { useEffect, useState, useRef } from "react";
-import { normalizeNumberTokens } from "./numUtils";
-import { HINT_COLORS, FEEDBACK_MAP, FEEDBACK_COLORS, FEEDBACK_LABELS, tokenizeWithHints, diffExampleVsUser, calculateDistance, distanceToOpacity } from "./sharedGameUtils";
+import { HINT_COLORS, FEEDBACK_MAP, FEEDBACK_COLORS, FEEDBACK_LABELS, tokenizeWithHints, diffExampleVsUser, calculateDistance, distanceToOpacity, checkFuzzyMatch } from "./sharedGameUtils";
 import type { HintItem, CorrectionToken, FeedbackIssue } from "./sharedGameUtils";
-import { FeedbackBadges, CorrectionTokens } from "./sharedGameComponents";
+import { FeedbackBadges, CorrectionTokens, AutoSendBar } from "./sharedGameComponents";
+import { useWisprAutoSend } from "./sharedGameHooks";
+import { API_BASE } from "./config";
 import BATTLE_CONV_CAFE from './battle_conversations_es.json';
 import BATTLE_CONV_MARKET from './battle_conversations_es_2.json';
 import BATTLE_CONV_NEIGHBOR from './battle_conversations_es_3.json';
@@ -118,7 +119,6 @@ type BattleGameProps = {
 };
 
 const TIMER_DURATION = 30;
-const MIN_AUTO_SEND_LENGTH = 2;
 const BASE_DAMAGE: Record<Difficulty, number> = { easy: 10, medium: 20, hard: 30 };
 const HINT_PENALTY = 2;
 const MIN_DAMAGE = 5;
@@ -396,7 +396,7 @@ function delay(ms: number): Promise<void> {
 }
 
 export default function BattleGame({
-  apiBase = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000",
+  apiBase = API_BASE,
   fluent: initialFluent = { code: "en", name: "English" },
   learning: initialLearning = { code: "es", name: "Spanish" },
   onBack,
@@ -464,15 +464,18 @@ export default function BattleGame({
   const timerExpiredRef = useRef(false);
   const historyEndRef = useRef<HTMLDivElement | null>(null);
   const expandTimerRef = useRef<number | null>(null);
-  const autoSendTimer = useRef<number | null>(null);
-  const lastSentRef = useRef<number>(0);
-  const previousTranscriptLengthRef = useRef<number>(0);
   const defendResolveRef = useRef<((correct: boolean) => void) | null>(null);
   const playerHealthRef = useRef(PLAYER_MAX_HP);
   const defendAudioRef = useRef<HTMLAudioElement | null>(null);
   const enemyLogAudioRef = useRef<HTMLAudioElement | null>(null);
   const [arenaPlayingHint, setArenaPlayingHint] = useState<{ key: string; variant: number } | null>(null);
   const arenaAudioRef = useRef<HTMLAudioElement | null>(null);
+
+  const autoSend = useWisprAutoSend({
+    value: transcript,
+    onSubmit: () => void submitAnswer(),
+    disabled: !timerActive || !(selectedDifficulty || freeformMode),
+  });
 
   // Active conversation (set after selection)
   const conversation = selectedConversation;
@@ -571,38 +574,6 @@ export default function BattleGame({
     return () => window.removeEventListener("keydown", handleKeyDown);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [freeformMode, selectedDifficulty, gamePhase, currentRoundIndex]);
-
-  // Auto-send logic (Wispr bulk input only — typing requires Enter)
-  useEffect(() => {
-    if (autoSendTimer.current) {
-      window.clearTimeout(autoSendTimer.current);
-      autoSendTimer.current = null;
-    }
-
-    if (transcript.length >= MIN_AUTO_SEND_LENGTH && timerActive && (selectedDifficulty || freeformMode)) {
-      const lengthIncrease = transcript.length - previousTranscriptLengthRef.current;
-      const isWisprInput = lengthIncrease >= 3;
-
-      if (isWisprInput) {
-        autoSendTimer.current = window.setTimeout(() => {
-          const now = Date.now();
-          if (now - lastSentRef.current > 700) {
-            void submitAnswer();
-          }
-        }, 100);
-      }
-    }
-
-    previousTranscriptLengthRef.current = transcript.length;
-
-    return () => {
-      if (autoSendTimer.current) {
-        window.clearTimeout(autoSendTimer.current);
-        autoSendTimer.current = null;
-      }
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [transcript]);
 
   // Route Wispr paste to main textarea when nothing is focused
   useEffect(() => {
@@ -859,20 +830,6 @@ export default function BattleGame({
     }, 100);
   }
 
-  function checkFuzzyMatch(userAnswer: string, acceptedList: string[]): string | null {
-    const normalize = (text: string) =>
-      normalizeNumberTokens(text, initialLearning.code)
-        .toLowerCase()
-        .normalize("NFD").replace(/[\u0300-\u036f]/g, "") // strip accents
-        .replace(/[—–\u2014\u2013]/g, " ")               // em/en dashes → space
-        .replace(/[¡¿!?.,:;"""''()\[\]{}\-]/g, " ")      // common punctuation → space
-        .replace(/[^\x00-\x7f]/g, "")                    // remove any remaining non-ASCII
-        .replace(/\s/g, "");
-
-    const userNorm = normalize(userAnswer);
-    return acceptedList.find(acc => normalize(acc) === userNorm) ?? null;
-  }
-
 
   function renderSentenceWithHints(
     text: string,
@@ -938,7 +895,7 @@ export default function BattleGame({
     const userAnswer = transcript.trim();
     if (!userAnswer || busy || answerStatus === "checking") return;
 
-    lastSentRef.current = Date.now();
+    autoSend.notifySent();
     const pr = currentRound as PlayerRound;
     setBusy(true);
     setAnswerStatus("checking");
@@ -950,7 +907,7 @@ export default function BattleGame({
       // Step 1: fuzzy match across all difficulties
       for (const diff of diffOrder) {
         const opts = pr.options[diff];
-        const matched = checkFuzzyMatch(userAnswer, opts.accepted_translations);
+        const matched = checkFuzzyMatch(userAnswer, opts.accepted_translations, initialLearning.code);
         if (matched !== null) {
           setSelectedDifficulty(diff);
           await handleCorrectAnswer(opts, diff, 1.0, null, null, null, false, null, null, matched);
@@ -1021,7 +978,7 @@ export default function BattleGame({
     const opts = pr.options[selectedDifficulty!];
 
     // Step 1: fuzzy match
-    const matched2 = checkFuzzyMatch(userAnswer, opts.accepted_translations);
+    const matched2 = checkFuzzyMatch(userAnswer, opts.accepted_translations, initialLearning.code);
     if (matched2 !== null) {
       await handleCorrectAnswer(opts, undefined, 1.0, null, null, null, false, null, null, matched2);
       setBusy(false);
@@ -1234,10 +1191,7 @@ export default function BattleGame({
     if (!currentRound || currentRound.speaker !== "player" || timerExpiredRef.current) return;
     timerExpiredRef.current = true;
 
-    if (autoSendTimer.current) {
-      window.clearTimeout(autoSendTimer.current);
-      autoSendTimer.current = null;
-    }
+    autoSend.cancel();
 
     setBusy(true);
     setTranscript("");
@@ -2648,7 +2602,10 @@ export default function BattleGame({
                   onChange={e => setTranscript(e.target.value)}
                   onMouseEnter={() => { textareaRef.current?.focus(); setIsPasteTarget(true); }}
                   onMouseLeave={() => setIsPasteTarget(false)}
-                  onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); void submitAnswer(); } }}
+                  onKeyDown={e => {
+                    if (e.key === "Escape") { autoSend.cancel(); setTranscript(""); autoSend.resetLength(); return; }
+                    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); autoSend.submit(); }
+                  }}
                   placeholder={freeformMode
                     ? `Translate any sentence in ${initialLearning.name}...`
                     : `Hold CTRL + Win and wait for beep to speak or type your translation in ${initialLearning.name}...`}
@@ -2663,8 +2620,9 @@ export default function BattleGame({
                     transition: "border-color 0.15s ease, box-shadow 0.15s ease",
                   }}
                 />
+                {autoSend.pending && <AutoSendBar progress={autoSend.progress} />}
                 <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-                  <button onClick={() => setTranscript("")} disabled={!transcript || busy} style={{
+                  <button onClick={() => { autoSend.cancel(); setTranscript(""); autoSend.resetLength(); }} disabled={!transcript || busy} style={{
                     padding: "8px 16px", fontSize: 14, background: "rgba(255,255,255,0.15)", color: "white",
                     border: "1px solid rgba(255,255,255,0.2)", borderRadius: 6,
                     cursor: transcript && !busy ? "pointer" : "not-allowed", opacity: transcript && !busy ? 1 : 0.4,
@@ -2676,7 +2634,7 @@ export default function BattleGame({
                     opacity: !busy && answerStatus !== "correct" ? 1 : 0.35,
                   }}>Skip</button>
                   <button
-                    onClick={() => void submitAnswer()}
+                    onClick={autoSend.submit}
                     disabled={!transcript || (!timerActive && timerEnabled) || busy}
                     style={{
                       padding: "8px 20px", fontSize: 14, fontWeight: 600,

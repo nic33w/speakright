@@ -98,11 +98,17 @@ export const HINT_COLORS = ["#fbbf24", "#67e8f9", "#86efac", "#c4b5fd", "#f9a8d4
 
 // ── Match normalization ───────────────────────────────────────────────────────
 
+// Aggressively normalizes for comparison: accents, punctuation, dashes, and all
+// whitespace are discarded, so a match never depends on them (see CLAUDE.md
+// "never penalize accents/punctuation/capitalization"). Accents must be stripped
+// before the non-ASCII purge, or accented letters would vanish entirely.
 export function normalizeForMatch(text: string, langCode: string): string {
   return normalizeNumberTokens(text, langCode)
     .toLowerCase()
     .normalize("NFD").replace(/[̀-ͯ]/g, "")
-    .replace(/[¿¡.,!?;:"""'']/g, "")
+    .replace(/[—–]/g, " ")
+    .replace(/[¿¡!?.,:;"“”'‘’()[\]{}-]/g, " ")
+    .replace(/[^ -~]/g, "") // anything left that isn't printable ASCII
     .replace(/\s/g, "");
 }
 

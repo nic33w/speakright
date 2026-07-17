@@ -344,3 +344,13 @@ me gustaría comer pollo con vegetales.
 Me gustaría comer pollo con vegetales.
 
 **Feedback:** ✓ sounds natural
+
+---
+### 2026-07-16 18:10:19  (session: sess_1784250141933)
+
+**You said:**
+¿Qué tal arroz y frijoles?
+
+**Corrected:** ✓ No change
+
+**Feedback:** ✓ sounds natural

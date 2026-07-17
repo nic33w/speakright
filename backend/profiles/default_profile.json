@@ -1,6 +1,6 @@
 {
   "created_at": 1769845610,
-  "last_updated": 1784250413,
+  "last_updated": 1784250612,
   "ui_language": {
     "code": "en",
     "name": "English"
@@ -30,18 +30,10 @@
     "article agreement"
   ],
   "avoid_topics": [],
-  "turn_count": 376,
+  "turn_count": 377,
   "corrections_needed": 194,
   "last_assessment_turn": 0,
   "recent_turns": [
-    {
-      "turn_id": "turn_1782429252427",
-      "user_input": "¿Conoces algún buen chiste?",
-      "corrected_input": "¿Conoces algún buen chiste?",
-      "had_errors": false,
-      "input_intent": "spanish",
-      "timestamp": 1782429262
-    },
     {
       "turn_id": "turn_1782429295252",
       "user_input": "¿Por qué usan Twitter?",
@@ -113,6 +105,14 @@
       "had_errors": false,
       "input_intent": "spanish",
       "timestamp": 1784250413
+    },
+    {
+      "turn_id": "turn_1784250612220",
+      "user_input": "¿Qué tal arroz y frijoles?",
+      "corrected_input": "¿Qué tal arroz y frijoles?",
+      "had_errors": false,
+      "input_intent": "spanish",
+      "timestamp": 1784250619
     }
   ]
 }

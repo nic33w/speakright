@@ -2,6 +2,8 @@
 // Persona-based adaptive language learning chat with Mateo
 import React, { useEffect, useState, useRef } from "react";
 import { GameTextarea, CorrectionTokens } from "./sharedGameComponents";
+import { useAudioPlayer } from "./sharedGameHooks";
+import { API_BASE, localeFor } from "./config";
 import { buildCorrectionTokens } from "./sharedGameUtils";
 import type { CorrectionToken } from "./sharedGameUtils";
 import { PIVOTS } from "./data/sombongo_pivots";
@@ -96,7 +98,6 @@ type MessengerChatProps = {
 };
 
 const SESSION_ID = `sess_${Date.now()}`;
-const LOCALE_MAP: Record<string, string> = { es: "es-MX", id: "id-ID", en: "en-US" };
 
 function loadPivotSet(key: string): Set<string> {
   try { return new Set(JSON.parse(localStorage.getItem(key) ?? '[]') as string[]); } catch { return new Set(); }
@@ -118,41 +119,16 @@ function MessengerChallengePair({
   const [hovered, setHovered] = useState<"native" | "learning" | "audio" | null>(null);
   const isHoveringAudio = useRef(false);
   const isLoopRunning = useRef(false);
-  const currentAudio = useRef<HTMLAudioElement | null>(null);
-  const pendingResolve = useRef<(() => void) | null>(null);
-
-  function stopAudio() {
-    if (currentAudio.current) {
-      currentAudio.current.pause();
-      currentAudio.current.currentTime = 0;
-      currentAudio.current = null;
-    }
-    if (pendingResolve.current) {
-      pendingResolve.current();
-      pendingResolve.current = null;
-    }
-  }
-
-  function playOnce(): Promise<void> {
-    return new Promise((resolve) => {
-      if (!audioUrl) { resolve(); return; }
-      stopAudio();
-      const audio = new Audio(audioUrl);
-      currentAudio.current = audio;
-      pendingResolve.current = resolve;
-      const done = () => { currentAudio.current = null; pendingResolve.current = null; resolve(); };
-      audio.onended = done;
-      audio.onerror = done;
-      audio.play().catch(done);
-    });
-  }
+  // Own player instance: this card's hover-loop must not cut off the turn's chunk playback.
+  const audioPlayer = useAudioPlayer();
 
   async function startAudioLoop() {
     if (isLoopRunning.current) return;
     isLoopRunning.current = true;
     await new Promise(r => setTimeout(r, 500));
     while (isHoveringAudio.current) {
-      await playOnce();
+      if (!audioUrl) break;
+      await audioPlayer.playUrl(audioUrl);
       if (!isHoveringAudio.current) break;
       await new Promise(r => setTimeout(r, 700));
     }
@@ -167,7 +143,7 @@ function MessengerChallengePair({
   function onAudioLeave() {
     setHovered(null);
     isHoveringAudio.current = false;
-    stopAudio();
+    audioPlayer.stop();
   }
 
   function togglePin(zone: "native" | "learning") {
@@ -234,11 +210,12 @@ function MessengerChallengePair({
 }
 
 export default function MessengerChat({
-  apiBase = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000",
+  apiBase = API_BASE,
   fluent = { code: "en", name: "English" },
   learning = { code: "es", name: "Spanish" },
   onBack,
 }: MessengerChatProps) {
+  const audioPlayer = useAudioPlayer(apiBase);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [messages, setMessages] = useState<MessengerMessage[]>([]);
   const [transcript, setTranscript] = useState<string>("");
@@ -514,7 +491,7 @@ export default function MessengerChat({
     await delay(800);
     setIsTyping(true);
 
-    const locale = LOCALE_MAP[learning.code] || "es-MX";
+    const locale = localeFor(learning.code);
     const audioPath = await fetchAudioUrl(pivot.audio_message, locale);
 
     await delay(700);
@@ -535,7 +512,7 @@ export default function MessengerChat({
       }],
     }]);
 
-    if (audioPath) await playAudioUrl(`${apiBase}${audioPath}`);
+    if (audioPath) await audioPlayer.playUrl(`${apiBase}${audioPath}`);
 
     setCurrentSuggestions(pivot.quick_replies);
     setRevealedSuggestionIds(new Set());
@@ -660,13 +637,13 @@ export default function MessengerChat({
       // Generate user sentence audio if enabled (fetch before updating message so we can store URL)
       let userAudioFile: string | undefined;
       if (audioEnabled && data.corrected_input) {
-        const locale = LOCALE_MAP[learning.code] || "es-MX";
+        const locale = localeFor(learning.code);
         const audioPath = await fetchAudioUrl(data.corrected_input, locale);
         if (audioPath) {
           userAudioFile = audioPath;
           // Auto-play for translation mode — user spoke English, play how it sounds in Spanish
           if (data.input_intent === "english") {
-            void playAudioUrl(`${apiBase}${audioPath}`);
+            void audioPlayer.playUrl(`${apiBase}${audioPath}`);
           }
         }
       }
@@ -809,7 +786,7 @@ export default function MessengerChat({
 
       // Play user sentence audio first (if generated), then response audio
       if (userAudioFile) {
-        await playAudioUrl(`${apiBase}${userAudioFile}`);
+        await audioPlayer.playUrl(`${apiBase}${userAudioFile}`);
       }
       await playResponseAudio(data.response_chunks);
 
@@ -828,18 +805,9 @@ export default function MessengerChat({
   async function playResponseAudio(chunks: ResponseChunk[]) {
     for (const chunk of chunks) {
       if (chunk.modality === "audio" && chunk.audio_file && chunk.language === "target") {
-        await playAudioUrl(`${apiBase}${chunk.audio_file}`);
+        await audioPlayer.playUrl(`${apiBase}${chunk.audio_file}`);
       }
     }
-  }
-
-  function playAudioUrl(url: string): Promise<void> {
-    return new Promise((resolve) => {
-      const audio = new Audio(url);
-      audio.onended = () => resolve();
-      audio.onerror = () => resolve(); // Continue even if audio fails
-      audio.play().catch(() => resolve());
-    });
   }
 
   function handleSuggestionClick(suggestion: SuggestedReply) {
@@ -1393,7 +1361,7 @@ export default function MessengerChat({
                           </span>
                           {message.userAudioFile && (
                             <button
-                              onMouseEnter={() => message.userAudioFile && void playAudioUrl(`${apiBase}${message.userAudioFile}`)}
+                              onMouseEnter={() => message.userAudioFile && void audioPlayer.playUrl(`${apiBase}${message.userAudioFile}`)}
                               title="Hear it in Spanish"
                               style={{
                                 background: 'none',
@@ -1481,7 +1449,7 @@ export default function MessengerChat({
                     )}
                     {message.userAudioFile && message.inputIntent !== "english" && (
                       <button
-                        onMouseEnter={() => message.userAudioFile && void playAudioUrl(`${apiBase}${message.userAudioFile}`)}
+                        onMouseEnter={() => message.userAudioFile && void audioPlayer.playUrl(`${apiBase}${message.userAudioFile}`)}
                         title="Replay your sentence"
                         style={{
                           background: 'none',
@@ -1539,7 +1507,7 @@ export default function MessengerChat({
                           </span>
                           {chunk.modality === "audio" && !isStreaming && (
                             <button
-                              onClick={() => chunk.audio_file && playAudioUrl(`${apiBase}${chunk.audio_file}`)}
+                              onClick={() => chunk.audio_file && audioPlayer.playUrl(`${apiBase}${chunk.audio_file}`)}
                               style={{
                                 marginLeft: '8px',
                                 padding: '4px 8px',
@@ -1858,7 +1826,7 @@ export default function MessengerChat({
                     currentlyPlayingSuggestionRef.current = suggestion.id;
                     const playAndRepeat = async () => {
                       if (currentlyPlayingSuggestionRef.current !== suggestion.id) return;
-                      await playAudioUrl(`${apiBase}${url}`);
+                      await audioPlayer.playUrl(`${apiBase}${url}`);
                       if (currentlyPlayingSuggestionRef.current === suggestion.id) {
                         audioRepeatTimeoutRef.current = window.setTimeout(playAndRepeat, 500);
                       }
@@ -1872,7 +1840,7 @@ export default function MessengerChat({
                       playAudioForSuggestion(cached);
                       return;
                     }
-                    const locale = LOCALE_MAP[learning.code] || "es-MX";
+                    const locale = localeFor(learning.code);
                     const audioPath = await fetchAudioUrl(suggestion.text_target, locale);
                     if (audioPath) {
                       suggestionAudioCacheRef.current.set(suggestion.id, audioPath);

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
+import { API_BASE } from "./config";
 
-const API_BASE = "http://localhost:8000";
 const MAX_CHARS = 500_000;
 const SESSION_COLORS = ["#0e7490", "#0891b2", "#06b6d4", "#22d3ee"];
 
