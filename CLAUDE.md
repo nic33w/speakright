@@ -2,285 +2,165 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Project Overview
+## What this app is
 
-SpeakRight is a language learning application focused on Spanish/Indonesian conversational practice with instant structured feedback. The app features two main modes:
+SpeakRight is a personal Spanish/Indonesian speaking-and-listening practice app: the user speaks or types via Wispr (desktop dictation) or typing, an LLM reviews/corrects the sentence and replies, and Azure TTS speaks the target-language text back. Nine playable modes share one FastAPI backend and a common React frontend component layer.
 
-1. **ChatWithWispr** - Conversational practice with sentence-by-sentence translation and audio playback
-2. **StoryCardsGame** - Interactive storytelling using vocabulary/grammar cards
+## Running it
 
-Tech stack:
-- Frontend: React + TypeScript (Vite)
-- Backend: FastAPI (Python)
-- STT: Wispr desktop integration (via clipboard/textarea)
-- TTS: Azure Speech Services
-- LLM: OpenAI API (gpt-4o-mini default)
-
-## Development Commands
-
-### Frontend (in `frontend/` directory)
+**Frontend** (`frontend/`):
 ```bash
-npm install              # Install dependencies
-npm run dev              # Start dev server (http://localhost:5173)
-npm run build            # Build for production
-npm run lint             # Run ESLint
+npm install
+npm run dev      # http://localhost:5173
+npm run build
+npm run lint
 ```
 
-### Backend (in `backend/` directory)
+**Backend** (`backend/`) — **one backend, `game_backend.py`**. `fastapi_wispr_pipeline.py` also exists but is legacy/unreachable — see Mode Inventory.
 ```bash
-pip install -r requirements.txt   # Install dependencies
-python fastapi_wispr_pipeline.py  # Run chat/conversation backend (port 8000)
-python game_backend.py             # Run story cards game backend (port 8000)
+pip install -r requirements.txt
+python game_backend.py     # port 8000 (or: uvicorn game_backend:app --reload --port 8000)
 ```
 
-Note: Only run ONE backend server at a time (they use the same port).
-
-### Environment Setup
-
-Create `backend/.env` with:
+`backend/.env` (git-ignored, real keys already present locally — never print or commit its contents):
 ```
 OPENAI_API_KEY=sk-...
-OPENAI_MODEL=gpt-4o-mini
+OPENAI_MODEL=gpt-4.1-mini        # llm_call.py default if unset; NOT gpt-4o-mini
 AZURE_SPEECH_KEY=...
 AZURE_REGION=...
-AZURE_VOICE_ES=es-MX-JorgeNeural
-AZURE_VOICE_EN=en-US-JennyNeural
-AZURE_VOICE_ID=id-ID-GadisNeural
-MOCK_MODE=0
+AZURE_VOICE_ES=...
+AZURE_VOICE_EN=...
+AZURE_VOICE_ID=...
+MOCK_MODE=0                       # 1 = no API keys needed, silent audio, mock LLM replies
+ENABLE_QUIZZING=0                 # 1 = messenger requests quiz candidates each turn (see Data Files)
 ```
+CORS is wide open (`allow_origins=["*"]` in `game_backend.py`) — there is no origin allowlist to edit when deploying elsewhere.
 
-Set `MOCK_MODE=1` for local testing without API keys (uses mock responses and silent audio).
+## Mode inventory
+
+All modes render from `App.tsx`'s router, selected via `HomeScreen.tsx`. Status reflects what's actually wired into the UI, not what's most-developed.
+
+| Mode key | Component | Status | Backend endpoints | LLM function(s) | Audio pattern |
+|---|---|---|---|---|---|
+| `messenger` | `MessengerChat.tsx` | **Active / main** | `/api/messenger/turn`, `/api/messenger/profile*`, `/api/messenger/premade-start`, `/api/quiz/check`, `/api/quiz/pending`, `/api/quiz/stats` | `call_llm_for_messenger` | Live TTS per chunk, saved to `audio_files/messenger_*` (no cache) |
+| `trivia` | `TriviaGame.tsx` | **Active / main** | `/api/trivia/check`, `/api/trivia/audio` | `check_trivia_answer` (with local fuzzy-match fast path) | Content-hash cache (`audio_files/cache/`) |
+| `worddrill` | `WordDrillGame.tsx` | **Active / main** | `/api/worddrill/*` (words, sentence, sentences/{word}, usecases/{word}, check, chat, freeform) | `check_trivia_answer`, `call_llm_for_grammar_chat`, `call_llm_for_freeform_correction` | Content-hash cache + pre-generated (`scripts/generate_worddrill_audio.py`) |
+| `battle` | `BattleGame.tsx` | Experimental | `/api/battle/check` | `check_trivia_answer` | Pre-generated (`scripts/generate_battle_audio.py`) |
+| `trivia2` (Word Showdown) | `trivia2/TriviaGame2.tsx` | Experimental | `/api/worddrill/*`, `/api/battle/check`, `/api/trivia/audio` | `check_trivia_answer` | Same as worddrill/battle (no dedicated backend route) |
+| `story` | `StoryCardsGame.tsx` | Experimental | `/api/game/start`, `/api/game/turn`, `/api/audio_file/{session}/{filename}` | `call_llm_for_turn` | Live TTS per turn, saved to `audio_files/session_*` (no cache) |
+| `guessing` | `GuessingGame.tsx` | Experimental | `/api/guessing/turn`, `/api/guessing/giveup` | `call_llm_to_pick_secret`, `call_llm_for_guessing_turn` | None currently |
+| `pronounblitz` | `PronounBlitz.tsx` | Experimental | None (no backend calls found) | — | — |
+| `numbers` | `NumberRush.tsx` | **Broken — no audio.** Expects static files at `frontend/public/number_audio/{lang}/{voice}/number_{n}.mp3`; that directory does not exist and no generation script exists. As shipped it silently falls back to a visual digit-matching game. | — | — | Static files (missing) |
+
+**Legacy — do not extend:** `ChatWithWispr.tsx` and `backend/fastapi_wispr_pipeline.py`. `ChatWithWispr` is not imported by `App.tsx` and is unreachable from the UI; the pipeline backend's only client was `ChatWithWispr`. If you're asked to "switch to chat mode" or similar, confirm with the user first — that mode isn't wired up.
+
+Shared backend endpoints used by multiple modes: `/api/config` (mock-mode flag for `HomeScreen`), `/api/usage`, `/api/usage/session/start`, `/api/greetings/random`, `/api/audio_file/greetings/{lang}/{filename}`, `/api/audio_file/{session}/{filename}`.
 
 ## Architecture
 
-### Backend Structure
+**Backend (`game_backend.py`, ~2000 lines, single file — not yet split into routers):**
+- FastAPI app, all routes defined top-level (see Mode Inventory table for the endpoint map)
+- Persona/messenger prompt assembly: `build_layered_prompt()` — 5 layers (system prompt file `prompts/chat_system_prompt.txt`, persona JSON `sombongo` in `PERSONA`, student-model template, last-3-turn context, turn instruction), composed per turn and sent as **one** `responses.create` call via `call_llm_for_messenger`. `prompt_version` is `"v1"` (standard) or `"v2"` (adds a hover-reveal "challenge" sentence — the default in `MessengerChat.tsx`).
+- Quiz candidates are requested from the LLM only when `ENABLE_QUIZZING=1` (default off). Level/profile assessment runs only every 5th turn.
+- Premade scripted conversations: `premade_conversations.json` + `premade_sessions` in-memory dict, served via `/api/messenger/premade-start`.
+- Chat-log-for-review files: `append_chat_log()` writes `chat_log_{lang}.md` per learning language — a running transcript of user input / corrections, meant for manual accuracy review, not consumed by the app.
 
-**Two separate FastAPI backends** (run only one at a time):
+**`llm_call.py`** — all OpenAI calls, one function per feature (see Mode Inventory). `DEFAULT_MODEL = os.getenv("OPENAI_MODEL", "gpt-4.1-mini")`. Each function independently extracts response text, parses JSON, and computes token-usage cost — this boilerplate is duplicated per function (candidate for a shared `_call_openai_json` helper, not yet built). `_language_style_instruction(lang_code)` is the one authoritative place for Spanish/Indonesian register rules — also duplicated (older, unused) in `fastapi_wispr_pipeline.py`.
 
-1. **`fastapi_wispr_pipeline.py`** - Powers ChatWithWispr conversation UI
-   - `/api/transcript` - Splits and translates user input (learning → native language)
-   - `/api/confirm` - Generates corrected pairs + LLM reply with TTS audio
-   - `/api/conversations` - Save/load conversation history
-   - `/api/audio_file/{session_id}/{filename}` - Serves generated audio files
+**`tts_helpers.py`** — Azure TTS wrapper. Default voices come from env (`AZURE_VOICE_ES`/`EN`/`ID`), independently defaulted again in `scripts/generate_worddrill_audio.py` / `generate_battle_audio.py` (which hardcode `id-ID-ArdiNeural` instead of the `tts_helpers.py` default `id-ID-GadisNeural`) — check both before assuming which voice is in play for Indonesian audio, especially cached files. The audio cache key is `text|locale` and does **not** include voice, so regenerating with a different default voice silently mixes speakers in the cache.
 
-2. **`game_backend.py`** - Powers StoryCardsGame
-   - `/api/game/start` - Initialize session with random cards
-   - `/api/game/turn` - Process user transcript, detect card usage, generate corrections + TTS
-   - `/api/audio_file/{session}/{filename}` - Serves audio files
+**Two audio delivery patterns, used inconsistently by mode:**
+1. **Live per-turn generation** — a fresh timestamped file every call, even for repeated text. Used by messenger chunks and story-cards turns. No dedup.
+2. **Content-hash cache** — `get_cached_audio_path()`, files at `audio_files/cache/cached_{lang}_{hash}.wav`. Used by `/api/trivia/audio` (trivia, worddrill, battle, trivia2, premade chunks). Prefer this pattern for anything reused.
+3. **Static pre-generated files** — one-time batch scripts in `backend/scripts/` (`generate_battle_audio.py`, `generate_greeting_audio.py`, `generate_worddrill_audio.py`) writing to `frontend/public/`. Number Rush expects this pattern but its script/files don't exist yet.
 
-**Shared backend modules:**
-- `llm_call.py` - OpenAI integration with structured prompt for card game
-- `tts_helpers.py` - Azure TTS wrapper functions
+**`usage_tracker.py`** — tracks spend against `MAX_AZURE_CHARS = 500_000` chars/month and `MAX_OPENAI_BUDGET_CENTS = 1000.0` ($10), surfaced via `/api/usage` and the `UsageDiagnostics.tsx` battery bars shown on every screen.
 
-Audio files are saved to `backend/audio_files/session_{id}/` and served via FastAPI FileResponse.
+**Frontend shared layer** — `sharedGameUtils.ts` (types + pure functions) and `sharedGameComponents.tsx` (React components), documented in `frontend/src/SHARED_COMPONENTS.md`. **Import from these — do not copy.** Adoption is uneven today (see Shared Conventions below); new code should use the shared exports, and if you touch a mode still using a local copy, prefer migrating it over patching the duplicate.
 
-### Frontend Structure
+## Data files
 
-**Main entry point:** `frontend/src/App.tsx`
-- Currently renders `<StoryCardsGame />` (switch to `<ChatWithWispr />` for conversation mode)
+| Path | Contents | State or content? |
+|---|---|---|
+| `backend/profiles/default_profile.json` | Messenger learner profile: level, weak_points, level_history | Runtime state (grows unbounded; `weak_points` currently has no pruning — expect junk entries) |
+| `backend/quiz_items/default_quiz.json` | Spaced-repetition quiz items | Runtime state |
+| `backend/conversations/session_*.json` | Saved messenger conversations | Runtime state |
+| `backend/user_profile.json` | Battle-mode mistake log | Runtime state |
+| `backend/chat_log_{lang}.md` | Human-readable correction transcript per language | Runtime state (append-only log, not read by the app) |
+| `backend/usage_data.json` | Usage-tracker running totals | Runtime state |
+| `backend/premade_conversations.json` | Scripted messenger openers (3 Spanish scripts; none for Indonesian) | Content |
+| `backend/word_practice_sentences.json`, `_id.json` | Word-drill sentence banks | Content |
+| `frontend/src/*trivia_game.json`, `battle_conversations_*.json`, `cards_deck_150.json` | Trivia/battle/story-cards content banks | Content |
+| `frontend/src/data/sombongo_pivots.ts` | Messenger topic-changer scripts (Spanish-flavored) | Content |
+| `backend/prompts/chat_system_prompt.txt` | Messenger persona system prompt | Content |
+| `backend/audio_files/session_*/`, `messenger_*/` | Per-session live-generated audio | Runtime state (grows unbounded, never cleaned up) |
+| `backend/audio_files/cache/` | Content-hash cached audio | Runtime state (grows unbounded, never evicted) |
 
-**Key components:**
+## Shared conventions
 
-1. **`ChatWithWispr.tsx`** (~900 lines)
-   - Dual-language sentence pairs (native on top, learning below)
-   - Language detection heuristics (Spanish/Indonesian/English)
-   - Translation-check flow: user types in learning language → backend translates → user confirms/edits → LLM generates reply
-   - Audio caching (avoids re-fetching) and sequential playback
-   - Conversation save/load sidebar
-   - Toggle controls: show/hide native, show/hide learning text, show/hide spaces
+**The rule: cross-mode requirements belong in the shared module, not inline in one mode.** If you're asked to change behavior that should hold "for every mode" (accent handling, auto-send timing, audio caching, register rules), implement it in the shared file below and add/update its row here — don't inline it in whichever mode prompted the request. Modes below marked "not migrated" still have their own local copy; if you're touching one of them, prefer migrating to the shared version over patching the duplicate.
 
-2. **`StoryCardsGame.tsx`** (~680 lines)
-   - Card deck management (7 visible cards at a time)
-   - Auto-send on typing pause (1200ms debounce after 8 chars)
-   - Card replacement with highlight animation when cards are used
-   - History sidebar with hover-to-preview audio
-   - Manual card swap functionality
+| Invariant | Implementation | Adopted by |
+|---|---|---|
+| Wispr auto-send timing (paste of ≥3 chars → send after ~1.5s pending window; guard 700ms since last send) | `GameTextarea` component, `sharedGameComponents.tsx` | `MessengerChat.tsx` only. **Not migrated**: `BattleGame.tsx`, `GuessingGame.tsx`, `StoryCardsGame.tsx`, `TriviaGame.tsx`, `WordDrillGame.tsx`, `trivia2/TriviaGame2.tsx` each have their own copy |
+| Never penalize accents/punctuation/capitalization | Stated in the `check_trivia_answer` prompt (`llm_call.py`) and quiz-candidate rules (`game_backend.py`); normalization helpers `normalizeForMatch` (frontend, `sharedGameUtils.ts`) | Backend has 3 near-identical normalize functions (`_normalize_for_llm`, `normalize_for_match`, `normalize_answer`) — not yet consolidated |
+| Fuzzy-match before calling the LLM | `checkFuzzyMatch`, `sharedGameUtils.ts` | Re-implemented locally in `BattleGame.tsx`, `TriviaGame.tsx`, `trivia2/TriviaGame2.tsx` — **not migrated** |
+| Audio fetch/cache/play | Manual pattern documented in `SHARED_COMPONENTS.md` (no hook yet — `useAudioPlayer` does not exist) | Each of `WordDrillGame.tsx`, `TriviaGame.tsx`, `MessengerChat.tsx`, `StoryCardsGame.tsx` has its own cache `Map` |
+| `apiBase` default (`VITE_API_BASE_URL` env or `http://localhost:8000`) | No shared config module yet — repeated inline in ~9 files | `UsageDiagnostics.tsx` hardcodes its own copy instead |
+| Locale map (`es`→`es-MX`, `id`→`id-ID`, `en`→`en-US`) | No shared module yet | Repeated inline in `MessengerChat.tsx`, `game_backend.py`, `llm_call.py` |
+| Casual register per language (Indonesian `-kah`/`aja` vs `saja`, Spanish Latin American/Mexican lean) | `_language_style_instruction()`, `llm_call.py`; also checked in `check_trivia_answer`'s `register_too_formal` feedback key | Backend-only, single source — good, keep it that way |
+| STT/ASR tolerance rules | Inline in relevant LLM prompts (`llm_call.py`) | No shared prompt-fragment module yet |
 
-### Data Flow
+**"Import, never copy" applies to `sharedGameComponents.tsx` / `sharedGameUtils.ts`.** When building a new mode, check `SHARED_COMPONENTS.md` first for an existing component/util before writing one. Do not tell a future agent to "copy constants from BattleGame.tsx" — that instruction is outdated; `FEEDBACK_MAP`, `FEEDBACK_COLORS`, `FEEDBACK_LABELS`, `HINT_COLORS`, `checkFuzzyMatch`, `normalizeForMatch`, `calculateDistance`, `distanceToOpacity`, `tokenizeWithHints`, `diffExampleVsUser` all live in `sharedGameUtils.ts` — import them.
 
-**Chat mode:**
-1. User types/pastes text (Spanish/Indonesian or English)
-2. Language detection determines if input is learning language
-3. If learning language: `/api/transcript` splits sentences and translates to native
-4. User confirms/edits translation
-5. `/api/confirm` generates corrected target-language version + LLM reply + TTS audio
-6. Sequential audio playback (corrected first, then reply)
+See `frontend/src/SHARED_COMPONENTS.md` for full component/util API reference (props, types, request/response shapes for `/api/worddrill/check`, `/api/battle/check`, `/api/trivia/audio`).
 
-**Game mode:**
-1. User speaks (Wispr fills textarea via clipboard) or types
-2. Auto-send triggers `/api/game/turn` with active cards
-3. Backend calls LLM to correct sentence, detect card usage, generate audio
-4. Frontend replaces used cards with new draws (no duplicates)
-5. Audio files played sequentially
+## Cost rules
 
-### Language Configuration
+- Prefer the content-hash audio cache (`get_cached_audio_path`) or static pre-generated files over live per-turn TTS generation for any text that repeats.
+- Always try `checkFuzzyMatch`/local matching before calling an LLM check endpoint — a correct fuzzy match costs $0.
+- Both budgets are tracked and shown in the UI (`UsageDiagnostics.tsx`) — 500k Azure chars/month, $10 OpenAI budget. Check `/api/usage` before assuming headroom for bulk operations (e.g., batch audio pre-generation).
 
-The app supports 3 languages via `LangSpec` type:
-```typescript
-{ code: "en", name: "English" }
-{ code: "es", name: "Spanish" }
-{ code: "id", name: "Indonesian" }
-```
+## Adding a new mode
 
-Backend prompts enforce Latin American Spanish (Mexican preference) and casual Indonesian register.
+1. Add the mode key to the union type in **3 places**: `App.tsx` (state type + `handleSelectMode` param type) and `HomeScreen.tsx` (`onSelectMode` prop type). There is no shared registry yet — all three must be edited by hand and kept in sync.
+2. Add a card to `HomeScreen.tsx` and a render block to `App.tsx`.
+3. Use `sharedGameComponents.tsx`/`sharedGameUtils.ts` for textarea input, feedback badges, correction diffs, hints, and history log — see `SHARED_COMPONENTS.md`. Don't hand-roll auto-send timing or fuzzy matching; use `GameTextarea` and `checkFuzzyMatch`.
+4. Decide the audio pattern up front (live/cached/static — see Architecture above) based on whether the content is a closed, reusable set.
+5. If the mode should track usage, call `/api/usage/session/start`.
 
-### Audio System
+## Common mode features (reference spec)
 
-**TTS Generation:**
-- Azure Speech Services for production (configured via env vars)
-- Silent WAV fallback when MOCK_MODE=1
-- Audio chunks tagged with locale (es-MX, id-ID, en-US)
-
-**Frontend playback:**
-- Base64-encoded WAV (inline in JSON response)
-- FileResponse URLs (`/api/audio_file/{session}/{filename}`)
-- Prefer file URLs to reduce payload size
-- Object URL caching to avoid refetching
-
-### Session Management
-
-**Chat mode:**
-- Sessions identified by `session_id` (generated client-side)
-- Conversations saved to `backend/conversations/session_{id}.json`
-- Audio stored separately in `backend/audio_files/session_{id}/`
-- Frontend sanitizes messages before save (removes audio_base64 to keep JSON small)
-
-**Game mode:**
-- Session created on `/api/game/start`
-- No persistence (ephemeral gameplay)
-
-## Important Patterns
-
-### Card Replacement (Game Mode)
-
-When cards are used:
-1. Backend returns `used_card_ids` array
-2. Frontend filters visible cards by id/value/display_text (case-insensitive)
-3. Draws replacements from CARD_DECK excluding currently visible cards
-4. Triggers highlight animation + floating +points badge
-5. Cleanup timer removes highlights after 1200ms
-
-### LLM Prompts
-
-**Chat mode (`fastapi_wispr_pipeline.py`):**
-- System message specifies language styles (Latin American Spanish, casual Indonesian)
-- Returns JSON with `corrected_pairs`, `reply_pairs`, `correction_explanation`
-- Explanation MUST be in fluent/native language (enforced in system prompt)
-
-**Game mode (`llm_call.py`):**
-- Structured output with corrected sentence, used card IDs, ASR fixes, audio chunks
-- Temperature=0.15 for consistency
-- Fallback to mock response on API failure
-
-### Error Handling
-
-- Backend catches LLM/TTS failures gracefully, returns mock data when necessary
-- Frontend alerts user on network failures but continues functioning
-- Auto-send timer cleared properly to avoid duplicate submissions
-
-## Common Development Scenarios
-
-### Adding a new language
-
-1. Add to LANG_OPTIONS in both `ChatWithWispr.tsx` and `StoryCardsGame.tsx`
-2. Update language_style_instruction() in `fastapi_wispr_pipeline.py` and `llm_call.py`
-3. Add Azure voice to DEFAULT_VOICE_BY_LANG
-4. Update language detection heuristics in `ChatWithWispr.tsx` isProbablyLearning()
-
-### Switching between modes
-
-Edit `frontend/src/App.tsx`:
-```tsx
-// For chat mode:
-return <ChatWithWispr />
-
-// For game mode:
-return <StoryCardsGame />
-```
-
-### Debugging audio issues
-
-- Check backend logs for TTS API failures
-- Verify Azure credentials in `.env`
-- Test with MOCK_MODE=1 (silent audio should play)
-- Check browser console for fetch errors on audio file URLs
-- Inspect `backend/audio_files/session_{id}/` directory
-
-### Running tests
-
-No test suite currently exists. Manual testing workflow:
-1. Start backend server
-2. Start frontend dev server
-3. Test with MOCK_MODE=1 first (no API keys needed)
-4. Test with real API keys and verify TTS audio quality
-
-## Backend CORS Configuration
-
-Both backends allow these origins:
-- http://localhost:3000
-- http://127.0.0.1:3000
-- http://localhost:5173
-- http://127.0.0.1:5173
-
-Add new origins to `allow_origins` list if deploying elsewhere.
-
-## Common Mode Features
-
-All game modes should implement these standard features. Check this section before building any new mode.
+The following is the intended UX spec for a fully-built mode (textarea behavior, feedback area, history log, hints). It describes the target design, not every mode's current state — `pronounblitz` and `numbers` in particular are far from this. When building or extending a mode, use `sharedGameComponents.tsx`/`sharedGameUtils.ts` (per Shared Conventions above) to implement it — do not hand-write these behaviors from scratch, and do not copy from `BattleGame.tsx`.
 
 ### 1. Textarea Input
-- **Auto-focus**: `useEffect` focuses textarea when sentence exists, not busy, answer not yet accepted
-- **Hover-focus**: `onMouseEnter` focuses textarea if not busy/done
-- **Wispr auto-send**: in `useEffect([transcript])`, if `transcript.length - previousLengthRef.current >= 3` AND `transcript.length > 2`, wait 100ms then submit (guard: >700ms since last send)
-- **Manual send**: Enter submits, Shift+Enter inserts newline
-- **Clear button**: clears transcript, re-focuses
+- **Auto-focus**: focuses textarea when a sentence/prompt exists, not busy, answer not yet accepted
+- **Hover-focus**: `onMouseEnter` focuses textarea if not busy/disabled
+- **Wispr auto-send**: on a growth of ≥3 chars in one update (paste), start a ~1.5s pending-send window (visually indicated); guard against double-send within 700ms of the last send — this is exactly what `GameTextarea` implements
+- **Manual send**: Enter submits, Shift+Enter inserts newline, Escape cancels a pending auto-send and clears
+- **Clear button**: clears input, re-focuses
 - **Skip button**: shows correct answer, adds to history as skipped, enables Next
-- **Disabled**: when busy OR answerStatus is "correct" or "skipped"
-- **"Checking…" label**: show on submit button while busy=true
+- **Disabled**: when busy OR answer already accepted/skipped
+- **"Checking…" label**: show on submit control while busy
 
 ### 2. Live Feedback Area (below textarea)
-After each submission:
 - Status icon: ✓ correct (green `#86efac` / gold `#fbbf24` / orange `#f97316` by quality), → skipped (gray), no icon for wrong
 - Feedback message text in matching color
-- **Issue badges**: colored pill spans using `FEEDBACK_COLORS`, `FEEDBACK_LABELS`, `FEEDBACK_MAP` — copy these constants from `BattleGame.tsx`
-- **Correction tokens**: inline diff — removed words in red `#fca5a5` with line-through, added words in bold green `#86efac`, unchanged in `rgba(255,255,255,0.8)`
+- **Issue badges**: `<FeedbackBadges>` — uses `FEEDBACK_COLORS`, `FEEDBACK_LABELS`, `FEEDBACK_MAP` from `sharedGameUtils.ts`
+- **Correction tokens**: `<CorrectionTokens>` — inline diff, removed words red/strikethrough, added bold green, unchanged dim white
 - Wrong answers: show feedback then clear textarea and reset to idle so user can retry
 
-### 3. History Log (right column, 34%)
-**Collapsed entry:**
-- Blue bg for correct `rgba(59,130,246,0.25)`, red for wrong attempt `rgba(239,68,68,0.15)`, gray for skipped
-- ✓/✗ status badge + user's answer text (or "→ answer" for skipped)
-- **Blue quality bar**: 5px tall, 56px wide; fill HSL where `hue = (qualityScore/100)*217`, sat 80%, light 58%
-- **Gold hints bar**: shows % of hints NOT used; only display when `allHints?.length > 0`
-- **Hover audio**: on mouseEnter, fetch TTS for the correct answer via `POST /api/trivia/audio {text, locale}` and play it; stop on mouseLeave
+### 3. History Log (right column, ~34% width)
+- `<HistoryLogEntry>` — self-contained; see `SHARED_COMPONENTS.md` for full prop/behavior reference (collapsed/expanded states, quality bar, hints bar, hover-audio, pin-on-click, previous-attempts sub-section)
+- Wrong attempts hidden from the main log once the sentence resolves — visible only inside the resolved entry's "Previous attempts" section
+- Auto-scroll to bottom on new entry
 
-**Expanded entry** (250ms hover delay OR click to pin; pinned entries stay expanded):
-1. **Sentence section**: the English prompt; when hints present use `tokenizeWithHints()` to highlight hint-matched words (unrevealed = dashed gold underline, revealed = colored from `HINT_COLORS`)
-2. **You Said**: correction tokens diff (red strikethrough / bold green); numbered buttons [1] [2] for accepted translations — hover a button to preview word-level diff via `diffExampleVsUser()` (unmatched words in gold `#fbbf24`)
-3. **Feedback**: issue badges + explanations (same format as live feedback area)
-4. **Previous attempts** (only on resolved entries): each prior wrong attempt in a red-tinted sub-box with its correction tokens + feedback badges
+### 4. Hints System (optional — include only when `currentSentence.hints` is non-empty)
+- `<HintCards>` — horizontal scrollable row, proximity-glow on the nearest unrevealed card, hover-to-reveal text and audio
+- `tokenizeWithHints()` for hint-highlighting inside the displayed sentence
 
-Wrong attempts are hidden from the main log once the same sentence is resolved (correct/skip) — visible only in the resolved entry's "Previous attempts" section. Auto-scroll history to bottom on new entry.
-
-### 4. Hints System (optional — build capability; show only when hints present)
-Include the hint section only when `currentSentence.hints` is a non-empty array. Omit entirely otherwise.
-
-`HintItem` type: `{ native: string; learning: string; note?: string }`
-
-- Horizontal scrollable row of hint cards (130px wide)
-- Card layout: native text (top), Aa reveal button OR learning text (middle), 🔊 audio button (bottom)
-- **Hover text**: reveals learning text and stays revealed (add index to `viewedHints` Set)
-- **Hover audio**: fetch TTS via `/api/trivia/audio` and play it
-- **Proximity scaling**: `calculateDistance()` + `distanceToOpacity()` (MAX 300px) — closest unrevealed hint gets cyan border + bg glow
-- **Hint highlighting in sentence**: `tokenizeWithHints()` — unrevealed = dashed gold underline, revealed = colored text cycling `HINT_COLORS`
-
-### Constants / functions to copy from BattleGame.tsx into any new mode
-- `FEEDBACK_MAP`, `FEEDBACK_COLORS`, `FEEDBACK_LABELS`
-- `HINT_COLORS` array
-- `normalizeForMatch()`, `checkFuzzyMatch()`
-- `calculateDistance()`, `distanceToOpacity()`
-- `tokenizeWithHints()` (when hints are used)
-- `diffExampleVsUser()` (for "You Said" preview diffs)
+All constants/functions referenced above live in `sharedGameUtils.ts` / `sharedGameComponents.tsx` — see `SHARED_COMPONENTS.md`.
 
 ---
-- Do no implement new features that I didn't tell you to do. If you'd like to add something we haven't discussed, you must confirm the plan with me.
+
+- Do not implement new features that weren't requested. If you'd like to add something not already discussed, confirm the plan with the user first.

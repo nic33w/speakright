@@ -41,6 +41,31 @@ The backend returns `correction_tokens` from `/api/worddrill/check` and `/api/ba
 
 ---
 
+### `<GameTextarea value={...} onChange={...} onSubmit={...} ... />`
+
+The standard input control: Wispr auto-send timing, Enter-to-submit, Escape-to-cancel, focus management. Use this instead of a bare `<textarea>` for any new mode, and migrate a mode's hand-rolled version to this when you touch it.
+
+```tsx
+<GameTextarea
+  value={input}
+  onChange={setInput}
+  onSubmit={handleSubmit}
+  busy={busy}                    // disables input, shows busyLabel
+  disabled={answerStatus === "correct" || answerStatus === "skipped"}
+  placeholder="Type your answer…"
+  submitLabel="Send"
+  busyLabel="Checking…"
+  theme="dark"                   // or "light"
+  autoFocus
+/>
+```
+
+**Auto-send behavior:** when `value` grows by ≥3 characters in one update (a Wispr paste) and is longer than 2 characters, it starts a ~1.5s visual pending-send window and then calls `onSubmit(value)` — unless less than 700ms have passed since the last send. Enter (without Shift) submits immediately; Shift+Enter inserts a newline; Escape cancels a pending auto-send and clears the text. This is the canonical implementation of the auto-send behavior described in CLAUDE.md's "Common mode features" section — don't reimplement it per mode.
+
+Currently imported only by `MessengerChat.tsx`; `BattleGame.tsx`, `GuessingGame.tsx`, `StoryCardsGame.tsx`, `TriviaGame.tsx`, `WordDrillGame.tsx`, and `trivia2/TriviaGame2.tsx` each still have their own local copy of this logic — prefer migrating to `GameTextarea` over patching a local copy.
+
+---
+
 ### `<HintCards hints={...} viewedHints={...} onReveal={...} onPlayAudio={...} onStopAudio={...} />`
 
 Scrollable row of 130px hint cards. Proximity glow on the nearest unrevealed card as the mouse approaches. Hover the "Aa" button to reveal the learning text. Hover the 🔊 button to play audio.
@@ -272,7 +297,7 @@ POST /api/trivia/audio
 → { audio_file: "/battle_audio/..." }
 ```
 
-Backend caches generated files — the same text/locale pair is only generated once. `HistoryLogEntry` calls this automatically. For live playback, maintain your own cache:
+Backend caches generated files — the same text/locale pair is only generated once. `HistoryLogEntry` calls this automatically. For live playback, maintain your own cache — **there is no `useAudioPlayer` hook yet**; every mode below currently pastes a variant of this snippet in place (`WordDrillGame.tsx`, `TriviaGame.tsx`, `MessengerChat.tsx`, `StoryCardsGame.tsx`). If you're adding a mode, copy this pattern for now, but treat it as a stopgap: a shared `useAudioPlayer(apiBase)` hook wrapping fetch-cache-play-stop should eventually replace all of these (see CLAUDE.md's Shared Conventions table) — if you build it, migrate the existing copies and delete this snippet in favor of a usage example.
 
 ```ts
 const audioCacheRef = useRef<Map<string, string>>(new Map());
