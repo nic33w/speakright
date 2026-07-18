@@ -16,10 +16,11 @@ npm run build
 npm run lint
 ```
 
-**Backend** (`backend/`) — **one backend, `game_backend.py`**. `fastapi_wispr_pipeline.py` also exists but is legacy/unreachable — see Mode Inventory.
+**Backend** (`backend/`) — **one backend, entry point `main.py`** (assembles routers from `routers/`; `game_backend.py` is now a thin compat shim so `uvicorn game_backend:app` still works). `fastapi_wispr_pipeline.py` also exists but is legacy/unreachable — see Mode Inventory.
 ```bash
 pip install -r requirements.txt
-python game_backend.py     # port 8000 (or: uvicorn game_backend:app --reload --port 8000)
+python main.py             # port 8000 (or: uvicorn main:app --reload --port 8000)
+python -m pytest tests/    # mock-mode smoke suite over every route + prompt goldens
 ```
 
 `backend/.env` (git-ignored, real keys already present locally — never print or commit its contents):

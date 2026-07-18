@@ -1,23 +1,22 @@
-# tts_helpers.py (or paste into game_backend.py)
-import os
+# tts_helpers.py — Azure TTS wrapper
 import io
-import base64
-import requests
 import wave
-import re
-from pathlib import Path
 from typing import Optional
+
+import requests
+
+from settings import (
+    AZURE_REGION,
+    AZURE_SPEECH_KEY,
+    MOCK_MODE,
+    TEST_AUDIO_PATH,
+    VOICE_MAP,
+)
 
 try:
     from usage_tracker import add_azure_chars as _add_azure_chars
 except ImportError:
     _add_azure_chars = None
-
-
-AZURE_SPEECH_KEY = os.getenv("AZURE_SPEECH_KEY")
-AZURE_REGION = os.getenv("AZURE_REGION")
-MOCK_MODE = os.getenv("MOCK_MODE", "0") == "1"
-TEST_AUDIO_PATH = Path(__file__).resolve().parent / "test_audio.wav"
 
 def generate_silent_wav(duration_secs: float = 0.6, sample_rate: int = 22050) -> bytes:
     n_frames = int(duration_secs * sample_rate)
@@ -41,13 +40,8 @@ def azure_tts_bytes_real(text: str, locale: str = "es-MX", voice: Optional[str] 
     if not AZURE_SPEECH_KEY or not AZURE_REGION:
         raise RuntimeError("Azure TTS credentials not configured")
 
-    # default voice map (you can change env var overrides if you like)
-    default_voice = {
-        "es-MX": os.getenv("AZURE_VOICE_ES", "es-MX-JorgeNeural"),
-        "en-US": os.getenv("AZURE_VOICE_EN", "en-US-JennyNeural"),
-        "id-ID": os.getenv("AZURE_VOICE_ID", "id-ID-GadisNeural"),
-    }
-    voice_name = voice or default_voice.get(locale, list(default_voice.values())[0])
+    # default voice map lives in settings.VOICE_MAP (env-overridable)
+    voice_name = voice or VOICE_MAP.get(locale, list(VOICE_MAP.values())[0])
     # limit length roughly by words -> duration
     words = len(str(text).split())
     duration = min(max_duration, max(0.5, 0.25 * words))

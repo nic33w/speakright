@@ -1,10 +1,18 @@
 # llm_call.py
-import os
 import json
 import re
 import unicodedata
 import difflib
 from typing import Any, Dict, List, Optional
+
+from settings import (
+    AZURE_OPENAI_API_KEY,
+    AZURE_OPENAI_BASE_URL,
+    DEBUG,
+    DEFAULT_MODEL,
+    MOCK_MODE,
+    OPENAI_API_KEY,
+)
 
 try:
     # modern OpenAI client
@@ -16,13 +24,6 @@ try:
     from usage_tracker import add_openai_cost as _add_openai_cost
 except Exception:
     _add_openai_cost = None
-
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-AZURE_OPENAI_API_KEY = os.getenv("AZURE_OPENAI_API_KEY")
-AZURE_OPENAI_BASE_URL = os.getenv("AZURE_OPENAI_BASE_URL")
-DEFAULT_MODEL = os.getenv("OPENAI_MODEL", "gpt-4.1-mini")
-MOCK_MODE = os.getenv("MOCK_MODE", "1") == "1"
-DEBUG = os.getenv("DEBUG", "0") == "1"
 
 def _log_debug(title: str, content: str, max_length: int = 2000):
     """Log debug information if DEBUG mode is enabled."""
