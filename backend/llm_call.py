@@ -49,12 +49,13 @@ def _log_debug(title: str, content: str, max_length: int = 2000):
 
     print(separator + "\n")
 
-def _language_style_instruction(lang_code: str) -> str:
-    if lang_code == "es":
-        return "Prefer Latin American Spanish (lean Mexican). Use colloquial, conversational phrasing."
-    if lang_code == "id":
-        return "Use casual, conversational Indonesian (everyday register), not formal."
-    return "Use natural, conversational American English."
+from prompt_fragments import (
+    NEVER_PENALIZE_ACCENTS_RULE,
+    STORY_CARDS_RULES,
+    STT_TOLERANCE_RULE,
+    UNNATURAL_PHRASING_RULE,
+    language_style_instruction as _language_style_instruction,
+)
 
 def _to_plain(obj):
     if obj is None:
@@ -105,11 +106,7 @@ def _make_prompt(transcript: str, active_cards: List[Dict[str, Any]], fluent: Di
         '    {"text":"...","lang":"en-US","purpose":"native_translation"}\n'
         '  ]\n'
         "}\n\n"
-        "Rules:\n"
-        "- corrected_sentence must be ONE natural sentence in the learning language (use colloquial Latin-American Spanish for es, casual Indonesian for id).\n"
-        "- native_translation must be a natural translation into the fluent/native language.\n"
-        "- audio_chunks must include the corrected_sentence chunk first, then the native_translation chunk, each with a proper lang tag (es-MX, id-ID, en-US).\n"
-        "- Return only JSON (no commentary, no markdown).\n"
+        + STORY_CARDS_RULES
     )
     return system + "\n" + user
 
@@ -482,9 +479,9 @@ def check_trivia_answer(
         f"You are a strict but fair {learning_name} language learning judge. {language_style}\n"
         "Evaluate the student's answer against the reference answer.\n\n"
         "Rules:\n"
-        "- CRITICAL: NEVER mention, comment on, or penalize accents, punctuation, or capitalization — not even as a side note. Both the student's answer and the reference have had accents and punctuation stripped before you receive them. The student is speaking (speech-to-text) and has no control over accents or punctuation. Do NOT say things like 'you should include the accent' or 'you forgot the exclamation mark'. Any issue that is ONLY about accents or punctuation must be completely ignored.\n"
-        "- FIRST, before any other evaluation: the student is using speech-to-text (Wispr). Accents and punctuation have already been stripped from the student's answer — do NOT penalize for any accent or punctuation difference. Check if unexpected words are STT mishearings. Common patterns: phonetically similar words (e.g. 'cus'→'jus'), merged or split tokens (e.g. 'Este'→'Es teh', 'S T'→'es teh', 'dise'→'di sini', 'esta'→'es ta', 'está'→'es ta' or 'es esta'), or words run together. If correcting the mishearing makes the answer acceptable, IMMEDIATELY set accepted: true, damage_multiplier: 1.0, issues: [{\"feedback_key\": \"asr_error\", \"corrected_snippet\": null, \"feedback_explanation\": \"<explain what was misheard>\"}]. Do NOT add any other issues in this case.\n"
-        "- PRIMARY RULE: First ask 'Is the student's answer a correct, natural translation of the English prompt?' — not 'Does it match the reference answer?' The reference answer is just one valid option; other equally valid phrasings exist. If the student's answer correctly and naturally expresses the English prompt, mark it perfect even if it differs from the reference.\n"
+        + NEVER_PENALIZE_ACCENTS_RULE
+        + STT_TOLERANCE_RULE
+        + "- PRIMARY RULE: First ask 'Is the student's answer a correct, natural translation of the English prompt?' — not 'Does it match the reference answer?' The reference answer is just one valid option; other equally valid phrasings exist. If the student's answer correctly and naturally expresses the English prompt, mark it perfect even if it differs from the reference.\n"
         "- accepted: true if the student demonstrated understanding of the meaning, even if imperfectly expressed. Set accepted: false for: wrong conjugation, wrong tense that changes meaning, completely wrong meaning, or core verb/primary action entirely absent from the answer.\n"
         "- damage_multiplier: overall severity across ALL issues combined. Use the lowest applicable value:\n"
         "    1.0   → perfect or asr_error only\n"
@@ -508,8 +505,8 @@ def check_trivia_answer(
         "    subtle_meaning_shift: ONLY when the student's phrasing shifts the meaning relative to what the English prompt specifically asked for — e.g. the English says 'one must' (general obligation) but the student said 'we have to' (personal obligation) and that distinction genuinely matters for the prompt. Do NOT use this just because the student picked a different-but-equally-valid phrasing.\n"
         "    wrong_mood: used indicative instead of subjunctive/conditional, but meaning clear.\n"
         "    word_order: words rearranged, meaning still understandable.\n"
-        "    unnatural_phrasing: ONLY for phrasing that would genuinely sound foreign or awkward to a native speaker — e.g. word-for-word translation from English, textbook constructions nobody actually says, combinations of correct words that produce a clearly wrong register, OR the wrong preposition in a fixed-preposition idiom (e.g. 'poner en mal humor' instead of 'poner de mal humor', 'depender en' instead of 'depender de'). Fixed-preposition idioms must use their correct preposition — a wrong preposition here is always unnatural_phrasing even if the meaning is clear. Do NOT use for valid regional variants, stylistic preferences, or choosing one natural phrasing over another equally natural one.\n"
-        "    wrong_conjugation | wrong_tense: accepted must be false.\n"
+        + UNNATURAL_PHRASING_RULE
+        + "    wrong_conjugation | wrong_tense: accepted must be false.\n"
         "    wrong_meaning: use this — not missing_content — when the student omitted the core verb or primary action entirely, making the answer incomplete in meaning. E.g. 'vamos a volver' for 'let's try again' (answer: 'vamos a volver a intentarlo') — the verb 'intentar' is completely absent, so the answer doesn't express 'try'. accepted must be false.\n"
         "  corrected_snippet per issue: minimal corrected word/phrase showing the actual fix (wrong word → right word, wrong conjugation → right conjugation, etc.). null if perfect or asr_error. Do NOT produce a corrected_snippet that differs from the student's word only by an accent mark or punctuation — that is not a real error.\n"
         f"  feedback_explanation per issue: ONE sentence in {fluent.get('name', 'English')}. Rules:\n"

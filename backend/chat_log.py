@@ -4,6 +4,7 @@ meant for manual accuracy review, not consumed by the app.
 from datetime import datetime
 from pathlib import Path
 
+from prompt_fragments import CHAT_LOG_REVIEWER_INSTRUCTIONS
 from settings import API_ROOT
 
 
@@ -13,12 +14,7 @@ def get_log_file(lang_code: str) -> Path:
         lang_names = {"es": "Spanish", "id": "Indonesian"}
         lang_name = lang_names.get(lang_code, lang_code.upper())
         path.write_text(
-            f"# Chat Log — {lang_name}\n\n"
-            "**Instructions for reviewer:** Go through each entry below and evaluate two things:\n\n"
-            "1. **Correction quality** — Was the correction accurate? If the original sentence was changed, was the change actually necessary and correct? If it was marked 'sounds natural', was that a fair assessment?\n"
-            "2. **Naturalness** — Does the corrected sentence sound like something a native speaker would actually say in casual conversation? Flag anything that sounds overly formal, unnatural, or awkward.\n\n"
-            "Note: Punctuation and accent marks are intentionally not corrected by the app — please ignore those.\n\n"
-            "---\n",
+            f"# Chat Log — {lang_name}\n\n" + CHAT_LOG_REVIEWER_INSTRUCTIONS,
             encoding="utf-8"
         )
     return path

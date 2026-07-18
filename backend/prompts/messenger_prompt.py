@@ -7,6 +7,7 @@ with a blank line into the single wire string sent to OpenAI.
 from typing import Any, Dict, List
 
 from profile_store import load_helper_json, load_persona_json
+from prompt_fragments import messenger_naturalness_reminder, quiz_candidate_rules
 from settings import ENABLE_QUIZZING, PERSONA, PROMPTS_DIR
 
 
@@ -165,14 +166,7 @@ EXAMPLE GREETINGS (in {ui_lang}):
 
     if ENABLE_QUIZZING:
         quiz_candidates_schema = '  "quiz_candidates": [\n    {\n      "type": "correction" | "translation" | "naturalness",\n      "original": "...",\n      "corrected": "...",\n      "error_type": "...",\n      "quiz_prompt": "..."\n    }\n  ],'
-        quiz_rules_section = f"""
-QUIZ CANDIDATE RULES:
-- ONLY tag SIGNIFICANT errors (verb conjugation, gender, prepositions, vocabulary gaps, grammar structure, ser/estar, por/para)
-- Also tag clearly unnatural phrasing when had_errors=true for naturalness reasons
-- DO NOT tag minor errors (accents, punctuation, typos, capitalization)
-- For vocabulary gaps (user used {ui_lang}), type="translation"; for grammar errors, type="correction"; for unnatural phrasing, type="naturalness"
-- "original": what the user said; "corrected": the correct/natural {target_lang} word/phrase (QUIZ ANSWER)
-- "quiz_prompt": question in {ui_lang} like "How do you say 'X' in {target_lang}?\""""
+        quiz_rules_section = quiz_candidate_rules(ui_lang, target_lang)
     else:
         quiz_candidates_schema = ''
         quiz_rules_section = ''
@@ -224,7 +218,7 @@ CRITICAL REMINDERS:
 - NEVER mention corrections or errors in your response_chunks. Respond as if the user spoke perfectly.
 - Pico handles corrections separately via corrected_input/had_errors/error_explanation — fill those fields accurately but keep them out of your conversational response.
 - input_intent: "english" if the user was primarily speaking {ui_lang} (even with some {target_lang} thrown in); "spanish" if the user was clearly attempting {target_lang} (even if they got stuck on words and used {ui_lang} for those). Example: "I went to the store today, gracias!" = "english". "Fui al store porque no tenía food" = "spanish".
-- NATURALNESS IS STRICT: Body sensations, physical feelings, emotions, idioms, and colloquial expressions almost NEVER translate word-for-word from {ui_lang} to {target_lang}. If the user expressed any of these by guessing at a {target_lang} word from the {ui_lang} equivalent, flag it even if the word technically exists. Example: "gaseoso" technically means carbonated/fizzy — it does NOT mean feeling gassy. The correct native expression is "me da gases." Always ask: would a native speaker actually say this, or does it just sound like translated {ui_lang}?
+{messenger_naturalness_reminder(ui_lang, target_lang)}
 {quiz_rules_section}
 SUGGESTION GENERATION RULES:
 - Generate {max_suggestions} short replies THE USER would say TO {character_name} — phrased in first person, NOT things the character would say
