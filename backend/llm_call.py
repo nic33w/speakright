@@ -3,15 +3,19 @@ import json
 import re
 import unicodedata
 import difflib
-from typing import Any, Dict, List, Optional
+from dataclasses import dataclass
+from typing import Any, Dict, List, Optional, Union
 
 from settings import (
     AZURE_OPENAI_API_KEY,
     AZURE_OPENAI_BASE_URL,
     DEBUG,
     DEFAULT_MODEL,
+    DEFAULT_PRICING,
     MOCK_MODE,
+    MODEL_PRICING,
     OPENAI_API_KEY,
+    locale_for,
 )
 
 try:
@@ -32,7 +36,8 @@ def _log_debug(title: str, content: str, max_length: int = 2000):
 
     separator = "=" * 80
     print(f"\n{separator}")
-    print(f"🔍 DEBUG: {title}")
+    # ASCII only: emoji here crashes on cp1252 consoles/pipes on Windows
+    print(f"DEBUG: {title}")
     print(separator)
 
     if len(content) > max_length:
@@ -209,6 +214,141 @@ def _init_client():
         return OpenAI(api_key=OPENAI_API_KEY)
     return None
 
+
+# --- Shared OpenAI call helper ---
+
+@dataclass
+class LLMCallResult:
+    parsed: Optional[Dict[str, Any]]  # None when parse_json=False
+    raw_text: str
+    token_usage: Dict[str, Any]  # prompt_tokens, completion_tokens, total_tokens, cost_cents
+
+
+def _extract_response_text(resp) -> str:
+    """Extract text from an OpenAI response object — superset of the per-function
+    variants this replaced: Responses API output_text / output-list walk, plus
+    Chat-Completions-style .choices / .content fallbacks."""
+    if hasattr(resp, "output_text") and resp.output_text:
+        return resp.output_text
+
+    out = getattr(resp, "output", None)
+    if out is None and isinstance(resp, dict):
+        out = resp.get("output")
+    if out:
+        parts = []
+        for item in out:
+            if isinstance(item, dict):
+                content = item.get("content") or []
+                if isinstance(content, list):
+                    for c in content:
+                        if isinstance(c, dict):
+                            txt = c.get("text") or ""
+                            if txt:
+                                parts.append(txt)
+                        elif isinstance(c, str):
+                            parts.append(c)
+                elif isinstance(content, str):
+                    parts.append(content)
+            elif isinstance(item, str):
+                parts.append(item)
+        return "\n".join(parts)
+
+    if hasattr(resp, "choices") and resp.choices:
+        c = resp.choices[0]
+        if hasattr(c, "message") and hasattr(c.message, "content"):
+            return c.message.content or ""
+        if hasattr(c, "text"):
+            return c.text or ""
+
+    if hasattr(resp, "content"):
+        if isinstance(resp.content, list):
+            return "".join(block.text for block in resp.content if hasattr(block, "text"))
+        return str(resp.content)
+
+    return str(resp)
+
+
+def _extract_token_counts(resp) -> tuple:
+    """Extract (prompt_tokens, completion_tokens, total_tokens) from a response,
+    trying usage object, direct attributes, then model_dump."""
+    prompt_tokens = 0
+    completion_tokens = 0
+    total_tokens = 0
+
+    if hasattr(resp, "usage") and resp.usage:
+        usage = resp.usage
+        prompt_tokens = getattr(usage, "input_tokens", 0) or getattr(usage, "prompt_tokens", 0) or 0
+        completion_tokens = getattr(usage, "output_tokens", 0) or getattr(usage, "completion_tokens", 0) or 0
+        total_tokens = getattr(usage, "total_tokens", 0) or (prompt_tokens + completion_tokens)
+
+    if total_tokens == 0 and hasattr(resp, "input_tokens"):
+        prompt_tokens = resp.input_tokens or 0
+        completion_tokens = getattr(resp, "output_tokens", 0) or 0
+        total_tokens = prompt_tokens + completion_tokens
+
+    if total_tokens == 0:
+        try:
+            resp_dict = resp.model_dump() if hasattr(resp, "model_dump") else (resp.dict() if hasattr(resp, "dict") else None)
+            if resp_dict and "usage" in resp_dict:
+                usage_dict = resp_dict["usage"]
+                prompt_tokens = usage_dict.get("input_tokens", 0) or usage_dict.get("prompt_tokens", 0) or 0
+                completion_tokens = usage_dict.get("output_tokens", 0) or usage_dict.get("completion_tokens", 0) or 0
+                total_tokens = usage_dict.get("total_tokens", 0) or (prompt_tokens + completion_tokens)
+        except Exception as e:
+            _log_debug("TOKEN USAGE", f"model_dump extraction failed: {e}")
+
+    return prompt_tokens, completion_tokens, total_tokens
+
+
+def _call_openai_json(
+    prompt: Union[str, List[Dict[str, str]]],
+    *,
+    label: str,
+    model: Optional[str] = None,
+    temperature: float = 0.2,
+    max_output_tokens: int = 600,
+    timeout: int = 30,
+    parse_json: bool = True,
+    record_cost: bool = True,
+) -> LLMCallResult:
+    """One OpenAI responses.create call: text extraction, optional JSON parse,
+    token/cost accounting against settings.MODEL_PRICING, and usage-tracker
+    recording. Raises on API/parse errors — each caller keeps its own fallback.
+    Callers short-circuit to their mocks BEFORE calling this (MOCK_MODE)."""
+    model = model or DEFAULT_MODEL
+    client = _init_client()
+    if client is None:
+        raise RuntimeError("LLM client unavailable (mock mode or missing API key)")
+
+    resp = client.responses.create(
+        model=model,
+        input=prompt,
+        temperature=temperature,
+        max_output_tokens=max_output_tokens,
+        timeout=timeout,
+    )
+
+    prompt_tokens, completion_tokens, total_tokens = _extract_token_counts(resp)
+    input_rate, output_rate = MODEL_PRICING.get(model, DEFAULT_PRICING)
+    cost_cents = round(((prompt_tokens * input_rate) + (completion_tokens * output_rate)) * 100, 4)
+    if record_cost and _add_openai_cost and cost_cents > 0:
+        _add_openai_cost(cost_cents)
+    token_usage = {
+        "prompt_tokens": prompt_tokens,
+        "completion_tokens": completion_tokens,
+        "total_tokens": total_tokens,
+        "cost_cents": cost_cents,
+    }
+    _log_debug(f"{label} - TOKEN USAGE",
+               f"Prompt: {prompt_tokens}, Completion: {completion_tokens}, Total: {total_tokens}, Cost: {cost_cents:.4f} cents")
+
+    raw_text = _extract_response_text(resp)
+    parsed = _extract_json(raw_text) if parse_json else None
+    if parse_json:
+        _log_debug(f"{label} - LLM RESPONSE (parsed)", json.dumps(parsed, indent=2, ensure_ascii=False))
+
+    return LLMCallResult(parsed=parsed, raw_text=raw_text, token_usage=token_usage)
+
 def _mock_response(transcript: str, active_cards: List[Dict[str,Any]], fluent: Dict[str,Any], learning: Dict[str,Any]) -> Dict[str,Any]:
     # Normalize transcript for matching (strip accents, punctuation, lowercase)
     normalized_transcript = _normalize_for_matching(transcript or "")
@@ -222,7 +362,7 @@ def _mock_response(transcript: str, active_cards: List[Dict[str,Any]], fluent: D
             print(f"[MOCK] Card '{c.get('id')}': '{val}' → normalized: '{normalized_val}' → Match: {is_match}")
             if is_match:
                 used.append(c.get("id"))
-    lang_tag = "es-MX" if learning.get("code","").startswith("es") else ("id-ID" if learning.get("code","").startswith("id") else "en-US")
+    lang_tag = locale_for(learning.get("code", ""))
     return {
         "corrected_sentence": transcript,
         "native_translation": f"(mock) {transcript}",
@@ -259,43 +399,15 @@ def call_llm_for_turn(
         return _mock_response(transcript, active_plain, fluent_plain, learning_plain)
 
     try:
-        resp = client.responses.create(
+        result = _call_openai_json(
+            prompt,
+            label="STORY CARDS GAME",
             model=model,
-            input=prompt,
             temperature=temperature,
             max_output_tokens=600,
             timeout=timeout,
         )
-
-        # extract text robustly
-        raw_text = ""
-        if hasattr(resp, "output_text") and resp.output_text:
-            raw_text = resp.output_text
-        else:
-            out = getattr(resp, "output", None) or resp.get("output", None)
-            if out:
-                parts = []
-                for item in out:
-                    if isinstance(item, dict):
-                        content = item.get("content") or []
-                        if isinstance(content, list):
-                            for c in content:
-                                if isinstance(c, dict):
-                                    txt = c.get("text") or ""
-                                    if txt:
-                                        parts.append(txt)
-                                elif isinstance(c, str):
-                                    parts.append(c)
-                        elif isinstance(content, str):
-                            parts.append(content)
-                    elif isinstance(item, str):
-                        parts.append(item)
-                raw_text = "\n".join(parts)
-            else:
-                raw_text = str(resp)
-
-        parsed = _extract_json(raw_text)
-        _log_debug("STORY CARDS GAME - LLM RESPONSE (parsed)", json.dumps(parsed, indent=2, ensure_ascii=False))
+        parsed = result.parsed
 
         # ensure keys exist
         parsed.setdefault("corrected_sentence", "")
@@ -452,33 +564,15 @@ def check_trivia_answer(
     _log_debug("BATTLE CHECK - LLM REQUEST", full_prompt)
 
     try:
-        resp = client.responses.create(
+        result = _call_openai_json(
+            full_prompt,
+            label="BATTLE CHECK",
             model=model,
-            input=full_prompt,
             temperature=temperature,
             max_output_tokens=900,
             timeout=timeout,
         )
-
-        raw_text = ""
-        if hasattr(resp, "output_text") and resp.output_text:
-            raw_text = resp.output_text
-        elif hasattr(resp, "choices") and resp.choices:
-            c = resp.choices[0]
-            if hasattr(c, "message") and hasattr(c.message, "content"):
-                raw_text = c.message.content or ""
-            elif hasattr(c, "text"):
-                raw_text = c.text or ""
-        elif hasattr(resp, "content"):
-            if isinstance(resp.content, list):
-                for block in resp.content:
-                    if hasattr(block, "text"):
-                        raw_text += block.text
-            else:
-                raw_text = str(resp.content)
-
-        parsed = _extract_json(raw_text)
-        _log_debug("BATTLE CHECK - LLM RESPONSE", json.dumps(parsed, indent=2, ensure_ascii=False))
+        parsed = result.parsed
 
         parsed.setdefault("accepted", False)
         parsed.setdefault("damage_multiplier", 0.0)
@@ -521,24 +615,7 @@ def check_trivia_answer(
             if parsed["damage_multiplier"] == 0.0:
                 parsed["damage_multiplier"] = ALWAYS_ACCEPT_MULTIPLIERS[fk]
 
-        # Extract token usage
-        prompt_tokens = 0
-        completion_tokens = 0
-        total_tokens = 0
-        if hasattr(resp, "usage") and resp.usage:
-            usage = resp.usage
-            prompt_tokens = getattr(usage, "input_tokens", 0) or getattr(usage, "prompt_tokens", 0) or 0
-            completion_tokens = getattr(usage, "output_tokens", 0) or getattr(usage, "completion_tokens", 0) or 0
-            total_tokens = getattr(usage, "total_tokens", 0) or (prompt_tokens + completion_tokens)
-        input_cost_per_token = 0.00000015
-        output_cost_per_token = 0.00000060
-        cost_cents = round(((prompt_tokens * input_cost_per_token) + (completion_tokens * output_cost_per_token)) * 100, 4)
-        parsed["token_usage"] = {
-            "prompt_tokens": prompt_tokens,
-            "completion_tokens": completion_tokens,
-            "total_tokens": total_tokens,
-            "cost_cents": cost_cents,
-        }
+        parsed["token_usage"] = result.token_usage
 
         return parsed
     except Exception as e:
@@ -634,95 +711,15 @@ def call_llm_for_messenger(
     _log_debug("MESSENGER CHAT - LLM REQUEST", full_prompt, max_length=3000)
 
     try:
-        resp = client.responses.create(
+        result = _call_openai_json(
+            full_prompt,
+            label="MESSENGER CHAT",
             model=model,
-            input=full_prompt,
             temperature=temperature,
             max_output_tokens=800,
             timeout=timeout,
         )
-
-        # Extract token usage from response
-        prompt_tokens = 0
-        completion_tokens = 0
-        total_tokens = 0
-
-        # Debug: print response attributes to understand structure
-        print(f"[DEBUG] Response type: {type(resp)}")
-        print(f"[DEBUG] Response attributes: {[a for a in dir(resp) if not a.startswith('_')]}")
-
-        # Try to get usage from response object - multiple approaches
-        # Approach 1: resp.usage object (Chat Completions API style)
-        if hasattr(resp, "usage") and resp.usage:
-            usage = resp.usage
-            print(f"[DEBUG] Usage object found: {usage}")
-            prompt_tokens = getattr(usage, "input_tokens", 0) or getattr(usage, "prompt_tokens", 0) or 0
-            completion_tokens = getattr(usage, "output_tokens", 0) or getattr(usage, "completion_tokens", 0) or 0
-            total_tokens = getattr(usage, "total_tokens", 0) or (prompt_tokens + completion_tokens)
-
-        # Approach 2: Direct attributes on response (Responses API style)
-        if total_tokens == 0 and hasattr(resp, "input_tokens"):
-            prompt_tokens = resp.input_tokens or 0
-            completion_tokens = getattr(resp, "output_tokens", 0) or 0
-            total_tokens = prompt_tokens + completion_tokens
-            print(f"[DEBUG] Direct tokens: in={prompt_tokens}, out={completion_tokens}")
-
-        # Approach 3: Try to access as dict
-        if total_tokens == 0:
-            try:
-                resp_dict = resp.model_dump() if hasattr(resp, "model_dump") else (resp.dict() if hasattr(resp, "dict") else None)
-                if resp_dict:
-                    print(f"[DEBUG] Response dict keys: {resp_dict.keys()}")
-                    if "usage" in resp_dict:
-                        usage_dict = resp_dict["usage"]
-                        prompt_tokens = usage_dict.get("input_tokens", 0) or usage_dict.get("prompt_tokens", 0) or 0
-                        completion_tokens = usage_dict.get("output_tokens", 0) or usage_dict.get("completion_tokens", 0) or 0
-                        total_tokens = usage_dict.get("total_tokens", 0) or (prompt_tokens + completion_tokens)
-                        print(f"[DEBUG] Dict usage: {usage_dict}")
-            except Exception as e:
-                print(f"[DEBUG] Dict extraction failed: {e}")
-
-        # Calculate cost in cents
-        # Pricing for gpt-4o-mini: $0.15/1M input, $0.60/1M output
-        # For gpt-4.1-mini, using similar pricing
-        input_cost_per_token = 0.00000015  # $0.15 / 1,000,000
-        output_cost_per_token = 0.00000060  # $0.60 / 1,000,000
-        cost_dollars = (prompt_tokens * input_cost_per_token) + (completion_tokens * output_cost_per_token)
-        cost_cents = cost_dollars * 100  # Convert to cents
-        if _add_openai_cost and cost_cents > 0:
-            _add_openai_cost(cost_cents)
-
-        _log_debug("TOKEN USAGE", f"Prompt: {prompt_tokens}, Completion: {completion_tokens}, Total: {total_tokens}, Cost: {cost_cents:.4f} cents")
-
-        # Extract text robustly
-        raw_text = ""
-        if hasattr(resp, "output_text") and resp.output_text:
-            raw_text = resp.output_text
-        else:
-            out = getattr(resp, "output", None) or resp.get("output", None)
-            if out:
-                parts = []
-                for item in out:
-                    if isinstance(item, dict):
-                        content = item.get("content") or []
-                        if isinstance(content, list):
-                            for c in content:
-                                if isinstance(c, dict):
-                                    txt = c.get("text") or ""
-                                    if txt:
-                                        parts.append(txt)
-                                elif isinstance(c, str):
-                                    parts.append(c)
-                        elif isinstance(content, str):
-                            parts.append(content)
-                    elif isinstance(item, str):
-                        parts.append(item)
-                raw_text = "\n".join(parts)
-            else:
-                raw_text = str(resp)
-
-        parsed = _extract_json(raw_text)
-        _log_debug("MESSENGER CHAT - LLM RESPONSE (parsed)", json.dumps(parsed, indent=2, ensure_ascii=False))
+        parsed = result.parsed
 
         # Ensure all required keys exist
         parsed.setdefault("corrected_input", "")
@@ -741,12 +738,7 @@ def call_llm_for_messenger(
         })
 
         # Add token usage info
-        parsed["token_usage"] = {
-            "prompt_tokens": prompt_tokens,
-            "completion_tokens": completion_tokens,
-            "total_tokens": total_tokens,
-            "cost_cents": round(cost_cents, 4)
-        }
+        parsed["token_usage"] = result.token_usage
 
         return parsed
 
@@ -835,23 +827,17 @@ Answer the learner's question based on this context."""
     full_prompt = system_prompt + "\n\n" + "\n\n".join(history_lines)
 
     try:
-        resp = client.responses.create(
+        result = _call_openai_json(
+            full_prompt,
+            label="GRAMMAR CHAT",
             model=model,
-            input=full_prompt,
             temperature=temperature,
             max_output_tokens=400,
             timeout=timeout,
+            parse_json=False,
         )
-        if hasattr(resp, "output_text") and resp.output_text:
-            return resp.output_text.strip()
-        out = getattr(resp, "output", None)
-        if out:
-            for item in out:
-                content = (item.get("content") or []) if isinstance(item, dict) else []
-                for c in content:
-                    if isinstance(c, dict) and c.get("text"):
-                        return c["text"].strip()
-        return "Sorry, I couldn't generate a response."
+        text = result.raw_text.strip()
+        return text if text else "Sorry, I couldn't generate a response."
     except Exception as e:
         print("Grammar chat LLM error:", e)
         return "Sorry, something went wrong. Please try again."
@@ -887,24 +873,19 @@ def call_llm_for_freeform_correction(
     )
 
     try:
-        resp = client.responses.create(
-            model=model,
-            input=[
+        result = _call_openai_json(
+            [
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_sentence},
             ],
+            label="FREEFORM CORRECTION",
+            model=model,
             temperature=temperature,
             max_output_tokens=200,
             timeout=timeout,
+            parse_json=False,
         )
-        text = ""
-        if hasattr(resp, "output_text") and resp.output_text:
-            text = resp.output_text.strip()
-        else:
-            for item in (getattr(resp, "output", None) or []):
-                for c in (item.get("content") or [] if isinstance(item, dict) else []):
-                    if isinstance(c, dict) and c.get("text"):
-                        text = c["text"].strip()
+        text = result.raw_text.strip()
         if text.startswith("```"):
             text = text.split("```")[1]
             if text.startswith("json"):
@@ -963,43 +944,18 @@ def call_llm_to_pick_secret(
     _log_debug("GUESSING GAME - PICK SECRET REQUEST", full_prompt)
 
     try:
-        resp = client.responses.create(
+        result = _call_openai_json(
+            full_prompt,
+            label="GUESSING GAME - PICK SECRET",
             model=model,
-            input=full_prompt,
             temperature=temperature,
             max_output_tokens=50,
             timeout=timeout,
+            parse_json=False,
         )
 
-        # Extract text
-        raw_text = ""
-        if hasattr(resp, "output_text") and resp.output_text:
-            raw_text = resp.output_text
-        else:
-            out = getattr(resp, "output", None) or resp.get("output", None)
-            if out:
-                parts = []
-                for item in out:
-                    if isinstance(item, dict):
-                        content = item.get("content") or []
-                        if isinstance(content, list):
-                            for c in content:
-                                if isinstance(c, dict):
-                                    txt = c.get("text") or ""
-                                    if txt:
-                                        parts.append(txt)
-                                elif isinstance(c, str):
-                                    parts.append(c)
-                        elif isinstance(content, str):
-                            parts.append(content)
-                    elif isinstance(item, str):
-                        parts.append(item)
-                raw_text = "\n".join(parts)
-            else:
-                raw_text = str(resp)
-
         # Clean up the response
-        secret = raw_text.strip().lower()
+        secret = result.raw_text.strip().lower()
         # Remove common punctuation
         secret = re.sub(r'[.,;:!?\-_…\.\"\']', '', secret)
         secret = secret.strip()
@@ -1113,42 +1069,15 @@ def call_llm_for_guessing_turn(
     _log_debug("GUESSING GAME - TURN REQUEST", full_prompt, max_length=1500)
 
     try:
-        resp = client.responses.create(
+        result = _call_openai_json(
+            full_prompt,
+            label="GUESSING GAME - TURN",
             model=model,
-            input=full_prompt,
             temperature=temperature,
             max_output_tokens=150,
             timeout=timeout,
         )
-
-        # Extract text
-        raw_text = ""
-        if hasattr(resp, "output_text") and resp.output_text:
-            raw_text = resp.output_text
-        else:
-            out = getattr(resp, "output", None) or resp.get("output", None)
-            if out:
-                parts = []
-                for item in out:
-                    if isinstance(item, dict):
-                        content = item.get("content") or []
-                        if isinstance(content, list):
-                            for c in content:
-                                if isinstance(c, dict):
-                                    txt = c.get("text") or ""
-                                    if txt:
-                                        parts.append(txt)
-                                elif isinstance(c, str):
-                                    parts.append(c)
-                        elif isinstance(content, str):
-                            parts.append(content)
-                    elif isinstance(item, str):
-                        parts.append(item)
-                raw_text = "\n".join(parts)
-            else:
-                raw_text = str(resp)
-
-        parsed = _extract_json(raw_text)
+        parsed = result.parsed
         parsed.setdefault("corrected_input", user_input)
         parsed.setdefault("had_errors", False)
         parsed.setdefault("error_explanation", "")

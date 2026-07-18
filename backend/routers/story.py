@@ -9,6 +9,7 @@ from pydantic import BaseModel
 from audio_utils import generate_silent_wav, save_wav
 from llm_call import call_llm_for_turn
 from models import LangSpec
+from settings import locale_for
 from tts_helpers import tts_bytes_for_chunk
 
 # Optional fast fuzzy matching
@@ -150,7 +151,7 @@ def api_turn(req: TurnReq):
     # Normalize audio_chunks
     audio_chunks = llm_out.get("audio_chunks")
     if not audio_chunks or not isinstance(audio_chunks, list) or len(audio_chunks) == 0:
-        lang_tag = "es-MX" if learning.code.startswith("es") else ("id-ID" if learning.code.startswith("id") else "en-US")
+        lang_tag = locale_for(learning.code)
         audio_chunks = [
             {"text": corrected or transcript, "lang": lang_tag, "purpose": "corrected_sentence"},
             {"text": native_translation, "lang": "en-US", "purpose": "native_translation"},
