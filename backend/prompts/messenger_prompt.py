@@ -7,7 +7,7 @@ with a blank line into the single wire string sent to OpenAI.
 from typing import Any, Dict, List
 
 from profile_store import load_helper_json, load_persona_json
-from prompt_fragments import messenger_naturalness_reminder, quiz_candidate_rules
+from prompt_fragments import quiz_candidate_rules
 from settings import ENABLE_QUIZZING, PERSONA, PROMPTS_DIR
 
 
@@ -38,6 +38,7 @@ def generate_turn_instruction(profile: Dict[str, Any]) -> str:
 - Current level: {level}
 - Recent performance: {corrections_needed}/{turn_count} turns needed correction
 - Look for: grammar accuracy, vocabulary range, fluency, complexity
+- INCLUDE the "level_assessment" field defined in the OUTPUT SCHEMA in your JSON response this turn
 - Set should_update=true if confident about level change (confidence >= 0.7)
 - Update comfortable_with and weak_points based on observed patterns"""
 
@@ -45,7 +46,7 @@ def generate_turn_instruction(profile: Dict[str, Any]) -> str:
     return f"""Current learner level: {level}
 - Provide natural persona response following language mix rules (70-80% UI, 15-25% target text, 5-10% target audio)
 - Respond to the user's intended meaning — do NOT correct or mention errors in your response_chunks
-- Assess if this turn shows level change signals (set confidence accordingly)
+- Do NOT include the "level_assessment" field this turn
 - Decide response mode per chunk: use target audio for new vocab/patterns appropriate to level"""
 
 
@@ -147,42 +148,38 @@ EXAMPLE GREETINGS (in {ui_lang}):
     else:
         student_context = f"Learner level: {profile.get('level', 'beginner')}"
 
-    # Combine system layers
-    full_system = "\n\n".join([
-        system_filled,
-        persona_prompt,
-        student_context
-    ])
-
-    # Layer 4: Conversation Context
+    # Layer 4: Conversation Context (dynamic)
     context_str = build_conversation_context(profile.get("recent_turns", []))
 
-    # Layer 5: Turn Instruction
+    # Layer 5: Turn Instruction (dynamic)
     turn_instruction = generate_turn_instruction(profile)
+    if prompt_version == "v2":
+        # The V2 block lives in the static prefix (for prompt caching); this
+        # end-of-prompt reminder keeps it salient — without it the model tends
+        # to fall back to the regular language-mix format.
+        turn_instruction += "\n- FOLLOW THE V2 CHALLENGE FORMAT defined above: all chunks except the last are {ui} text; the LAST chunk is the {target} audio challenge sentence with \"native_text\" and \"is_challenge\": true".format(
+            ui=ui_lang, target=target_lang)
 
-    # Build user message
     max_suggestions = suggestion_config.get("max_suggestions", 3)
-    is_assessment_turn = profile.get("turn_count", 0) > 0 and profile.get("turn_count", 0) % 5 == 0
+
+    # ------------------------------------------------------------------
+    # STATIC PREFIX (system prompt): everything here must stay byte-identical
+    # across turns for a fixed run config (persona + language pair +
+    # ENABLE_QUIZZING + prompt_version) so OpenAI's automatic prompt caching
+    # discounts it. NEVER insert per-turn content before the dynamic tail —
+    # the prompt-prefix test in tests/test_prompt_snapshot.py enforces this.
+    # ------------------------------------------------------------------
 
     if ENABLE_QUIZZING:
         quiz_candidates_schema = '  "quiz_candidates": [\n    {\n      "type": "correction" | "translation" | "naturalness",\n      "original": "...",\n      "corrected": "...",\n      "error_type": "...",\n      "quiz_prompt": "..."\n    }\n  ],'
-        quiz_rules_section = quiz_candidate_rules(ui_lang, target_lang)
+        quiz_rules_section = quiz_candidate_rules(ui_lang, target_lang).lstrip("\n")
     else:
         quiz_candidates_schema = ''
         quiz_rules_section = ''
 
-    if is_assessment_turn:
-        level_assessment_schema = '  "level_assessment": {\n    "current_level": "beginner" | "intermediate" | "advanced",\n    "confidence": 0.0-1.0,\n    "should_update": true/false,\n    "reasoning": "1 short phrase — only required when should_update=true",\n    "add_comfortable": [],\n    "add_weak": [],\n    "remove_weak": []\n  }'
-    else:
-        level_assessment_schema = ''
-
-    user_message = f"""{context_str}
-
-CURRENT USER INPUT: {user_input}
-
-{turn_instruction}
-
-OUTPUT SCHEMA (return exactly one JSON object):
+    # level_assessment is always described in the schema; inclusion is gated by
+    # the TURN INSTRUCTION (every 5th turn), keeping the schema text static.
+    schema_section = f"""OUTPUT SCHEMA (return exactly one JSON object):
 {{
   "corrected_input": "...",  // The corrected or naturalized version of what the user said. CRITICAL: If had_errors=true, corrected_input MUST be different from the user's input — it must contain the natural/correct {target_lang} version. NEVER leave corrected_input the same as the user's input when had_errors=true. Rules: (1) Fix grammar errors. (2) If phrasing is unnatural, replace the whole phrase with what a native speaker would actually say — even completely different words, same meaning. (3) NEVER make it a response or answer to a question. (4) Copy exactly only when had_errors=false.
   "user_translation": "...",  // {ui_lang} translation of corrected_input. Always provide.
@@ -206,10 +203,18 @@ OUTPUT SCHEMA (return exactly one JSON object):
     }}
   ],
 {quiz_candidates_schema}
-{level_assessment_schema}
-}}
+  "level_assessment": {{  // INCLUDE this field ONLY when the TURN INSTRUCTION (near the end of this prompt) explicitly asks for a level assessment — omit it entirely on all other turns
+    "current_level": "beginner" | "intermediate" | "advanced",
+    "confidence": 0.0-1.0,
+    "should_update": true/false,
+    "reasoning": "1 short phrase — only required when should_update=true",
+    "add_comfortable": [],
+    "add_weak": [],
+    "remove_weak": []
+  }}
+}}"""
 
-CRITICAL REMINDERS:
+    reminders_section = f"""CRITICAL REMINDERS:
 - Your response_chunks should be MOSTLY in {ui_lang} (language="ui", modality="text"). Only use "target" sparingly for teaching.
 - NEVER set modality="audio" for a language="ui" chunk. Audio is ONLY for pure {target_lang} text.
 - A chunk with modality="audio" must have its "text" field contain ONLY {target_lang} — no {ui_lang} words, no mixed phrases.
@@ -217,10 +222,9 @@ CRITICAL REMINDERS:
 - Stay in character! Your personality should come through IN {ui_lang}.
 - NEVER mention corrections or errors in your response_chunks. Respond as if the user spoke perfectly.
 - Pico handles corrections separately via corrected_input/had_errors/error_explanation — fill those fields accurately but keep them out of your conversational response.
-- input_intent: "english" if the user was primarily speaking {ui_lang} (even with some {target_lang} thrown in); "spanish" if the user was clearly attempting {target_lang} (even if they got stuck on words and used {ui_lang} for those). Example: "I went to the store today, gracias!" = "english". "Fui al store porque no tenía food" = "spanish".
-{messenger_naturalness_reminder(ui_lang, target_lang)}
-{quiz_rules_section}
-SUGGESTION GENERATION RULES:
+- input_intent: "english" if the user was primarily speaking {ui_lang} (even with some {target_lang} thrown in); "spanish" if the user was clearly attempting {target_lang} (even if they got stuck on words and used {ui_lang} for those). Example: "I went to the store today, gracias!" = "english". "Fui al store porque no tenía food" = "spanish"."""
+
+    suggestion_section = f"""SUGGESTION GENERATION RULES:
 - Generate {max_suggestions} short replies THE USER would say TO {character_name} — phrased in first person, NOT things the character would say
 - Write each suggestion naturally in {target_lang} first (text_target) — use phrasing a native {target_lang} speaker would actually say
 - text_native is the {ui_lang} translation of text_target — translate naturally, not word-for-word
@@ -229,15 +233,13 @@ SUGGESTION GENERATION RULES:
     2. playful — something funny or teasing the user says to {character_name}
     3. pivot — something the user says to shift to a new topic (about user's own life, a new interest, etc.)
 - Keep suggestions brief (5-10 words max)
-- Sound like the user talking TO {character_name}, never like {character_name} talking
+- Sound like the user talking TO {character_name}, never like {character_name} talking"""
 
-Return ONLY valid JSON (no markdown, no commentary)."""
-
-    # V2 override: append challenge-last-sentence instructions
+    # V2 override: challenge-last-sentence instructions (version-conditional but
+    # static within a run; last in the prefix so v1/v2 share everything above it)
+    v2_section = ''
     if prompt_version == "v2":
-        user_message += f"""
-
-V2 CHALLENGE FORMAT — OVERRIDES response_chunks rules above:
+        v2_section = f"""V2 CHALLENGE FORMAT — OVERRIDES response_chunks rules above:
 - Default to exactly 2 response_chunks: one {ui_lang} text chunk, then the {target_lang} audio challenge. Only use more than 2 when the reply genuinely requires it (e.g. a multi-part reaction that truly can't fit in one sentence). Keep extra chunks rare — 2 is the norm.
 - ALL chunks except the LAST: language="ui", modality="text" (speak in {ui_lang})
 - The LAST chunk MUST be a challenge sentence in {target_lang}:
@@ -253,5 +255,31 @@ V2 CHALLENGE FORMAT — OVERRIDES response_chunks rules above:
 - Difficulty: slightly above the learner's current level — comprehensible input that stretches them a little
 - The challenge sentence should flow naturally as the conclusion of the reply
 - CRITICAL — avoid repetition: The {ui_lang} text chunk should ONLY react/acknowledge what the user said (a short natural response). Do NOT include a follow-up question or prompt in the {ui_lang} chunk — the {target_lang} challenge is the ONLY forward-moving piece. The two chunks should complement each other, not say the same thing twice in different languages."""
+
+    # Assemble the static prefix (system prompt)
+    full_system = "\n\n".join(section for section in [
+        system_filled,
+        persona_prompt,
+        schema_section,
+        reminders_section,
+        quiz_rules_section,
+        suggestion_section,
+        v2_section,
+    ] if section)
+
+    # ------------------------------------------------------------------
+    # DYNAMIC TAIL (user message): everything that changes per turn —
+    # student model (mutable profile lists), conversation context, turn
+    # instruction, and the user's input.
+    # ------------------------------------------------------------------
+    user_message = f"""{student_context}
+
+{context_str}
+
+{turn_instruction}
+
+CURRENT USER INPUT: {user_input}
+
+Return ONLY valid JSON (no markdown, no commentary)."""
 
     return full_system, user_message

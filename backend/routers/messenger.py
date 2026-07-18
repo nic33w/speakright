@@ -26,7 +26,7 @@ from profile_store import (
 )
 from prompts.messenger_prompt import build_layered_prompt
 from quiz_store import add_quiz_item, get_pending_quiz
-from settings import API_ROOT, MOCK_MODE
+from settings import API_ROOT, ENABLE_QUIZZING, MOCK_MODE
 from tts_helpers import tts_bytes_for_chunk
 
 router = APIRouter()
@@ -259,6 +259,9 @@ def messenger_chat_turn(req: MessengerTurnRequest):
     # Load profile
     profile = load_profile()
 
+    # Same every-5th-turn gate the prompt's TURN INSTRUCTION uses (pre-increment)
+    is_assessment_turn = profile.get("turn_count", 0) > 0 and profile.get("turn_count", 0) % 5 == 0
+
     # Build layered prompt
     system_prompt, user_message = build_layered_prompt(req.user_input, profile, req.prompt_version or "v1")
 
@@ -299,6 +302,14 @@ def messenger_chat_turn(req: MessengerTurnRequest):
     else:
         # Real LLM call
         llm_response = call_llm_for_messenger(system_prompt, user_message)
+
+    # Defensive guards: the schema now always describes level_assessment (and,
+    # when quizzing is on, quiz_candidates), gated by the turn instruction — so
+    # drop anything the LLM emits when it wasn't asked for this turn.
+    if not is_assessment_turn:
+        llm_response["level_assessment"] = {}
+    if not ENABLE_QUIZZING:
+        llm_response["quiz_candidates"] = []
 
     # Process response chunks (generate TTS for audio modality)
     processed_chunks = []

@@ -34,11 +34,8 @@ UNNATURAL_PHRASING_RULE = (
 
 
 # --- Messenger fragments (build_layered_prompt) ---
-
-def messenger_naturalness_reminder(ui_lang: str, target_lang: str) -> str:
-    """The NATURALNESS IS STRICT reminder bullet in the messenger prompt."""
-    return f"- NATURALNESS IS STRICT: Body sensations, physical feelings, emotions, idioms, and colloquial expressions almost NEVER translate word-for-word from {ui_lang} to {target_lang}. If the user expressed any of these by guessing at a {target_lang} word from the {ui_lang} equivalent, flag it even if the word technically exists. Example: \"gaseoso\" technically means carbonated/fizzy — it does NOT mean feeling gassy. The correct native expression is \"me da gases.\" Always ask: would a native speaker actually say this, or does it just sound like translated {ui_lang}?"
-
+# (The messenger naturalness rule is stated once, inline in the had_errors
+# schema comment — deduplicated per SPEAKING_LISTENING_ANALYSIS.md §9a.)
 
 def quiz_candidate_rules(ui_lang: str, target_lang: str) -> str:
     """Messenger quiz-candidate tagging rules (only sent when ENABLE_QUIZZING)."""

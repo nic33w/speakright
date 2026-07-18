@@ -63,32 +63,6 @@ Scenario: boast+complaint
   Sombongo: "Thirty whole seconds in line. Tragic." (in en)
 
 
-STUDENT MODEL CONTEXT:
-
-Learner profile:
-- UI language: English
-- Target language: Spanish
-- Comfortable with:
-  (none yet)
-- Struggles with:
-  - subjunctive
-- Avoid:
-  (none yet)
-
-CONVERSATION CONTEXT (recent turns):
-  User: espero que tu estas bien
-  Corrected: espero que estés bien
-
-CURRENT USER INPUT: ayer fui al tienda para comprar leche
-
-ASSESSMENT TURN (turn #10):
-- Carefully evaluate user's target language proficiency based on recent turns
-- Current level: intermediate
-- Recent performance: 4/10 turns needed correction
-- Look for: grammar accuracy, vocabulary range, fluency, complexity
-- Set should_update=true if confident about level change (confidence >= 0.7)
-- Update comfortable_with and weak_points based on observed patterns
-
 OUTPUT SCHEMA (return exactly one JSON object):
 {
   "corrected_input": "...",  // The corrected or naturalized version of what the user said. CRITICAL: If had_errors=true, corrected_input MUST be different from the user's input — it must contain the natural/correct Spanish version. NEVER leave corrected_input the same as the user's input when had_errors=true. Rules: (1) Fix grammar errors. (2) If phrasing is unnatural, replace the whole phrase with what a native speaker would actually say — even completely different words, same meaning. (3) NEVER make it a response or answer to a question. (4) Copy exactly only when had_errors=false.
@@ -121,7 +95,7 @@ OUTPUT SCHEMA (return exactly one JSON object):
       "quiz_prompt": "..."
     }
   ],
-  "level_assessment": {
+  "level_assessment": {  // INCLUDE this field ONLY when the TURN INSTRUCTION (near the end of this prompt) explicitly asks for a level assessment — omit it entirely on all other turns
     "current_level": "beginner" | "intermediate" | "advanced",
     "confidence": 0.0-1.0,
     "should_update": true/false,
@@ -141,7 +115,6 @@ CRITICAL REMINDERS:
 - NEVER mention corrections or errors in your response_chunks. Respond as if the user spoke perfectly.
 - Pico handles corrections separately via corrected_input/had_errors/error_explanation — fill those fields accurately but keep them out of your conversational response.
 - input_intent: "english" if the user was primarily speaking English (even with some Spanish thrown in); "spanish" if the user was clearly attempting Spanish (even if they got stuck on words and used English for those). Example: "I went to the store today, gracias!" = "english". "Fui al store porque no tenía food" = "spanish".
-- NATURALNESS IS STRICT: Body sensations, physical feelings, emotions, idioms, and colloquial expressions almost NEVER translate word-for-word from English to Spanish. If the user expressed any of these by guessing at a Spanish word from the English equivalent, flag it even if the word technically exists. Example: "gaseoso" technically means carbonated/fizzy — it does NOT mean feeling gassy. The correct native expression is "me da gases." Always ask: would a native speaker actually say this, or does it just sound like translated English?
 
 QUIZ CANDIDATE RULES:
 - ONLY tag SIGNIFICANT errors (verb conjugation, gender, prepositions, vocabulary gaps, grammar structure, ser/estar, por/para)
@@ -150,6 +123,7 @@ QUIZ CANDIDATE RULES:
 - For vocabulary gaps (user used English), type="translation"; for grammar errors, type="correction"; for unnatural phrasing, type="naturalness"
 - "original": what the user said; "corrected": the correct/natural Spanish word/phrase (QUIZ ANSWER)
 - "quiz_prompt": question in English like "How do you say 'X' in Spanish?"
+
 SUGGESTION GENERATION RULES:
 - Generate 3 short replies THE USER would say TO Sombongo — phrased in first person, NOT things the character would say
 - Write each suggestion naturally in Spanish first (text_target) — use phrasing a native Spanish speaker would actually say
@@ -160,8 +134,6 @@ SUGGESTION GENERATION RULES:
     3. pivot — something the user says to shift to a new topic (about user's own life, a new interest, etc.)
 - Keep suggestions brief (5-10 words max)
 - Sound like the user talking TO Sombongo, never like Sombongo talking
-
-Return ONLY valid JSON (no markdown, no commentary).
 
 V2 CHALLENGE FORMAT — OVERRIDES response_chunks rules above:
 - Default to exactly 2 response_chunks: one English text chunk, then the Spanish audio challenge. Only use more than 2 when the reply genuinely requires it (e.g. a multi-part reaction that truly can't fit in one sentence). Keep extra chunks rare — 2 is the norm.
@@ -179,3 +151,33 @@ V2 CHALLENGE FORMAT — OVERRIDES response_chunks rules above:
 - Difficulty: slightly above the learner's current level — comprehensible input that stretches them a little
 - The challenge sentence should flow naturally as the conclusion of the reply
 - CRITICAL — avoid repetition: The English text chunk should ONLY react/acknowledge what the user said (a short natural response). Do NOT include a follow-up question or prompt in the English chunk — the Spanish challenge is the ONLY forward-moving piece. The two chunks should complement each other, not say the same thing twice in different languages.
+
+STUDENT MODEL CONTEXT:
+
+Learner profile:
+- UI language: English
+- Target language: Spanish
+- Comfortable with:
+  (none yet)
+- Struggles with:
+  - subjunctive
+- Avoid:
+  (none yet)
+
+CONVERSATION CONTEXT (recent turns):
+  User: espero que tu estas bien
+  Corrected: espero que estés bien
+
+ASSESSMENT TURN (turn #10):
+- Carefully evaluate user's target language proficiency based on recent turns
+- Current level: intermediate
+- Recent performance: 4/10 turns needed correction
+- Look for: grammar accuracy, vocabulary range, fluency, complexity
+- INCLUDE the "level_assessment" field defined in the OUTPUT SCHEMA in your JSON response this turn
+- Set should_update=true if confident about level change (confidence >= 0.7)
+- Update comfortable_with and weak_points based on observed patterns
+- FOLLOW THE V2 CHALLENGE FORMAT defined above: all chunks except the last are English text; the LAST chunk is the Spanish audio challenge sentence with "native_text" and "is_challenge": true
+
+CURRENT USER INPUT: ayer fui al tienda para comprar leche
+
+Return ONLY valid JSON (no markdown, no commentary).

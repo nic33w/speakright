@@ -107,3 +107,52 @@ def test_prompt_golden(profile_key, version, quizzing, monkeypatch):
         "If this change is deliberate (Stage 4 restructure), delete tests/goldens/ "
         "and re-run to re-baseline."
     )
+
+
+# --- Prompt-cache prefix stability (the Stage 4 invariant) ---
+# The wire string is system + "\n\n" + user_message; OpenAI's automatic prompt
+# caching discounts a repeated prefix (>=1024 tokens), so the system prompt
+# (static prefix) must be byte-identical across turns for a fixed run config.
+
+def _wire(system, user):
+    return system + "\n\n" + user
+
+
+def test_static_prefix_identical_across_turns_and_profiles():
+    """Different turn counts, recent_turns, weak_points, and user input must
+    not change a single byte of the static prefix."""
+    for version in ("v1", "v2"):
+        prefixes = []
+        for key, profile in PROFILES.items():
+            system, user = build_layered_prompt(USER_INPUT, profile, version)
+            assert _wire(system, user).startswith(system + "\n\n")
+            prefixes.append((key, system))
+        baseline_key, baseline = prefixes[0]
+        for key, system in prefixes[1:]:
+            assert system == baseline, (
+                f"static prefix differs between profiles '{baseline_key}' and "
+                f"'{key}' ({version}) — dynamic content leaked into the prefix"
+            )
+
+
+def test_static_prefix_identical_regular_vs_assessment_turn():
+    regular = _profile(turn_count=7, level="intermediate")
+    assessment = _profile(turn_count=10, level="intermediate")
+    sys_r, _ = build_layered_prompt("hola", regular, "v1")
+    sys_a, _ = build_layered_prompt("adios", assessment, "v1")
+    assert sys_r == sys_a, "assessment turns must not mutate the static prefix"
+
+
+def test_v1_and_v2_share_common_prefix():
+    """v2 only appends its challenge block — everything before it is shared."""
+    profile = _profile(turn_count=3)
+    sys_v1, _ = build_layered_prompt("hola", profile, "v1")
+    sys_v2, _ = build_layered_prompt("hola", profile, "v2")
+    assert sys_v2.startswith(sys_v1), "v2 must extend the v1 prefix, not alter it"
+
+
+def test_static_prefix_exceeds_cache_minimum():
+    """OpenAI automatic caching needs a >=1024-token prefix; >5000 chars is a
+    conservative proxy."""
+    system, _ = build_layered_prompt("hola", PROFILES["fresh"], "v1")
+    assert len(system) > 5000, f"static prefix only {len(system)} chars"

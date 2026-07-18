@@ -336,8 +336,9 @@ def _call_openai_json(
         "total_tokens": total_tokens,
         "cost_cents": cost_cents,
     }
+    cached_tokens = getattr(getattr(getattr(resp, "usage", None), "input_tokens_details", None), "cached_tokens", 0) or 0
     _log_debug(f"{label} - TOKEN USAGE",
-               f"Prompt: {prompt_tokens}, Completion: {completion_tokens}, Total: {total_tokens}, Cost: {cost_cents:.4f} cents")
+               f"Prompt: {prompt_tokens} (cached: {cached_tokens}), Completion: {completion_tokens}, Total: {total_tokens}, Cost: {cost_cents:.4f} cents")
 
     raw_text = _extract_response_text(resp)
     parsed = _extract_json(raw_text) if parse_json else None
