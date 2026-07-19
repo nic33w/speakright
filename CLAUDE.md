@@ -26,7 +26,7 @@ python -m pytest tests/    # mock-mode smoke suite over every route + prompt gol
 `backend/.env` (git-ignored, real keys already present locally — never print or commit its contents):
 ```
 OPENAI_API_KEY=sk-...
-OPENAI_MODEL=gpt-4.1-mini        # llm_call.py default if unset; NOT gpt-4o-mini
+OPENAI_MODEL=gpt-4o-mini         # settings.py defaults to gpt-4.1-mini if unset; local .env currently runs gpt-4o-mini
 AZURE_SPEECH_KEY=...
 AZURE_REGION=...
 AZURE_VOICE_ES=...
@@ -59,23 +59,36 @@ Shared backend endpoints used by multiple modes: `/api/config` (mock-mode flag f
 
 ## Architecture
 
-**Backend (`game_backend.py`, ~2000 lines, single file — not yet split into routers):**
-- FastAPI app, all routes defined top-level (see Mode Inventory table for the endpoint map)
-- Persona/messenger prompt assembly: `build_layered_prompt()` — 5 layers (system prompt file `prompts/chat_system_prompt.txt`, persona JSON `sombongo` in `PERSONA`, student-model template, last-3-turn context, turn instruction), composed per turn and sent as **one** `responses.create` call via `call_llm_for_messenger`. `prompt_version` is `"v1"` (standard) or `"v2"` (adds a hover-reveal "challenge" sentence — the default in `MessengerChat.tsx`).
-- Quiz candidates are requested from the LLM only when `ENABLE_QUIZZING=1` (default off). Level/profile assessment runs only every 5th turn.
-- Premade scripted conversations: `premade_conversations.json` + `premade_sessions` in-memory dict, served via `/api/messenger/premade-start`.
-- Chat-log-for-review files: `append_chat_log()` writes `chat_log_{lang}.md` per learning language — a running transcript of user input / corrections, meant for manual accuracy review, not consumed by the app.
+**Backend layout (split into modules as of plan 4; entry point `main.py`):**
 
-**`llm_call.py`** — all OpenAI calls, one function per feature (see Mode Inventory). `DEFAULT_MODEL = os.getenv("OPENAI_MODEL", "gpt-4.1-mini")`. Each function independently extracts response text, parses JSON, and computes token-usage cost — this boilerplate is duplicated per function (candidate for a shared `_call_openai_json` helper, not yet built). `_language_style_instruction(lang_code)` is the one authoritative place for Spanish/Indonesian register rules — also duplicated (older, unused) in `fastapi_wispr_pipeline.py`.
+| Module | Owns |
+|---|---|
+| `main.py` | App assembly: FastAPI instance, CORS, startup event, `include_router` for all 8 routers. `game_backend.py` is a compat shim (`from main import app`) |
+| `settings.py` | **The single owner of config + import-time side effects**: dotenv load, state-dir creation, `MOCK_MODE`/`ENABLE_QUIZZING`/`DEBUG` flags, API keys, all paths, `PERSONA`, quiz constants, `LOCALE_MAP`/`locale_for()`, `VOICE_MAP`, `MODEL_PRICING` |
+| `routers/story.py`, `audio.py`, `misc.py`, `checks.py` (trivia+battle), `messenger.py`, `quiz.py`, `worddrill.py`, `guessing.py` | One router per feature area; bare `APIRouter()` with full literal paths (no `prefix=`), per-router request models. See Mode Inventory for the endpoint map |
+| `models.py` | Cross-router pydantic models only (`LangSpec`, messenger response models, quiz models) |
+| `audio_utils.py` | `generate_silent_wav`, `save_wav`, `get_cached_audio_path` (the content-hash cache) |
+| `profile_store.py` / `quiz_store.py` / `chat_log.py` | Messenger profile CRUD + assessment update / spaced-repetition quiz storage + local answer check / correction-transcript writer |
+| `prompt_fragments.py` | **Cross-feature prompt rules — edit here, never inline** (see `backend/PROMPTS.md`) |
+| `prompts/messenger_prompt.py` | `build_layered_prompt()` — lives next to its template/persona data files |
 
-**`tts_helpers.py`** — Azure TTS wrapper. Default voices come from env (`AZURE_VOICE_ES`/`EN`/`ID`), independently defaulted again in `scripts/generate_worddrill_audio.py` / `generate_battle_audio.py` (which hardcode `id-ID-ArdiNeural` instead of the `tts_helpers.py` default `id-ID-GadisNeural`) — check both before assuming which voice is in play for Indonesian audio, especially cached files. The audio cache key is `text|locale` and does **not** include voice, so regenerating with a different default voice silently mixes speakers in the cache.
+- Messenger prompt assembly: `build_layered_prompt()` returns `(static_prefix, dynamic_tail)`, joined with one blank line into **one** `responses.create` call via `call_llm_for_messenger`. **Cache invariant: the static prefix (system file + persona + full output schema + reminders + suggestion rules + v2 block) must stay byte-identical across turns** so OpenAI automatic prompt caching discounts it (verified: ~2.3k of ~2.5k input tokens served from cache per turn). All per-turn content — student model, last-3-turn context, turn instruction, user input — goes in the dynamic tail. `tests/test_prompt_snapshot.py` enforces this; never insert dynamic content before the student-model section. `prompt_version` is `"v1"` (standard) or `"v2"` (adds a hover-reveal "challenge" sentence — the default in `MessengerChat.tsx`).
+- The output schema always *describes* `level_assessment`; inclusion is gated by the turn instruction (every 5th turn), and the messenger router drops it if emitted unrequested. Quiz candidates are requested only when `ENABLE_QUIZZING=1` (default off).
+- Premade scripted conversations: `premade_conversations.json` + `premade_sessions` in-memory dict in `routers/messenger.py`. **Known bug:** both premade paths build `MessengerTurnResponse` without the required `input_intent` field, so premade conversations currently 500 (xfail-documented in `tests/test_smoke.py`).
+- Chat-log-for-review files: `chat_log.append_chat_log()` writes `chat_log_{lang}.md` per learning language — a running transcript for manual accuracy review, not consumed by the app.
+
+**`llm_call.py`** — all OpenAI calls, one function per feature (see Mode Inventory), each delegating to the shared **`_call_openai_json()`** helper (text extraction, JSON parse, token/cost accounting from `settings.MODEL_PRICING`, per-call `model` override, usage-tracker recording). **Every LLM call records cost** to the usage tracker. Mock short-circuits and error fallbacks stay per-function. Register/STT rules imported from `prompt_fragments.py`.
+
+**`tts_helpers.py`** — Azure TTS wrapper. Default voices come from `settings.VOICE_MAP` (env `AZURE_VOICE_ES`/`EN`/`ID`), but `scripts/generate_worddrill_audio.py` / `generate_battle_audio.py` still hardcode their own (`id-ID-ArdiNeural` vs the `VOICE_MAP` default `id-ID-GadisNeural`) — check both before assuming which voice is in play for Indonesian audio, especially cached files. The audio cache key is `text|locale` and does **not** include voice, so regenerating with a different default voice silently mixes speakers in the cache.
+
+**`tests/`** — mock-mode smoke suite covering every route (`test_smoke.py`) + prompt goldens and prefix-stability tests (`test_prompt_snapshot.py`). Run `python -m pytest tests/` from `backend/` after any backend change; it needs no API keys and restores all state files it touches.
 
 **Two audio delivery patterns, used inconsistently by mode:**
 1. **Live per-turn generation** — a fresh timestamped file every call, even for repeated text. Used by messenger chunks and story-cards turns. No dedup.
 2. **Content-hash cache** — `get_cached_audio_path()`, files at `audio_files/cache/cached_{lang}_{hash}.wav`. Used by `/api/trivia/audio` (trivia, worddrill, battle, trivia2, premade chunks). Prefer this pattern for anything reused.
 3. **Static pre-generated files** — one-time batch scripts in `backend/scripts/` (`generate_battle_audio.py`, `generate_greeting_audio.py`, `generate_worddrill_audio.py`) writing to `frontend/public/`. Number Rush expects this pattern but its script/files don't exist yet.
 
-**`usage_tracker.py`** — tracks spend against `MAX_AZURE_CHARS = 500_000` chars/month and `MAX_OPENAI_BUDGET_CENTS = 1000.0` ($10), surfaced via `/api/usage` and the `UsageDiagnostics.tsx` battery bars shown on every screen.
+**`usage_tracker.py`** — tracks spend against `MAX_AZURE_CHARS = 500_000` chars/month and `MAX_OPENAI_BUDGET_CENTS = 1000.0` ($10), surfaced via `/api/usage` and the `UsageDiagnostics.tsx` battery bars shown on every screen. OpenAI cost is computed per model from `settings.MODEL_PRICING` (real published rates) and recorded by **every** LLM call. Note: the local `.env` currently sets `OPENAI_MODEL=gpt-4o-mini` (not gpt-4.1-mini); add a `MODEL_PRICING` row before switching to a model not in the table, or it bills at the gpt-4.1-mini fallback rate.
 
 **Frontend shared layer** — `config.ts` (`API_BASE`, `LOCALE_MAP`/`localeFor`), `sharedGameUtils.ts` (types + pure functions), `sharedGameHooks.ts` (`useAudioPlayer`, `useWisprAutoSend`), and `sharedGameComponents.tsx` (React components), documented in `frontend/src/SHARED_COMPONENTS.md`. **Import from these — do not copy.** Hooks are a separate file from components because Fast Refresh requires component files to export only components. Every active mode now imports the shared versions of auto-send, audio, fuzzy matching, apiBase, and locales — there are no per-mode duplicates left to migrate, so a new duplicate is a regression.
 
@@ -104,13 +117,14 @@ Shared backend endpoints used by multiple modes: `/api/config` (mock-mode flag f
 | Invariant | Implementation | Adopted by |
 |---|---|---|
 | Wispr auto-send timing (paste of ≥3 chars → send after ~1.5s cancelable window; typing never auto-sends; guard 700ms since last send) | `useWisprAutoSend` hook, `sharedGameHooks.ts`; `AutoSendBar` renders the countdown; `GameTextarea` wraps both | **All 7 modes.** `MessengerChat.tsx` via `GameTextarea`; `BattleGame.tsx`, `GuessingGame.tsx`, `StoryCardsGame.tsx`, `TriviaGame.tsx`, `WordDrillGame.tsx`, `trivia2/TriviaGame2.tsx` call the hook directly and keep only their own textarea markup |
-| Never penalize accents/punctuation/capitalization | Stated in the `check_trivia_answer` prompt (`llm_call.py`) and quiz-candidate rules (`game_backend.py`); normalization helper `normalizeForMatch` (frontend, `sharedGameUtils.ts`) | Frontend consolidated. Backend still has 3 near-identical normalize functions (`_normalize_for_llm`, `normalize_for_match`, `normalize_answer`) — not yet consolidated |
+| Never penalize accents/punctuation/capitalization | `NEVER_PENALIZE_ACCENTS_RULE` in `prompt_fragments.py` (used by `check_trivia_answer`); quiz-candidate rules also in `prompt_fragments.py`; normalization helper `normalizeForMatch` (frontend, `sharedGameUtils.ts`) | Frontend consolidated; prompt text consolidated. Backend still has 3 near-identical normalize functions (`_normalize_for_llm` in `llm_call.py`, `normalize_for_match` in `routers/messenger.py`, `normalize_answer` in `quiz_store.py`) — not yet consolidated |
 | Fuzzy-match before calling the LLM | `checkFuzzyMatch`, `sharedGameUtils.ts` | **All 4 checking modes**: `BattleGame.tsx`, `TriviaGame.tsx`, `trivia2/TriviaGame2.tsx`, `WordDrillGame.tsx` |
 | Audio fetch/cache/play | `useAudioPlayer(apiBase)` hook, `sharedGameHooks.ts` — client-side cache keyed `locale:text`, one player per component instance | **All audio modes**: `WordDrillGame.tsx`, `TriviaGame.tsx`, `MessengerChat.tsx`, `StoryCardsGame.tsx`, and `HistoryLogEntry` |
 | `apiBase` default (`VITE_API_BASE_URL` env or `http://localhost:8000`) | `API_BASE`, `frontend/src/config.ts` | Every mode + `UsageDiagnostics.tsx` + `HomeScreen.tsx`. Only legacy `ChatWithWispr.tsx` still has its own copy |
-| Locale map (`es`→`es-MX`, `id`→`id-ID`, `en`→`en-US`) | `LOCALE_MAP` / `localeFor()`, `frontend/src/config.ts` | All frontend modes. Backend still repeats it inline in `game_backend.py` and `llm_call.py` — keep the three in sync |
-| Casual register per language (Indonesian `-kah`/`aja` vs `saja`, Spanish Latin American/Mexican lean) | `_language_style_instruction()`, `llm_call.py`; also checked in `check_trivia_answer`'s `register_too_formal` feedback key | Backend-only, single source — good, keep it that way |
-| STT/ASR tolerance rules | Inline in relevant LLM prompts (`llm_call.py`) | No shared prompt-fragment module yet |
+| Locale map (`es`→`es-MX`, `id`→`id-ID`, `en`→`en-US`) | Frontend: `LOCALE_MAP` / `localeFor()`, `frontend/src/config.ts`. Backend: `LOCALE_MAP` / `locale_for()`, `settings.py` | All frontend modes + all backend call sites. Keep the two files in sync |
+| Casual register per language (Indonesian `-kah`/`aja` vs `saja`, Spanish Latin American/Mexican lean) | `language_style_instruction()`, `prompt_fragments.py`; also checked in `check_trivia_answer`'s `register_too_formal` feedback key | Backend-only, single source — good, keep it that way |
+| STT/ASR tolerance rules | `STT_TOLERANCE_RULE` + `UNNATURAL_PHRASING_RULE`, `prompt_fragments.py` (see `backend/PROMPTS.md`) | `check_trivia_answer` (trivia/battle/worddrill/quiz checks) |
+| Messenger prompt-cache prefix stability (static prefix byte-identical across turns) | `prompts/messenger_prompt.py` static-prefix/dynamic-tail split; enforced by `tests/test_prompt_snapshot.py` | Messenger. Never insert per-turn content before the student-model section |
 
 **"Import, never copy" applies to `config.ts` / `sharedGameUtils.ts` / `sharedGameHooks.ts` / `sharedGameComponents.tsx`.** When building a new mode, check `SHARED_COMPONENTS.md` first for an existing component/hook/util before writing one. Do not tell a future agent to "copy constants from BattleGame.tsx" — that instruction is outdated; `FEEDBACK_MAP`, `FEEDBACK_COLORS`, `FEEDBACK_LABELS`, `HINT_COLORS`, `checkFuzzyMatch`, `normalizeForMatch`, `calculateDistance`, `distanceToOpacity`, `tokenizeWithHints`, `diffExampleVsUser` all live in `sharedGameUtils.ts`; `useAudioPlayer` and `useWisprAutoSend` in `sharedGameHooks.ts`; `API_BASE` and `localeFor` in `config.ts` — import them.
 
