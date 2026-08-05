@@ -43,7 +43,9 @@
       "PowerShell($sp = \"C:\\\\Users\\\\nic33\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\D--python-projects-speakright\\\\72808f98-bfd3-4453-96ef-8537fc43a4da\\\\scratchpad\"; cd $sp; $env:SHOT_DIR = $sp; node drive.mjs; \"=== worddrill audio ===\"; node drive2.mjs 2>&1 | Select-Object -First 12)",
       "Bash(curl -s -m 5 -o /dev/null -w \"8001 config: %{http_code}\\\\n\" http://localhost:8001/api/config)",
       "Bash(curl -s -m 8 -o /dev/null -w \"8001 premade-start: %{http_code}\\\\n\" -X POST http://localhost:8001/api/messenger/premade-start -H \"Content-Type: application/json\" -d '{\"session_id\":\"t1\",\"conversation_id\":\"x\",\"learning\":{\"code\":\"es\",\"name\":\"Spanish\"},\"fluent\":{\"code\":\"en\",\"name\":\"English\"}}')",
-      "Bash(python *)"
+      "Bash(python *)",
+      "Bash(awk 'NR==234,NR==260{print NR\": \"$0}' game_backend.py)",
+      "Bash(exit 0 *)"
     ]
   }
 }

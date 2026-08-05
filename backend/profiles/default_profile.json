@@ -1,6 +1,6 @@
 {
   "created_at": 1769845610,
-  "last_updated": 1784250612,
+  "last_updated": 1784525502,
   "ui_language": {
     "code": "en",
     "name": "English"
@@ -10,7 +10,7 @@
     "name": "Spanish"
   },
   "level": "beginner",
-  "level_confidence": 0.9,
+  "level_confidence": 0.5,
   "level_history": [
     {
       "timestamp": 1769845610,
@@ -30,26 +30,10 @@
     "article agreement"
   ],
   "avoid_topics": [],
-  "turn_count": 377,
-  "corrections_needed": 194,
+  "turn_count": 379,
+  "corrections_needed": 195,
   "last_assessment_turn": 0,
   "recent_turns": [
-    {
-      "turn_id": "turn_1782429295252",
-      "user_input": "¿Por qué usan Twitter?",
-      "corrected_input": "Error occurred",
-      "had_errors": false,
-      "input_intent": "spanish",
-      "timestamp": 1782429303
-    },
-    {
-      "turn_id": "turn_1782429379561",
-      "user_input": "Yo debería contarles de mis productos.",
-      "corrected_input": "Debería contarles sobre mis productos.",
-      "had_errors": true,
-      "input_intent": "spanish",
-      "timestamp": 1782429391
-    },
     {
       "turn_id": "turn_1782438358137",
       "user_input": "¿Qué tipo de productos son?",
@@ -113,6 +97,22 @@
       "had_errors": false,
       "input_intent": "spanish",
       "timestamp": 1784250619
+    },
+    {
+      "turn_id": "turn_1784525406863",
+      "user_input": "Yo escogería poder sueño lúcido.",
+      "corrected_input": "Yo escogería poder tener un sueño lúcido.",
+      "had_errors": true,
+      "input_intent": "spanish",
+      "timestamp": 1784525414
+    },
+    {
+      "turn_id": "turn_1784525496081",
+      "user_input": "Yo te conocería.",
+      "corrected_input": "Yo te conocería.",
+      "had_errors": false,
+      "input_intent": "spanish",
+      "timestamp": 1784525502
     }
   ]
 }

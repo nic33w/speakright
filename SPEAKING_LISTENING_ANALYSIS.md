@@ -422,6 +422,41 @@ The through-line: **every phase reuses the cost discipline you've already built*
 
 ---
 
+## 13. Security review *(added 2026-07-19)*
+
+Full read of the backend (all 8 routers, `tts_helpers.py`, `audio_utils.py`, `usage_tracker.py`, `settings.py`, `profile_store.py`) and a frontend scan for injection sinks. **None of this is fixed** — recorded here per the "don't change unrequested things" rule.
+
+**Framing that matters:** today the app is single-user on localhost, so most of these are low real-world risk *right now*. But §12's roadmap hosts this for strangers (Phase 1: "does anyone come back in week 2?"). Everything below that's marked **BLOCKER** must be closed *before* the first hosted beta, not after — a public URL turns three of these from theoretical into "someone drains your OpenAI budget overnight." Prioritize accordingly.
+
+### 13.1 Findings, most severe first
+
+| # | Severity (today → hosted) | Issue |
+|---|---|---|
+| S1 | low → **BLOCKER** | **No authentication anywhere, on any endpoint.** Every route is anonymous. Combined with S2 and S3, the entire API — including the money-spending LLM/TTS calls — is callable by anyone who can reach the port. |
+| S2 | low → **BLOCKER** | **Budgets are advisory, never enforced.** `usage_tracker.py` only *accumulates and reports* spend (`get_summary`); nothing anywhere checks `MAX_AZURE_CHARS` / `MAX_OPENAI_BUDGET_CENTS` before making a call. The battery bar can read empty and the app keeps spending. No rate limiting and no request-size cap either, so `user_input` / `transcript` are unbounded strings forwarded straight to metered APIs → trivial cost-exhaustion DoS once public. |
+| S3 | low → high | **Server binds `0.0.0.0` with CORS `*`.** `main.py` runs `host="0.0.0.0"` (all interfaces, not `127.0.0.1`) and allows every origin. On any shared/coffee-shop/office network, other machines — and any website your browser visits — can hit the full API today. |
+| S4 | medium | **No path-containment check on the three file-serving endpoints.** `serve_audio`, `serve_greeting_audio` (`routers/audio.py`) and the session/greeting path builders join URL params (`session`, `filename`, `lang`) straight onto `AUDIO_ROOT` with no `.resolve()`-and-verify-inside-root guard. Starlette's single-segment matching blocks the naive `../` case, but this relies entirely on framework behavior (which has had encoded-slash bypass history) rather than an explicit check. Note `save_wav` *does* sanitize `session_id` with a regex — the read-side endpoints don't re-validate. Fix: resolve the final path and confirm `AUDIO_ROOT` is a parent before `FileResponse`. |
+| S5 | medium | **SSML/XML injection in `azure_tts_bytes_real`.** `text`, `locale`, and `voice_name` are interpolated raw into the SSML template (`tts_helpers.py:49`). User/LLM text containing `<`, `&`, or literal `<speak>`/`<audio>` tags is unescaped → broken synthesis at best, attacker-controlled SSML (prosody/lexicon/`<audio src>` external-fetch attempts) at worst. Any text that reaches TTS comes ultimately from user input or model output. Fix: `xml.sax.saxutils.escape()` the text and validate `locale`/`voice` against the known maps. |
+| S6 | medium (privacy) | **Personal runtime data is committed to git.** `chat_log_es.md` (your actual practice-conversation transcripts + corrections), `profiles/default_profile.json`, `user_profile.json` (mistake log), and `usage_data.json` are all tracked. `.gitignore` covers `audio_files/` and `conversations/` but not these. If this repo is ever pushed public or shared (§12 build-in-public, HN/Product Hunt), your conversation history leaks. Fix: `git rm --cached` those four and add them to `.gitignore`; ship empty seed files instead. |
+| S7 | low → medium | **Answer-checking trusts client-supplied truth.** `/api/trivia/check`, `/api/battle/check`, `/api/worddrill/check` take `correct_answer` / `accepted_translations` / `valid_phrases` from the request body. Fine for a local single-player app; in any hosted or competitive context the client both grades itself and can shape an arbitrary LLM prompt. Revisit when scoring means anything. |
+| S8 | low | **Second-order prompt/markdown injection into stored state.** `user_input` flows into the LLM prompt; the model's output is then written to `weak_points`/`comfortable_with` (unbounded arbitrary strings, only length-capped) and appended verbatim to the `chat_log_{lang}.md` markdown (no escaping — injected markdown/HTML renders if that file is ever viewed in a browser/dashboard, which §12.3-B2B explicitly proposes). Single-user impact is cosmetic; matters once logs become tutor-facing. |
+| S9 | low | **No schema validation on state-file loads.** `load_profile`, `_load_user_profile`, quiz loaders do a bare `json.load` with no try/except or shape check. A hand-edited or corrupted `default_profile.json` throws an unhandled 500 on the main chat path. Robustness, not attack surface. |
+| S10 | low | **Verbose error surfaces in logs.** Azure failures print `resp.text[:400]`; multiple handlers `traceback.print_exc()`. Nothing leaks to the HTTP client (good — clients get generic messages), but logs would carry request detail in a hosted/multi-tenant setting. |
+| S11 | info | **`reload=True` in `main.py`'s `uvicorn.run`.** Dev convenience baked into the entry point; must be off (and behind a real ASGI server) in any deployment. |
+
+### 13.2 What's already done right (so it's not lost in a future refactor)
+
+- **Secrets hygiene is correct:** `.env` and `*.env` are git-ignored, keys are only read in `settings.py`, and nothing echoes them to responses. `MOCK_MODE` lets the whole suite run without keys. Keep it this way.
+- **No client-side injection sinks:** grep found zero `dangerouslySetInnerHTML` / `innerHTML` / `eval` / `new Function` in `frontend/src`. React's default escaping is doing its job; don't introduce raw HTML rendering of correction diffs or chat text.
+- **Outbound TTS call has a timeout** (`requests.post(..., timeout=20)`) — no hung-socket resource leak there.
+- **`save_wav` sanitizes `session_id`** before building a path — the pattern S4 wants; just apply the same discipline on the read side.
+
+### 13.3 Minimum bar before the Phase-1 hosted beta
+
+In priority order, the pre-hosting checklist is: **S1** (auth — even a single shared token or per-user key gate), **S2** (enforce the budgets you already track + add a body-size/rate limit), **S3** (bind localhost or put it behind a reverse proxy with a real CORS allowlist), **S6** (untrack personal data now, before the repo goes anywhere), then **S4/S5** (the two concrete injection fixes — cheap, do them opportunistically). S7–S11 are fine to defer but should be revisited when accounts/multi-tenancy land, since that's exactly when they stop being theoretical.
+
+---
+
 ## Appendix: notable bugs found along the way (not fixed, per instructions)
 
 | Location | Issue |

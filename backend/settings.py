@@ -60,7 +60,10 @@ USER_PROFILE_PATH = API_ROOT / "user_profile.json"  # battle-mode mistake log
 TEST_AUDIO_PATH = API_ROOT / "test_audio.wav"       # mock-mode TTS stand-in
 
 # --- Messenger / quiz constants ---
-PERSONA = "sombongo"  # Current character
+# Current character — matches a file in prompts/persona/<id>.json ("sombongo", "jorge").
+# Fixed per run: the persona text lives in the messenger prompt's STATIC PREFIX, so it must
+# not change between turns or prompt caching breaks.
+PERSONA = os.getenv("MESSENGER_PERSONA", "sombongo")
 
 # Quiz scheduling: show quiz after N turns
 QUIZ_TURNS_DELAY = 3

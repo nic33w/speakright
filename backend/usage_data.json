@@ -7,15 +7,20 @@
         "mode": "messenger",
         "chars": 172,
         "started_at": "2026-07-16T18:02:27.139490"
+      },
+      {
+        "mode": "messenger",
+        "chars": 84,
+        "started_at": "2026-07-19T22:28:25.132135"
       }
     ],
     "current_session": {
       "mode": "battle",
       "chars": 0,
-      "started_at": "2026-07-17T15:01:48.607719"
+      "started_at": "2026-07-19T22:32:07.276685"
     }
   },
   "openai": {
-    "total_cost_cents": 33.40383999999999
+    "total_cost_cents": 33.517749999999985
   }
 }

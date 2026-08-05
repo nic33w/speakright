@@ -354,3 +354,25 @@ Me gustaría comer pollo con vegetales.
 **Corrected:** ✓ No change
 
 **Feedback:** ✓ sounds natural
+
+---
+### 2026-07-19 22:30:14  (session: sess_1784260745384)
+
+**You said:**
+Yo escogería poder sueño lúcido.
+
+**Corrected:**
+Yo escogería poder tener un sueño lúcido.
+
+**Feedback:**
+The phrase needed a more natural structure. Natives say 'poder tener un sueño lúcido' for clarity.
+
+---
+### 2026-07-19 22:31:42  (session: sess_1784260745384)
+
+**You said:**
+Yo te conocería.
+
+**Corrected:** ✓ No change
+
+**Feedback:** ✓ sounds natural
