@@ -18,6 +18,7 @@ router = APIRouter()
 class TriviaAudioReq(BaseModel):
     text: str
     locale: str  # es-MX, en-US, id-ID
+    rate: int = 0  # SSML prosody rate percent offset (e.g. -25 for 0.75x/slower); 0 = normal speed
 
 
 @router.get("/api/audio_file/{session}/{filename}")
@@ -54,7 +55,7 @@ def api_trivia_audio(req: TriviaAudioReq):
 
     try:
         # Check cache first
-        url_path, exists, disk_path = get_cached_audio_path(req.text, req.locale)
+        url_path, exists, disk_path = get_cached_audio_path(req.text, req.locale, req.rate)
 
         if exists:
             # Cache hit - return existing audio URL
@@ -63,7 +64,7 @@ def api_trivia_audio(req: TriviaAudioReq):
 
         # Cache miss - generate new audio
         print(f"[CACHE MISS] Generating audio for: {req.text[:30]}...")
-        wav_bytes = tts_bytes_for_chunk(req.text, req.locale)
+        wav_bytes = tts_bytes_for_chunk(req.text, req.locale, req.rate)
 
         # Save to cache location
         with open(disk_path, 'wb') as f:

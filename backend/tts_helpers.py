@@ -31,11 +31,12 @@ def generate_silent_wav(duration_secs: float = 0.6, sample_rate: int = 22050) ->
         wf.writeframes(silence * n_frames)
     return buf.getvalue()
 
-def azure_tts_bytes_real(text: str, locale: str = "es-MX", voice: Optional[str] = None, max_duration: float = 6.0) -> bytes:
+def azure_tts_bytes_real(text: str, locale: str = "es-MX", voice: Optional[str] = None, max_duration: float = 6.0, rate: int = 0) -> bytes:
     """
     Returns WAV bytes from Azure TTS. Requires AZURE_SPEECH_KEY and AZURE_REGION to be set.
     locale: es-MX, id-ID, en-US
     voice: optional voice name; if None we pick a default per locale
+    rate: SSML prosody rate as a percent offset from normal speed (e.g. -25 for 0.75x/slower, 0 = normal)
     """
     if not AZURE_SPEECH_KEY or not AZURE_REGION:
         raise RuntimeError("Azure TTS credentials not configured")
@@ -49,7 +50,7 @@ def azure_tts_bytes_real(text: str, locale: str = "es-MX", voice: Optional[str] 
     ssml = f"""
     <speak version='1.0' xml:lang='{locale}'>
       <voice name='{voice_name}'>
-        <prosody rate='0%' pitch='0%'>{text}</prosody>
+        <prosody rate='{rate}%' pitch='0%'>{text}</prosody>
       </voice>
     </speak>
     """.strip()
@@ -65,12 +66,13 @@ def azure_tts_bytes_real(text: str, locale: str = "es-MX", voice: Optional[str] 
         raise RuntimeError(f"Azure TTS failed: {resp.status_code} {resp.text[:400]}")
     return resp.content
 
-def tts_bytes_for_chunk(text: str, lang_tag: str) -> bytes:
+def tts_bytes_for_chunk(text: str, lang_tag: str, rate: int = 0) -> bytes:
     """
     Convenience wrapper: tries Azure TTS if configured, else returns test audio in mock mode,
     or falls back to silent wav.
 
     In MOCK_MODE: Never uses Azure TTS (saves money, works offline)
+    rate: SSML prosody rate as a percent offset from normal speed (e.g. -25 for 0.75x/slower, 0 = normal)
     """
     # If mock mode, try test audio first, then fall back to silence (NEVER use Azure in mock mode)
     if MOCK_MODE:
@@ -88,7 +90,7 @@ def tts_bytes_for_chunk(text: str, lang_tag: str) -> bytes:
     # Not in mock mode - use real Azure TTS
     try:
         if AZURE_SPEECH_KEY and AZURE_REGION:
-            result = azure_tts_bytes_real(text, locale=lang_tag)
+            result = azure_tts_bytes_real(text, locale=lang_tag, rate=rate)
             if _add_azure_chars:
                 try:
                     _add_azure_chars(len(text))

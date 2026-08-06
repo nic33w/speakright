@@ -198,7 +198,7 @@ against pre-`583fe25` entries.
 
 # Phase 2 — Foundations (small, unblocks Phases 3 & 4)
 
-### [ ] 2.1 — Parameterize TTS rate and add it to the cache key 🟡 Sonnet
+### [x] 2.1 — Parameterize TTS rate and add it to the cache key 🟡 Sonnet
 
 **Fix:** `tts_helpers.py:52` already emits `<prosody rate='0%'>` — expose rate as a parameter so
 "say it slower" (0.75×) becomes possible. Add a rate param to the audio endpoint.
