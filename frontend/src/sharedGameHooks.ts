@@ -3,6 +3,7 @@
 // so that file stays components-only (Fast Refresh requires it).
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { API_BASE } from "./config";
+import { playEarcon, type EarconType } from "./audio/earcons";
 
 // ── useAudioPlayer ────────────────────────────────────────────────────────────
 // Fetch → cache → play → stop for TTS audio. One player per component instance:
@@ -216,4 +217,18 @@ export function useWisprAutoSend({
   const resetLength = useCallback(() => { prevLenRef.current = 0; }, []);
 
   return { pending, progress, cancel, submit, notifySent, resetLength };
+}
+
+// ── useEarcons ────────────────────────────────────────────────────────────────
+// Non-speech audio feedback for game events: recording started/stopped,
+// corrections, pass/fail. Wraps earcons.ts playEarcon().
+//
+// Returns a play() function that accepts an EarconType. Safe to call even if
+// Web Audio context creation fails (earcons.ts catches errors silently).
+export function useEarcons() {
+  const play = useCallback((type: EarconType) => {
+    void playEarcon(type);
+  }, []);
+
+  return { play };
 }

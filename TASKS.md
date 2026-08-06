@@ -226,7 +226,7 @@ button press.
 
 ---
 
-### [ ] 2.3 — Earcon grammar 🟢 Haiku
+### [x] 2.3 — Earcon grammar 🟢 Haiku
 
 **Fix:** Distinct short tones for a fixed vocabulary of events. A handful of tiny WAVs or a WebAudio
 oscillator. Non-speech audio parses far faster than spoken labels and is essential once the screen is
