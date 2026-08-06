@@ -428,7 +428,7 @@ pre-existing lint errors elsewhere in the file are unrelated). **Not clicked thr
 
 ---
 
-### [ ] 3.6 — Audio pairing modes 🟡 Sonnet
+### [x] 3.6 — Audio pairing modes 🟡 Sonnet
 
 **Fix:** Three playback modes — target-only / EN→ES pairs (English first, then Spanish) / alternating
 (chunks alternate languages with *no* paired translation, forcing unaided comprehension).
@@ -436,6 +436,24 @@ pre-existing lint errors elsewhere in the file are unrelated). **Not clicked thr
 **Files:** `frontend/src/MessengerChat.tsx` (`playResponseAudio`, ~line 805).
 
 **Depends on:** 3.1, 2.2.
+
+**Shipped as:** a `pairingMode` state (`"targetOnly" | "pairs" | "alternating"`, default `targetOnly` —
+today's behavior, unchanged unless the user opts in) with a new "🎧 Pairing" dropdown next to the
+existing 🔊 Audio toggle. `playResponseAudio` branches on it:
+- **targetOnly** — identical to the old function body: only `modality==="audio" && language==="target"`
+  chunks play.
+- **pairs** — before playing a target-audio chunk, speaks `chunk.native_text` (live TTS, UI locale)
+  first if present. Only the v2/eyes-free challenge chunk carries `native_text` today, so plain v1
+  turns with no challenge sentence behave like target-only — known limitation, not worth a backend
+  change just for this.
+- **alternating** — voices every remaining chunk (including `language="ui"` text chunks, via live TTS)
+  in whichever language it's actually written in, with no translation lead-in. Reuses 3.2's free
+  `reaction_audio_file` for an exact-match chunk (e.g. the opener) even outside eyes-free before
+  falling back to live TTS, so it doesn't waste an Azure roundtrip on something already pre-generated.
+
+`opts.withReactions` (still caller-controlled, `{ withReactions: eyesFree }`) is unchanged for the
+other two modes. Typecheck and lint clean on the touched lines (same two pre-existing errors elsewhere
+in the file). **Not clicked through with real audio** — same caveat as 3.4/3.5.
 
 ---
 

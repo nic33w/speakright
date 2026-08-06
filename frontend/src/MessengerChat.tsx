@@ -289,6 +289,15 @@ export default function MessengerChat({
   const [audioEnabled, setAudioEnabled] = useState<boolean>(false);
   const [liveReactions, setLiveReactions] = useState<boolean>(true);
 
+  // Audio pairing mode (task 3.6) — how playResponseAudio narrates a turn's chunks:
+  //   targetOnly  — only chunks that already carry target-language audio play (today's behavior)
+  //   pairs       — target-audio chunks that carry a translation (native_text) speak it first, EN then target
+  //   alternating — every chunk gets voiced in whatever language it's actually written in
+  //                 (live TTS for ui-language text chunks), with no translation pairing —
+  //                 forces unaided comprehension of the target-language parts
+  type PairingMode = "targetOnly" | "pairs" | "alternating";
+  const [pairingMode, setPairingMode] = useState<PairingMode>("targetOnly");
+
   // Current reaction phase shown in the typing indicator
   const [reactionPhase, setReactionPhase] = useState<'reading' | 'thinking' | 'typing' | null>(null);
   // Which user message is currently being analyzed (shows pulsing dots while API is in-flight)
@@ -1104,14 +1113,39 @@ export default function MessengerChat({
 
   async function playResponseAudio(chunks: ResponseChunk[], opts?: { withReactions?: boolean }) {
     for (const chunk of chunks) {
-      if (chunk.modality === "audio" && chunk.audio_file && chunk.language === "target") {
+      const isTargetAudio = chunk.modality === "audio" && chunk.audio_file && chunk.language === "target";
+
+      if (isTargetAudio) {
+        // Pairs mode (task 3.6): lead with the English translation, live TTS — only
+        // chunks that already carry one (the v2/eyes-free challenge chunk's
+        // native_text) get paired; other target-audio chunks just play as-is.
+        if (pairingMode === "pairs" && chunk.native_text) {
+          await audioPlayer.play(chunk.native_text, localeFor(fluent.code));
+        }
         await audioPlayer.playUrl(`${apiBase}${chunk.audio_file}`);
-      } else if (opts?.withReactions && chunk.reaction_audio_file) {
-        // The persona's opener, from the pre-generated bank (task 3.2): the only
-        // UI-language audio eyes-free plays, and it costs nothing — a static file,
-        // no Azure roundtrip. Silently no-ops until
+        continue;
+      }
+
+      if (opts?.withReactions && chunk.reaction_audio_file) {
+        // The persona's opener, from the pre-generated bank (task 3.2): free — a
+        // static file, no Azure roundtrip. Silently no-ops until
         // backend/scripts/generate_reaction_audio.py has actually been run.
         await audioPlayer.playUrl(`${apiBase}${chunk.reaction_audio_file}`);
+        continue;
+      }
+
+      // Alternating mode (task 3.6): voice every remaining chunk in whatever
+      // language it's actually written in, with no translation pairing — the
+      // target-language parts stay unaided, forcing comprehension without an
+      // English crutch. Still prefers the free reaction-bank audio for an exact
+      // match (even outside eyes-free) before falling back to live TTS.
+      if (pairingMode === "alternating" && chunk.text) {
+        if (chunk.reaction_audio_file) {
+          await audioPlayer.playUrl(`${apiBase}${chunk.reaction_audio_file}`);
+        } else {
+          const locale = chunk.language === "target" ? (chunk.locale || localeFor(learning.code)) : localeFor(fluent.code);
+          await audioPlayer.play(chunk.text, locale);
+        }
       }
     }
   }
@@ -1408,6 +1442,21 @@ export default function MessengerChat({
                   style={{ cursor: 'pointer' }}
                 />
                 🔊 Audio
+              </label>
+              <label
+                title="How the character's target-language audio is narrated: target-only plays just the target sentence; pairs speaks the English translation first when one exists; alternating voices every chunk in its own language with no translation, for unaided comprehension"
+                style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, color: '#6b7280' }}
+              >
+                🎧 Pairing
+                <select
+                  value={pairingMode}
+                  onChange={(e) => setPairingMode(e.target.value as PairingMode)}
+                  style={{ fontSize: 12, cursor: 'pointer', border: '1px solid #d1d5db', borderRadius: 4, padding: '1px 4px' }}
+                >
+                  <option value="targetOnly">target-only</option>
+                  <option value="pairs">EN → target pairs</option>
+                  <option value="alternating">alternating</option>
+                </select>
               </label>
               <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, color: '#6b7280', cursor: 'pointer' }}>
                 <input
