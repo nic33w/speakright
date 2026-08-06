@@ -28,7 +28,7 @@ from profile_store import (
     save_profile,
     update_profile_from_assessment,
 )
-from prompts.messenger_prompt import build_layered_prompt
+from prompts.messenger_prompt import build_layered_prompt, normalize_prompt_version
 from quiz_store import add_quiz_item, get_pending_quiz
 from settings import API_ROOT, ENABLE_QUIZZING, MOCK_MODE, PERSONA
 from tts_helpers import tts_bytes_for_chunk
@@ -126,7 +126,10 @@ class ProfileInitRequest(BaseModel):
 class MessengerTurnRequest(BaseModel):
     user_input: str
     session_id: str
-    prompt_version: Optional[str] = "v1"  # "v1" = standard, "v2" = challenge last sentence
+    # "v1" = standard, "v2" = challenge last sentence, "eyesfree" = short spoken-only
+    # turn (see PROMPT_VERSIONS in prompts/messenger_prompt.py). Unknown values fall
+    # back to v1 rather than minting a new prompt-cache prefix.
+    prompt_version: Optional[str] = "v1"
 
 
 class PremadeStartRequest(BaseModel):
@@ -262,16 +265,15 @@ def messenger_chat_turn(req: MessengerTurnRequest):
     # --- Normal LLM path ---
     profile = load_profile()
     is_assessment_turn = _is_assessment_turn(profile)
-    system_prompt, user_message = build_layered_prompt(
-        req.user_input, profile, req.prompt_version or "v1"
-    )
+    version = normalize_prompt_version(req.prompt_version)
+    system_prompt, user_message = build_layered_prompt(req.user_input, profile, version)
 
     if MOCK_MODE:
-        llm_response = _mock_llm_response(req, profile)
+        llm_response = _mock_llm_response(req, profile, version)
     else:
         llm_response = call_llm_for_messenger(system_prompt, user_message)
 
-    _apply_output_gates(llm_response, is_assessment_turn)
+    _apply_output_gates(llm_response, is_assessment_turn, version)
 
     chunk_dicts, pending = _prepare_chunks(llm_response.get("response_chunks", []))
     _run_tts(pending)
@@ -288,7 +290,8 @@ def _is_assessment_turn(profile: dict) -> bool:
     return turn_count > 0 and turn_count % 5 == 0
 
 
-def _apply_output_gates(llm_response: dict, is_assessment_turn: bool) -> None:
+def _apply_output_gates(llm_response: dict, is_assessment_turn: bool,
+                        prompt_version: str = "v1") -> None:
     """Drop fields the schema always describes but this turn didn't ask for.
 
     The schema text is static (it has to be, for prompt caching), so inclusion is
@@ -298,9 +301,14 @@ def _apply_output_gates(llm_response: dict, is_assessment_turn: bool) -> None:
         llm_response["level_assessment"] = {}
     if not ENABLE_QUIZZING:
         llm_response["quiz_candidates"] = []
+    if prompt_version == "eyesfree":
+        # Nothing reads suggestions aloud with the screen off, and speaking them
+        # would add ~15s to a turn budgeted at ~10s. The prompt asks for an empty
+        # array; enforce it here so a drifting model can't reintroduce them.
+        llm_response["suggested_replies"] = []
 
 
-def _mock_llm_response(req, profile: dict) -> dict:
+def _mock_llm_response(req, profile: dict, version: str = "v1") -> dict:
     """Mock-mode stand-in for call_llm_for_messenger (no API keys needed)."""
     has_english = any(c.isalpha() and ord(c) < 128 for c in req.user_input.lower())
     mock_quiz = []
@@ -318,11 +326,19 @@ def _mock_llm_response(req, profile: dict) -> dict:
         {"text": "Oh, interesting! Tell me more.", "language": "ui", "modality": "text", "purpose": "reaction"},
         {"text": "¿Cuándo empezaste a aprender español?", "language": "target", "modality": "text", "locale": "es-MX", "native_text": "When did you start learning Spanish?", "is_challenge": True},
     ]
+    # Eyes-free is the shape the real prompt asks for: one reaction, one short
+    # target-language sentence, and it really is audio (the only messenger mock
+    # that exercises _prepare_chunk's TTS path).
+    mock_chunks_eyesfree = [
+        {"text": "Oh, interesting! Tell me more.", "language": "ui", "modality": "text", "purpose": "reaction"},
+        {"text": "¿Y qué hiciste después?", "language": "target", "modality": "audio", "locale": "es-MX", "native_text": "And what did you do afterwards?", "is_challenge": True},
+    ]
+    chunks_by_version = {"v2": mock_chunks_v2, "eyesfree": mock_chunks_eyesfree}
     return {
         "corrected_input": req.user_input,
         "had_errors": False,
         "error_explanation": "",
-        "response_chunks": mock_chunks_v2 if (req.prompt_version or "v1") == "v2" else mock_chunks_v1,
+        "response_chunks": chunks_by_version.get(version, mock_chunks_v1),
         "quiz_candidates": mock_quiz,
         "level_assessment": {
             "current_level": profile["level"],
@@ -538,9 +554,8 @@ def messenger_chat_turn_stream(req: MessengerTurnRequest):
 
         profile = load_profile()
         is_assessment_turn = _is_assessment_turn(profile)
-        system_prompt, user_message = build_layered_prompt(
-            req.user_input, profile, req.prompt_version or "v1"
-        )
+        version = normalize_prompt_version(req.prompt_version)
+        system_prompt, user_message = build_layered_prompt(req.user_input, profile, version)
 
         chunk_dicts: list = []
         emitted = 0
@@ -548,7 +563,7 @@ def messenger_chat_turn_stream(req: MessengerTurnRequest):
         futures: dict = {}
         try:
             if MOCK_MODE:
-                mock = _mock_llm_response(req, profile)
+                mock = _mock_llm_response(req, profile, version)
                 stream = [("chunk", c) for c in mock.get("response_chunks", [])]
                 stream.append(("done", mock))
             else:
@@ -590,7 +605,7 @@ def messenger_chat_turn_stream(req: MessengerTurnRequest):
                     print(f"TTS future failed for chunk {index}: {e}")
                 yield json.dumps({"type": "audio", "index": index}) + "\n"
 
-            _apply_output_gates(llm_response, is_assessment_turn)
+            _apply_output_gates(llm_response, is_assessment_turn, version)
             final = _finalize_turn(req, profile, llm_response, chunk_dicts, turn_id)
             payload = final.dict()
             payload["type"] = "final"

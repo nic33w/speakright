@@ -38,8 +38,21 @@ so the split is the cost model:
    present only when `ENABLE_QUIZZING=1` (process-constant, so still static)
 4. CRITICAL REMINDERS
 5. QUIZ CANDIDATE RULES (env-conditional)
-6. SUGGESTION GENERATION RULES
-7. V2 CHALLENGE FORMAT (version-conditional; last, so v1/v2 share 1–6)
+6. SUGGESTION GENERATION RULES (version-conditional: eyes-free replaces the
+   whole section with "emit `[]`" rather than contradicting it later)
+7. V2 CHALLENGE FORMAT (version-conditional; v1/v2 share 1–6)
+8. EYES-FREE FORMAT (version-conditional; last, so it overrides everything)
+
+**Prompt profiles** (`PROMPT_VERSIONS` in `prompts/messenger_prompt.py`) —
+`v1` standard, `v2` challenge-last-sentence (the UI default), `eyesfree`
+screen-off. Each gets its own static prefix and therefore its own prompt-cache
+entry; `normalize_prompt_version()` maps anything else onto `v1` so a typo in a
+request can't mint a fourth entry. `eyesfree` exists because the turn becomes a
+strictly serial audio stream — voicing v1/v2 output is ~40s per turn, so the
+profile caps the reply at one reaction opener plus one ≤12-word target sentence,
+suppresses `suggested_replies` entirely, and requires `error_explanation` to be
+one short *spoken* sentence. Keeping chunk 0 the pre-generated reaction opener
+also keeps English TTS out of the loop (~4–5× the Azure characters).
 
 **DYNAMIC TAIL** — everything that changes per turn:
 8. Student model (level, comfortable/weak/avoid lists — mutable)

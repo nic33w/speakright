@@ -77,10 +77,12 @@ PROFILES = {
     ),
 }
 
+VERSIONS = ("v1", "v2", "eyesfree")
+
 CASES = [
     (profile_key, version, quizzing)
     for profile_key in PROFILES
-    for version in ("v1", "v2")
+    for version in VERSIONS
     for quizzing in (True, False)
 ]
 
@@ -128,7 +130,7 @@ def _wire(system, user):
 def test_static_prefix_identical_across_turns_and_profiles():
     """Different turn counts, recent_turns, weak_points, and user input must
     not change a single byte of the static prefix."""
-    for version in ("v1", "v2"):
+    for version in VERSIONS:
         prefixes = []
         for key, profile in PROFILES.items():
             system, user = build_layered_prompt(USER_INPUT, profile, version)
@@ -160,6 +162,49 @@ def test_v1_and_v2_share_common_prefix():
 
 def test_static_prefix_exceeds_cache_minimum():
     """OpenAI automatic caching needs a >=1024-token prefix; >5000 chars is a
-    conservative proxy."""
-    system, _ = build_layered_prompt("hola", PROFILES["fresh"], "v1")
-    assert len(system) > 5000, f"static prefix only {len(system)} chars"
+    conservative proxy. Every version pays for its own cache entry, so every
+    version has to clear the bar."""
+    for version in VERSIONS:
+        system, _ = build_layered_prompt("hola", PROFILES["fresh"], version)
+        assert len(system) > 5000, f"{version} static prefix only {len(system)} chars"
+
+
+# --- Eyes-free profile (task 3.3) ---
+# A third prompt_version, not a tweak of v2: with the screen off the turn is a
+# serial audio stream, so the prefix trades the language-mix/suggestion rules for
+# a hard 2-chunk budget and a listenable error_explanation.
+
+def test_eyesfree_is_a_distinct_prefix():
+    profile = _profile(turn_count=3)
+    sys_v1, _ = build_layered_prompt("hola", profile, "v1")
+    sys_v2, _ = build_layered_prompt("hola", profile, "v2")
+    sys_ef, user_ef = build_layered_prompt("hola", profile, "eyesfree")
+
+    assert "EYES-FREE FORMAT" in sys_ef
+    assert sys_ef not in (sys_v1, sys_v2)
+    for other in (sys_v1, sys_v2):
+        assert "EYES-FREE FORMAT" not in other
+    assert "V2 CHALLENGE FORMAT" not in sys_ef, "eyes-free must not stack on the v2 block"
+    # The end-of-prompt reminder lives in the dynamic tail, like v2's
+    assert "FOLLOW THE EYES-FREE FORMAT" in user_ef
+    assert "FOLLOW THE EYES-FREE FORMAT" not in sys_ef
+
+
+def test_eyesfree_replaces_rather_than_contradicts_suggestion_rules():
+    """Suggestions are suppressed at the source: the eyes-free prefix must not
+    also carry the 'generate N suggestions' rules it overrides."""
+    profile = _profile(turn_count=3)
+    sys_ef, _ = build_layered_prompt("hola", profile, "eyesfree")
+    assert '"suggested_replies": []' in sys_ef
+    assert "Generate 2 short replies" not in sys_ef
+    assert "Keep suggestions brief" not in sys_ef
+
+
+def test_unknown_prompt_version_falls_back_to_v1():
+    """An unrecognized version must reuse v1's prefix, not mint a fourth
+    cache entry."""
+    profile = _profile(turn_count=3)
+    assert build_layered_prompt("hola", profile, "v3") == \
+           build_layered_prompt("hola", profile, "v1")
+    assert build_layered_prompt("hola", profile, None) == \
+           build_layered_prompt("hola", profile, "v1")

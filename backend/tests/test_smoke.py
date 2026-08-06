@@ -205,6 +205,29 @@ def test_messenger_turn_v2_challenge(client):
     assert last["native_text"]
 
 
+def test_messenger_turn_eyesfree(client):
+    """Eyes-free turns are two chunks — a reaction plus one spoken target
+    sentence — and carry no suggested replies (nothing reads them aloud)."""
+    r = client.post("/api/messenger/turn", json={
+        "user_input": "ayer fui al tienda",
+        "session_id": "pytest_llm_eyesfree",
+        "prompt_version": "eyesfree",
+    })
+    assert r.status_code == 200
+    body = r.json()
+    chunks = body["response_chunks"]
+    assert len(chunks) == 2
+    assert chunks[0]["language"] == "ui"
+    assert chunks[0]["modality"] == "text"
+    last = chunks[-1]
+    assert last["language"] == "target"
+    assert last["modality"] == "audio"
+    assert last["audio_file"], "the spoken sentence must resolve to an audio URL"
+    assert last["native_text"]
+    assert last["is_challenge"] is True
+    assert body["suggested_replies"] == []
+
+
 def _read_ndjson(response):
     return [json.loads(line) for line in response.text.splitlines() if line.strip()]
 

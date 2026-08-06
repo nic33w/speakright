@@ -10,6 +10,25 @@ from profile_store import load_helper_json, load_persona_json
 from prompt_fragments import quiz_candidate_rules
 from settings import ENABLE_QUIZZING, PERSONA, PROMPTS_DIR
 
+# Prompt profiles. Each one gets its own static prefix (and therefore its own
+# OpenAI prompt-cache entry); the prefix must stay byte-identical across turns
+# *within* a version. See PROMPTS.md.
+#   v1       — standard 70/30 language-mix reply
+#   v2       — reply + hover-reveal target-language challenge sentence (UI default)
+#   eyesfree — screen off: the whole turn is a serial audio stream, so it is cut
+#              down to one reaction + one short target sentence, no suggestions
+PROMPT_VERSIONS = ("v1", "v2", "eyesfree")
+DEFAULT_PROMPT_VERSION = "v1"
+
+
+def normalize_prompt_version(version: Any) -> str:
+    """Map anything unrecognized onto v1.
+
+    Guards the cache invariant from the other direction: an unknown version must
+    reuse an existing prefix rather than silently minting a fourth variant.
+    """
+    return version if version in PROMPT_VERSIONS else DEFAULT_PROMPT_VERSION
+
 
 def build_conversation_context(recent_turns: List[Dict[str, Any]]) -> str:
     """Build conversation context from recent turns (last 3)."""
@@ -61,6 +80,7 @@ def build_layered_prompt(user_input: str, profile: Dict[str, Any], prompt_versio
 
     Returns: (system_prompt, user_message)
     """
+    prompt_version = normalize_prompt_version(prompt_version)
     ui_lang = profile.get("ui_language", {}).get("name", "English")
     ui_code = profile.get("ui_language", {}).get("code", "en")
     target_lang = profile.get("target_language", {}).get("name", "Spanish")
@@ -170,6 +190,11 @@ response_chunks[0] MUST be chosen verbatim, word-for-word, from the list below (
         # to fall back to the regular language-mix format.
         turn_instruction += "\n- FOLLOW THE V2 CHALLENGE FORMAT defined above: all chunks except the last are {ui} text; the LAST chunk is the {target} audio challenge sentence with \"native_text\" and \"is_challenge\": true".format(
             ui=ui_lang, target=target_lang)
+    elif prompt_version == "eyesfree":
+        # Same reason as v2: the format block is in the static prefix, and without
+        # an end-of-prompt reminder the model drifts back to the language-mix format.
+        turn_instruction += "\n- FOLLOW THE EYES-FREE FORMAT defined above: EXACTLY 2 chunks (the verbatim reaction opener, then the {target} audio sentence with \"native_text\" and \"is_challenge\": true), \"suggested_replies\": [], and \"error_explanation\" as one short spoken sentence".format(
+            target=target_lang)
 
     max_suggestions = suggestion_config.get("max_suggestions", 2)
 
@@ -240,7 +265,14 @@ conversation. Do not reorder, and do not repeat a field later in the object.
 - Pico handles corrections separately via corrected_input/had_errors/error_explanation — fill those fields accurately but keep them out of your conversational response.
 - input_intent: "english" if the user was primarily speaking {ui_lang} (even with some {target_lang} thrown in); "spanish" if the user was clearly attempting {target_lang} (even if they got stuck on words and used {ui_lang} for those). Example: "I went to the store today, gracias!" = "english". "Fui al store porque no tenía food" = "spanish"."""
 
-    suggestion_section = f"""SUGGESTION GENERATION RULES:
+    # Eyes-free never renders suggestions, so it replaces this section outright
+    # rather than contradicting it further down — a prompt that says "generate 2"
+    # and "generate none" gets the worst of both.
+    if prompt_version == "eyesfree":
+        suggestion_section = """SUGGESTION GENERATION RULES:
+- Do not write suggestions in this mode. Emit "suggested_replies": [] — an empty array. See EYES-FREE FORMAT below."""
+    else:
+        suggestion_section = f"""SUGGESTION GENERATION RULES:
 - Generate {max_suggestions} short replies THE USER would say TO {character_name} — phrased in first person, NOT things the character would say
 - Write each suggestion naturally in {target_lang} first (text_target) — use phrasing a native {target_lang} speaker would actually say
 - text_native is the {ui_lang} translation of text_target — translate naturally, not word-for-word
@@ -271,6 +303,39 @@ conversation. Do not reorder, and do not repeat a field later in the object.
 - The challenge sentence should flow naturally as the conclusion of the reply
 - CRITICAL — avoid repetition: The {ui_lang} text chunk should ONLY react/acknowledge what the user said (a short natural response). Do NOT include a follow-up question or prompt in the {ui_lang} chunk — the {target_lang} challenge is the ONLY forward-moving piece. The two chunks should complement each other, not say the same thing twice in different languages."""
 
+    # Eyes-free override (version-conditional, static within a run; last in the
+    # prefix so it has the final word over the language-mix and v2 rules).
+    #
+    # Why this is a separate profile and not "v2 + TTS": with the screen off the
+    # turn becomes a strictly serial audio stream, so every field is a cost in
+    # seconds. The v1/v2 output — 70-80% UI text, a challenge sentence, an
+    # explanation written to be read, plus 2 suggested replies — is ~40s of speech
+    # per turn. Capping it at one reaction + one short target sentence gets that
+    # under ~10s. Keeping chunk 0 the pre-generated reaction opener also keeps the
+    # English side of the stream free (see scripts/generate_reaction_audio.py):
+    # any other UI chunk would need live English TTS, which burns ~4-5x the Azure
+    # characters of the target sentence it is introducing.
+    eyesfree_section = ''
+    if prompt_version == "eyesfree":
+        eyesfree_section = f"""EYES-FREE FORMAT — OVERRIDES the response_chunks, error_explanation and suggestion rules above:
+The learner is listening with the screen off. Everything you write is spoken aloud, one field after another, and they cannot skim it, re-read it, or glance back at it. Length is the enemy — a long reply buries the one sentence they are supposed to answer.
+- Emit EXACTLY 2 response_chunks. Never 1, never 3.
+- Chunk 1 is the reaction opener: copied verbatim from the REACTION OPENERS list above when that list is present, otherwise one short {ui_lang} reaction of 10 words or fewer. language="ui", modality="text", purpose="reaction". Nothing else in {ui_lang} — no second sentence, no setup, no follow-up question.
+- Chunk 2 is the {target_lang} sentence the learner will hear and answer:
+  {{
+    "text": "<natural {target_lang} sentence — PURE {target_lang} ONLY, absolutely zero {ui_lang} words, 12 words maximum>",
+    "language": "target",
+    "modality": "audio",
+    "locale": "{target_code}-XX",
+    "native_text": "<{ui_lang} translation of that sentence — spoken only if the learner asks for it>",
+    "is_challenge": true
+  }}
+- Chunk 2 is the ONLY thing carrying the conversation forward: it must both respond to what the learner said and give them something to answer. Its "text" is the sentence alone — no intro phrase, label, or preamble in ANY language (not "Try this:", not "¡A ver!", not "How about:").
+- Difficulty: slightly above the learner's current level, but keep it short. Spoken language has no scrollback.
+- "suggested_replies" MUST be [] — an empty array. They are never spoken in this mode, so writing them only delays the audio.
+- "error_explanation" MUST be ONE sentence in {ui_lang}, 15 words or fewer, written to be HEARD rather than read: no quotation marks, no parentheses, no infinitive-in-parentheses, no lists, no abbreviations, no formatting of any kind. Give the natural version and the reason in a single breath — e.g. "Natives say me da gases there, because gaseoso means fizzy like a soda."
+- "corrected_input" and "user_translation" are unchanged: fill them accurately. They are spoken on demand, not automatically, so they do not count against the length budget."""
+
     # Assemble the static prefix (system prompt)
     full_system = "\n\n".join(section for section in [
         system_filled,
@@ -281,6 +346,7 @@ conversation. Do not reorder, and do not repeat a field later in the object.
         quiz_rules_section,
         suggestion_section,
         v2_section,
+        eyesfree_section,
     ] if section)
 
     # ------------------------------------------------------------------

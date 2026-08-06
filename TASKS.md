@@ -37,7 +37,7 @@ Switch with `/model` before starting a task.
 - Backend python is the venv: **`backend/venv/Scripts/python.exe`** — the system `python` on PATH
   lacks fastapi and will fail at conftest import.
 - Run `venv/Scripts/python.exe -m pytest tests/ -q` from `backend/` after any backend change.
-  Baseline is **62 passed, 1 xfailed**.
+  Baseline is **72 passed, 1 xfailed** (was 62 before task 3.3 added the eyes-free goldens).
 - **Never break the messenger prompt-cache invariant** — the static prefix must stay byte-identical
   across turns. `tests/test_prompt_snapshot.py` enforces it; if it fails, the fix is to move the new
   content into the dynamic tail, not to update the golden.
@@ -306,7 +306,7 @@ passed, 1 xfailed.
 
 ---
 
-### [ ] 3.3 — Eyes-free prompt profile 🔴 Opus
+### [x] 3.3 — Eyes-free prompt profile 🔴 Opus
 
 **Fix:** Eyes-free needs a *different prompt profile*, not TTS bolted onto the existing one. Naively
 voicing the current 70–80%-English output yields a ~40-second serial blob per turn. Required changes:
@@ -321,6 +321,25 @@ static sections are fine (see how `v2_section` is handled) as long as each versi
 byte-identical *within* a run. Add a golden to `tests/test_prompt_snapshot.py`.
 
 **Depends on:** 3.1, 2.3.
+
+**Shipped as:** `prompt_version="eyesfree"`, a third profile alongside v1/v2 —
+`PROMPT_VERSIONS` + `normalize_prompt_version()` in `prompts/messenger_prompt.py` (unknown versions
+fall back to v1 so a typo can't mint a fourth cache entry). The eyes-free prefix caps the turn at
+**exactly 2 chunks** — the verbatim reaction opener from 3.2 (free pre-generated audio, which also
+keeps live English TTS and its 4–5× Azure cost out of the loop) plus one ≤12-word target sentence
+carrying `native_text` and `is_challenge` (v2's shape, so 3.6's pairing modes and 4.2's LT-translate
+get it for free) — replaces the SUGGESTION GENERATION RULES section outright with "emit `[]`" rather
+than contradicting it, and requires `error_explanation` to be one ≤15-word spoken sentence with no
+quotes/parens/lists. `_apply_output_gates` takes the version and force-empties `suggested_replies`
+for eyes-free so a drifting model can't smuggle ~15s of unusable audio into the turn. Goldens
+extended to 3 versions (18 files, 6 new); new prompt tests cover prefix distinctness, the
+suggestion-suppression, and unknown-version fallback; new smoke test covers the eyes-free route
+(the only messenger test that exercises `_prepare_chunk`'s audio path). **72 passed, 1 xfailed** —
+that's the new baseline, up from 62.
+
+**Backend-only, like 3.2** — nothing in the UI requests `eyesfree` yet (`MessengerChat.tsx` still
+sends `v2`). Task 3.4 is what turns it on. Note for whoever does 3.4: with eyes-free active the
+suggestion chips will be empty, so the mode toggle needs to hide that row rather than render a gap.
 
 ---
 
