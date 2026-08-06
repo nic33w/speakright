@@ -346,16 +346,27 @@ def test_character_speaks_only_the_target_language(client, version):
             f"{version} chunk {i} has no playable audio"
 
 
-def test_reaction_bank_falls_through_when_audio_is_missing():
+def test_reaction_bank_falls_through_when_audio_is_missing(tmp_path, monkeypatch):
     """The bank is only usable once scripts/generate_reaction_audio.py has run.
     Until then chunk 0 must reach live TTS — it is the first thing the learner
-    hears, so a dangling URL would be silence at the top of every turn."""
-    from routers import messenger as messenger_router
+    hears, so a dangling URL would be silence at the top of every turn.
 
+    Points at an empty directory rather than relying on the real one: whether the
+    generator has been run is not something a test should depend on.
+    """
+    from routers import messenger as messenger_router
+    from profile_store import load_persona_json
+    from settings import PERSONA
+
+    reactions = (load_persona_json(PERSONA) or {}).get("reactions", {}).get("es", [])
+    if not reactions:
+        pytest.skip(f"persona '{PERSONA}' has no Spanish reaction bank")
+
+    monkeypatch.setattr(messenger_router, "REACTIONS_AUDIO_DIR", tmp_path / "empty")
     messenger_router._REACTION_AUDIO_LOOKUP = None
     try:
         chunk, pending = messenger_router._prepare_chunk(
-            {"text": "¡Ah, qué bien!", "language": "target",
+            {"text": reactions[0]["text"], "language": "target",
              "modality": "audio", "locale": "es-MX"},
             "es",
         )
