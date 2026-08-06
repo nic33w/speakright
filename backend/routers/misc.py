@@ -12,6 +12,7 @@ from settings import (
     GREETING_AUDIO_DIR,
     I18N_DIR,
     MOCK_MODE,
+    PERSONA,
 )
 from usage_tracker import get_summary, start_new_session
 
@@ -31,10 +32,21 @@ class GreetingSuggestion(BaseModel):
 
 @router.get("/api/config")
 def get_config():
-    """Return configuration info including mock mode status"""
+    """Return configuration info including mock mode status and the active persona.
+
+    persona_display_name is what the UI labels the character with — without it the
+    frontend would hardcode a name and contradict MESSENGER_PERSONA.
+    """
+    from profile_store import load_persona_json
+
+    persona_data = load_persona_json(PERSONA) or {}
+    display_name = persona_data.get("meta", {}).get("display_name") or PERSONA.title()
+
     return {
         "mock_mode": MOCK_MODE,
-        "has_azure_tts": bool(AZURE_SPEECH_KEY and AZURE_REGION)
+        "has_azure_tts": bool(AZURE_SPEECH_KEY and AZURE_REGION),
+        "persona": PERSONA,
+        "persona_display_name": display_name,
     }
 
 

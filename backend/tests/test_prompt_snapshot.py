@@ -85,9 +85,16 @@ CASES = [
 ]
 
 
+# Goldens pin prompt *assembly*, not which character happens to be configured.
+# Without this the whole snapshot suite re-baselines every time MESSENGER_PERSONA
+# changes, which says nothing about whether assembly regressed.
+GOLDEN_PERSONA = "sombongo"
+
+
 @pytest.mark.parametrize("profile_key,version,quizzing", CASES)
 def test_prompt_golden(profile_key, version, quizzing, monkeypatch):
     monkeypatch.setattr(PROMPT_MODULE, "ENABLE_QUIZZING", quizzing)
+    monkeypatch.setattr(PROMPT_MODULE, "PERSONA", GOLDEN_PERSONA)
 
     system_prompt, user_message = build_layered_prompt(
         USER_INPUT, PROFILES[profile_key], version

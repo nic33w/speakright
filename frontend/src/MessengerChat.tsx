@@ -220,6 +220,8 @@ export default function MessengerChat({
   const [messages, setMessages] = useState<MessengerMessage[]>([]);
   const [transcript, setTranscript] = useState<string>("");
   const [isMockMode, setIsMockMode] = useState<boolean>(false);
+  // Active persona's display name, served by /api/config (MESSENGER_PERSONA picks it)
+  const [characterName, setCharacterName] = useState<string>("");
   const [busy, setBusy] = useState<boolean>(false);
   const [showLevelUp, setShowLevelUp] = useState<boolean>(false);
   const [newLevel, setNewLevel] = useState<string>("");
@@ -349,6 +351,8 @@ export default function MessengerChat({
         if (res.ok) {
           const data = await res.json();
           setIsMockMode(data.mock_mode === true);
+          // Whoever MESSENGER_PERSONA selects — never hardcode a character name here
+          if (data.persona_display_name) setCharacterName(data.persona_display_name);
         }
       } catch (e) {
         console.error("Failed to fetch config:", e);
@@ -1477,7 +1481,7 @@ export default function MessengerChat({
               marginTop: '40px',
               opacity: 0.8,
             }}>
-              Start chatting with Sombongo in {learning.name}...
+              Start chatting with {characterName || "your partner"} in {learning.name}...
             </div>
           )}
 
@@ -1720,7 +1724,7 @@ export default function MessengerChat({
                     color: 'rgba(255,255,255,0.7)',
                     marginTop: '4px',
                   }}>
-                    Sombongo · {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    {characterName} · {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                   </div>
                 </div>
               )}
@@ -1913,8 +1917,8 @@ export default function MessengerChat({
                 marginTop: '4px',
               }}>
                 {reactionPhase
-                  ? `Sombongo is ${reactionPhase}...`
-                  : 'Sombongo is typing...'
+                  ? `${characterName} is ${reactionPhase}...`
+                  : `${characterName} is typing...`
                 }
               </div>
             </div>

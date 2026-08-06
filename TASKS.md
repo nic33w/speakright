@@ -37,7 +37,7 @@ Switch with `/model` before starting a task.
 - Backend python is the venv: **`backend/venv/Scripts/python.exe`** — the system `python` on PATH
   lacks fastapi and will fail at conftest import.
 - Run `venv/Scripts/python.exe -m pytest tests/ -q` from `backend/` after any backend change.
-  Baseline is **44 passed, 1 xfailed**.
+  Baseline is **62 passed, 1 xfailed**.
 - **Never break the messenger prompt-cache invariant** — the static prefix must stay byte-identical
   across turns. `tests/test_prompt_snapshot.py` enforces it; if it fails, the fix is to move the new
   content into the dynamic tail, not to update the golden.
@@ -47,10 +47,14 @@ Switch with `/model` before starting a task.
 
 ## Done
 
-- ✅ **Jorge persona** — `backend/prompts/persona/jorge.json`. Funny, spicy, permanently scheming;
-  pranks are victimless and backfire on him. Select it with `MESSENGER_PERSONA=jorge` in
-  `backend/.env` (`settings.py:PERSONA` is now env-overridable, default still `sombongo`).
-  **See task 5.0 first — Jorge will feel flat until persona tuning is actually wired up.**
+- ✅ **Jorge persona — now the default.** `backend/prompts/persona/jorge.json`. Funny, spicy,
+  permanently scheming; pranks are victimless and backfire on him. `settings.py:PERSONA` defaults to
+  `jorge`; set `MESSENGER_PERSONA=sombongo` in `backend/.env` to switch back. The UI name comes from
+  `/api/config` → `persona_display_name`, so it follows the setting — **never hardcode a character
+  name in `MessengerChat.tsx`.** Prompt goldens pin `GOLDEN_PERSONA = "sombongo"` on purpose
+  (`tests/test_prompt_snapshot.py`) so switching persona doesn't re-baseline the snapshot suite.
+  **See task 5.0 first — Jorge will feel flat until persona tuning is actually wired up:** his
+  `meta.temperature: 0.9` is still ignored and the call runs at the `0.2` default.
 
 ---
 
@@ -576,7 +580,7 @@ merge into the scene system, not new invention.
 
 ---
 
-### [ ] 5.4 — Make the frontend persona-aware 🟢 Haiku
+### [x] 5.4 — Make the frontend persona-aware 🟢 Haiku (partial — pivots still Sombongo-flavored)
 
 **Fix:** `MessengerChat.tsx` hardcodes "Sombongo" in 4 places (lines 1291, 1534, 1727, 1728), and
 `data/sombongo_pivots.ts` is Sombongo-flavored. Serve `display_name` from the profile/config endpoint
