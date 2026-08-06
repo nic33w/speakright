@@ -480,59 +480,104 @@ misses the prompt cache, and the snapshot goldens need updating.
 
 ---
 
-### [ ] 3.8 — Bilingual chunk pairs (corrects 3.6) 🔴 Opus
+### [ ] 3.8 — Spanish-only chunks + on-demand translation + playback pacing (corrects 3.6) 🔴 Opus
 
 **What 3.6 got wrong:** it treated each chunk as inherently one language, with a translation only on
-the final challenge sentence. The real model is that **every chunk carries both languages**, and the
-playback mode decides how each pair is voiced. Concretely, for a typical 3-chunk reply:
+the final challenge sentence, and it assumed the fix would be "make the model emit both languages for
+every chunk". Both are wrong. The settled design:
 
-| Mode | Plays |
-|---|---|
-| `targetOnly` | ES1, ES2, ES3 |
-| `pairs` | EN1 → ES1, EN2 → ES2, EN3 → ES3 |
-| `alternating` | EN1, ES2, EN3 (each chunk voiced on one side only — no translation help) |
+**The main LLM call always returns the same thing regardless of mode: 3 chunks, all target-language.**
+Sentence 1 never gets a translation. Translations for sentences 2–3 come from a separate cheap call,
+requested by the client only when the active mode needs them.
 
-`alternating` is the harder listening mode *because* the pair exists but you only ever hear one half
-of it. That's the point: the data is symmetric, the mode is what withholds the crutch.
+| Mode (`pairingMode`) | Playback | Translations needed | Difficulty |
+|---|---|---|---|
+| `targetOnly` | ES1, ES2, ES3 | **none** | hardest |
+| `alternating` | ES1, **EN2**, ES3 | 1 | medium |
+| `pairs` | ES1, EN2→ES2, EN3→ES3 | 2 | easiest |
 
-**Fix — backend:** populate both languages on **every** chunk, not just the challenge.
+Note this **inverts the difficulty ordering in 3.6's description.** `alternating` is the middle rung,
+not the hardest — the English sentence is a comprehension anchor dropped into the middle, not a
+withheld crutch.
 
-**Files:** `backend/prompts/messenger_prompt.py` (schema + all three version blocks),
-`backend/models.py` (`ResponseChunk`), `backend/routers/messenger.py` (TTS both sides),
-`frontend/src/MessengerChat.tsx` (`playResponseAudio`, rendering).
+**Why this beats "emit both languages in the main call":**
+- **No prompt-cache prefix multiplication.** One prompt shape. The always-emit-vs-request-gated
+  decision that the previous draft called "the real design call" disappears entirely — mode is a
+  *client* concern resolved after the chunks arrive.
+- **Modes switch retroactively.** Flip to `pairs` on a message you already received; just fetch the
+  translations you're missing.
+- **`targetOnly` costs nothing extra** — no second call at all.
+- **Time-to-first-bubble is identical in all three modes**, because chunk 1 is target-only and its
+  JSON object closes fast. This is the property that matters: emitting both languages inside chunk 1
+  would have roughly doubled the wait for bubble 1 and quietly undone task 1.6.
 
-**Recommended shape:** add `text_ui` and `text_target` to every chunk, and leave the existing
-`text` + `language` as "which side is primary for display". Slightly redundant, but 3.3/3.4/3.5/3.6
-all shipped against the current chunk shape, and rendering, streaming, the v2 hover-reveal and the
-reaction-bank matcher all key off `text`/`language` — replacing them outright is a much bigger blast
-radius for no user-visible gain. **Do not** reuse `native_text` for this: it means "the UI-language
-version", so on a `language:"ui"` chunk it reads backwards, and playback code would have to consult
-`language` to know which side it's holding. That's the exact footgun this task exists to remove.
+**⚠️ Decided, and it's the biggest behavioral change in this file:** the character's language mix goes
+from **70–80% UI language to 100% target language.** The anti-overwhelm ratio is deliberately
+reversed, with the pairing modes as the new difficulty dial. English scaffolding that survives:
+corrections, `error_explanation`, and suggested-reply translations — those are Pico's fields, not the
+character's voice. So this is immersion in the character's *speech*, not in the whole UI.
 
-**⚠️ Cost — this partly spends Phase 1's winnings, decide deliberately:**
-1. **Output tokens roughly double for `response_chunks`**, which is the one part of the response 1.6
-   worked to get out first. Measure a real turn before and after; if time-to-first-bubble regresses
-   badly, fall back to the gated option below.
-2. **`pairs` mode voices both sides ≈ 2× Azure characters** against the 500k/month cap. 3.2's
-   pre-generated reaction bank absorbs the common English openers; check `/api/usage` first.
+---
 
-**The gating decision (settle this first — it's the real design call):**
-- *Always emit both* — simplest, one prefix set, modes switch instantly and retroactively on
-  already-received messages. Costs output tokens on every turn even in `targetOnly`. **Recommended**,
-  since you describe pairs as how the character should normally talk.
-- *Request-gated* (`needs_pairs` on the turn request) — cheap for `targetOnly` users, but the mode
-  can only take effect from the next turn, and it multiplies prompt-cache prefixes (v1/v2/eyesfree ×
-  on/off = 6), each of which must independently clear the ≥1024-token cache floor that
-  `test_static_prefix_exceeds_cache_minimum` guards.
+**Part A — prompt.** All three version blocks emit target-language `response_chunks`. Drop the
+70/20/10 language-mix rules; they no longer describe anything.
 
-**Also settle:** which side `alternating` starts on. Fixed to UI, alternating per turn, or a
-sub-setting? Recommend starting on UI and keeping it fixed — predictability matters more than variety
-when the screen is off, and you can always flip a whole turn by toggling to `targetOnly`.
+**Keep `native_text` on the v2 challenge chunk exactly as-is** — it's one sentence, already working
+and tested, and it's the one translation that must be present even in `targetOnly` for the
+hover-reveal. Everything else routes through Part B.
 
-**⚠️ Cache invariant:** the schema lives in the static prefix, so this re-baselines every golden
-across all three versions. Expected — re-baseline per `tests/test_prompt_snapshot.py`.
+**Files:** `backend/prompts/messenger_prompt.py`, `backend/prompt_fragments.py`.
+**⚠️ Cache invariant:** static-prefix change → re-baselines every golden across all three versions.
 
-**Depends on:** 3.6 (reuses its `pairingMode` state and dropdown).
+---
+
+**Part B — translation endpoint.** New `POST /api/messenger/translate`: takes chunk texts + source and
+target locales, returns translations. Cheap model, no persona, no schema, no student model — ~100
+input tokens against the main call's ~2.5k.
+
+**Content-hash cache it** the way audio is cached (`audio_utils.get_cached_audio_path` is the pattern).
+The same target sentence recurs across turns, and a cache hit makes a re-listen free.
+
+**Fallback is required:** if the call fails or times out, that chunk degrades to target-only playback
+rather than stalling the queue. Pairs mode must never be able to hang the conversation.
+
+**Files:** new `backend/routers/translate.py` (register in `main.py`), `backend/llm_call.py`
+(`translate_chunks`), `frontend/src/MessengerChat.tsx`.
+
+---
+
+**Part C — playback pacing.** `playResponseAudio` currently plays everything back-to-back with zero
+gap (sequential `await`, `MessengerChat.tsx:1114`). Add deliberate pauses. This is an anti-overwhelm
+requirement first — three target-language sentences with no breathing room is a wall — and it happens
+to also hide the translate→TTS latency, which is why it belongs in this task rather than its own.
+
+**Two different gap sizes, and the distinction is what makes pairs *sound* like pairs:**
+- **within a pair (EN→ES): short, ~400–600ms.** Same sentence, twice — they belong together.
+- **between sentences: longer, ~1–2s**, scaled to the length of the clip just played (reuse
+  `readingDelay()`'s shape).
+
+Without that asymmetry, `pairs` mode is just six unrelated clips in a row.
+
+**Make the gap a floor, not a fixed delay:** `await Promise.all([delay(minGap), audioReady])` — take
+whichever is longer. Fast translation still gets the full pause; slow translation stretches it instead
+of producing a stall. Same floor-and-ceiling thinking as task 1.1, inverted.
+
+**Consequence worth checking:** a ~1.5s inter-sentence gap likely *fully covers* a ~1s translate+TTS
+chain, so `pairs` mode may not feel slower to respond at all — only longer overall, because there are
+five clips instead of three. Verify before optimizing anything here.
+
+**Files:** `frontend/src/MessengerChat.tsx` (`playResponseAudio`).
+
+**Composes with task 2.1** — speech rate and inter-clip gap are the two pacing dials; tune them
+together, and consider exposing gap length as a setting if the fixed values don't fit.
+
+---
+
+**Depends on:** 3.6 (reuses its `pairingMode` state and dropdown — those shipped correct).
+
+**Deferred, not scheduled:** back-filling translations for chunks the active mode didn't need, so any
+sentence can be revealed on demand (hover, or the "explain" button from 3.4). Nearly free once Part B
+exists — it's the same endpoint — but not needed for the mode to work.
 
 ---
 
