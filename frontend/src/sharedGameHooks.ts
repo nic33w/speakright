@@ -94,6 +94,30 @@ export function useAudioPlayer(apiBase: string = API_BASE) {
   return useMemo(() => ({ play, playUrl, prefetch, stop }), [play, playUrl, prefetch, stop]);
 }
 
+// ── useReplayStack ────────────────────────────────────────────────────────────
+// A flat, ordered list of every audio-bearing item in the session (character
+// reply chunks and the user's own corrected sentences), for eyes-free / controller
+// history navigation (stepping back through what was just said without looking at
+// the screen). Items are pushed once, as audio becomes available — callers must
+// not rebuild this by re-scanning message state on every button press, since that
+// would re-derive the whole session's audio list on every navigation keypress.
+export type ReplayItem = {
+  text: string;
+  locale: string;
+  source: "character" | "user";
+  audioUrl: string;
+};
+
+export function useReplayStack() {
+  const [items, setItems] = useState<ReplayItem[]>([]);
+
+  const push = useCallback((item: ReplayItem) => {
+    setItems(prev => [...prev, item]);
+  }, []);
+
+  return { items, push };
+}
+
 // ── useWisprAutoSend ──────────────────────────────────────────────────────────
 // The one implementation of Wispr auto-send (CLAUDE.md "Shared conventions").
 //

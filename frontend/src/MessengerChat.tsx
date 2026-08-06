@@ -2,7 +2,7 @@
 // Persona-based adaptive language learning chat with Mateo
 import React, { useEffect, useState, useRef } from "react";
 import { GameTextarea, CorrectionTokens } from "./sharedGameComponents";
-import { useAudioPlayer } from "./sharedGameHooks";
+import { useAudioPlayer, useReplayStack } from "./sharedGameHooks";
 import { API_BASE, localeFor } from "./config";
 import { buildCorrectionTokens } from "./sharedGameUtils";
 import type { CorrectionToken } from "./sharedGameUtils";
@@ -216,6 +216,7 @@ export default function MessengerChat({
   onBack,
 }: MessengerChatProps) {
   const audioPlayer = useAudioPlayer(apiBase);
+  const replayStack = useReplayStack();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [messages, setMessages] = useState<MessengerMessage[]>([]);
   const [transcript, setTranscript] = useState<string>("");
@@ -592,7 +593,10 @@ export default function MessengerChat({
       }],
     }]);
 
-    if (audioPath) await audioPlayer.playUrl(`${apiBase}${audioPath}`);
+    if (audioPath) {
+      replayStack.push({ text: pivot.audio_message, locale, source: "character", audioUrl: `${apiBase}${audioPath}` });
+      await audioPlayer.playUrl(`${apiBase}${audioPath}`);
+    }
 
     setCurrentSuggestions(pivot.quick_replies);
     setRevealedSuggestionIds(new Set());
@@ -790,6 +794,15 @@ export default function MessengerChat({
         ));
         setVisibleChunkCounts(prev => new Map(prev).set(characterMsgId, index + 1));
 
+        if (chunk.modality === "audio" && chunk.audio_file) {
+          replayStack.push({
+            text: chunk.text,
+            locale: chunk.locale ?? localeFor(learning.code),
+            source: "character",
+            audioUrl: `${apiBase}${chunk.audio_file}`,
+          });
+        }
+
         if (streamLetters) {
           setStreamingMessageId(characterMsgId);
           await streamText(characterMsgId, index, chunk.text || '');
@@ -815,6 +828,12 @@ export default function MessengerChat({
               setMessages(prev => prev.map(msg =>
                 msg.id === userMsgId ? { ...msg, userAudioFile: audioPath } : msg
               ));
+              replayStack.push({
+                text: data.corrected_input!,
+                locale: localeFor(learning.code),
+                source: "user",
+                audioUrl: `${apiBase}${audioPath}`,
+              });
               // Auto-play for translation mode — user spoke English, play how it sounds in Spanish
               if (data.input_intent === "english") {
                 void audioPlayer.playUrl(`${apiBase}${audioPath}`);

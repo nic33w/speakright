@@ -213,7 +213,7 @@ cache. Existing cached files stay valid as the rate-0 variant.
 
 ---
 
-### [ ] 2.2 — Build an explicit replay stack 🟡 Sonnet
+### [x] 2.2 — Build an explicit replay stack 🟡 Sonnet
 
 **Fix:** A flat, ordered list of `(text, locale, source, audioUrl)` covering every audio-bearing item
 in the session — character chunks *and* the user's own corrected sentences. Needed for eyes-free and
@@ -616,6 +616,106 @@ it for the repeat-after-me drill only, never for conversation.
 `frontend/package.json`, `backend/settings.py`.
 
 **Depends on:** 3.5. Budget-check first — assessment is billed separately from TTS.
+
+---
+
+# Phase 7 — Indonesian
+
+Numbered last to keep existing task numbers stable, **not** because it's lowest priority — **7.1 is a
+small blocker and should be done before any Indonesian practice session.** Everything built through
+Phase 2 (streaming, TTS rate, prompt-cache split, Jorge) is language-agnostic and already works for
+Indonesian; what's broken is that messenger never actually switches languages.
+
+### [ ] 7.1 — Fix target-language selection (blocker) 🟡 Sonnet
+
+**Problem:** Picking Indonesian on the HomeScreen has **no effect on messenger.** `MessengerChat.tsx`
+only sends the chosen languages to the backend inside an `else if (res.status === 404)` branch — but
+`/api/messenger/profile` can never return 404, because `load_profile()` (`profile_store.py:65-74`)
+creates a missing profile itself, hardcoded to `{code: "es", name: "Spanish"}`. The branch is dead
+code, so `default_profile.json` stays Spanish forever and the prompt keeps saying "the learner is
+learning Spanish" no matter what the UI shows.
+
+**Fix:** Send `ui_language`/`target_language` on every profile load and update the stored profile when
+they differ from what's on disk. Decide what a language switch means for accumulated state — that's
+the real design call in this task, not the plumbing.
+
+**Files:** `frontend/src/MessengerChat.tsx` (~line 295-320), `backend/routers/messenger.py`
+(profile endpoints), `backend/profile_store.py`.
+
+**⚠️ The state question:** `level`, `weak_points`, `comfortable_with`, `corrections_needed` and
+`recent_turns` are all language-specific — "ser vs estar" is meaningless for Indonesian. A single
+`default_profile.json` can't hold two languages honestly. Options, cheapest first:
+1. Per-language profile files (`profiles/default_es.json`, `default_id.json`) — recommended; the
+   store already takes a path, and it keeps both languages' histories intact.
+2. One profile with per-language sub-objects — more churn in `profile_store.py`.
+3. Reset assessment state on switch — simplest, but throws away real learning history. Don't.
+
+Whichever you pick, `chat_log_{lang}.md` is already per-language, so that part is fine.
+
+---
+
+### [ ] 7.2 — Indonesian premade openers + pivots 🟡 Sonnet
+
+**Problem:** All 3 conversations in `premade_conversations.json` are Spanish (`es-MX` audio, Spanish
+text) and carry **no language field**, and `messenger.py` picks with a blind `random.choice`. Since
+the frontend routes the *first* message through the premade path, an Indonesian session would open in
+Spanish. `frontend/src/data/sombongo_pivots.ts` has the same problem — `text_target` and
+`audio_message` are Spanish-only, so the change-topic button emits Spanish mid-conversation.
+
+**Fix:** Add a `language` field to each premade conversation, filter by the profile's target language,
+and write an Indonesian set. Same for pivots. If no script exists for the active language, skip the
+premade path entirely and go straight to the LLM rather than serving the wrong language.
+
+**Files:** `backend/premade_conversations.json`, `backend/routers/messenger.py`
+(`load_premade_conversations`, `messenger_premade_start`), `frontend/src/data/sombongo_pivots.ts`.
+
+**Depends on:** 7.1 (there's no correct language to filter by until the profile tracks one).
+
+**Note:** the pivots are also still Sombongo-flavored — see 5.4. Writing Jorge's Indonesian set is
+the same piece of work as writing Jorge's Spanish set; do them together.
+
+**Related:** premade currently 500s anyway (missing `input_intent`, xfail in `tests/test_smoke.py`).
+Fix that first or this task can't be tested.
+
+---
+
+### [ ] 7.3 — Rename the `input_intent` values 🟢 Haiku
+
+**Problem:** The field is a binary "was the user attempting the target language?", but its values are
+hardcoded `"english" | "spanish"` — in the output schema (`messenger_prompt.py:200`), the reminders
+(line 229), the router's defaults, and the frontend's `data.input_intent !== "english"` checks. For an
+Indonesian learner the prompt literally asks the model to answer `"spanish"`.
+
+**Fix:** Rename to `"ui" | "target"` (matching the `language` field on response chunks, which already
+uses that vocabulary). Functionally a no-op today — it's cosmetic until someone reads the prompt and
+gets confused, which is exactly what happens with a second language in play.
+
+**Files:** `backend/prompts/messenger_prompt.py`, `backend/models.py`,
+`backend/routers/messenger.py`, `backend/chat_log.py`, `frontend/src/MessengerChat.tsx`.
+
+**⚠️ Cache invariant:** the schema is in the static prefix, so this re-baselines the prompt goldens.
+Expected — re-baseline per the procedure in `tests/test_prompt_snapshot.py`.
+
+**Watch for:** `recent_turns` entries already on disk carry `"spanish"`. Migrate on load or accept
+both spellings for a while.
+
+---
+
+### [ ] 7.4 — Add voice to the audio cache key 🟡 Sonnet
+
+**Problem:** The cache key is `text|locale` (+`rate` since 2.1) and still excludes **voice**. Indonesian
+is where this bites: `scripts/generate_worddrill_audio.py` and `generate_battle_audio.py` hardcode
+`id-ID-ArdiNeural` while `VOICE_MAP` defaults to `id-ID-GadisNeural`, so the same Indonesian sentence
+can be cached by either speaker and served under the other — one conversation, two voices, silently.
+
+**Fix:** Add voice to the key, the same way 2.1 added rate. Use the same trick: hash the default voice
+identically to the current key so existing cached files stay valid rather than being orphaned.
+
+**Files:** `backend/audio_utils.py` (`get_cached_audio_path`), `backend/tts_helpers.py`,
+`backend/routers/audio.py`, both scripts in `backend/scripts/`.
+
+**Also settle:** whether the batch scripts should keep their own hardcoded voices at all, or read
+`VOICE_MAP` like everything else. They should read `VOICE_MAP` — the duplication is the root cause.
 
 ---
 
