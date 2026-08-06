@@ -2,7 +2,7 @@
 // Persona-based adaptive language learning chat with Mateo
 import React, { useEffect, useState, useRef } from "react";
 import { GameTextarea, CorrectionTokens } from "./sharedGameComponents";
-import { useAudioPlayer, useReplayStack, useEarcons } from "./sharedGameHooks";
+import { useAudioPlayer, useReplayStack, useEarcons, useGamepad } from "./sharedGameHooks";
 import { API_BASE, localeFor, SLOW_TTS_RATE } from "./config";
 import { buildCorrectionTokens, checkFuzzyMatch } from "./sharedGameUtils";
 import type { CorrectionToken } from "./sharedGameUtils";
@@ -262,6 +262,19 @@ export default function MessengerChat({
   const activeVersion = eyesFree ? "eyesfree" : promptVersion;
   const earcons = useEarcons();
 
+  // --- Controller → F13 recording toggle (task 4.1) ---------------------------
+  // A press-to-toggle click on a controller thumbstick is turned into an F13 tap
+  // by the native mapper in tools/controller/ (F13 is a real keycode no app
+  // claims, set as Wispr's hotkey). The browser can't send that keystroke itself,
+  // but it *does* receive the F13 keydown for free when it has focus — that's the
+  // only signal used here, no IPC. `gamepad.connected` is separate: it's the
+  // in-page Gamepad API purely for a "controller seen by the browser" status
+  // badge, since getGamepads() goes dark exactly when the window loses focus —
+  // which is when the F13 signal below matters most.
+  const [recording, setRecording] = useState(false);
+  const gamepad = useGamepad();
+  const prevTranscriptLenRef = useRef(0);
+
   // A repeat-after-me drill: the correction spoken as "try saying X" instead of
   // drawn as a diff. Only a substantive (severity "major") error opens one.
   type CorrectionDrill = {
@@ -492,6 +505,42 @@ export default function MessengerChat({
     if (!eyesFree && drillRef.current) void finishDrill();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [eyesFree]);
+
+  // F13 recording toggle (task 4.1). Not eyes-free-gated — it's the general
+  // press-to-toggle recording signal from the controller mapper, useful with the
+  // screen on too. `e.repeat` guard: the mapper sends a single clean tap per
+  // click, but this stays safe if a hold ever leaks through.
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key !== "F13" || e.repeat) return;
+      e.preventDefault();
+      setRecording(prev => {
+        const next = !prev;
+        earcons.play(next ? "recordingStarted" : "recordingStopped");
+        return next;
+      });
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [earcons]);
+
+  // Desync guard (task 4.1): the app infers recording state purely by counting
+  // F13 edges, but Wispr holds the real state — a dropped keypress (e.g. the
+  // stop-tap landing while the window was unfocused) leaves `recording` stuck
+  // true forever otherwise. Wispr only ever pastes a finished transcript in one
+  // shot, so any growth in `transcript` while we still think we're recording
+  // means recording has in fact already ended; resync and fire the stop earcon
+  // now, since the edge that should have triggered it never arrived.
+  useEffect(() => {
+    const grew = transcript.length > prevTranscriptLenRef.current;
+    prevTranscriptLenRef.current = transcript.length;
+    if (!grew) return;
+    setRecording(prev => {
+      if (!prev) return prev;
+      earcons.play("recordingStopped");
+      return false;
+    });
+  }, [transcript, earcons]);
 
   // Helper function for delays
   function delay(ms: number): Promise<void> {
@@ -1590,6 +1639,14 @@ export default function MessengerChat({
                 />
                 🙈 Eyes-free
               </label>
+              <span
+                title={gamepad.connected
+                  ? "Controller seen by the browser — face/shoulder/d-pad buttons (once mapped) will work"
+                  : "No controller seen by the browser. Recording (F13) still works via the native mapper regardless — this only affects in-page buttons, and it also goes dark whenever the window loses focus"}
+                style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, color: gamepad.connected ? '#16a34a' : '#9ca3af' }}
+              >
+                🎮 {gamepad.connected ? 'connected' : 'no controller'}
+              </span>
               {/* Quiz History Button */}
               <button
                 onClick={() => setShowQuizHistory(!showQuizHistory)}
@@ -2510,6 +2567,17 @@ export default function MessengerChat({
           boxShadow: '0 -2px 8px rgba(0,0,0,0.1)',
         }}>
           <div style={{ maxWidth: '800px', margin: '0 auto' }}>
+            {/* Recording indicator (task 4.1) — synced to F13 keydown edges, which
+                the browser receives for free from the controller mapper. */}
+            {recording && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8, fontSize: 12, color: '#dc2626', fontWeight: 600 }}>
+                <span style={{
+                  width: 8, height: 8, borderRadius: '50%', background: '#dc2626',
+                  animation: 'pulse 1s ease-in-out infinite',
+                }} />
+                Recording (F13)
+              </div>
+            )}
             {/* Repeat-after-me drill. The screen is optional here — everything in
                 this card is also spoken, and reachable by hotkey. */}
             {drill && (
@@ -2713,6 +2781,10 @@ export default function MessengerChat({
         @keyframes fadeIn {
           from { opacity: 0; transform: translateY(-4px); }
           to   { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes pulse {
+          0%, 100% { opacity: 1; }
+          50%      { opacity: 0.3; }
         }
         @keyframes textWave {
           0%   { background-position: 200% center; }

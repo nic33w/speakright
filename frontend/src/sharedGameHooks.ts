@@ -229,10 +229,63 @@ export function useWisprAutoSend({
 //
 // Returns a play() function that accepts an EarconType. Safe to call even if
 // Web Audio context creation fails (earcons.ts catches errors silently).
+//
+// Memoized (useMemo) rather than a fresh object per render: callers use this
+// as an effect dependency (e.g. the F13 recording-toggle listener), and an
+// unmemoized object would re-subscribe that listener on every render.
 export function useEarcons() {
   const play = useCallback((type: EarconType) => {
     void playEarcon(type);
   }, []);
 
-  return { play };
+  return useMemo(() => ({ play }), [play]);
+}
+
+// ── useGamepad ────────────────────────────────────────────────────────────────
+// Foundation for the Xbox controller work (task 4.1+): polls the Gamepad API
+// via requestAnimationFrame (the only way to read live state — there is no
+// gamepad "input" event) and reports connection status plus edge-triggered
+// button change events (standard-mapping button index, per
+// https://w3c.github.io/gamepad/#remapping).
+//
+// Task 4.1 itself doesn't map any button through this hook — L3/R3 recording
+// toggle goes through the native F13 mapper instead, precisely because
+// getGamepads() only reports while the document is focused (see TASKS.md
+// 4.1). This hook exists so 4.2 (face buttons), 4.3 (shoulder buttons), and
+// 4.5 (d-pad) have one polling loop to build on instead of each rolling its
+// own rAF loop, and so 4.1 can show a "controller seen by the browser" status
+// next to the F13 recording indicator.
+export type GamepadButtonChange = { index: number; pressed: boolean };
+
+export function useGamepad(onButtonChange?: (e: GamepadButtonChange) => void) {
+  const [connected, setConnected] = useState(false);
+  const prevButtonsRef = useRef<boolean[]>([]);
+  const onButtonChangeRef = useRef(onButtonChange);
+  onButtonChangeRef.current = onButtonChange;
+
+  useEffect(() => {
+    if (typeof navigator === "undefined" || !navigator.getGamepads) return;
+    let rafId: number;
+
+    function poll() {
+      const pads = navigator.getGamepads();
+      const pad = Array.from(pads).find(p => p && p.connected) ?? null;
+      setConnected(!!pad);
+      if (pad) {
+        pad.buttons.forEach((button, index) => {
+          if (prevButtonsRef.current[index] !== button.pressed) {
+            onButtonChangeRef.current?.({ index, pressed: button.pressed });
+          }
+          prevButtonsRef.current[index] = button.pressed;
+        });
+      } else {
+        prevButtonsRef.current = [];
+      }
+      rafId = requestAnimationFrame(poll);
+    }
+    rafId = requestAnimationFrame(poll);
+    return () => cancelAnimationFrame(rafId);
+  }, []);
+
+  return { connected };
 }

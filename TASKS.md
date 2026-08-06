@@ -621,7 +621,7 @@ tuned by ear — expect to adjust `WITHIN_PAIR_GAP_MS` / `betweenSentenceGap` on
 
 # Phase 4 — Xbox controller
 
-### [ ] 4.1 — Controller → F13 mapper 🟡 Sonnet
+### [x] 4.1 — Controller → F13 mapper 🟡 Sonnet
 
 **Corrected from the first draft — your F13 idea is right and it removes the WebSocket relay
 entirely.** Map a controller button to **F13** (a real keycode no application claims), set F13 as
@@ -672,6 +672,40 @@ Three things this requires:
 
 Also check whether Wispr plays its own start/stop sound — if so, disable one side so you don't get
 doubled cues.
+
+**Shipped as:**
+- **Mapper** — `tools/controller/f13_mapper.py` (~40 lines incl. docstring), the recommended
+  Python + `XInput-Python` + `keyboard` option. Polls player 0 at 125Hz, edge-triggers on
+  `LEFT_THUMB or RIGHT_THUMB` going from unpressed→pressed, sends one `keyboard.send("f13")` per
+  edge (no auto-repeat while held). `tools/controller/requirements.txt` has its two deps —
+  intentionally not folded into `backend/requirements.txt`, this runs standalone, not through the
+  app's venv. **Not run against real hardware** — no controller in this environment; reasoned from
+  the XInput-Python/`keyboard` APIs, not verified end-to-end.
+- **In-app recording signal** — new F13 `keydown` listener in `MessengerChat.tsx` (window-level,
+  same pattern as the existing Alt+R/Alt+E listener), not eyes-free-gated since it's useful with the
+  screen on too. Toggles a new `recording` state and plays `earcons.play("recordingStarted" |
+  "recordingStopped")` from 2.3 on each edge. Rendered as a small pulsing-dot "Recording (F13)"
+  indicator above the textarea.
+- **Desync guard** — a second effect watches `transcript` (the Wispr-populated textarea state) and
+  treats *any* growth while `recording` is still `true` as proof recording already ended (Wispr only
+  ever pastes a finished transcript in one shot), forcing `recording` false and firing the stop
+  earcon itself. Covers exactly the dropped-stop-tap case called out in the task; a dropped
+  *start*-tap needs no special handling since `recording` was already `false`.
+- **`useGamepad` hook** — new in `sharedGameHooks.ts`, an rAF poll loop over `navigator.getGamepads()`
+  reporting `connected` plus edge-triggered `{index, pressed}` button-change callbacks (standard
+  gamepad mapping). Task 4.1 doesn't map any button through it — L3/R3 goes through the native mapper
+  precisely because `getGamepads()` only reports while the document is focused — but it's the shared
+  polling loop 4.2/4.3/4.5 build their button maps on, and it drives a small "🎮 connected / no
+  controller" status badge in the toolbar here so the in-app signal is visible without a controller
+  plugged in yet.
+- **Side fix:** `useEarcons()` now wraps its return in `useMemo` (previously a fresh `{ play }`
+  object every render) — needed so the new F13 listener effect, which depends on it, doesn't
+  resubscribe on every render. Matches `useAudioPlayer`'s existing pattern.
+
+**Not verified:** no physical Xbox controller available in this environment. Typecheck
+(`npx tsc --noEmit`) and lint are clean on every touched line (repo-wide lint has ~45 pre-existing
+errors in other files, documented in CLAUDE.md's "not verified" notes on 3.4/3.6 — none are new).
+Backend untouched; suite still **89 passed, 1 xfailed.**
 
 ---
 
