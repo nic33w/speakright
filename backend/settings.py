@@ -68,9 +68,11 @@ PERSONA = os.getenv("MESSENGER_PERSONA", "sombongo")
 # Quiz scheduling: show quiz after N turns
 QUIZ_TURNS_DELAY = 3
 
-# Profile weak_points list: cap size (keep most recent) and reject items that
+# Profile weak_points/comfortable_with lists: cap size (keep most recently reaffirmed,
+# near-duplicates merged — see profile_store._upsert_tag) and reject weak_points items that
 # contradict the app's own STT-tolerance rules (accents/punctuation are never penalized).
-MAX_WEAK_POINTS = 8
+MAX_WEAK_POINTS = 12
+MAX_COMFORTABLE_WITH = 12
 DISALLOWED_WEAK_POINTS = {"punctuation", "capitalization", "accents", "accent marks", "accent"}
 
 # --- Locale map (mirror of frontend/src/config.ts — keep the two in sync) ---
