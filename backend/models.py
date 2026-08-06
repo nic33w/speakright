@@ -45,6 +45,9 @@ class MessengerTurnResponse(BaseModel):
     corrected_input: str
     user_translation: Optional[str] = None
     had_errors: bool
+    # "none" | "minor" | "major" — gates the eyes-free repeat-after-me drill
+    # (only "major" interrupts; "minor" is quiz material). See _normalize_severity.
+    error_severity: str = "none"
     error_explanation: str
     input_intent: str  # "english" | "spanish"
     response_chunks: List[ResponseChunk]

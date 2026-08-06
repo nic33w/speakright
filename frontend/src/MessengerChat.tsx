@@ -2,8 +2,8 @@
 // Persona-based adaptive language learning chat with Mateo
 import React, { useEffect, useState, useRef } from "react";
 import { GameTextarea, CorrectionTokens } from "./sharedGameComponents";
-import { useAudioPlayer, useReplayStack } from "./sharedGameHooks";
-import { API_BASE, localeFor } from "./config";
+import { useAudioPlayer, useReplayStack, useEarcons } from "./sharedGameHooks";
+import { API_BASE, localeFor, SLOW_TTS_RATE } from "./config";
 import { buildCorrectionTokens } from "./sharedGameUtils";
 import type { CorrectionToken } from "./sharedGameUtils";
 import { PIVOTS } from "./data/sombongo_pivots";
@@ -31,6 +31,7 @@ type ResponseChunk = {
   language: "ui" | "target";
   modality: "text" | "audio";
   audio_file?: string;
+  reaction_audio_file?: string; // pre-generated persona opener (task 3.2)
   locale?: string;
   purpose?: string;
   native_text?: string;   // v2: translation of challenge chunk
@@ -98,6 +99,17 @@ type MessengerChatProps = {
 };
 
 const SESSION_ID = `sess_${Date.now()}`;
+
+const drillButtonStyle: React.CSSProperties = {
+  background: 'white',
+  border: '1px solid #cbd5e1',
+  borderRadius: 10,
+  padding: '5px 10px',
+  fontSize: 12,
+  color: '#0f172a',
+  cursor: 'pointer',
+  whiteSpace: 'nowrap',
+};
 
 function loadPivotSet(key: string): Set<string> {
   try { return new Set(JSON.parse(localStorage.getItem(key) ?? '[]') as string[]); } catch { return new Set(); }
@@ -241,6 +253,32 @@ export default function MessengerChat({
   // Prompt version toggle
   const [promptVersion, setPromptVersion] = useState<"v1" | "v2">("v2");
   const [showUserTranslation, setShowUserTranslation] = useState<boolean>(true);
+
+  // --- Eyes-free mode (screen off: the turn is a serial audio stream) ----------
+  // The toggle overrides prompt_version for the turn — see PROMPT_VERSIONS in
+  // backend/prompts/messenger_prompt.py. v1/v2 stays remembered underneath, so
+  // turning eyes-free off restores whichever the user had.
+  const [eyesFree, setEyesFree] = useState<boolean>(false);
+  const activeVersion = eyesFree ? "eyesfree" : promptVersion;
+  const earcons = useEarcons();
+
+  // A repeat-after-me drill: the correction spoken as "try saying X" instead of
+  // drawn as a diff. Only a substantive (severity "major") error opens one.
+  type CorrectionDrill = {
+    target: string;        // the corrected sentence to say back
+    locale: string;
+    explanation?: string;  // spoken on demand only — never automatically
+    attempt?: string;      // what the user said; set once the drill closes
+    skipped?: boolean;
+  };
+  const [drill, setDrill] = useState<CorrectionDrill | null>(null);
+  // sendMessage and the hotkey handler both need the drill synchronously, before
+  // React has re-rendered with it.
+  const drillRef = useRef<CorrectionDrill | null>(null);
+  // The character's reply waits here while a drill is open: with the screen off,
+  // audio is strictly serial, so the reply would otherwise talk over the
+  // correction. Played when the attempt lands.
+  const pendingReplyChunksRef = useRef<ResponseChunk[] | null>(null);
 
 
   // Feature toggles for realistic chat simulation
@@ -419,6 +457,31 @@ export default function MessengerChat({
     document.addEventListener("paste", onPaste);
     return () => document.removeEventListener("paste", onPaste);
   }, []);
+
+  // Eyes-free hotkeys. Alt-modified because dictation lands in the focused
+  // textarea — a bare letter key would just be typed. The controller mapping in
+  // task 4.2 drives the same two functions.
+  //   Alt+R  hear it again (the drill sentence, or the last thing spoken)
+  //   Alt+E  explain that (spoken error_explanation; never automatic)
+  useEffect(() => {
+    if (!eyesFree) return;
+    function onKeyDown(e: KeyboardEvent) {
+      if (!e.altKey || e.ctrlKey || e.metaKey) return;
+      const key = e.key.toLowerCase();
+      if (key === "r") { e.preventDefault(); void repeatLastAudio(); }
+      else if (key === "e") { e.preventDefault(); void explainDrill(); }
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [eyesFree, drill, replayStack.items]);
+
+  // Leaving eyes-free mid-drill closes it, or the character's held-back reply
+  // would never play.
+  useEffect(() => {
+    if (!eyesFree && drillRef.current) void finishDrill();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [eyesFree]);
 
   // Helper function for delays
   function delay(ms: number): Promise<void> {
@@ -644,6 +707,7 @@ export default function MessengerChat({
     corrected_input?: string;
     user_translation?: string | null;
     had_errors?: boolean;
+    error_severity?: "none" | "minor" | "major";
     error_explanation?: string;
     input_intent?: "english" | "spanish";
     response_chunks?: ResponseChunk[];
@@ -705,6 +769,14 @@ export default function MessengerChat({
   async function sendMessage(textOverride?: string) {
     const text = (textOverride ?? transcript).trim();
     if (!text || busy) return;
+
+    // An open drill swallows the next thing you say: it's a repeat-after-me rep,
+    // not a conversational turn, so it never reaches the LLM.
+    if (drillRef.current) {
+      await finishDrill(text);
+      return;
+    }
+    setDrill(null);  // clear the finished drill's banner
 
     setBusy(true);
     const userMsgId = Date.now();
@@ -944,7 +1016,7 @@ export default function MessengerChat({
           const res = await fetch(`${apiBase}/api/messenger/turn/stream`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ user_input: text, session_id: SESSION_ID, prompt_version: promptVersion }),
+            body: JSON.stringify({ user_input: text, session_id: SESSION_ID, prompt_version: activeVersion }),
           });
           if (!res.ok || !res.body) throw new Error(`stream endpoint returned ${res.status}`);
 
@@ -979,7 +1051,7 @@ export default function MessengerChat({
             headers: { 'Content-Type': 'application/json' },
             body: usePremadeEndpoint
               ? JSON.stringify({ session_id: SESSION_ID })
-              : JSON.stringify({ user_input: text, session_id: SESSION_ID, prompt_version: promptVersion }),
+              : JSON.stringify({ user_input: text, session_id: SESSION_ID, prompt_version: activeVersion }),
           }
         );
         if (!res.ok) throw new Error('Turn API failed');
@@ -997,10 +1069,25 @@ export default function MessengerChat({
       // the TTS fetch has had the whole reaction animation + chunk reveal to complete, so
       // this rarely blocks — but await it to preserve the play order either way.
       await userAudioPromise;
-      if (userAudioFile) {
+
+      // Eyes-free: a substantive error interrupts here, before the character
+      // answers. The correction belongs to the sentence you just said, so it has
+      // to land first — and the reply, which ends in a question you're meant to
+      // answer, waits until the drill closes rather than competing with it.
+      const pendingDrill = eyesFree ? drillFor(data, text) : null;
+
+      // Skipped before a drill: it would play the corrected sentence at normal
+      // speed immediately before the drill says the same thing slowly.
+      if (userAudioFile && !pendingDrill) {
         await audioPlayer.playUrl(`${apiBase}${userAudioFile}`);
       }
-      await playResponseAudio(data?.response_chunks || []);
+
+      if (pendingDrill) {
+        pendingReplyChunksRef.current = data?.response_chunks || [];
+        await startCorrectionDrill(pendingDrill);
+      } else {
+        await playResponseAudio(data?.response_chunks || [], { withReactions: eyesFree });
+      }
 
     } catch (e) {
       console.error("Failed to send message:", e);
@@ -1014,11 +1101,92 @@ export default function MessengerChat({
     }
   }
 
-  async function playResponseAudio(chunks: ResponseChunk[]) {
+  async function playResponseAudio(chunks: ResponseChunk[], opts?: { withReactions?: boolean }) {
     for (const chunk of chunks) {
       if (chunk.modality === "audio" && chunk.audio_file && chunk.language === "target") {
         await audioPlayer.playUrl(`${apiBase}${chunk.audio_file}`);
+      } else if (opts?.withReactions && chunk.reaction_audio_file) {
+        // The persona's opener, from the pre-generated bank (task 3.2): the only
+        // UI-language audio eyes-free plays, and it costs nothing — a static file,
+        // no Azure roundtrip. Silently no-ops until
+        // backend/scripts/generate_reaction_audio.py has actually been run.
+        await audioPlayer.playUrl(`${apiBase}${chunk.reaction_audio_file}`);
       }
+    }
+  }
+
+  // --- Repeat-after-me correction drill (eyes-free) ---------------------------
+  // Spoken in the UI language, so it costs one Azure roundtrip ever: the string is
+  // fixed, and the backend's content-hash cache serves every later drill for free.
+  // (English TTS runs ~4-5x the characters of the sentence it introduces — task 3.1.)
+  const TRY_SAYING_PREFIX = "Try saying:";
+
+  // The severity gate. Interrupting is expensive with the screen off, so it takes
+  // a substantive error: minor naturalness nits ride along to the deferred quiz
+  // (task 3.7) instead. `error_severity` is reconciled with had_errors server-side
+  // in _normalize_severity.
+  function drillFor(data: TurnPayload | null, userText: string): CorrectionDrill | null {
+    if (!data?.had_errors || data.error_severity !== "major") return null;
+    // Nothing to repeat if they weren't attempting the target language at all.
+    if (data.input_intent === "english") return null;
+    const target = (data.corrected_input || "").trim();
+    // The model sometimes flags an error but returns the input unchanged; drilling
+    // "say exactly what you just said" is worse than staying quiet.
+    if (!target || target === userText.trim()) return null;
+    return { target, locale: localeFor(learning.code), explanation: data.error_explanation };
+  }
+
+  // Earcon first (it lands before any speech does), then the prompt, then the
+  // sentence at 0.75x. Leaves the drill open: the caller's `finally` drops `busy`,
+  // which re-enables the textarea — that is the "mic opens" step.
+  async function startCorrectionDrill(next: CorrectionDrill) {
+    drillRef.current = next;
+    setDrill(next);
+    earcons.play("correctionIncoming");
+    await speakDrillTarget(next, { withPrefix: true });
+    textareaRef.current?.focus();
+  }
+
+  async function speakDrillTarget(d: CorrectionDrill, opts?: { withPrefix?: boolean }) {
+    if (opts?.withPrefix) await audioPlayer.play(TRY_SAYING_PREFIX, localeFor(fluent.code));
+    await audioPlayer.play(d.target, d.locale, SLOW_TTS_RATE);
+  }
+
+  // The "why", on demand only — automatic playback would double the interruption.
+  async function explainDrill() {
+    const d = drillRef.current ?? drill;
+    if (!d?.explanation) return;
+    await audioPlayer.play(d.explanation, localeFor(fluent.code));
+  }
+
+  // Alt+R: hear it again. During a drill that is the sentence to repeat; otherwise
+  // the last thing that was spoken (the replay stack from task 2.2).
+  async function repeatLastAudio() {
+    const d = drillRef.current;
+    if (d) { await speakDrillTarget(d); return; }
+    const last = replayStack.items[replayStack.items.length - 1];
+    if (last) await audioPlayer.playUrl(last.audioUrl);
+  }
+
+  // Closes the drill and resumes the conversation. `attempt` is undefined when the
+  // drill was skipped rather than answered.
+  async function finishDrill(attempt?: string) {
+    const d = drillRef.current;
+    if (!d) return;
+    drillRef.current = null;
+    // TODO(task 3.5): score `attempt` against d.target with checkFuzzyMatch /
+    // normalizeForMatch and play the attemptPassed / attemptFailed earcon here.
+    // Until then every attempt closes the drill.
+    setDrill({ ...d, attempt, skipped: attempt === undefined });
+    setTranscript("");
+    const chunks = pendingReplyChunksRef.current;
+    pendingReplyChunksRef.current = null;
+    if (!chunks?.length) return;
+    setBusy(true);
+    try {
+      await playResponseAudio(chunks, { withReactions: eyesFree });
+    } finally {
+      setBusy(false);
     }
   }
 
@@ -1253,14 +1421,30 @@ export default function MessengerChat({
                 />
                 🌐 Translation
               </label>
-              <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, color: '#6366f1', cursor: 'pointer', fontWeight: promptVersion === "v2" ? 700 : 400 }}>
+              <label
+                title={eyesFree ? "Eyes-free overrides this while it's on" : undefined}
+                style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, color: '#6366f1', cursor: eyesFree ? 'not-allowed' : 'pointer', opacity: eyesFree ? 0.45 : 1, fontWeight: promptVersion === "v2" ? 700 : 400 }}
+              >
                 <input
                   type="checkbox"
                   checked={promptVersion === "v2"}
+                  disabled={eyesFree}
                   onChange={() => setPromptVersion(v => v === "v1" ? "v2" : "v1")}
-                  style={{ cursor: 'pointer' }}
+                  style={{ cursor: eyesFree ? 'not-allowed' : 'pointer' }}
                 />
                 ✨ v2: last sentence in Spanish
+              </label>
+              <label
+                title="Screen off: short spoken turns, no suggestions, and substantive mistakes come back as 'try saying…' — Alt+R hear again, Alt+E why"
+                style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, color: '#0d9488', cursor: 'pointer', fontWeight: eyesFree ? 700 : 400 }}
+              >
+                <input
+                  type="checkbox"
+                  checked={eyesFree}
+                  onChange={(e) => setEyesFree(e.target.checked)}
+                  style={{ cursor: 'pointer' }}
+                />
+                🙈 Eyes-free
               </label>
               {/* Quiz History Button */}
               <button
@@ -2182,6 +2366,55 @@ export default function MessengerChat({
           boxShadow: '0 -2px 8px rgba(0,0,0,0.1)',
         }}>
           <div style={{ maxWidth: '800px', margin: '0 auto' }}>
+            {/* Repeat-after-me drill. The screen is optional here — everything in
+                this card is also spoken, and reachable by hotkey. */}
+            {drill && (
+              <div style={{
+                marginBottom: 12,
+                padding: '12px 16px',
+                borderRadius: 14,
+                background: drill.attempt || drill.skipped ? '#f1f5f9' : 'rgba(13,148,136,0.08)',
+                border: `1px solid ${drill.attempt || drill.skipped ? '#e2e8f0' : 'rgba(13,148,136,0.35)'}`,
+                animation: 'fadeIn 0.25s ease-out',
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: '#0d9488', letterSpacing: 0.3 }}>
+                    🔁 TRY SAYING
+                  </span>
+                  <span style={{ flex: 1, fontSize: 17, fontWeight: 600, color: '#0f172a', minWidth: 200 }}>
+                    {drill.target}
+                  </span>
+                  {!drill.attempt && !drill.skipped && (
+                    <>
+                      <button
+                        onClick={() => void repeatLastAudio()}
+                        title="Hear it again, slowly (Alt+R)"
+                        style={drillButtonStyle}
+                      >🔊 again</button>
+                      {drill.explanation && (
+                        <button
+                          onClick={() => void explainDrill()}
+                          title="Why? (Alt+E)"
+                          style={drillButtonStyle}
+                        >❓ why</button>
+                      )}
+                      <button
+                        onClick={() => void finishDrill()}
+                        title="Skip this and carry on"
+                        style={{ ...drillButtonStyle, color: '#94a3b8' }}
+                      >skip</button>
+                    </>
+                  )}
+                </div>
+                <div style={{ marginTop: 6, fontSize: 12, color: '#64748b' }}>
+                  {drill.skipped
+                    ? 'Skipped.'
+                    : drill.attempt
+                      ? `You said: ${drill.attempt}`
+                      : 'Say it back — Alt+R to hear it again, Alt+E for why.'}
+                </div>
+              </div>
+            )}
             <GameTextarea
               value={transcript}
               onChange={(val) => {
@@ -2189,7 +2422,9 @@ export default function MessengerChat({
               }}
               onSubmit={(val) => void sendMessage(val)}
               busy={busy}
-              placeholder={`press CTRL + Windows key to speak in ${learning.name}...`}
+              placeholder={drill && !drill.attempt && !drill.skipped
+                ? `say it back: "${drill.target}"`
+                : `press CTRL + Windows key to speak in ${learning.name}...`}
               submitLabel="Send"
               busyLabel="Sending..."
               theme="light"

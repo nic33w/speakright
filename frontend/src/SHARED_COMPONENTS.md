@@ -208,11 +208,14 @@ Fetch → cache → play → stop for TTS audio. Replaces the per-mode audio cac
 ```tsx
 const audio = useAudioPlayer(apiBase);
 
-await audio.play(text, locale);   // fetch (cached by `locale:text`) + play
+await audio.play(text, locale);   // fetch (cached by `locale:rate:text`) + play
+await audio.play(text, locale, SLOW_TTS_RATE);  // …the same sentence at 0.75x
 await audio.playUrl(url);         // play a URL the backend already gave you
 audio.prefetch(text, locale);     // warm the cache so first play is instant
 audio.stop();                     // halt playback
 ```
+
+- `rate` is an optional SSML prosody percent offset, default `0`. `SLOW_TTS_RATE` (`config.ts`) is `-25` — 0.75×, the repeat-after-me speed. It's part of the cache key on both sides, so asking for a sentence slowly never serves back the normal-speed rendering.
 
 - `play`/`playUrl` resolve **`true`** when the clip ran to completion and **`false`** when `stop()` cut it short (or the fetch failed). Chain follow-on state off the boolean — `if (await audio.play(t, l)) advance()` — so a stop never fires it. Awaiting them in a loop plays clips in sequence.
 - Both stop this player's current audio first.

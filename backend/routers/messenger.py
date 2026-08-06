@@ -308,6 +308,35 @@ def _apply_output_gates(llm_response: dict, is_assessment_turn: bool,
         llm_response["suggested_replies"] = []
 
 
+SEVERITY_VALUES = ("none", "minor", "major")
+
+
+def _normalize_severity(llm_response: dict) -> str:
+    """Reconcile error_severity with had_errors.
+
+    The field gates the eyes-free drill (task 3.4), so only "major" interrupts —
+    "minor" is left for the deferred quiz. Two ways the model can contradict
+    itself, handled differently on purpose:
+
+    * severity missing or not one of the three values, but had_errors=true — no
+      signal at all, so fall back to "major". An error definitely happened, and a
+      spurious drill is visible and skippable, whereas silently swallowing every
+      correction would look like the feature is broken.
+    * severity="none" while had_errors=true — that *is* a signal: the model judged
+      it negligible. Demote to "minor" so it goes to the quiz instead of
+      interrupting.
+    """
+    had_errors = bool(llm_response.get("had_errors", False))
+    severity = llm_response.get("error_severity")
+    if not had_errors:
+        return "none"
+    if severity == "none":
+        return "minor"
+    if severity in SEVERITY_VALUES:
+        return severity
+    return "major"
+
+
 def _mock_llm_response(req, profile: dict, version: str = "v1") -> dict:
     """Mock-mode stand-in for call_llm_for_messenger (no API keys needed)."""
     has_english = any(c.isalpha() and ord(c) < 128 for c in req.user_input.lower())
@@ -334,10 +363,20 @@ def _mock_llm_response(req, profile: dict, version: str = "v1") -> dict:
         {"text": "¿Y qué hiciste después?", "language": "target", "modality": "audio", "locale": "es-MX", "native_text": "And what did you do afterwards?", "is_challenge": True},
     ]
     chunks_by_version = {"v2": mock_chunks_v2, "eyesfree": mock_chunks_eyesfree}
+
+    # The prompt's own canonical false-cognate example, wired into the mock so the
+    # eyes-free repeat-after-me drill (task 3.4) can be exercised without API keys:
+    # saying anything containing "gaseoso" comes back as a substantive correction.
+    # Everything else stays clean, as before.
+    had_errors = "gaseoso" in req.user_input.lower()
     return {
-        "corrected_input": req.user_input,
-        "had_errors": False,
-        "error_explanation": "",
+        "corrected_input": "Eso me va a dar gases." if had_errors else req.user_input,
+        "had_errors": had_errors,
+        "error_severity": "major" if had_errors else "none",
+        "error_explanation": (
+            "Natives say me da gases there, because gaseoso means fizzy like a soda."
+            if had_errors else ""
+        ),
         "response_chunks": chunks_by_version.get(version, mock_chunks_v1),
         "quiz_candidates": mock_quiz,
         "level_assessment": {
@@ -514,6 +553,7 @@ def _finalize_turn(req, profile: dict, llm_response: dict, chunk_dicts: list,
         corrected_input=llm_response.get("corrected_input", req.user_input),
         user_translation=llm_response.get("user_translation") or None,
         had_errors=llm_response.get("had_errors", False),
+        error_severity=_normalize_severity(llm_response),
         error_explanation=llm_response.get("error_explanation", ""),
         input_intent=llm_response.get("input_intent", "spanish"),
         response_chunks=processed_chunks,

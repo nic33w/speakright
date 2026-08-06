@@ -10,10 +10,14 @@ import { playEarcon, type EarconType } from "./audio/earcons";
 // each instance stops only its own audio, so a hover-preview player and a
 // turn-playback player can coexist without cutting each other off.
 //
-//   play(text, locale)  fetches (cached by `locale:text`) and plays.
-//   playUrl(url)        plays an already-known URL (e.g. a backend-generated file).
-//   prefetch(text, ...) warms the cache so the first play is instant.
-//   stop()              halts playback and releases any promise awaiting it.
+//   play(text, locale, rate?)  fetches (cached by `locale:rate:text`) and plays.
+//   playUrl(url)               plays an already-known URL (e.g. a backend-generated file).
+//   prefetch(text, ...)        warms the cache so the first play is instant.
+//   stop()                     halts playback and releases any promise awaiting it.
+//
+// `rate` is an SSML prosody percent offset (SLOW_TTS_RATE = -25 is 0.75x, the
+// repeat-after-me speed). It is part of both this cache key and the backend's, so
+// asking for a sentence slowly never serves the normal-speed rendering.
 //
 // play/playUrl resolve true when the clip ran to completion (or failed outright),
 // and false when stop() cut it short or the fetch failed — so `if (await play(…))`
@@ -56,15 +60,15 @@ export function useAudioPlayer(apiBase: string = API_BASE) {
     });
   }, [stop]);
 
-  const fetchUrl = useCallback(async (text: string, locale: string): Promise<string | null> => {
-    const key = `${locale}:${text}`;
+  const fetchUrl = useCallback(async (text: string, locale: string, rate: number = 0): Promise<string | null> => {
+    const key = `${locale}:${rate}:${text}`;
     const cached = cacheRef.current.get(key);
     if (cached) return cached;
     try {
       const resp = await fetch(`${apiBase}/api/trivia/audio`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text, locale }),
+        body: JSON.stringify({ text, locale, rate }),
       });
       if (!resp.ok) return null;
       const data = await resp.json();
@@ -79,13 +83,13 @@ export function useAudioPlayer(apiBase: string = API_BASE) {
     }
   }, [apiBase]);
 
-  const prefetch = useCallback((text: string, locale: string) => {
-    if (text) void fetchUrl(text, locale);
+  const prefetch = useCallback((text: string, locale: string, rate: number = 0) => {
+    if (text) void fetchUrl(text, locale, rate);
   }, [fetchUrl]);
 
-  const play = useCallback(async (text: string, locale: string): Promise<boolean> => {
+  const play = useCallback(async (text: string, locale: string, rate: number = 0): Promise<boolean> => {
     if (!text) return false;
-    const url = await fetchUrl(text, locale);
+    const url = await fetchUrl(text, locale, rate);
     if (!url) return false;
     return playUrl(url);
   }, [fetchUrl, playUrl]);

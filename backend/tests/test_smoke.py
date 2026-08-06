@@ -205,6 +205,45 @@ def test_messenger_turn_v2_challenge(client):
     assert last["native_text"]
 
 
+def test_messenger_turn_substantive_error_opens_a_drill(client):
+    """What the eyes-free drill gate needs from a turn: had_errors, a "major"
+    severity, a corrected sentence that actually differs, and a reason to speak."""
+    user_input = "eso me hará sentir gaseoso"
+    r = client.post("/api/messenger/turn", json={
+        "user_input": user_input,
+        "session_id": "pytest_llm_severity",
+        "prompt_version": "eyesfree",
+    })
+    assert r.status_code == 200
+    body = r.json()
+    assert body["had_errors"] is True
+    assert body["error_severity"] == "major"
+    assert body["corrected_input"] != user_input, \
+        "a drill that asks you to repeat your own mistake is worse than none"
+    assert body["error_explanation"]
+
+
+def test_error_severity_normalization():
+    """The eyes-free drill gate (task 3.4): only "major" interrupts, so the
+    reconciliation between had_errors and error_severity is load-bearing."""
+    from routers.messenger import _normalize_severity
+
+    # No error → nothing to drill, whatever the model claimed.
+    assert _normalize_severity({"had_errors": False}) == "none"
+    assert _normalize_severity({"had_errors": False, "error_severity": "major"}) == "none"
+
+    # Explicit values pass through.
+    for value in ("minor", "major"):
+        assert _normalize_severity({"had_errors": True, "error_severity": value}) == value
+
+    # "none" alongside had_errors is a judgement, not noise: demote to quiz material.
+    assert _normalize_severity({"had_errors": True, "error_severity": "none"}) == "minor"
+
+    # Missing or junk is no signal at all — fail loud rather than swallow it.
+    assert _normalize_severity({"had_errors": True}) == "major"
+    assert _normalize_severity({"had_errors": True, "error_severity": "catastrophic"}) == "major"
+
+
 def test_messenger_turn_eyesfree(client):
     """Eyes-free turns are two chunks — a reaction plus one spoken target
     sentence — and carry no suggested replies (nothing reads them aloud)."""
@@ -226,6 +265,8 @@ def test_messenger_turn_eyesfree(client):
     assert last["native_text"]
     assert last["is_challenge"] is True
     assert body["suggested_replies"] == []
+    # The drill gate reads this on every turn (task 3.4)
+    assert body["error_severity"] == "none"
 
 
 def _read_ndjson(response):

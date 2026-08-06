@@ -20,3 +20,9 @@ export const DEFAULT_LOCALE = "es-MX";
 export function localeFor(langCode: string | undefined | null): string {
   return (langCode && LOCALE_MAP[langCode]) || DEFAULT_LOCALE;
 }
+
+// TTS speed for "say that again, slower" (SSML prosody rate, a percent offset
+// from normal — see backend/tts_helpers.py). -25 is 0.75x, the repeat-after-me
+// speed. It is part of the audio cache key, so slow and normal renderings of the
+// same sentence are cached separately.
+export const SLOW_TTS_RATE = -25;

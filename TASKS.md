@@ -37,7 +37,7 @@ Switch with `/model` before starting a task.
 - Backend python is the venv: **`backend/venv/Scripts/python.exe`** — the system `python` on PATH
   lacks fastapi and will fail at conftest import.
 - Run `venv/Scripts/python.exe -m pytest tests/ -q` from `backend/` after any backend change.
-  Baseline is **72 passed, 1 xfailed** (was 62 before task 3.3 added the eyes-free goldens).
+  Baseline is **74 passed, 1 xfailed** (62 before task 3.3's eyes-free goldens, 72 before 3.4).
 - **Never break the messenger prompt-cache invariant** — the static prefix must stay byte-identical
   across turns. `tests/test_prompt_snapshot.py` enforces it; if it fails, the fix is to move the new
   content into the dynamic tail, not to update the golden.
@@ -343,7 +343,7 @@ suggestion chips will be empty, so the mode toggle needs to hide that row rather
 
 ---
 
-### [ ] 3.4 — Spoken correction: "try saying [sentence]" 🔴 Opus
+### [x] 3.4 — Spoken correction: "try saying [sentence]" 🔴 Opus
 
 **The core eyes-free feature.** When you say something wrong, the app speaks the correction as a
 repeat-after-me prompt instead of drawing a diff you'd have to look at.
@@ -364,6 +364,40 @@ one-sentence version of `error_explanation`). Never automatic; it doubles the in
 
 **Depends on:** 2.1, 2.3, 3.3.
 
+**Shipped as:** the 🙈 Eyes-free toggle in `MessengerChat.tsx` (which is what finally selects 3.3's
+`eyesfree` prompt version — it overrides the v1/v2 checkbox while on).
+
+*Severity gate:* new `error_severity` field (`"none" | "minor" | "major"`) in the output schema next
+to `had_errors`, on `MessengerTurnResponse`, reconciled server-side by `_normalize_severity`
+(`routers/messenger.py`). Two contradictions handled differently on purpose: *missing/junk* severity
+with `had_errors=true` → `"major"` (no signal at all; fail loud rather than silently swallow every
+correction), *explicit* `"none"` with `had_errors=true` → `"minor"` (that's a judgement — send it to
+the quiz). The prompt's own tie-break is the opposite direction: when torn, emit `"minor"`, because a
+wrongly skipped drill is cheap and a wrong interruption is not. Goldens re-baselined (one added line
+each).
+
+*Drill flow:* `earcon → "Try saying:" (UI language, fixed string so it's a one-time Azure cost then
+cache-served) → the corrected sentence at SLOW_TTS_RATE → busy drops, textarea re-focuses (the "mic
+opens") → your attempt is swallowed by `finishDrill` instead of reaching the LLM → the character's
+reply plays.* The reply is held in `pendingReplyChunksRef` for exactly that reason: with the screen
+off audio is serial, and the reply ends in a question, so letting it play over the correction makes
+both useless. The drill also fires *before* the reply, not after, so the correction stays attached to
+the sentence it belongs to. Gate also refuses to drill when `input_intent === "english"` or when
+`corrected_input` came back unchanged — being told to repeat your own mistake is worse than silence.
+
+*Also:* `useAudioPlayer` finally passes 2.1's `rate` through (`play(text, locale, rate?)`, cache key
+now `locale:rate:text`) — it was parameterized on the backend but unreachable from the client;
+`SLOW_TTS_RATE = -25` lives in `config.ts`. Eyes-free playback now also plays 3.2's pre-generated
+reaction openers (`reaction_audio_file`), which nothing consumed before — they no-op silently until
+`scripts/generate_reaction_audio.py` is actually run. Hotkeys `Alt+R` (hear it again) / `Alt+E`
+(spoken explanation, never automatic) — 4.2 maps its Y and X buttons onto the same two functions.
+Mock mode now returns a substantive correction for any input containing "gaseoso" (the prompt's own
+false-cognate example), so the whole gate is exercisable without API keys. **74 passed, 1 xfailed.**
+
+**Not verified in a browser** — typecheck and lint are clean and the backend gate is tested, but the
+drill state machine has not been clicked through with real audio. `npm run build` is red repo-wide on
+pre-existing errors in BattleGame/TriviaGame/WordDrill/trivia2, unrelated to this change.
+
 ---
 
 ### [ ] 3.5 — Retry check for the repeat-after-me attempt 🟡 Sonnet
@@ -378,7 +412,9 @@ produce the right sentence." Real pronunciation scoring is task 6.1.
 
 **Files:** `frontend/src/MessengerChat.tsx`, `frontend/src/sharedGameUtils.ts`.
 
-**Depends on:** 3.4.
+**Depends on:** 3.4. **The seam is already there:** `finishDrill(attempt?)` in `MessengerChat.tsx`
+carries a `TODO(task 3.5)` at the exact point where the score and the `attemptPassed`/`attemptFailed`
+earcon belong. `attempt === undefined` means the drill was skipped, not failed — don't score that.
 
 ---
 
