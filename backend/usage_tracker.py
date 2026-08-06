@@ -1,4 +1,5 @@
 import json
+import threading
 from datetime import datetime
 from pathlib import Path
 
@@ -7,6 +8,10 @@ MAX_AZURE_CHARS = 500_000
 MAX_OPENAI_BUDGET_CENTS = 1000.0  # $10.00
 
 _data: dict | None = None
+# Guards read-modify-write of _data / USAGE_FILE — the messenger router can fire
+# several TTS calls concurrently (parallel per-chunk generation), each recording
+# Azure chars from a different thread.
+_lock = threading.Lock()
 
 
 def _default_data() -> dict:
@@ -71,48 +76,52 @@ def _commit_all_sessions(d: dict):
 
 def startup_commit():
     """On server startup: fold all sessions from the previous run into the monthly total."""
-    d = _get()
-    _check_and_reset_monthly(d)
-    _commit_all_sessions(d)
-    _save()
+    with _lock:
+        d = _get()
+        _check_and_reset_monthly(d)
+        _commit_all_sessions(d)
+        _save()
 
 
 def start_new_session(mode: str):
     """Called when the user enters a game mode. Saves the previous session to pending."""
-    d = _get()
-    azure = d["azure"]
-    current = azure.get("current_session")
-    if current and current.get("chars", 0) > 0:
-        azure.setdefault("pending_sessions", []).append(current)
-    azure["current_session"] = {
-        "mode": mode,
-        "chars": 0,
-        "started_at": datetime.now().isoformat(),
-    }
-    _save()
+    with _lock:
+        d = _get()
+        azure = d["azure"]
+        current = azure.get("current_session")
+        if current and current.get("chars", 0) > 0:
+            azure.setdefault("pending_sessions", []).append(current)
+        azure["current_session"] = {
+            "mode": mode,
+            "chars": 0,
+            "started_at": datetime.now().isoformat(),
+        }
+        _save()
 
 
 def add_openai_cost(cost_cents: float):
     """Accumulate OpenAI API cost. Called after each successful LLM call."""
     if cost_cents <= 0:
         return
-    d = _get()
-    d["openai"]["total_cost_cents"] = d["openai"].get("total_cost_cents", 0.0) + cost_cents
-    _save()
+    with _lock:
+        d = _get()
+        d["openai"]["total_cost_cents"] = d["openai"].get("total_cost_cents", 0.0) + cost_cents
+        _save()
 
 
 def add_azure_chars(n: int):
     """Increment the current session's Azure TTS character count. Call after each real Azure TTS call."""
-    d = _get()
-    azure = d["azure"]
-    if azure.get("current_session") is None:
-        azure["current_session"] = {
-            "mode": "unknown",
-            "chars": 0,
-            "started_at": datetime.now().isoformat(),
-        }
-    azure["current_session"]["chars"] = azure["current_session"].get("chars", 0) + n
-    _save()
+    with _lock:
+        d = _get()
+        azure = d["azure"]
+        if azure.get("current_session") is None:
+            azure["current_session"] = {
+                "mode": "unknown",
+                "chars": 0,
+                "started_at": datetime.now().isoformat(),
+            }
+        azure["current_session"]["chars"] = azure["current_session"].get("chars", 0) + n
+        _save()
 
 
 def get_summary() -> dict:

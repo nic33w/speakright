@@ -420,6 +420,82 @@ export default function MessengerChat({
     return new Promise(resolve => setTimeout(resolve, ms));
   }
 
+  function jitter(min: number, max: number): number {
+    return min + Math.random() * (max - min);
+  }
+
+  // --- Reaction animation ---------------------------------------------------
+  // The reading/thinking/typing beats run *concurrently* with the turn request so
+  // they hide real latency instead of stacking on top of it. The moment the response
+  // lands the remaining animation is cut short.
+
+  const REACTION_MIN_TOTAL_MS = 900;   // floor, so a fast turn doesn't flicker through three phases
+  const REACTION_TYPING_HOLD_MS = 300; // typing must precede the bubble, even when cut short
+
+  type ReactionState = {
+    arrived: boolean;
+    firstChunkLen: number | null;
+    wait: Promise<void>;
+    arrive: (firstChunkLen: number) => void;
+  };
+
+  function createReactionState(): ReactionState {
+    let done!: () => void;
+    const wait = new Promise<void>(resolve => { done = resolve; });
+    const state: ReactionState = {
+      arrived: false,
+      firstChunkLen: null,
+      wait,
+      arrive(firstChunkLen: number) {
+        if (state.arrived) return;
+        state.arrived = true;
+        state.firstChunkLen = firstChunkLen;
+        done();
+      },
+    };
+    return state;
+  }
+
+  // Sleep that ends early when the response lands.
+  function delayOrArrival(ms: number, state: ReactionState): Promise<void> {
+    if (state.arrived) return Promise.resolve();
+    return Promise.race([delay(ms), state.wait]);
+  }
+
+  // Leaves the phase on 'typing' so the indicator stays up while a slow request is
+  // still in flight; the caller clears it when the first bubble renders.
+  async function runReactionSequence(wordCount: number, state: ReactionState): Promise<void> {
+    const started = Date.now();
+
+    // Pre-reading beat: the shimmer on the user's own bubble stands in for "message
+    // just landed" — nobody starts reading, let alone typing, at t=0.
+    await delay(jitter(200, 400));
+
+    setReactionPhase('reading');
+    await delayOrArrival(Math.min(2200, Math.max(700, wordCount * 220)), state);
+
+    if (!state.arrived) {
+      // Jittered handoff — identical timing every turn is what reads as a simulation
+      await delay(jitter(150, 400));
+      setReactionPhase('thinking');
+      await delayOrArrival(400 + Math.random() * 300, state);
+    }
+
+    setReactionPhase('typing');
+    const typingStarted = Date.now();
+    // firstChunkLen isn't known until the response arrives — assume a mid-length chunk
+    // and let arrival correct it by cutting the wait short.
+    const typingMs = Math.min(2800, Math.max(800, (state.firstChunkLen ?? 60) * 38));
+    await delayOrArrival(typingMs, state);
+
+    // Never hard-cut from an indicator straight to the bubble: hold 'typing' briefly...
+    const heldTyping = Date.now() - typingStarted;
+    if (heldTyping < REACTION_TYPING_HOLD_MS) await delay(REACTION_TYPING_HOLD_MS - heldTyping);
+    // ...and keep a floor on the whole sequence.
+    const total = Date.now() - started;
+    if (total < REACTION_MIN_TOTAL_MS) await delay(REACTION_MIN_TOTAL_MS - total);
+  }
+
   function getNextPivot(): Pivot {
     const available = PIVOTS.filter(p => !deletedPivots.has(p.id));
     if (available.length === 0) return PIVOTS[0];
@@ -621,6 +697,12 @@ export default function MessengerChat({
         ? JSON.stringify({ session_id: SESSION_ID })
         : JSON.stringify({ user_input: text, session_id: SESSION_ID, prompt_version: promptVersion });
 
+      // Start the reaction animation concurrently with the request so real latency
+      // is hidden behind it instead of stacking after it (firstChunkLen is corrected on arrival).
+      const wordCount = text.trim().split(/\s+/).length;
+      const reactionState = liveReactions ? createReactionState() : null;
+      const reactionPromise = reactionState ? runReactionSequence(wordCount, reactionState) : null;
+
       // Start API call — LLM generates response while processing indicator shows on user bubble
       const res = await fetch(endpoint, {
         method: 'POST',
@@ -634,19 +716,24 @@ export default function MessengerChat({
 
       const data = await res.json();
 
-      // Generate user sentence audio if enabled (fetch before updating message so we can store URL)
+      // Generate user sentence audio if enabled — fire-and-forget so it doesn't block the
+      // correction UI update below. corrected_input is almost always novel text, so this
+      // is reliably a cache miss and a full Azure roundtrip; patch it onto the message (and
+      // autoplay for translation mode) whenever it resolves.
       let userAudioFile: string | undefined;
-      if (audioEnabled && data.corrected_input) {
-        const locale = localeFor(learning.code);
-        const audioPath = await fetchAudioUrl(data.corrected_input, locale);
-        if (audioPath) {
-          userAudioFile = audioPath;
-          // Auto-play for translation mode — user spoke English, play how it sounds in Spanish
-          if (data.input_intent === "english") {
-            void audioPlayer.playUrl(`${apiBase}${audioPath}`);
-          }
-        }
-      }
+      const userAudioPromise: Promise<void> = (audioEnabled && data.corrected_input)
+        ? fetchAudioUrl(data.corrected_input, localeFor(learning.code)).then(audioPath => {
+            if (!audioPath) return;
+            userAudioFile = audioPath;
+            setMessages(prev => prev.map(msg =>
+              msg.id === userMsgId ? { ...msg, userAudioFile: audioPath } : msg
+            ));
+            // Auto-play for translation mode — user spoke English, play how it sounds in Spanish
+            if (data.input_intent === "english") {
+              void audioPlayer.playUrl(`${apiBase}${audioPath}`);
+            }
+          })
+        : Promise.resolve();
 
       // UPDATE user's message with correction info (if any)
       setMessages((prev) => prev.map(msg => {
@@ -675,29 +762,21 @@ export default function MessengerChat({
           correctionTokens: effectiveTokens,
           hadErrors: data.had_errors,
           errorExplanation: data.error_explanation,
-          userAudioFile,
           inputIntent: (data.input_intent as "english" | "spanish") ?? "spanish",
           userTranslation: data.user_translation ?? undefined,
         };
       }));
 
-      // Clear processing indicator — correction is now visible; let user read it first
+      // Clear processing indicator — correction is now visible. The character's reaction
+      // animation has been running concurrently since the request started; give it the
+      // real firstChunkLen and let it cut itself short.
       setProcessingMsgId(null);
 
       const chunks: ResponseChunk[] = data.response_chunks || [];
-      const wordCount = text.trim().split(/\s+/).length;
       const firstChunkLen = (chunks[0]?.text || '').length;
 
-      // Brief pause so user can read their correction, then character reacts
-      await delay(900);
-      if (liveReactions) {
-        setReactionPhase('reading');
-        await delay(Math.min(2200, Math.max(700, wordCount * 220)));
-        setReactionPhase('thinking');
-        await delay(400 + Math.random() * 300);
-        setReactionPhase('typing');
-        await delay(Math.min(2800, Math.max(800, firstChunkLen * 38)));
-      }
+      if (reactionState) reactionState.arrive(firstChunkLen);
+      if (reactionPromise) await reactionPromise;
       setReactionPhase(null);
 
       // Add character's response — all chunks stored, revealed one bubble at a time
@@ -784,7 +863,10 @@ export default function MessengerChat({
         }
       }
 
-      // Play user sentence audio first (if generated), then response audio
+      // Play user sentence audio first (if generated), then response audio. By this point
+      // the TTS fetch has had the whole reaction animation + chunk reveal to complete, so
+      // this rarely blocks — but await it to preserve the play order either way.
+      await userAudioPromise;
       if (userAudioFile) {
         await audioPlayer.playUrl(`${apiBase}${userAudioFile}`);
       }

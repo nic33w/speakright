@@ -4,6 +4,7 @@ the main /api/messenger/turn endpoint.
 import random
 import re
 import time
+from concurrent.futures import ThreadPoolExecutor
 from typing import Dict, Optional
 
 from fastapi import APIRouter, HTTPException
@@ -311,8 +312,13 @@ def messenger_chat_turn(req: MessengerTurnRequest):
     if not ENABLE_QUIZZING:
         llm_response["quiz_candidates"] = []
 
-    # Process response chunks (generate TTS for audio modality)
-    processed_chunks = []
+    # Process response chunks (generate TTS for audio modality). Cache lookups are a cheap
+    # filesystem stat and stay serial; actual generation for cache-miss chunks is the slow
+    # Azure roundtrip, so those run concurrently in a thread pool (this is a sync endpoint
+    # running in FastAPI's threadpool, so blocking threads here are fine) — chunk_dicts stays
+    # in original order throughout since each dict is patched in place, so no reassembly needed.
+    chunk_dicts = []
+    pending = []  # (text, locale, disk_path) for cache-miss chunks still needing generation
     for chunk in llm_response.get("response_chunks", []):
         chunk_dict = chunk if isinstance(chunk, dict) else chunk.dict()
 
@@ -320,7 +326,7 @@ def messenger_chat_turn(req: MessengerTurnRequest):
             # Never generate TTS for ui-language chunks — downgrade to text
             if chunk_dict.get("language") != "target":
                 chunk_dict["modality"] = "text"
-                processed_chunks.append(ResponseChunk(**chunk_dict))
+                chunk_dicts.append(chunk_dict)
                 continue
 
             locale = chunk_dict.get("locale", "es-MX")
@@ -338,22 +344,28 @@ def messenger_chat_turn(req: MessengerTurnRequest):
             # Check content-hash cache before generating fresh TTS (chunks repeat: greetings,
             # suggested replies, common challenge sentences)
             cache_url, cache_hit, cache_disk_path = get_cached_audio_path(text, locale)
+            chunk_dict["audio_file"] = cache_url
 
-            if cache_hit:
-                chunk_dict["audio_file"] = cache_url
-            else:
-                try:
-                    wav_bytes = tts_bytes_for_chunk(text, locale)
-                except Exception as e:
-                    print(f"TTS failed for chunk, using silence: {e}")
-                    wav_bytes = generate_silent_wav(duration_secs=min(3.0, 0.25 * len(text.split())))
+            if not cache_hit:
+                pending.append((text, locale, cache_disk_path))
 
-                with open(cache_disk_path, "wb") as f:
-                    f.write(wav_bytes)
+        chunk_dicts.append(chunk_dict)
 
-                chunk_dict["audio_file"] = cache_url
+    def generate_and_save(item):
+        text, locale, disk_path = item
+        try:
+            wav_bytes = tts_bytes_for_chunk(text, locale)
+        except Exception as e:
+            print(f"TTS failed for chunk, using silence: {e}")
+            wav_bytes = generate_silent_wav(duration_secs=min(3.0, 0.25 * len(text.split())))
+        with open(disk_path, "wb") as f:
+            f.write(wav_bytes)
 
-        processed_chunks.append(ResponseChunk(**chunk_dict))
+    if pending:
+        with ThreadPoolExecutor(max_workers=len(pending)) as pool:
+            list(pool.map(generate_and_save, pending))
+
+    processed_chunks = [ResponseChunk(**chunk_dict) for chunk_dict in chunk_dicts]
 
     # Update profile
     profile["turn_count"] += 1
