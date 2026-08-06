@@ -2,6 +2,11 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+**Planned work lives in `TASKS.md`** (repo root) — an ordered, numbered backlog with per-task file
+lists, dependencies, and a recommended model. If the user refers to a task by number ("do task 1.1",
+"start 3.4"), read `TASKS.md` first and follow its "How to use this file" section. Do not invent a
+task number that isn't in there.
+
 ## What this app is
 
 SpeakRight is a personal Spanish/Indonesian speaking-and-listening practice app: the user speaks or types via Wispr (desktop dictation) or typing, an LLM reviews/corrects the sentence and replies, and Azure TTS speaks the target-language text back. Nine playable modes share one FastAPI backend and a common React frontend component layer.
@@ -43,7 +48,7 @@ All modes render from `App.tsx`'s router, selected via `HomeScreen.tsx`. Status 
 
 | Mode key | Component | Status | Backend endpoints | LLM function(s) | Audio pattern |
 |---|---|---|---|---|---|
-| `messenger` | `MessengerChat.tsx` | **Active / main** | `/api/messenger/turn`, `/api/messenger/profile*`, `/api/messenger/premade-start`, `/api/quiz/check`, `/api/quiz/pending`, `/api/quiz/stats` | `call_llm_for_messenger` | Live TTS per chunk, saved to `audio_files/messenger_*` (no cache) |
+| `messenger` | `MessengerChat.tsx` | **Active / main** | `/api/messenger/turn`, `/api/messenger/turn/stream`, `/api/messenger/profile*`, `/api/messenger/premade-start`, `/api/quiz/check`, `/api/quiz/pending`, `/api/quiz/stats` | `call_llm_for_messenger`, `stream_llm_for_messenger` | Content-hash cache (`audio_files/cache/`); streaming path starts TTS per chunk as it arrives |
 | `trivia` | `TriviaGame.tsx` | **Active / main** | `/api/trivia/check`, `/api/trivia/audio` | `check_trivia_answer` (with local fuzzy-match fast path) | Content-hash cache (`audio_files/cache/`) |
 | `worddrill` | `WordDrillGame.tsx` | **Active / main** | `/api/worddrill/*` (words, sentence, sentences/{word}, usecases/{word}, check, chat, freeform) | `check_trivia_answer`, `call_llm_for_grammar_chat`, `call_llm_for_freeform_correction` | Content-hash cache + pre-generated (`scripts/generate_worddrill_audio.py`) |
 | `battle` | `BattleGame.tsx` | Experimental | `/api/battle/check` | `check_trivia_answer` | Pre-generated (`scripts/generate_battle_audio.py`) |
@@ -72,7 +77,8 @@ Shared backend endpoints used by multiple modes: `/api/config` (mock-mode flag f
 | `prompt_fragments.py` | **Cross-feature prompt rules — edit here, never inline** (see `backend/PROMPTS.md`) |
 | `prompts/messenger_prompt.py` | `build_layered_prompt()` — lives next to its template/persona data files |
 
-- Messenger prompt assembly: `build_layered_prompt()` returns `(static_prefix, dynamic_tail)`, joined with one blank line into **one** `responses.create` call via `call_llm_for_messenger`. **Cache invariant: the static prefix (system file + persona + full output schema + reminders + suggestion rules + v2 block) must stay byte-identical across turns** so OpenAI automatic prompt caching discounts it (verified: ~2.3k of ~2.5k input tokens served from cache per turn). All per-turn content — student model, last-3-turn context, turn instruction, user input — goes in the dynamic tail. `tests/test_prompt_snapshot.py` enforces this; never insert dynamic content before the student-model section. `prompt_version` is `"v1"` (standard) or `"v2"` (adds a hover-reveal "challenge" sentence — the default in `MessengerChat.tsx`).
+- **Messenger turn has two endpoints sharing one code path.** `/api/messenger/turn` returns a buffered `MessengerTurnResponse`; `/api/messenger/turn/stream` returns NDJSON (`{"type":"chunk"|"audio"|"final"|"fallback"|"error"}`, one object per line) so reply bubbles render while the model is still writing corrections and suggestions. Both share `_prepare_chunk` / `_run_tts` / `_finalize_turn` in `routers/messenger.py` — **put new turn logic in those helpers, not in one endpoint.** The frontend prefers the stream and falls back to the buffered endpoint automatically (premade conversations always use buffered; the stream emits `fallback` for them). Incremental parsing is `StreamingArrayScanner` in `llm_call.py`, which depends on **`response_chunks` being the first field in the output schema** — reordering the schema silently disables streaming's benefit.
+- Messenger prompt assembly: `build_layered_prompt()` returns `(static_prefix, dynamic_tail)`, joined with one blank line into **one** `responses.create` call via `call_llm_for_messenger` (or `stream_llm_for_messenger` for the streaming path). **Cache invariant: the static prefix (system file + persona + full output schema + reminders + suggestion rules + v2 block) must stay byte-identical across turns** so OpenAI automatic prompt caching discounts it (verified: ~2.3k of ~2.5k input tokens served from cache per turn). All per-turn content — student model, last-3-turn context, turn instruction, user input — goes in the dynamic tail. `tests/test_prompt_snapshot.py` enforces this; never insert dynamic content before the student-model section. `prompt_version` is `"v1"` (standard) or `"v2"` (adds a hover-reveal "challenge" sentence — the default in `MessengerChat.tsx`).
 - The output schema always *describes* `level_assessment`; inclusion is gated by the turn instruction (every 5th turn), and the messenger router drops it if emitted unrequested. Quiz candidates are requested only when `ENABLE_QUIZZING=1` (default off).
 - Premade scripted conversations: `premade_conversations.json` + `premade_sessions` in-memory dict in `routers/messenger.py`. **Known bug:** both premade paths build `MessengerTurnResponse` without the required `input_intent` field, so premade conversations currently 500 (xfail-documented in `tests/test_smoke.py`).
 - Chat-log-for-review files: `chat_log.append_chat_log()` writes `chat_log_{lang}.md` per learning language — a running transcript for manual accuracy review, not consumed by the app.

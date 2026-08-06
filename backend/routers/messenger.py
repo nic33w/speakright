@@ -1,6 +1,7 @@
 """Messenger chat mode: profile init/get, premade scripted conversations, and
 the main /api/messenger/turn endpoint.
 """
+import json
 import random
 import re
 import time
@@ -8,6 +9,7 @@ from concurrent.futures import ThreadPoolExecutor
 from typing import Dict, Optional
 
 from fastapi import APIRouter, HTTPException
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 from audio_utils import generate_silent_wav, get_cached_audio_path
@@ -257,122 +259,164 @@ def messenger_chat_turn(req: MessengerTurnRequest):
         print(f"[PREMADE] User typed custom input, falling back to LLM for session {req.session_id}")
 
     # --- Normal LLM path ---
-    # Load profile
     profile = load_profile()
-
-    # Same every-5th-turn gate the prompt's TURN INSTRUCTION uses (pre-increment)
-    is_assessment_turn = profile.get("turn_count", 0) > 0 and profile.get("turn_count", 0) % 5 == 0
-
-    # Build layered prompt
-    system_prompt, user_message = build_layered_prompt(req.user_input, profile, req.prompt_version or "v1")
+    is_assessment_turn = _is_assessment_turn(profile)
+    system_prompt, user_message = build_layered_prompt(
+        req.user_input, profile, req.prompt_version or "v1"
+    )
 
     if MOCK_MODE:
-        # Mock response with sample quiz candidate for testing
-        has_english = any(c.isalpha() and ord(c) < 128 for c in req.user_input.lower())
-        mock_quiz = []
-        if has_english and "store" in req.user_input.lower():
-            mock_quiz = [{
-                "type": "translation",
-                "original": "the store",
-                "corrected": "la tienda",  # THIS IS THE ANSWER
-                "error_type": "vocabulary",
-                "quiz_prompt": "How do you say 'the store' in Spanish?"
-            }]
-
-        mock_chunks_v1 = [{"text": "¡Hola! How can I help you today?", "language": "ui", "modality": "text", "purpose": "greeting"}]
-        mock_chunks_v2 = [
-            {"text": "Oh, interesting! Tell me more.", "language": "ui", "modality": "text", "purpose": "reaction"},
-            {"text": "¿Cuándo empezaste a aprender español?", "language": "target", "modality": "text", "locale": "es-MX", "native_text": "When did you start learning Spanish?", "is_challenge": True},
-        ]
-        llm_response = {
-            "corrected_input": req.user_input,
-            "had_errors": False,
-            "error_explanation": "",
-            "response_chunks": mock_chunks_v2 if (req.prompt_version or "v1") == "v2" else mock_chunks_v1,
-            "quiz_candidates": mock_quiz,
-            "level_assessment": {
-                "current_level": profile["level"],
-                "confidence": 0.6,
-                "should_update": False,
-                "reasoning": "Mock mode - no real assessment",
-                "add_comfortable": [],
-                "add_weak": [],
-                "remove_weak": []
-            }
-        }
+        llm_response = _mock_llm_response(req, profile)
     else:
-        # Real LLM call
         llm_response = call_llm_for_messenger(system_prompt, user_message)
 
-    # Defensive guards: the schema now always describes level_assessment (and,
-    # when quizzing is on, quiz_candidates), gated by the turn instruction — so
-    # drop anything the LLM emits when it wasn't asked for this turn.
+    _apply_output_gates(llm_response, is_assessment_turn)
+
+    chunk_dicts, pending = _prepare_chunks(llm_response.get("response_chunks", []))
+    _run_tts(pending)
+
+    return _finalize_turn(req, profile, llm_response, chunk_dicts, turn_id)
+
+
+# --- Turn helpers (shared by the buffered and streaming endpoints) -------------
+
+
+def _is_assessment_turn(profile: dict) -> bool:
+    """Same every-5th-turn gate the prompt's TURN INSTRUCTION uses (pre-increment)."""
+    turn_count = profile.get("turn_count", 0)
+    return turn_count > 0 and turn_count % 5 == 0
+
+
+def _apply_output_gates(llm_response: dict, is_assessment_turn: bool) -> None:
+    """Drop fields the schema always describes but this turn didn't ask for.
+
+    The schema text is static (it has to be, for prompt caching), so inclusion is
+    gated by the turn instruction — and the model sometimes emits them anyway.
+    """
     if not is_assessment_turn:
         llm_response["level_assessment"] = {}
     if not ENABLE_QUIZZING:
         llm_response["quiz_candidates"] = []
 
-    # Process response chunks (generate TTS for audio modality). Cache lookups are a cheap
-    # filesystem stat and stay serial; actual generation for cache-miss chunks is the slow
-    # Azure roundtrip, so those run concurrently in a thread pool (this is a sync endpoint
-    # running in FastAPI's threadpool, so blocking threads here are fine) — chunk_dicts stays
-    # in original order throughout since each dict is patched in place, so no reassembly needed.
-    chunk_dicts = []
-    pending = []  # (text, locale, disk_path) for cache-miss chunks still needing generation
-    for chunk in llm_response.get("response_chunks", []):
-        chunk_dict = chunk if isinstance(chunk, dict) else chunk.dict()
 
-        if chunk_dict["modality"] == "audio":
-            # Never generate TTS for ui-language chunks — downgrade to text
-            if chunk_dict.get("language") != "target":
-                chunk_dict["modality"] = "text"
-                chunk_dicts.append(chunk_dict)
-                continue
+def _mock_llm_response(req, profile: dict) -> dict:
+    """Mock-mode stand-in for call_llm_for_messenger (no API keys needed)."""
+    has_english = any(c.isalpha() and ord(c) < 128 for c in req.user_input.lower())
+    mock_quiz = []
+    if has_english and "store" in req.user_input.lower():
+        mock_quiz = [{
+            "type": "translation",
+            "original": "the store",
+            "corrected": "la tienda",  # THIS IS THE ANSWER
+            "error_type": "vocabulary",
+            "quiz_prompt": "How do you say 'the store' in Spanish?"
+        }]
 
-            locale = chunk_dict.get("locale", "es-MX")
-            text = chunk_dict["text"]
+    mock_chunks_v1 = [{"text": "¡Hola! How can I help you today?", "language": "ui", "modality": "text", "purpose": "greeting"}]
+    mock_chunks_v2 = [
+        {"text": "Oh, interesting! Tell me more.", "language": "ui", "modality": "text", "purpose": "reaction"},
+        {"text": "¿Cuándo empezaste a aprender español?", "language": "target", "modality": "text", "locale": "es-MX", "native_text": "When did you start learning Spanish?", "is_challenge": True},
+    ]
+    return {
+        "corrected_input": req.user_input,
+        "had_errors": False,
+        "error_explanation": "",
+        "response_chunks": mock_chunks_v2 if (req.prompt_version or "v1") == "v2" else mock_chunks_v1,
+        "quiz_candidates": mock_quiz,
+        "level_assessment": {
+            "current_level": profile["level"],
+            "confidence": 0.6,
+            "should_update": False,
+            "reasoning": "Mock mode - no real assessment",
+            "add_comfortable": [],
+            "add_weak": [],
+            "remove_weak": []
+        }
+    }
 
-            # Strip English intro phrases that the LLM sometimes prepends (e.g. "Try this: ¿...")
-            english_intro = re.match(r'^[A-Za-z][^¿¡\n]*?:\s*', text)
-            if english_intro:
-                stripped = text[english_intro.end():]
-                if stripped.strip():
-                    print(f"[TTS] Stripped English intro '{english_intro.group()}' from audio chunk")
-                    text = stripped.strip()
-                    chunk_dict["text"] = text
 
-            # Check content-hash cache before generating fresh TTS (chunks repeat: greetings,
-            # suggested replies, common challenge sentences)
-            cache_url, cache_hit, cache_disk_path = get_cached_audio_path(text, locale)
-            chunk_dict["audio_file"] = cache_url
+def _prepare_chunk(chunk) -> tuple:
+    """Normalize one response chunk and resolve its audio URL.
 
-            if not cache_hit:
-                pending.append((text, locale, cache_disk_path))
+    Returns ``(chunk_dict, pending)`` where pending is ``(text, locale, disk_path)``
+    for a cache-miss audio chunk that still needs generating, else None. The dict's
+    ``audio_file`` is set either way, so callers can emit the chunk before the TTS
+    bytes exist on disk.
+    """
+    chunk_dict = chunk if isinstance(chunk, dict) else chunk.dict()
+    if chunk_dict.get("modality") != "audio":
+        return chunk_dict, None
 
+    # Never generate TTS for ui-language chunks — downgrade to text
+    if chunk_dict.get("language") != "target":
+        chunk_dict["modality"] = "text"
+        return chunk_dict, None
+
+    locale = chunk_dict.get("locale", "es-MX")
+    text = chunk_dict.get("text", "")
+
+    # Strip English intro phrases that the LLM sometimes prepends (e.g. "Try this: ...")
+    english_intro = re.match(r'^[A-Za-z][^¿¡\n]*?:\s*', text)
+    if english_intro:
+        stripped = text[english_intro.end():]
+        if stripped.strip():
+            print(f"[TTS] Stripped English intro '{english_intro.group()}' from audio chunk")
+            text = stripped.strip()
+            chunk_dict["text"] = text
+
+    # Content-hash cache before generating fresh TTS (chunks repeat: greetings,
+    # suggested replies, common challenge sentences)
+    cache_url, cache_hit, cache_disk_path = get_cached_audio_path(text, locale)
+    chunk_dict["audio_file"] = cache_url
+    return chunk_dict, (None if cache_hit else (text, locale, cache_disk_path))
+
+
+def _prepare_chunks(chunks) -> tuple:
+    """_prepare_chunk over a whole list. Order is preserved throughout."""
+    chunk_dicts, pending = [], []
+    for chunk in chunks:
+        chunk_dict, work = _prepare_chunk(chunk)
         chunk_dicts.append(chunk_dict)
+        if work:
+            pending.append(work)
+    return chunk_dicts, pending
 
-    def generate_and_save(item):
-        text, locale, disk_path = item
-        try:
-            wav_bytes = tts_bytes_for_chunk(text, locale)
-        except Exception as e:
-            print(f"TTS failed for chunk, using silence: {e}")
-            wav_bytes = generate_silent_wav(duration_secs=min(3.0, 0.25 * len(text.split())))
-        with open(disk_path, "wb") as f:
-            f.write(wav_bytes)
 
-    if pending:
-        with ThreadPoolExecutor(max_workers=len(pending)) as pool:
-            list(pool.map(generate_and_save, pending))
+def _generate_and_save(item) -> None:
+    text, locale, disk_path = item
+    try:
+        wav_bytes = tts_bytes_for_chunk(text, locale)
+    except Exception as e:
+        print(f"TTS failed for chunk, using silence: {e}")
+        wav_bytes = generate_silent_wav(duration_secs=min(3.0, 0.25 * len(text.split())))
+    with open(disk_path, "wb") as f:
+        f.write(wav_bytes)
 
+
+def _run_tts(pending: list) -> None:
+    """Generate cache-miss chunk audio concurrently (the Azure roundtrip is the slow
+    part; cache lookups already happened in _prepare_chunk). Sync endpoint running in
+    FastAPI's threadpool, so blocking threads here are fine."""
+    if not pending:
+        return
+    with ThreadPoolExecutor(max_workers=len(pending)) as pool:
+        list(pool.map(_generate_and_save, pending))
+
+
+def _finalize_turn(req, profile: dict, llm_response: dict, chunk_dicts: list,
+                   turn_id: str) -> MessengerTurnResponse:
+    """Profile update, level assessment, suggestions, quiz, chat log, response build.
+
+    Everything that happens once the model's output is complete — identical for the
+    buffered and streaming endpoints.
+    """
     processed_chunks = [ResponseChunk(**chunk_dict) for chunk_dict in chunk_dicts]
 
-    # Update profile
     profile["turn_count"] += 1
     if llm_response.get("had_errors", False):
         profile["corrections_needed"] += 1
 
-    # Add to recent turns (rolling window of 10)
+    # Rolling window of 10 recent turns
     profile["recent_turns"].append({
         "turn_id": turn_id,
         "user_input": req.user_input,
@@ -384,14 +428,10 @@ def messenger_chat_turn(req: MessengerTurnRequest):
     if len(profile["recent_turns"]) > 10:
         profile["recent_turns"] = profile["recent_turns"][-10:]
 
-    # Level assessment
     assessment = llm_response.get("level_assessment", {})
     profile, profile_updated = update_profile_from_assessment(profile, assessment)
-
-    # Save profile
     save_profile(profile)
 
-    # Extract suggested replies
     suggested_replies = []
     for suggestion in llm_response.get("suggested_replies", []):
         try:
@@ -404,7 +444,6 @@ def messenger_chat_turn(req: MessengerTurnRequest):
             print(f"Failed to parse suggestion: {e}")
             continue
 
-    # Extract token usage
     token_usage_data = llm_response.get("token_usage")
     token_usage = None
     if token_usage_data:
@@ -415,16 +454,12 @@ def messenger_chat_turn(req: MessengerTurnRequest):
             cost_cents=token_usage_data.get("cost_cents", 0.0)
         )
 
-    # Extract and store quiz candidates
-    quiz_candidates = llm_response.get("quiz_candidates", [])
-    for candidate in quiz_candidates:
+    for candidate in llm_response.get("quiz_candidates", []):
         if candidate and candidate.get("prompt_target"):
             add_quiz_item(candidate, profile["turn_count"])
 
-    # Check for pending quiz to show
     pending_quiz = get_pending_quiz(profile["turn_count"])
 
-    # Build response
     append_chat_log(
         session_id=req.session_id or "unknown",
         user_input=req.user_input,
@@ -447,4 +482,104 @@ def messenger_chat_turn(req: MessengerTurnRequest):
         new_level=profile["level"] if profile_updated else None,
         token_usage=token_usage,
         pending_quiz=pending_quiz
+    )
+
+
+@router.post("/api/messenger/turn/stream")
+def messenger_chat_turn_stream(req: MessengerTurnRequest):
+    """Streaming twin of /api/messenger/turn (NDJSON, one JSON object per line).
+
+    The schema puts response_chunks first, so each reply bubble can be sent as soon
+    as the model finishes writing it — the learner sees the reply while corrections
+    and suggested replies are still being generated. TTS for a cache-miss audio chunk
+    starts the moment that chunk arrives, overlapping Azure with the tail of the LLM
+    call instead of following it.
+
+    Event types (one JSON object per line):
+      {"type":"chunk","index":N,"chunk":{...}}   a reply bubble; audio_file 404s until "audio"
+      {"type":"audio","index":N}                 that chunk's TTS is now on disk
+      {"type":"final", ...MessengerTurnResponse} everything else
+      {"type":"fallback"}                        caller should retry /api/messenger/turn
+      {"type":"error","chunks_emitted":N}        failed; safe to retry only if N == 0
+    """
+    from llm_call import stream_llm_for_messenger
+
+    def events():
+        turn_id = f"turn_{int(time.time() * 1000)}"
+
+        # Premade scripted conversations stay single-sourced in the buffered endpoint.
+        if req.session_id in premade_sessions:
+            yield json.dumps({"type": "fallback"}) + "\n"
+            return
+
+        profile = load_profile()
+        is_assessment_turn = _is_assessment_turn(profile)
+        system_prompt, user_message = build_layered_prompt(
+            req.user_input, profile, req.prompt_version or "v1"
+        )
+
+        chunk_dicts: list = []
+        emitted = 0
+        pool = ThreadPoolExecutor(max_workers=4)
+        futures: dict = {}
+        try:
+            if MOCK_MODE:
+                mock = _mock_llm_response(req, profile)
+                stream = [("chunk", c) for c in mock.get("response_chunks", [])]
+                stream.append(("done", mock))
+            else:
+                stream = stream_llm_for_messenger(system_prompt, user_message)
+
+            llm_response = None
+            for kind, payload in stream:
+                if kind == "chunk":
+                    chunk_dict, work = _prepare_chunk(payload)
+                    index = len(chunk_dicts)
+                    chunk_dicts.append(chunk_dict)
+                    if work:
+                        futures[index] = pool.submit(_generate_and_save, work)
+                    yield json.dumps({
+                        "type": "chunk", "index": index, "chunk": chunk_dict
+                    }, ensure_ascii=False) + "\n"
+                    emitted += 1
+                elif kind == "done":
+                    llm_response = payload
+
+            if llm_response is None:
+                raise RuntimeError("stream ended without a completed response")
+
+            # Recovery: if the model emitted response_chunks somewhere the incremental
+            # scanner couldn't reach it, fall back to the completed document.
+            if not chunk_dicts:
+                chunk_dicts, pending = _prepare_chunks(llm_response.get("response_chunks", []))
+                _run_tts(pending)
+                for index, chunk_dict in enumerate(chunk_dicts):
+                    yield json.dumps({
+                        "type": "chunk", "index": index, "chunk": chunk_dict
+                    }, ensure_ascii=False) + "\n"
+                    emitted += 1
+
+            for index, future in futures.items():
+                try:
+                    future.result()
+                except Exception as e:
+                    print(f"TTS future failed for chunk {index}: {e}")
+                yield json.dumps({"type": "audio", "index": index}) + "\n"
+
+            _apply_output_gates(llm_response, is_assessment_turn)
+            final = _finalize_turn(req, profile, llm_response, chunk_dicts, turn_id)
+            payload = final.dict()
+            payload["type"] = "final"
+            yield json.dumps(payload, ensure_ascii=False, default=str) + "\n"
+
+        except Exception as e:
+            print(f"[STREAM] messenger turn failed after {emitted} chunk(s): {e}")
+            yield json.dumps({"type": "error", "chunks_emitted": emitted}) + "\n"
+        finally:
+            pool.shutdown(wait=True)
+
+    return StreamingResponse(
+        events(),
+        media_type="application/x-ndjson",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )

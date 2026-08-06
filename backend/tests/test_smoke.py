@@ -205,6 +205,62 @@ def test_messenger_turn_v2_challenge(client):
     assert last["native_text"]
 
 
+def _read_ndjson(response):
+    return [json.loads(line) for line in response.text.splitlines() if line.strip()]
+
+
+def test_messenger_turn_stream(client):
+    """The streaming endpoint emits reply bubbles before the final payload."""
+    r = client.post("/api/messenger/turn/stream", json={
+        "user_input": "hola como estas",
+        "session_id": "pytest_stream_v2",
+        "prompt_version": "v2",
+    })
+    assert r.status_code == 200
+    events = _read_ndjson(r)
+    assert events, "stream produced no events"
+
+    kinds = [e["type"] for e in events]
+    assert "error" not in kinds, f"stream reported an error: {events}"
+    assert kinds[-1] == "final", f"last event should be 'final', got {kinds}"
+
+    chunk_events = [e for e in events if e["type"] == "chunk"]
+    assert chunk_events, "no chunk events emitted"
+    # Every bubble must precede the final payload — that ordering is the whole point.
+    assert kinds.index("chunk") < kinds.index("final")
+    assert [e["index"] for e in chunk_events] == list(range(len(chunk_events)))
+
+    final = events[-1]
+    for key in ("turn_id", "corrected_input", "had_errors", "input_intent",
+                "response_chunks", "suggested_replies", "profile_updated"):
+        assert key in final
+    # The final payload's chunks match what was streamed, in order
+    assert [c["text"] for c in final["response_chunks"]] == \
+           [e["chunk"]["text"] for e in chunk_events]
+
+
+def test_messenger_turn_stream_falls_back_for_premade(client):
+    """An active premade session tells the client to use the buffered endpoint."""
+    from routers import messenger as messenger_router
+
+    convs = messenger_router.load_premade_conversations()
+    if not convs:
+        pytest.skip("no premade conversations configured")
+
+    session = "pytest_stream_premade"
+    messenger_router.premade_sessions[session] = {"conversation": convs[0], "turn_index": 0}
+    try:
+        r = client.post("/api/messenger/turn/stream", json={
+            "user_input": "anything",
+            "session_id": session,
+            "prompt_version": "v1",
+        })
+        assert r.status_code == 200
+        assert [e["type"] for e in _read_ndjson(r)] == ["fallback"]
+    finally:
+        messenger_router.premade_sessions.pop(session, None)
+
+
 # --- Guessing ----------------------------------------------------------------
 
 def test_guessing_turn_and_giveup(client):

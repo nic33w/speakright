@@ -1,8 +1,26 @@
 # SpeakRight — Task Queue
 
-Ordered backlog from the 2026-08-05 brainstorm. Work top to bottom; say **"do task 1.1"** and
-Claude picks it up from here. Dependencies are noted where order actually matters — everything
-else can be reordered freely.
+Ordered backlog from the 2026-08-05 brainstorm. Work top to bottom; dependencies are noted where
+order actually matters — everything else can be reordered freely.
+
+## How to use this file
+
+**Starting a task in a fresh session:** check the model tag, `/model` to switch, then say
+**"do task 1.1 from TASKS.md"**. Naming the file matters — a new session gets `CLAUDE.md`
+automatically but not this one.
+
+**If you are an agent picking up a task from this file:**
+
+1. Read the **Ground rules** below before touching anything — they apply to every task.
+2. Do only the numbered task asked for. Adjacent tasks are deliberately scoped separately; if you
+   spot work that belongs to another one, note it and leave it alone.
+3. **Line numbers in this file drift.** They were accurate when written and earlier tasks move them.
+   Treat them as hints — every task also describes *what* to look for, so grep to confirm before
+   editing, and never edit by line number alone.
+4. Check the task's **Depends on** line against the checkboxes. If a dependency is still `[ ]`, say
+   so before starting rather than working around it.
+5. When the task is done and its tests pass, tick its checkbox (`### [ ]` → `### [x]`) and fix any
+   line numbers in *other* tasks that your change invalidated.
 
 ## Model legend
 
@@ -41,7 +59,7 @@ Switch with `/model` before starting a task.
 The response doesn't just *feel* slow, it *is* slow, and then ~6.6s of deliberate fake delay is
 added on top. Phase 1 is mostly deletion and reordering. Highest payoff per hour in the whole file.
 
-### 1.1 — Make the fake reaction delays absorb real latency instead of adding to it 🟡 Sonnet
+### [x] 1.1 — Make the fake reaction delays absorb real latency instead of adding to it 🟡 Sonnet
 
 **Problem:** `MessengerChat.tsx:625-700` does `await fetch` → *then* `await` the reading/thinking/
 typing animation (900ms + 700–2200 + 400–700 + 800–2800 = up to ~6.6s). Real latency and simulated
@@ -78,7 +96,7 @@ arrives — needs a sensible default that gets corrected on arrival.
 
 ---
 
-### 1.2 — Stop awaiting the `corrected_input` TTS before updating the UI 🟢 Haiku
+### [x] 1.2 — Stop awaiting the `corrected_input` TTS before updating the UI 🟢 Haiku
 
 **Problem:** `MessengerChat.tsx:641` awaits `fetchAudioUrl(data.corrected_input, locale)` before the
 user's own message bubble updates. That string is almost always novel → always a cache miss → a full
@@ -91,7 +109,7 @@ Azure roundtrip blocking the render.
 
 ---
 
-### 1.3 — Parallelize per-chunk TTS in the messenger turn 🟡 Sonnet
+### [x] 1.3 — Parallelize per-chunk TTS in the messenger turn 🟡 Sonnet
 
 **Problem:** `routers/messenger.py:314-356` loops chunks and generates TTS serially, after the LLM
 finishes. Three audio chunks = three sequential Azure roundtrips at `timeout=20` each.
@@ -107,7 +125,7 @@ should skip the pool. Keep the per-chunk silence fallback on failure.
 
 ---
 
-### 1.4 — Prune `weak_points` 🟡 Sonnet
+### [x] 1.4 — Prune `weak_points` 🟡 Sonnet
 
 **Problem:** CLAUDE.md flags `profiles/default_profile.json` → `weak_points` as unbounded with junk
 entries. A bloated list makes the student model noisy, which makes responses blander and more
@@ -124,7 +142,7 @@ it's a prerequisite for Phase 5 feeling like an improvement.
 
 ---
 
-### 1.5 — Trim suggested replies 🟡 Sonnet
+### [x] 1.5 — Trim suggested replies 🟡 Sonnet
 
 **Problem:** 3 suggestions × 2 strings ≈ 70 output tokens ≈ most of a second of latency, for the
 last thing rendered on screen.
@@ -140,7 +158,7 @@ driven from the turn instruction in the dynamic tail, with the schema section le
 
 ---
 
-### 1.6 — Stream the response + reorder the output schema 🔴 Opus
+### [x] 1.6 — Stream the response + reorder the output schema 🔴 Opus
 
 **Problem:** `llm_call.py:320` is one blocking `responses.create` with no streaming. The entire JSON —
 corrections, translation, 3 suggestions, sometimes a level assessment — is generated before a single
@@ -155,20 +173,28 @@ partial JSON so bubble 1 renders while suggestions are still generating. One cal
 
 **Depends on:** 1.1 (otherwise the fake delays swallow the gain anyway).
 
-**Open question to settle during the task:** the model may correct *better* when it processes the
-input before composing a reply. Putting `response_chunks` first could cost some correction quality —
-A/B it against the current order before committing, don't assume.
+**Shipped as:** a second endpoint, `POST /api/messenger/turn/stream` (NDJSON), rather than converting
+`/api/messenger/turn` in place. The buffered endpoint is byte-for-byte unchanged and still serves
+premade conversations, the test suite, and the frontend's automatic fallback. Both paths share
+`_prepare_chunk` / `_run_tts` / `_finalize_turn` in `routers/messenger.py`, so there is one source of
+truth for turn logic. Incremental parsing is `StreamingArrayScanner` in `llm_call.py`.
 
-**Alternative if streaming proves too invasive:** split into two calls — fast call returns
-`response_chunks` only, background call returns corrections + suggestions + assessment and patches
-them in. Costs ~2× input tokens, but prompt caching covers ~2.3k of 2.5k, so the real delta is small.
-Bonus: the two calls can use different models (cheap/fast for chatter, stronger for corrections).
+**⚠️ UX change to watch:** corrections now land on your own bubble *after* the reply starts
+rendering, because `response_chunks` is generated first. This is the peripheral-vision model from
+Phase 3 arriving early. If it reads badly, the fix is in `applyFinal` (MessengerChat.tsx), not in the
+schema order.
+
+**⚠️ Still unverified:** the correction-quality A/B. The concern was that the model may correct
+better when it processes input *before* composing a reply. Mitigated in-prompt ("silently work out
+what the user meant … before you write" in the reminders), but **not measured against real API
+calls** — mock mode can't test it. Watch `chat_log_es.md` for a few real sessions and compare
+against pre-`583fe25` entries.
 
 ---
 
 # Phase 2 — Foundations (small, unblocks Phases 3 & 4)
 
-### 2.1 — Parameterize TTS rate and add it to the cache key 🟡 Sonnet
+### [ ] 2.1 — Parameterize TTS rate and add it to the cache key 🟡 Sonnet
 
 **Fix:** `tts_helpers.py:52` already emits `<prosody rate='0%'>` — expose rate as a parameter so
 "say it slower" (0.75×) becomes possible. Add a rate param to the audio endpoint.
@@ -183,7 +209,7 @@ cache. Existing cached files stay valid as the rate-0 variant.
 
 ---
 
-### 2.2 — Build an explicit replay stack 🟡 Sonnet
+### [ ] 2.2 — Build an explicit replay stack 🟡 Sonnet
 
 **Fix:** A flat, ordered list of `(text, locale, source, audioUrl)` covering every audio-bearing item
 in the session — character chunks *and* the user's own corrected sentences. Needed for eyes-free and
@@ -196,7 +222,7 @@ button press.
 
 ---
 
-### 2.3 — Earcon grammar 🟢 Haiku
+### [ ] 2.3 — Earcon grammar 🟢 Haiku
 
 **Fix:** Distinct short tones for a fixed vocabulary of events. A handful of tiny WAVs or a WebAudio
 oscillator. Non-speech audio parses far faster than spoken labels and is essential once the screen is
@@ -235,7 +261,7 @@ the quiz (3.7); real errors interrupt with "try saying X."
 
 Build this **keyboard-first** (a couple of hotkeys) so it's fully usable before the controller exists.
 
-### 3.1 — Budget check + English voice config 🟢 Haiku
+### [ ] 3.1 — Budget check + English voice config 🟢 Haiku
 
 **Fix:** Voicing English roughly **4–5×'s** Azure character consumption against a 500k/month cap.
 Check `/api/usage` headroom and confirm `AZURE_VOICE_EN` is actually set in `.env` — `VOICE_MAP`
@@ -247,7 +273,7 @@ needs a real English entry or it silently falls back to whatever's first in the 
 
 ---
 
-### 3.2 — Pre-generated English reaction bank 🟡 Sonnet
+### [ ] 3.2 — Pre-generated English reaction bank 🟡 Sonnet
 
 **Fix:** Pre-generate ~50 common English persona reactions as static files (follow the
 `scripts/generate_greeting_audio.py` pattern) and constrain the prompt to pick chunk 1 from that
@@ -263,7 +289,7 @@ reactions.
 
 ---
 
-### 3.3 — Eyes-free prompt profile 🔴 Opus
+### [ ] 3.3 — Eyes-free prompt profile 🔴 Opus
 
 **Fix:** Eyes-free needs a *different prompt profile*, not TTS bolted onto the existing one. Naively
 voicing the current 70–80%-English output yields a ~40-second serial blob per turn. Required changes:
@@ -281,7 +307,7 @@ byte-identical *within* a run. Add a golden to `tests/test_prompt_snapshot.py`.
 
 ---
 
-### 3.4 — Spoken correction: "try saying [sentence]" 🔴 Opus
+### [ ] 3.4 — Spoken correction: "try saying [sentence]" 🔴 Opus
 
 **The core eyes-free feature.** When you say something wrong, the app speaks the correction as a
 repeat-after-me prompt instead of drawing a diff you'd have to look at.
@@ -304,7 +330,7 @@ one-sentence version of `error_explanation`). Never automatic; it doubles the in
 
 ---
 
-### 3.5 — Retry check for the repeat-after-me attempt 🟡 Sonnet
+### [ ] 3.5 — Retry check for the repeat-after-me attempt 🟡 Sonnet
 
 **Fix:** Score the attempt from 3.4. **Start with the cheap version:** compare Wispr's text output to
 the reference sentence with the existing `checkFuzzyMatch` / `normalizeForMatch` from
@@ -320,7 +346,7 @@ produce the right sentence." Real pronunciation scoring is task 6.1.
 
 ---
 
-### 3.6 — Audio pairing modes 🟡 Sonnet
+### [ ] 3.6 — Audio pairing modes 🟡 Sonnet
 
 **Fix:** Three playback modes — target-only / EN→ES pairs (English first, then Spanish) / alternating
 (chunks alternate languages with *no* paired translation, forcing unaided comprehension).
@@ -331,7 +357,7 @@ produce the right sentence." Real pronunciation scoring is task 6.1.
 
 ---
 
-### 3.7 — Deferred quiz drills for sub-threshold errors 🟡 Sonnet
+### [ ] 3.7 — Deferred quiz drills for sub-threshold errors 🟡 Sonnet
 
 **Fix:** Flip `ENABLE_QUIZZING=1`. Everything the 3.4 severity gate declines to interrupt for becomes
 a quiz item, resurfacing 3–5 turns later as a "try saying X" mini-challenge — same UX as 3.4, just
@@ -350,7 +376,7 @@ misses the prompt cache, and the snapshot goldens need updating.
 
 # Phase 4 — Xbox controller
 
-### 4.1 — Controller → F13 mapper 🟡 Sonnet
+### [ ] 4.1 — Controller → F13 mapper 🟡 Sonnet
 
 **Corrected from the first draft — your F13 idea is right and it removes the WebSocket relay
 entirely.** Map a controller button to **F13** (a real keycode no application claims), set F13 as
@@ -404,7 +430,7 @@ doubled cues.
 
 ---
 
-### 4.2 — Map the per-turn action buttons 🟡 Sonnet
+### [ ] 4.2 — Map the per-turn action buttons 🟡 Sonnet
 
 | Control | Action |
 |---|---|
@@ -431,7 +457,7 @@ doubled cues.
 
 ---
 
-### 4.3 — Shoulder-button replay navigation 🟡 Sonnet
+### [ ] 4.3 — Shoulder-button replay navigation 🟡 Sonnet
 
 **Fix:** LB steps back through the replay stack, RB steps forward. Keep the iPod semantic if you like
 the feel — LB within the first 50% of playback goes back one, after 50% restarts current. (Simpler
@@ -443,7 +469,7 @@ alternative: LB/RB purely move a cursor and A replays current. Either is fine.)
 
 ---
 
-### 4.4 — Haptics 🟡 Sonnet
+### [ ] 4.4 — Haptics 🟡 Sonnet
 
 **Fix:** Short pulse = recording on. Double pulse = sent. Long buzz = correction incoming.
 
@@ -457,7 +483,7 @@ merely possible.
 
 ---
 
-### 4.5 — D-pad mode toggles 🟡 Sonnet
+### [ ] 4.5 — D-pad mode toggles 🟡 Sonnet
 
 | Control | Action |
 |---|---|
@@ -478,7 +504,7 @@ face buttons you press constantly. The D-pad is exactly right for infrequent set
 except the every-5th assessment — no arc, no stakes, nothing that can resolve. A conversation that
 *can't end* is structurally boring regardless of content.
 
-### 5.0 — Wire persona tuning through to the LLM call 🟡 Sonnet
+### [ ] 5.0 — Wire persona tuning through to the LLM call 🟡 Sonnet
 
 **Do this before judging Jorge.** `jorge.json` declares `meta.temperature: 0.9` and
 `tuning.max_tokens: 140`, and **nothing reads either one.** `build_layered_prompt` only consumes
@@ -499,7 +525,7 @@ on chunks that mix languages. If it gets flaky, 0.7 is a reasonable compromise.
 
 ---
 
-### 5.1 — Scene layer with an explicit ending condition 🔴 Opus
+### [ ] 5.1 — Scene layer with an explicit ending condition 🔴 Opus
 
 **Fix:** Add a `scenario` object to the prompt — setting, character goal, user goal, completion
 condition — plus "turns elapsed in scene: N, move toward resolution" in the turn instruction. Scenes
@@ -521,7 +547,7 @@ specific scenes.
 
 ---
 
-### 5.2 — Persistent character state 🟡 Sonnet
+### [ ] 5.2 — Persistent character state 🟡 Sonnet
 
 **Fix:** Give the character mood, energy, and an ongoing situation that persists across sessions,
 stored next to `level_history` in the profile. Continuity — "last time you mentioned X" — is what
@@ -537,7 +563,7 @@ funnier than one without.
 
 ---
 
-### 5.3 — Port the secret/information-asymmetry mechanic into messenger 🔴 Opus
+### [ ] 5.3 — Port the secret/information-asymmetry mechanic into messenger 🔴 Opus
 
 **Fix:** The strongest conversation engine is the character knowing something the user has to extract.
 You already built it — `GuessingGame.tsx` + `call_llm_to_pick_secret` in `llm_call.py`. This is a
@@ -550,7 +576,7 @@ merge into the scene system, not new invention.
 
 ---
 
-### 5.4 — Make the frontend persona-aware 🟢 Haiku
+### [ ] 5.4 — Make the frontend persona-aware 🟢 Haiku
 
 **Fix:** `MessengerChat.tsx` hardcodes "Sombongo" in 4 places (lines 1291, 1534, 1727, 1728), and
 `data/sombongo_pivots.ts` is Sombongo-flavored. Serve `display_name` from the profile/config endpoint
@@ -566,7 +592,7 @@ have Jorge speaking Sombongo's lines.
 
 # Phase 6 — Pronunciation
 
-### 6.1 — Azure Pronunciation Assessment 🔴 Opus
+### [ ] 6.1 — Azure Pronunciation Assessment 🔴 Opus
 
 **Upgrade path for 3.5.** Fuzzy text matching checks *word production*; this checks pronunciation.
 

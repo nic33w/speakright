@@ -347,6 +347,163 @@ def _call_openai_json(
 
     return LLMCallResult(parsed=parsed, raw_text=raw_text, token_usage=token_usage)
 
+class StreamingArrayScanner:
+    """Pulls complete objects out of one array of a JSON document that is still
+    being streamed.
+
+    The messenger schema puts ``response_chunks`` first (see
+    prompts/messenger_prompt.py) precisely so this works: each reply bubble can be
+    handed to the client while the model is still writing corrections and
+    suggestions. Feed it raw text deltas; it returns whole objects as they close.
+
+    Only tracks the one named array — everything after it is left to a normal
+    ``json.loads`` of the completed document.
+    """
+
+    def __init__(self, key: str = "response_chunks"):
+        self._key = f'"{key}"'
+        self._buf = ""
+        self._pos = -1          # scan cursor; -1 until the array's '[' is found
+        self._depth = 0
+        self._obj_start = -1
+        self._in_string = False
+        self._escape = False
+        self.done = False       # the array's closing ']' has been seen
+
+    def feed(self, text: str) -> List[Dict[str, Any]]:
+        """Append a text delta; return objects that became complete because of it."""
+        if self.done or not text:
+            self._buf += text
+            return []
+        self._buf += text
+
+        if self._pos < 0:
+            key_at = self._buf.find(self._key)
+            if key_at < 0:
+                return []
+            bracket = self._buf.find("[", key_at + len(self._key))
+            if bracket < 0:
+                return []
+            self._pos = bracket + 1
+
+        return self._scan()
+
+    def _scan(self) -> List[Dict[str, Any]]:
+        out: List[Dict[str, Any]] = []
+        i = self._pos
+        buf = self._buf
+        while i < len(buf):
+            ch = buf[i]
+            if self._in_string:
+                if self._escape:
+                    self._escape = False
+                elif ch == "\\":
+                    self._escape = True
+                elif ch == '"':
+                    self._in_string = False
+            elif ch == '"':
+                self._in_string = True
+            elif ch == "{":
+                if self._depth == 0:
+                    self._obj_start = i
+                self._depth += 1
+            elif ch == "}":
+                self._depth -= 1
+                if self._depth == 0 and self._obj_start >= 0:
+                    raw = buf[self._obj_start:i + 1]
+                    self._obj_start = -1
+                    try:
+                        out.append(json.loads(raw))
+                    except json.JSONDecodeError:
+                        # Partial/invalid object: drop it here — the completed
+                        # document is parsed in full later and wins either way.
+                        pass
+            elif ch == "]" and self._depth == 0:
+                self.done = True
+                i += 1
+                break
+            i += 1
+        self._pos = i
+        return out
+
+    @property
+    def text(self) -> str:
+        """Everything fed so far."""
+        return self._buf
+
+
+def stream_llm_for_messenger(
+    system_prompt: str,
+    user_message: str,
+    model: Optional[str] = None,
+    temperature: float = 0.2,
+    max_output_tokens: int = 600,
+    timeout: int = 30,
+):
+    """Streaming twin of ``call_llm_for_messenger``.
+
+    Yields ``("chunk", <response_chunk dict>)`` for each reply bubble as soon as the
+    model finishes writing it, then exactly one ``("done", <full parsed dict>)`` with
+    the same shape ``call_llm_for_messenger`` returns (including ``token_usage``).
+
+    Raises on API/parse failure — the caller falls back to the non-streaming path.
+    Callers must short-circuit MOCK_MODE before calling this.
+    """
+    model = model or DEFAULT_MODEL
+    client = _init_client()
+    if client is None:
+        raise RuntimeError("LLM client unavailable (mock mode or missing API key)")
+
+    prompt = system_prompt + "\n\n" + user_message
+    scanner = StreamingArrayScanner("response_chunks")
+    final_response = None
+
+    stream = client.responses.create(
+        model=model,
+        input=prompt,
+        temperature=temperature,
+        max_output_tokens=max_output_tokens,
+        timeout=timeout,
+        stream=True,
+    )
+
+    for event in stream:
+        etype = getattr(event, "type", "") or ""
+        if etype.endswith("output_text.delta"):
+            delta = getattr(event, "delta", "") or ""
+            if delta:
+                for chunk in scanner.feed(delta):
+                    yield "chunk", chunk
+        elif etype.endswith("response.completed") or etype == "response.completed":
+            final_response = getattr(event, "response", None)
+        elif etype.endswith("response.failed") or etype.endswith("response.incomplete"):
+            final_response = getattr(event, "response", None)
+
+    raw_text = scanner.text
+    parsed = _extract_json(raw_text)
+    if not isinstance(parsed, dict):
+        raise ValueError("streamed messenger response did not parse to a JSON object")
+
+    prompt_tokens = completion_tokens = total_tokens = 0
+    if final_response is not None:
+        prompt_tokens, completion_tokens, total_tokens = _extract_token_counts(final_response)
+    input_rate, output_rate = MODEL_PRICING.get(model, DEFAULT_PRICING)
+    cost_cents = round(((prompt_tokens * input_rate) + (completion_tokens * output_rate)) * 100, 4)
+    if _add_openai_cost and cost_cents > 0:
+        _add_openai_cost(cost_cents)
+    parsed["token_usage"] = {
+        "prompt_tokens": prompt_tokens,
+        "completion_tokens": completion_tokens,
+        "total_tokens": total_tokens,
+        "cost_cents": cost_cents,
+    }
+    _log_debug("MESSENGER STREAM - TOKEN USAGE",
+               f"Prompt: {prompt_tokens}, Completion: {completion_tokens}, "
+               f"Total: {total_tokens}, Cost: {cost_cents:.4f} cents")
+
+    yield "done", parsed
+
+
 def _mock_response(transcript: str, active_cards: List[Dict[str,Any]], fluent: Dict[str,Any], learning: Dict[str,Any]) -> Dict[str,Any]:
     # Normalize transcript for matching (strip accents, punctuation, lowercase)
     normalized_transcript = _normalize_for_matching(transcript or "")

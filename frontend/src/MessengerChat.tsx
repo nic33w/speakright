@@ -630,6 +630,53 @@ export default function MessengerChat({
     }
   }
 
+  // Shape of /api/messenger/turn (and the "final" event of its streaming twin).
+  type TurnPayload = {
+    turn_id?: string;
+    corrected_input?: string;
+    user_translation?: string | null;
+    had_errors?: boolean;
+    error_explanation?: string;
+    input_intent?: "english" | "spanish";
+    response_chunks?: ResponseChunk[];
+    suggested_replies?: SuggestedReply[];
+    profile_updated?: boolean;
+    new_level?: string | null;
+    token_usage?: TokenUsage | null;
+    pending_quiz?: QuizItem | null;
+  };
+
+  // NDJSON events from /api/messenger/turn/stream.
+  type StreamEvent =
+    | { type: "chunk"; index: number; chunk: ResponseChunk }
+    | { type: "audio"; index: number }
+    | { type: "fallback" }
+    | { type: "error"; chunks_emitted: number }
+    | ({ type: "final" } & TurnPayload);
+
+  // Reads an NDJSON stream, invoking onEvent once per complete line. onEvent is
+  // awaited, so a slow handler (revealing a bubble takes seconds) applies
+  // backpressure rather than dropping events.
+  async function readNdjson(res: Response, onEvent: (e: StreamEvent) => Promise<void> | void): Promise<void> {
+    const reader = res.body?.getReader();
+    if (!reader) throw new Error("response has no readable body");
+    const decoder = new TextDecoder();
+    let buf = "";
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buf += decoder.decode(value, { stream: true });
+      let nl: number;
+      while ((nl = buf.indexOf("\n")) >= 0) {
+        const line = buf.slice(0, nl).trim();
+        buf = buf.slice(nl + 1);
+        if (line) await onEvent(JSON.parse(line));
+      }
+    }
+    const tail = buf.trim();
+    if (tail) await onEvent(JSON.parse(tail));
+  }
+
   function isCasualGreeting(text: string): boolean {
     const norm = text
       .toLowerCase()
@@ -690,12 +737,7 @@ export default function MessengerChat({
       const usedSuggestion = matchedNative !== undefined;
       const usePremade = !isFirstMessage || usedSuggestion || isCasualGreeting(text);
 
-      const endpoint = (isFirstMessage && usePremade)
-        ? `${apiBase}/api/messenger/premade-start`
-        : `${apiBase}/api/messenger/turn`;
-      const body = (isFirstMessage && usePremade)
-        ? JSON.stringify({ session_id: SESSION_ID })
-        : JSON.stringify({ user_input: text, session_id: SESSION_ID, prompt_version: promptVersion });
+      const usePremadeEndpoint = isFirstMessage && usePremade;
 
       // Start the reaction animation concurrently with the request so real latency
       // is hidden behind it instead of stacking after it (firstChunkLen is corrected on arrival).
@@ -703,163 +745,228 @@ export default function MessengerChat({
       const reactionState = liveReactions ? createReactionState() : null;
       const reactionPromise = reactionState ? runReactionSequence(wordCount, reactionState) : null;
 
-      // Start API call — LLM generates response while processing indicator shows on user bubble
-      const res = await fetch(endpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body
-      });
-
-      if (!res.ok) {
-        throw new Error('Turn API failed');
-      }
-
-      const data = await res.json();
-
-      // Generate user sentence audio if enabled — fire-and-forget so it doesn't block the
-      // correction UI update below. corrected_input is almost always novel text, so this
-      // is reliably a cache miss and a full Azure roundtrip; patch it onto the message (and
-      // autoplay for translation mode) whenever it resolves.
-      let userAudioFile: string | undefined;
-      const userAudioPromise: Promise<void> = (audioEnabled && data.corrected_input)
-        ? fetchAudioUrl(data.corrected_input, localeFor(learning.code)).then(audioPath => {
-            if (!audioPath) return;
-            userAudioFile = audioPath;
-            setMessages(prev => prev.map(msg =>
-              msg.id === userMsgId ? { ...msg, userAudioFile: audioPath } : msg
-            ));
-            // Auto-play for translation mode — user spoke English, play how it sounds in Spanish
-            if (data.input_intent === "english") {
-              void audioPlayer.playUrl(`${apiBase}${audioPath}`);
-            }
-          })
-        : Promise.resolve();
-
-      // UPDATE user's message with correction info (if any)
-      setMessages((prev) => prev.map(msg => {
-        if (msg.id !== userMsgId) return msg;
-        // Build correction diff for any Spanish-intent message with errors
-        const tokens = data.had_errors && data.input_intent !== "english" && msg.userInput && data.corrected_input
-          ? buildCorrectionTokens(msg.userInput, data.corrected_input)
-          : undefined;
-        // Fallback: if had_errors but tokens are empty/all-ok (LLM didn't change corrected_input),
-        // force a diff showing the original as removed and the corrected as added
-        const effectiveTokens = (() => {
-          if (!tokens || !data.had_errors) return tokens;
-          const hasChange = tokens.some(t => t.status !== "ok");
-          if (hasChange) return tokens;
-          if (msg.userInput && data.corrected_input && msg.userInput.trim() !== data.corrected_input.trim()) {
-            return [
-              { text: msg.userInput, status: "remove" as const },
-              { text: " " + data.corrected_input, status: "add" as const },
-            ];
-          }
-          return tokens;
-        })();
-        return {
-          ...msg,
-          correctedInput: data.corrected_input,
-          correctionTokens: effectiveTokens,
-          hadErrors: data.had_errors,
-          errorExplanation: data.error_explanation,
-          inputIntent: (data.input_intent as "english" | "spanish") ?? "spanish",
-          userTranslation: data.user_translation ?? undefined,
-        };
-      }));
-
-      // Clear processing indicator — correction is now visible. The character's reaction
-      // animation has been running concurrently since the request started; give it the
-      // real firstChunkLen and let it cut itself short.
-      setProcessingMsgId(null);
-
-      const chunks: ResponseChunk[] = data.response_chunks || [];
-      const firstChunkLen = (chunks[0]?.text || '').length;
-
-      if (reactionState) reactionState.arrive(firstChunkLen);
-      if (reactionPromise) await reactionPromise;
-      setReactionPhase(null);
-
-      // Add character's response — all chunks stored, revealed one bubble at a time
       const characterMsgId = Date.now() + 1;
-      const characterMsg: MessengerMessage = {
-        id: characterMsgId,
-        timestamp: new Date(),
-        side: "character",
-        responseChunks: data.response_chunks || [],
-        suggestedReplies: data.suggested_replies || []
-      };
-      setVisibleChunkCounts(prev => new Map(prev).set(characterMsgId, 0));
-      setMessages((prev) => [...prev, characterMsg]);
+      let characterCreated = false;
+      let shownCount = 0;
+      let lastChunkText = '';
+      let userAudioFile: string | undefined;
+      let userAudioPromise: Promise<void> = Promise.resolve();
 
-      // Reveal each chunk as its own bubble, with a delay based on the previous chunk's length
-      for (let i = 0; i < chunks.length; i++) {
-        setVisibleChunkCounts(prev => new Map(prev).set(characterMsgId, i + 1));
+      // Reveal one reply bubble. The first call closes out the reaction animation;
+      // later calls keep the original read-then-type gap between bubbles. Chunks are
+      // appended as they arrive so the streaming path can render bubble 1 while the
+      // model is still writing corrections and suggestions.
+      const revealChunk = async (chunk: ResponseChunk) => {
+        const index = shownCount;
+        if (!characterCreated) {
+          setProcessingMsgId(null);
+          if (reactionState) reactionState.arrive((chunk.text || '').length);
+          if (reactionPromise) await reactionPromise;
+          setReactionPhase(null);
+          setVisibleChunkCounts(prev => new Map(prev).set(characterMsgId, 0));
+          setMessages(prev => [...prev, {
+            id: characterMsgId,
+            timestamp: new Date(),
+            side: "character",
+            responseChunks: [],
+            suggestedReplies: [],
+          }]);
+          characterCreated = true;
+        } else {
+          await delay(readingDelay(lastChunkText));
+          setIsTyping(true);
+          await delay(chunkRevealDelay(lastChunkText));
+          setIsTyping(false);
+        }
+
+        setMessages(prev => prev.map(msg =>
+          msg.id === characterMsgId
+            ? { ...msg, responseChunks: [...(msg.responseChunks || []), chunk] }
+            : msg
+        ));
+        setVisibleChunkCounts(prev => new Map(prev).set(characterMsgId, index + 1));
 
         if (streamLetters) {
           setStreamingMessageId(characterMsgId);
-          await streamText(characterMsgId, i, chunks[i].text || '');
+          await streamText(characterMsgId, index, chunk.text || '');
           setStreamingMessageId(null);
         }
 
-        if (i < chunks.length - 1) {
-          await delay(readingDelay(chunks[i].text || ''));
-          setIsTyping(true);
-          await delay(chunkRevealDelay(chunks[i].text || ''));
-          setIsTyping(false);
-        }
-      }
+        lastChunkText = chunk.text || '';
+        shownCount = index + 1;
+      };
 
-      // Update current suggestions for display and reset revealed state
-      setCurrentSuggestions(data.suggested_replies || []);
-      setRevealedSuggestionIds(new Set());
-      // Pre-seed audio cache for any suggestions that already have audio_file paths
-      for (const s of (data.suggested_replies || []) as SuggestedReply[]) {
-        if (s.audio_file) suggestionAudioCacheRef.current.set(s.id, s.audio_file);
-      }
-      // Stop any ongoing audio repeat
-      currentlyPlayingSuggestionRef.current = null;
-      if (audioRepeatTimeoutRef.current) {
-        window.clearTimeout(audioRepeatTimeoutRef.current);
-        audioRepeatTimeoutRef.current = null;
-      }
+      // Everything that isn't a reply bubble: the correction on the user's own message,
+      // suggestions, usage, quiz, level-up. With response_chunks first in the output
+      // schema these now land *after* the reply has started rendering.
+      const applyFinal = async (data: TurnPayload) => {
+        // Generate user sentence audio if enabled — fire-and-forget so it doesn't block the
+        // correction UI update below. corrected_input is almost always novel text, so this
+        // is reliably a cache miss and a full Azure roundtrip; patch it onto the message (and
+        // autoplay for translation mode) whenever it resolves.
+        userAudioPromise = (audioEnabled && data.corrected_input)
+          ? fetchAudioUrl(data.corrected_input, localeFor(learning.code)).then(audioPath => {
+              if (!audioPath) return;
+              userAudioFile = audioPath;
+              setMessages(prev => prev.map(msg =>
+                msg.id === userMsgId ? { ...msg, userAudioFile: audioPath } : msg
+              ));
+              // Auto-play for translation mode — user spoke English, play how it sounds in Spanish
+              if (data.input_intent === "english") {
+                void audioPlayer.playUrl(`${apiBase}${audioPath}`);
+              }
+            })
+          : Promise.resolve();
 
-      // Update token usage tracking
-      if (data.token_usage) {
-        const usage = data.token_usage as TokenUsage;
-        setLastTurnTokens(usage);
-        setSessionTokens(prev => ({
-          prompt_tokens: prev.prompt_tokens + usage.prompt_tokens,
-          completion_tokens: prev.completion_tokens + usage.completion_tokens,
-          total_tokens: prev.total_tokens + usage.total_tokens,
-          cost_cents: prev.cost_cents + usage.cost_cents
+        // UPDATE user's message with correction info (if any)
+        setMessages((prev) => prev.map(msg => {
+          if (msg.id !== userMsgId) return msg;
+          // Build correction diff for any Spanish-intent message with errors
+          const tokens = data.had_errors && data.input_intent !== "english" && msg.userInput && data.corrected_input
+            ? buildCorrectionTokens(msg.userInput, data.corrected_input)
+            : undefined;
+          // Fallback: if had_errors but tokens are empty/all-ok (LLM didn't change corrected_input),
+          // force a diff showing the original as removed and the corrected as added
+          const effectiveTokens = (() => {
+            if (!tokens || !data.had_errors) return tokens;
+            const hasChange = tokens.some(t => t.status !== "ok");
+            if (hasChange) return tokens;
+            if (msg.userInput && data.corrected_input && msg.userInput.trim() !== data.corrected_input.trim()) {
+              return [
+                { text: msg.userInput, status: "remove" as const },
+                { text: " " + data.corrected_input, status: "add" as const },
+              ];
+            }
+            return tokens;
+          })();
+          return {
+            ...msg,
+            correctedInput: data.corrected_input,
+            correctionTokens: effectiveTokens,
+            hadErrors: data.had_errors,
+            errorExplanation: data.error_explanation,
+            inputIntent: (data.input_intent as "english" | "spanish") ?? "spanish",
+            userTranslation: data.user_translation ?? undefined,
+          };
         }));
-      }
+        setProcessingMsgId(null);
 
-      // Handle pending quiz from response
-      if (data.pending_quiz) {
-        const quiz = data.pending_quiz as QuizItem;
-        // Check if we already have this quiz displayed
-        const alreadyDisplayed = quizMessages.some(qm => qm.quiz.id === quiz.id);
-        if (!alreadyDisplayed) {
-          setQuizMessages(prev => [...prev, {
-            id: Date.now(),
-            quiz,
-            isAnswered: false
-          }]);
+        // Attach suggestions to the character bubble now that they exist
+        setMessages(prev => prev.map(msg =>
+          msg.id === characterMsgId
+            ? { ...msg, suggestedReplies: data.suggested_replies || [] }
+            : msg
+        ));
+        setCurrentSuggestions(data.suggested_replies || []);
+        setRevealedSuggestionIds(new Set());
+        // Pre-seed audio cache for any suggestions that already have audio_file paths
+        for (const s of (data.suggested_replies || []) as SuggestedReply[]) {
+          if (s.audio_file) suggestionAudioCacheRef.current.set(s.id, s.audio_file);
+        }
+        // Stop any ongoing audio repeat
+        currentlyPlayingSuggestionRef.current = null;
+        if (audioRepeatTimeoutRef.current) {
+          window.clearTimeout(audioRepeatTimeoutRef.current);
+          audioRepeatTimeoutRef.current = null;
+        }
+
+        // Update token usage tracking
+        if (data.token_usage) {
+          const usage = data.token_usage as TokenUsage;
+          setLastTurnTokens(usage);
+          setSessionTokens(prev => ({
+            prompt_tokens: prev.prompt_tokens + usage.prompt_tokens,
+            completion_tokens: prev.completion_tokens + usage.completion_tokens,
+            total_tokens: prev.total_tokens + usage.total_tokens,
+            cost_cents: prev.cost_cents + usage.cost_cents
+          }));
+        }
+
+        // Handle pending quiz from response
+        if (data.pending_quiz) {
+          const quiz = data.pending_quiz as QuizItem;
+          // Check if we already have this quiz displayed
+          const alreadyDisplayed = quizMessages.some(qm => qm.quiz.id === quiz.id);
+          if (!alreadyDisplayed) {
+            setQuizMessages(prev => [...prev, {
+              id: Date.now(),
+              quiz,
+              isAnswered: false
+            }]);
+          }
+        }
+
+        // Update profile if level changed
+        if (data.profile_updated && data.new_level) {
+          setNewLevel(data.new_level);
+          setShowLevelUp(true);
+          setTimeout(() => setShowLevelUp(false), 3000);
+
+          // Refresh profile
+          const profileRes = await fetch(`${apiBase}/api/messenger/profile`);
+          if (profileRes.ok) {
+            const profileData = await profileRes.json();
+            setProfile(profileData.profile);
+          }
+        }
+      };
+
+      let data: TurnPayload | null = null;
+
+      // --- Streaming path -----------------------------------------------------
+      // Bubbles render as the model writes them instead of after the whole JSON
+      // (including suggestions and the level assessment) is complete.
+      if (!usePremadeEndpoint) {
+        try {
+          const res = await fetch(`${apiBase}/api/messenger/turn/stream`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ user_input: text, session_id: SESSION_ID, prompt_version: promptVersion }),
+          });
+          if (!res.ok || !res.body) throw new Error(`stream endpoint returned ${res.status}`);
+
+          await readNdjson(res, async (evt) => {
+            if (evt.type === 'chunk') {
+              await revealChunk(evt.chunk);
+            } else if (evt.type === 'final') {
+              data = evt;
+              await applyFinal(evt);
+            } else if (evt.type === 'error' && shownCount > 0) {
+              // Half-rendered: retrying would duplicate bubbles.
+              throw new Error('stream failed after emitting chunks');
+            }
+            // 'audio' events just confirm TTS hit disk; playback happens below, by
+            // which point every future has been awaited server-side.
+            // 'fallback' leaves data null so the buffered path below runs.
+          });
+        } catch (e) {
+          if (shownCount > 0) throw e;
+          console.warn('Streaming turn unavailable, falling back to buffered endpoint:', e);
+          data = null;
         }
       }
 
-      // Update profile if level changed
-      if (data.profile_updated && data.new_level) {
-        setNewLevel(data.new_level);
-        setShowLevelUp(true);
-        setTimeout(() => setShowLevelUp(false), 3000);
-
-        // Refresh profile
-        const profileRes = await fetch(`${apiBase}/api/messenger/profile`);
-        if (profileRes.ok) {
-          const profileData = await profileRes.json();
-          setProfile(profileData.profile);
+      // --- Buffered path ------------------------------------------------------
+      // Premade openers, and any streaming turn that failed before rendering.
+      if (!data) {
+        const res = await fetch(
+          usePremadeEndpoint ? `${apiBase}/api/messenger/premade-start` : `${apiBase}/api/messenger/turn`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: usePremadeEndpoint
+              ? JSON.stringify({ session_id: SESSION_ID })
+              : JSON.stringify({ user_input: text, session_id: SESSION_ID, prompt_version: promptVersion }),
+          }
+        );
+        if (!res.ok) throw new Error('Turn API failed');
+        const buffered: TurnPayload = await res.json();
+        data = buffered;
+        // Buffered order matches the pre-streaming behaviour: correction first,
+        // then the reply bubbles.
+        await applyFinal(buffered);
+        for (const chunk of (buffered.response_chunks || [])) {
+          await revealChunk(chunk);
         }
       }
 
@@ -870,7 +977,7 @@ export default function MessengerChat({
       if (userAudioFile) {
         await audioPlayer.playUrl(`${apiBase}${userAudioFile}`);
       }
-      await playResponseAudio(data.response_chunks);
+      await playResponseAudio(data?.response_chunks || []);
 
     } catch (e) {
       console.error("Failed to send message:", e);

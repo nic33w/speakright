@@ -180,12 +180,10 @@ EXAMPLE GREETINGS (in {ui_lang}):
     # level_assessment is always described in the schema; inclusion is gated by
     # the TURN INSTRUCTION (every 5th turn), keeping the schema text static.
     schema_section = f"""OUTPUT SCHEMA (return exactly one JSON object):
+EMIT THE FIELDS IN EXACTLY THE ORDER SHOWN BELOW. "response_chunks" MUST come first — the app
+streams your reply to the learner as you write it, so any field placed before it delays the whole
+conversation. Do not reorder, and do not repeat a field later in the object.
 {{
-  "corrected_input": "...",  // The corrected or naturalized version of what the user said. CRITICAL: If had_errors=true, corrected_input MUST be different from the user's input — it must contain the natural/correct {target_lang} version. NEVER leave corrected_input the same as the user's input when had_errors=true. Rules: (1) Fix grammar errors. (2) If phrasing is unnatural, replace the whole phrase with what a native speaker would actually say — even completely different words, same meaning. (3) NEVER make it a response or answer to a question. (4) Copy exactly only when had_errors=false.
-  "user_translation": "...",  // {ui_lang} translation of corrected_input. Always provide.
-  "had_errors": true/false,  // true if grammar is wrong OR phrasing is not how a native speaker would say it. STRICT RULE: if you had to change corrected_input at all, had_errors must be true. Cases that MUST be flagged: false cognates (e.g. "gaseoso" does NOT mean feeling gassy — it means carbonated/fizzy; correct: "me va a dar gases"), word-for-word translations of English body sensations/idioms/emotions (almost never translate literally), invented words from English roots. CONCRETE EXAMPLE: user says "eso me hará sentir gaseoso" → had_errors=true, corrected_input="Eso me va a dar gases." false ONLY when a native speaker would say it exactly as written.
-  "error_explanation": "...",  // Brief explanation in {ui_lang}. Only needed if had_errors=true. For naturalness/false-cognate issues, give the natural native expression and briefly explain why (e.g. "'Gaseoso' means carbonated/fizzy — natives say 'me da gases' for feeling gassy"). When the correction involves a verb, include the infinitive in parentheses after the conjugated form.
-  "input_intent": "english" | "spanish",  // "english" = user was primarily speaking {ui_lang} (even with some {target_lang} mixed in). "spanish" = user was primarily attempting {target_lang} (even if they dropped in {ui_lang} words they didn't know). Judge by INTENT, not word count.
   "response_chunks": [
     {{
       "text": "...",  // MOST chunks should have language="ui" (speak in {ui_lang}). Only use "target" for teaching vocabulary/phrases.
@@ -195,6 +193,11 @@ EXAMPLE GREETINGS (in {ui_lang}):
       "purpose": "greeting" | "question" | "feedback" | "encouragement"
     }}
   ],
+  "corrected_input": "...",  // The corrected or naturalized version of what the user said. CRITICAL: If had_errors=true, corrected_input MUST be different from the user's input — it must contain the natural/correct {target_lang} version. NEVER leave corrected_input the same as the user's input when had_errors=true. Rules: (1) Fix grammar errors. (2) If phrasing is unnatural, replace the whole phrase with what a native speaker would actually say — even completely different words, same meaning. (3) NEVER make it a response or answer to a question. (4) Copy exactly only when had_errors=false.
+  "user_translation": "...",  // {ui_lang} translation of corrected_input. Always provide.
+  "had_errors": true/false,  // true if grammar is wrong OR phrasing is not how a native speaker would say it. STRICT RULE: if you had to change corrected_input at all, had_errors must be true. Cases that MUST be flagged: false cognates (e.g. "gaseoso" does NOT mean feeling gassy — it means carbonated/fizzy; correct: "me va a dar gases"), word-for-word translations of English body sensations/idioms/emotions (almost never translate literally), invented words from English roots. CONCRETE EXAMPLE: user says "eso me hará sentir gaseoso" → had_errors=true, corrected_input="Eso me va a dar gases." false ONLY when a native speaker would say it exactly as written.
+  "error_explanation": "...",  // Brief explanation in {ui_lang}. Only needed if had_errors=true. For naturalness/false-cognate issues, give the natural native expression and briefly explain why (e.g. "'Gaseoso' means carbonated/fizzy — natives say 'me da gases' for feeling gassy"). When the correction involves a verb, include the infinitive in parentheses after the conjugated form.
+  "input_intent": "english" | "spanish",  // "english" = user was primarily speaking {ui_lang} (even with some {target_lang} mixed in). "spanish" = user was primarily attempting {target_lang} (even if they dropped in {ui_lang} words they didn't know). Judge by INTENT, not word count.
   "suggested_replies": [
     {{
       "id": "r1",
@@ -215,6 +218,7 @@ EXAMPLE GREETINGS (in {ui_lang}):
 }}"""
 
     reminders_section = f"""CRITICAL REMINDERS:
+- FIELD ORDER IS LOAD-BEARING: emit "response_chunks" first, exactly as laid out in the OUTPUT SCHEMA. Before you write it, silently work out what the user actually meant and how their {target_lang} should be corrected — then write the reply first and record that correction in the later fields. Getting the reply out first is what keeps the conversation fast; it must not make the correction sloppier.
 - Your response_chunks should be MOSTLY in {ui_lang} (language="ui", modality="text"). Only use "target" sparingly for teaching.
 - NEVER set modality="audio" for a language="ui" chunk. Audio is ONLY for pure {target_lang} text.
 - A chunk with modality="audio" must have its "text" field contain ONLY {target_lang} — no {ui_lang} words, no mixed phrases.
