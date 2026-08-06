@@ -265,7 +265,7 @@ the quiz (3.7); real errors interrupt with "try saying X."
 
 Build this **keyboard-first** (a couple of hotkeys) so it's fully usable before the controller exists.
 
-### [ ] 3.1 — Budget check + English voice config 🟢 Haiku
+### [x] 3.1 — Budget check + English voice config 🟢 Haiku
 
 **Fix:** Voicing English roughly **4–5×'s** Azure character consumption against a 500k/month cap.
 Check `/api/usage` headroom and confirm `AZURE_VOICE_EN` is actually set in `.env` — `VOICE_MAP`
