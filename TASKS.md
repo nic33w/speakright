@@ -564,7 +564,13 @@ of producing a stall. Same floor-and-ceiling thinking as task 1.1, inverted.
 
 **Consequence worth checking:** a ~1.5s inter-sentence gap likely *fully covers* a ~1s translate+TTS
 chain, so `pairs` mode may not feel slower to respond at all — only longer overall, because there are
-five clips instead of three. Verify before optimizing anything here.
+five clips instead of three.
+
+**Latency budget for `pairs`, stated explicitly:** extra latency here is *permitted, not wanted.*
+Spend it if the translate→TTS chain genuinely needs it; do not manufacture it. If the pacing gaps
+already absorb the chain and the mode comes out just as fast, that is the good outcome — don't add
+delay to make pairs mode "feel" like the slower, more deliberate mode. The gaps in Part C are sized
+for comprehension, and that is the only thing that should determine them.
 
 **Files:** `frontend/src/MessengerChat.tsx` (`playResponseAudio`).
 
