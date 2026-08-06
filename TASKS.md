@@ -446,6 +446,12 @@ existing 🔊 Audio toggle. `playResponseAudio` branches on it:
   first if present. Only the v2/eyes-free challenge chunk carries `native_text` today, so plain v1
   turns with no challenge sentence behave like target-only — known limitation, not worth a backend
   change just for this.
+
+**⚠️ The spec above was wrong — see 3.8.** It assumed each chunk is inherently one language and only
+the last one has a translation. The actual intent is that **every chunk is a bilingual pair**, and the
+mode chooses how the pair is voiced. The implementer correctly flagged the `native_text` gap and
+declined to fix it because this task didn't ask for it; 3.8 is that backend change. The mode plumbing,
+the dropdown, and `targetOnly` shipped here are all still correct and get reused.
 - **alternating** — voices every remaining chunk (including `language="ui"` text chunks, via live TTS)
   in whichever language it's actually written in, with no translation lead-in. Reuses 3.2's free
   `reaction_audio_file` for an exact-match chunk (e.g. the opener) even outside eyes-free before
@@ -471,6 +477,62 @@ and `quiz_rules_section`). Fine — it's constant within a run — but the first
 misses the prompt cache, and the snapshot goldens need updating.
 
 **Depends on:** 3.4.
+
+---
+
+### [ ] 3.8 — Bilingual chunk pairs (corrects 3.6) 🔴 Opus
+
+**What 3.6 got wrong:** it treated each chunk as inherently one language, with a translation only on
+the final challenge sentence. The real model is that **every chunk carries both languages**, and the
+playback mode decides how each pair is voiced. Concretely, for a typical 3-chunk reply:
+
+| Mode | Plays |
+|---|---|
+| `targetOnly` | ES1, ES2, ES3 |
+| `pairs` | EN1 → ES1, EN2 → ES2, EN3 → ES3 |
+| `alternating` | EN1, ES2, EN3 (each chunk voiced on one side only — no translation help) |
+
+`alternating` is the harder listening mode *because* the pair exists but you only ever hear one half
+of it. That's the point: the data is symmetric, the mode is what withholds the crutch.
+
+**Fix — backend:** populate both languages on **every** chunk, not just the challenge.
+
+**Files:** `backend/prompts/messenger_prompt.py` (schema + all three version blocks),
+`backend/models.py` (`ResponseChunk`), `backend/routers/messenger.py` (TTS both sides),
+`frontend/src/MessengerChat.tsx` (`playResponseAudio`, rendering).
+
+**Recommended shape:** add `text_ui` and `text_target` to every chunk, and leave the existing
+`text` + `language` as "which side is primary for display". Slightly redundant, but 3.3/3.4/3.5/3.6
+all shipped against the current chunk shape, and rendering, streaming, the v2 hover-reveal and the
+reaction-bank matcher all key off `text`/`language` — replacing them outright is a much bigger blast
+radius for no user-visible gain. **Do not** reuse `native_text` for this: it means "the UI-language
+version", so on a `language:"ui"` chunk it reads backwards, and playback code would have to consult
+`language` to know which side it's holding. That's the exact footgun this task exists to remove.
+
+**⚠️ Cost — this partly spends Phase 1's winnings, decide deliberately:**
+1. **Output tokens roughly double for `response_chunks`**, which is the one part of the response 1.6
+   worked to get out first. Measure a real turn before and after; if time-to-first-bubble regresses
+   badly, fall back to the gated option below.
+2. **`pairs` mode voices both sides ≈ 2× Azure characters** against the 500k/month cap. 3.2's
+   pre-generated reaction bank absorbs the common English openers; check `/api/usage` first.
+
+**The gating decision (settle this first — it's the real design call):**
+- *Always emit both* — simplest, one prefix set, modes switch instantly and retroactively on
+  already-received messages. Costs output tokens on every turn even in `targetOnly`. **Recommended**,
+  since you describe pairs as how the character should normally talk.
+- *Request-gated* (`needs_pairs` on the turn request) — cheap for `targetOnly` users, but the mode
+  can only take effect from the next turn, and it multiplies prompt-cache prefixes (v1/v2/eyesfree ×
+  on/off = 6), each of which must independently clear the ≥1024-token cache floor that
+  `test_static_prefix_exceeds_cache_minimum` guards.
+
+**Also settle:** which side `alternating` starts on. Fixed to UI, alternating per turn, or a
+sub-setting? Recommend starting on UI and keeping it fixed — predictability matters more than variety
+when the screen is off, and you can always flip a whole turn by toggling to `targetOnly`.
+
+**⚠️ Cache invariant:** the schema lives in the static prefix, so this re-baselines every golden
+across all three versions. Expected — re-baseline per `tests/test_prompt_snapshot.py`.
+
+**Depends on:** 3.6 (reuses its `pairingMode` state and dropdown).
 
 ---
 
