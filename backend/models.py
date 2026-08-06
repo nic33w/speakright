@@ -20,6 +20,7 @@ class ResponseChunk(BaseModel):
     language: str  # "ui" | "target"
     modality: str  # "text" | "audio"
     audio_file: Optional[str] = None
+    reaction_audio_file: Optional[str] = None  # pre-generated static audio for a REACTION OPENERS match (chunk 0)
     locale: Optional[str] = None
     purpose: Optional[str] = None
     native_text: Optional[str] = None   # v2: translation of challenge chunk

@@ -277,7 +277,7 @@ needs a real English entry or it silently falls back to whatever's first in the 
 
 ---
 
-### [ ] 3.2 — Pre-generated English reaction bank 🟡 Sonnet
+### [x] 3.2 — Pre-generated English reaction bank 🟡 Sonnet
 
 **Fix:** Pre-generate ~50 common English persona reactions as static files (follow the
 `scripts/generate_greeting_audio.py` pattern) and constrain the prompt to pick chunk 1 from that
@@ -290,6 +290,19 @@ Doubles as a Phase 1 task — it attacks perceived slowness too.
 
 **Depends on:** 3.1. **Note:** bank must be regenerated per persona — Jorge and Sombongo don't share
 reactions.
+
+**Shipped as:** backend infra only, no playback wiring yet — nothing in the current visual UI voices
+`language="ui"` chunks, so there's nothing for 3.2 to make "instant" until 3.3/3.4 turn on eyes-free
+audio. What's built: a `reactions.en` bank in each `prompts/persona/*.json` (50 lines for Jorge, 30
+for Sombongo), `scripts/generate_reaction_audio.py` (run manually — needs real Azure credentials, not
+run yet) writing to `backend/audio_files/reactions/{persona}/{id}.wav`, a new
+`GET /api/audio_file/reactions/{persona}/{filename}` route, and a static "REACTION OPENERS" block
+added to the prompt's persona-scoped static prefix that constrains `response_chunks[0]` to be copied
+verbatim from the bank (`purpose="reaction"`, new enum value). `_prepare_chunk` in
+`routers/messenger.py` resolves an exact-text match to the pre-generated URL and attaches it as the
+new `ResponseChunk.reaction_audio_file` field — populated now, unused by the frontend until eyes-free
+needs it. Prompt goldens re-baselined (`tests/goldens/` deleted and regenerated); full suite still 62
+passed, 1 xfailed.
 
 ---
 

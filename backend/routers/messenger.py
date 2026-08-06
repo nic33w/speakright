@@ -23,13 +23,14 @@ from models import (
 )
 from profile_store import (
     init_default_profile,
+    load_persona_json,
     load_profile,
     save_profile,
     update_profile_from_assessment,
 )
 from prompts.messenger_prompt import build_layered_prompt
 from quiz_store import add_quiz_item, get_pending_quiz
-from settings import API_ROOT, ENABLE_QUIZZING, MOCK_MODE
+from settings import API_ROOT, ENABLE_QUIZZING, MOCK_MODE, PERSONA
 from tts_helpers import tts_bytes_for_chunk
 
 router = APIRouter()
@@ -335,6 +336,25 @@ def _mock_llm_response(req, profile: dict) -> dict:
     }
 
 
+_REACTION_AUDIO_LOOKUP: Optional[Dict[str, str]] = None
+
+
+def _reaction_audio_lookup() -> Dict[str, str]:
+    """text -> pre-generated static audio URL, for exact REACTION OPENERS matches.
+    Built once from the active persona's `reactions.en` (see messenger_prompt.py's
+    reaction_bank_section and scripts/generate_reaction_audio.py, which produces the
+    files this maps to)."""
+    global _REACTION_AUDIO_LOOKUP
+    if _REACTION_AUDIO_LOOKUP is None:
+        persona_data = load_persona_json(PERSONA) or {}
+        reactions = persona_data.get("reactions", {}).get("en", [])
+        _REACTION_AUDIO_LOOKUP = {
+            r["text"]: f"/api/audio_file/reactions/{PERSONA}/{r['id']}.wav"
+            for r in reactions if r.get("id") and r.get("text")
+        }
+    return _REACTION_AUDIO_LOOKUP
+
+
 def _prepare_chunk(chunk) -> tuple:
     """Normalize one response chunk and resolve its audio URL.
 
@@ -345,6 +365,10 @@ def _prepare_chunk(chunk) -> tuple:
     """
     chunk_dict = chunk if isinstance(chunk, dict) else chunk.dict()
     if chunk_dict.get("modality") != "audio":
+        if chunk_dict.get("language") == "ui":
+            reaction_audio = _reaction_audio_lookup().get(chunk_dict.get("text", ""))
+            if reaction_audio:
+                chunk_dict["reaction_audio_file"] = reaction_audio
         return chunk_dict, None
 
     # Never generate TTS for ui-language chunks — downgrade to text

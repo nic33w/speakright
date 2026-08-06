@@ -55,6 +55,7 @@ DEFAULT_PROFILE_PATH = PROFILE_DIR / "default_profile.json"
 
 I18N_DIR = API_ROOT / "i18n" / "greetings"
 GREETING_AUDIO_DIR = AUDIO_ROOT / "greetings"
+REACTIONS_AUDIO_DIR = AUDIO_ROOT / "reactions"  # pre-generated persona reaction-opener audio
 
 USER_PROFILE_PATH = API_ROOT / "user_profile.json"  # battle-mode mistake log
 TEST_AUDIO_PATH = API_ROOT / "test_audio.wav"       # mock-mode TTS stand-in

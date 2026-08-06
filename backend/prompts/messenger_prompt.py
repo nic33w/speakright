@@ -132,6 +132,17 @@ EXAMPLE GREETINGS (in {ui_lang}):
                 if who and text:
                     persona_prompt += f"  {who}: \"{text}\" (in {lang})\n"
 
+    # Reaction bank (persona-specific, static within a run): forces response_chunks[0]
+    # to be picked verbatim from a closed set so it can be served from pre-generated
+    # audio with zero latency/cost instead of live TTS. See scripts/generate_reaction_audio.py.
+    reaction_bank_section = ''
+    reactions = persona_data.get("reactions", {}).get(ui_code, [])
+    if reactions:
+        reaction_lines = "\n".join(f'- "{r["text"]}"' for r in reactions if r.get("text"))
+        reaction_bank_section = f"""REACTION OPENERS — CLOSED SET:
+response_chunks[0] MUST be chosen verbatim, word-for-word, from the list below (language="ui", modality="text", purpose="reaction"). Pick whichever line best matches how {character_name} would react to what the user just said. Do not alter, translate, paraphrase, or invent a new line — copy one exactly as written, including punctuation. Continue your actual reply normally starting at response_chunks[1].
+{reaction_lines}"""
+
     # Layer 3: Student Model
     student_file = PROMPTS_DIR / "templates" / "student_model.txt"
     if student_file.exists():
@@ -190,7 +201,7 @@ conversation. Do not reorder, and do not repeat a field later in the object.
       "language": "ui" | "target",  // "ui" = {ui_lang}, "target" = {target_lang}
       "modality": "text" | "audio",  // audio ONLY for language="target" chunks — NEVER audio for language="ui"
       "locale": "{target_code}-XX",  // only set when modality=="audio"; always target locale, never ui locale
-      "purpose": "greeting" | "question" | "feedback" | "encouragement"
+      "purpose": "reaction" | "greeting" | "question" | "feedback" | "encouragement"  // "reaction" is REQUIRED for response_chunks[0] — see REACTION OPENERS below
     }}
   ],
   "corrected_input": "...",  // The corrected or naturalized version of what the user said. CRITICAL: If had_errors=true, corrected_input MUST be different from the user's input — it must contain the natural/correct {target_lang} version. NEVER leave corrected_input the same as the user's input when had_errors=true. Rules: (1) Fix grammar errors. (2) If phrasing is unnatural, replace the whole phrase with what a native speaker would actually say — even completely different words, same meaning. (3) NEVER make it a response or answer to a question. (4) Copy exactly only when had_errors=false.
@@ -218,6 +229,7 @@ conversation. Do not reorder, and do not repeat a field later in the object.
 }}"""
 
     reminders_section = f"""CRITICAL REMINDERS:
+- response_chunks[0] MUST be copied verbatim from the REACTION OPENERS list above (purpose="reaction") when that list is non-empty. Never write a custom line for chunk 0.
 - FIELD ORDER IS LOAD-BEARING: emit "response_chunks" first, exactly as laid out in the OUTPUT SCHEMA. Before you write it, silently work out what the user actually meant and how their {target_lang} should be corrected — then write the reply first and record that correction in the later fields. Getting the reply out first is what keeps the conversation fast; it must not make the correction sloppier.
 - Your response_chunks should be MOSTLY in {ui_lang} (language="ui", modality="text"). Only use "target" sparingly for teaching.
 - NEVER set modality="audio" for a language="ui" chunk. Audio is ONLY for pure {target_lang} text.
@@ -263,6 +275,7 @@ conversation. Do not reorder, and do not repeat a field later in the object.
     full_system = "\n\n".join(section for section in [
         system_filled,
         persona_prompt,
+        reaction_bank_section,
         schema_section,
         reminders_section,
         quiz_rules_section,

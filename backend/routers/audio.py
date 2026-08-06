@@ -10,7 +10,7 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
 from audio_utils import generate_silent_wav, get_cached_audio_path, save_wav
-from settings import AUDIO_ROOT, GREETING_AUDIO_DIR
+from settings import AUDIO_ROOT, GREETING_AUDIO_DIR, REACTIONS_AUDIO_DIR
 
 router = APIRouter()
 
@@ -42,6 +42,16 @@ def serve_greeting_audio(lang: str, filename: str):
     path = GREETING_AUDIO_DIR / lang / filename
     if not path.exists():
         raise HTTPException(status_code=404, detail="greeting audio not found")
+    return FileResponse(path, media_type="audio/wav", filename=filename)
+
+
+@router.get("/api/audio_file/reactions/{persona}/{filename}")
+def serve_reaction_audio(persona: str, filename: str):
+    """Serve pre-generated persona reaction-opener audio (see
+    scripts/generate_reaction_audio.py)."""
+    path = REACTIONS_AUDIO_DIR / persona / filename
+    if not path.exists():
+        raise HTTPException(status_code=404, detail="reaction audio not found")
     return FileResponse(path, media_type="audio/wav", filename=filename)
 
 
