@@ -400,7 +400,7 @@ pre-existing errors in BattleGame/TriviaGame/WordDrill/trivia2, unrelated to thi
 
 ---
 
-### [ ] 3.5 — Retry check for the repeat-after-me attempt 🟡 Sonnet
+### [x] 3.5 — Retry check for the repeat-after-me attempt 🟡 Sonnet
 
 **Fix:** Score the attempt from 3.4. **Start with the cheap version:** compare Wispr's text output to
 the reference sentence with the existing `checkFuzzyMatch` / `normalizeForMatch` from
@@ -415,6 +415,16 @@ produce the right sentence." Real pronunciation scoring is task 6.1.
 **Depends on:** 3.4. **The seam is already there:** `finishDrill(attempt?)` in `MessengerChat.tsx`
 carries a `TODO(task 3.5)` at the exact point where the score and the `attemptPassed`/`attemptFailed`
 earcon belong. `attempt === undefined` means the drill was skipped, not failed — don't score that.
+
+**Shipped as:** the exact seam described above, filled in. `finishDrill` now calls
+`checkFuzzyMatch(attempt, [d.target], learning.code)` (existing `sharedGameUtils.ts` machinery,
+unchanged) and plays `attemptPassed`/`attemptFailed` via `earcons.play()` — only when `attempt !==
+undefined`; a skipped drill plays neither and stores no score. Result stored as a new `passed?:
+boolean` field on `CorrectionDrill`, surfaced in the drill card's "You said: ..." line with a ✓ and
+green text on a pass. No backend changes — this is entirely a `MessengerChat.tsx` change;
+`sharedGameUtils.ts` already had everything needed. Typecheck and lint clean on the touched lines (two
+pre-existing lint errors elsewhere in the file are unrelated). **Not clicked through with real audio**
+— same caveat as 3.4's shipped note.
 
 ---
 

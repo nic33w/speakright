@@ -4,7 +4,7 @@ import React, { useEffect, useState, useRef } from "react";
 import { GameTextarea, CorrectionTokens } from "./sharedGameComponents";
 import { useAudioPlayer, useReplayStack, useEarcons } from "./sharedGameHooks";
 import { API_BASE, localeFor, SLOW_TTS_RATE } from "./config";
-import { buildCorrectionTokens } from "./sharedGameUtils";
+import { buildCorrectionTokens, checkFuzzyMatch } from "./sharedGameUtils";
 import type { CorrectionToken } from "./sharedGameUtils";
 import { PIVOTS } from "./data/sombongo_pivots";
 import type { Pivot } from "./data/sombongo_pivots";
@@ -270,6 +270,7 @@ export default function MessengerChat({
     explanation?: string;  // spoken on demand only — never automatically
     attempt?: string;      // what the user said; set once the drill closes
     skipped?: boolean;
+    passed?: boolean;      // scored attempt vs. target (task 3.5); undefined when skipped
   };
   const [drill, setDrill] = useState<CorrectionDrill | null>(null);
   // sendMessage and the hotkey handler both need the drill synchronously, before
@@ -1174,10 +1175,15 @@ export default function MessengerChat({
     const d = drillRef.current;
     if (!d) return;
     drillRef.current = null;
-    // TODO(task 3.5): score `attempt` against d.target with checkFuzzyMatch /
-    // normalizeForMatch and play the attemptPassed / attemptFailed earcon here.
-    // Until then every attempt closes the drill.
-    setDrill({ ...d, attempt, skipped: attempt === undefined });
+    // Cheap version (task 3.5): this checks word production via Wispr's cleaned-up
+    // text, not pronunciation — real pronunciation scoring is task 6.1. Skipped
+    // attempts (attempt === undefined) aren't scored at all, just closed.
+    let passed: boolean | undefined;
+    if (attempt !== undefined) {
+      passed = checkFuzzyMatch(attempt, [d.target], learning.code) !== null;
+      earcons.play(passed ? "attemptPassed" : "attemptFailed");
+    }
+    setDrill({ ...d, attempt, skipped: attempt === undefined, passed });
     setTranscript("");
     const chunks = pendingReplyChunksRef.current;
     pendingReplyChunksRef.current = null;
@@ -2406,11 +2412,11 @@ export default function MessengerChat({
                     </>
                   )}
                 </div>
-                <div style={{ marginTop: 6, fontSize: 12, color: '#64748b' }}>
+                <div style={{ marginTop: 6, fontSize: 12, color: drill.passed ? '#16a34a' : '#64748b' }}>
                   {drill.skipped
                     ? 'Skipped.'
                     : drill.attempt
-                      ? `You said: ${drill.attempt}`
+                      ? `${drill.passed ? '✓ ' : ''}You said: ${drill.attempt}`
                       : 'Say it back — Alt+R to hear it again, Alt+E for why.'}
                 </div>
               </div>
