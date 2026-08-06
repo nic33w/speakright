@@ -109,13 +109,12 @@ CRITICAL REMINDERS:
 - input_intent: "english" if the user was primarily speaking English (even with some Spanish thrown in); "spanish" if the user was clearly attempting Spanish (even if they got stuck on words and used English for those). Example: "I went to the store today, gracias!" = "english". "Fui al store porque no tenía food" = "spanish".
 
 SUGGESTION GENERATION RULES:
-- Generate 3 short replies THE USER would say TO Sombongo — phrased in first person, NOT things the character would say
+- Generate 2 short replies THE USER would say TO Sombongo — phrased in first person, NOT things the character would say
 - Write each suggestion naturally in Spanish first (text_target) — use phrasing a native Spanish speaker would actually say
 - text_native is the English translation of text_target — translate naturally, not word-for-word
 - Include exactly one of each type, in this fixed order:
     1. question — something the user asks Sombongo about the topic
     2. playful — something funny or teasing the user says to Sombongo
-    3. pivot — something the user says to shift to a new topic (about user's own life, a new interest, etc.)
 - Keep suggestions brief (5-10 words max)
 - Sound like the user talking TO Sombongo, never like Sombongo talking
 

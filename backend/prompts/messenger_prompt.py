@@ -160,7 +160,7 @@ EXAMPLE GREETINGS (in {ui_lang}):
         turn_instruction += "\n- FOLLOW THE V2 CHALLENGE FORMAT defined above: all chunks except the last are {ui} text; the LAST chunk is the {target} audio challenge sentence with \"native_text\" and \"is_challenge\": true".format(
             ui=ui_lang, target=target_lang)
 
-    max_suggestions = suggestion_config.get("max_suggestions", 3)
+    max_suggestions = suggestion_config.get("max_suggestions", 2)
 
     # ------------------------------------------------------------------
     # STATIC PREFIX (system prompt): everything here must stay byte-identical
@@ -231,7 +231,6 @@ EXAMPLE GREETINGS (in {ui_lang}):
 - Include exactly one of each type, in this fixed order:
     1. question — something the user asks {character_name} about the topic
     2. playful — something funny or teasing the user says to {character_name}
-    3. pivot — something the user says to shift to a new topic (about user's own life, a new interest, etc.)
 - Keep suggestions brief (5-10 words max)
 - Sound like the user talking TO {character_name}, never like {character_name} talking"""
 
