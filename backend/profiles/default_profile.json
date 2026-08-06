@@ -1,6 +1,6 @@
 {
   "created_at": 1769845610,
-  "last_updated": 1784525502,
+  "last_updated": 1785977727,
   "ui_language": {
     "code": "en",
     "name": "English"
@@ -10,7 +10,7 @@
     "name": "Spanish"
   },
   "level": "beginner",
-  "level_confidence": 0.5,
+  "level_confidence": 0.8,
   "level_history": [
     {
       "timestamp": 1769845610,
@@ -20,76 +20,20 @@
   ],
   "comfortable_with": [],
   "weak_points": [
+    "grammar",
+    "natural expressions",
     "gender",
     "grammar structure",
     "verb conjugation",
     "prepositions",
-    "grammar",
-    "natural expressions",
     "reflexive verbs",
     "article agreement"
   ],
   "avoid_topics": [],
-  "turn_count": 379,
-  "corrections_needed": 195,
+  "turn_count": 383,
+  "corrections_needed": 196,
   "last_assessment_turn": 0,
   "recent_turns": [
-    {
-      "turn_id": "turn_1782438358137",
-      "user_input": "¿Qué tipo de productos son?",
-      "corrected_input": "¿Qué tipo de productos son?",
-      "had_errors": false,
-      "input_intent": "spanish",
-      "timestamp": 1782438368
-    },
-    {
-      "turn_id": "turn_1782438509520",
-      "user_input": "Quizá lo cen enío saldrá.",
-      "corrected_input": "Quizá lo cené en el salón.",
-      "had_errors": true,
-      "input_intent": "spanish",
-      "timestamp": 1782438520
-    },
-    {
-      "turn_id": "turn_1782438774912",
-      "user_input": "La sombrero hongo",
-      "corrected_input": "El sombrero hongo",
-      "had_errors": true,
-      "input_intent": "spanish",
-      "timestamp": 1782438784
-    },
-    {
-      "turn_id": "turn_1784250213115",
-      "user_input": "Llegas con muchas tacos.",
-      "corrected_input": "Llegas con muchos tacos.",
-      "had_errors": true,
-      "input_intent": "spanish",
-      "timestamp": 1784250224
-    },
-    {
-      "turn_id": "turn_1784250282751",
-      "user_input": "Quizás un cen",
-      "corrected_input": "Quizás una cena.",
-      "had_errors": true,
-      "input_intent": "spanish",
-      "timestamp": 1784250292
-    },
-    {
-      "turn_id": "turn_1784250349957",
-      "user_input": "Claro me encantaría cenar contigo.",
-      "corrected_input": "Claro, me encantaría cenar contigo.",
-      "had_errors": true,
-      "input_intent": "spanish",
-      "timestamp": 1784250357
-    },
-    {
-      "turn_id": "turn_1784250405696",
-      "user_input": "me gustaría comer pollo con vegetales.",
-      "corrected_input": "Me gustaría comer pollo con vegetales.",
-      "had_errors": false,
-      "input_intent": "spanish",
-      "timestamp": 1784250413
-    },
     {
       "turn_id": "turn_1784250612220",
       "user_input": "¿Qué tal arroz y frijoles?",
@@ -113,6 +57,38 @@
       "had_errors": false,
       "input_intent": "spanish",
       "timestamp": 1784525502
+    },
+    {
+      "turn_id": "turn_1785975415450",
+      "user_input": "Estoy emocionado de aprender más.",
+      "corrected_input": "Estoy emocionado de aprender más.",
+      "had_errors": false,
+      "input_intent": "spanish",
+      "timestamp": 1785975424
+    },
+    {
+      "turn_id": "turn_1785975728863",
+      "user_input": "¿Qué hiciste el fin de semana pasado?",
+      "corrected_input": "¿Qué hiciste el fin de semana pasado?",
+      "had_errors": false,
+      "input_intent": "spanish",
+      "timestamp": 1785975740
+    },
+    {
+      "turn_id": "turn_1785977113584",
+      "user_input": "¿Qué hay de nuevo? ¿Qué hiciste el fin de semana pasado?",
+      "corrected_input": "¿Qué hay de nuevo? ¿Qué hiciste el fin de semana pasado?",
+      "had_errors": false,
+      "input_intent": "spanish",
+      "timestamp": 1785977120
+    },
+    {
+      "turn_id": "turn_1785977720408",
+      "user_input": "¿Qué hay de nuevo? ¿Qué existe del fin de semana pasado?",
+      "corrected_input": "¿Qué hay de nuevo? ¿Qué hiciste el fin de semana pasado?",
+      "had_errors": true,
+      "input_intent": "spanish",
+      "timestamp": 1785977727
     }
   ]
 }

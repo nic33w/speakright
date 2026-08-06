@@ -376,3 +376,45 @@ Yo te conocería.
 **Corrected:** ✓ No change
 
 **Feedback:** ✓ sounds natural
+
+---
+### 2026-08-05 17:17:04  (session: sess_1785974520939)
+
+**You said:**
+Estoy emocionado de aprender más.
+
+**Corrected:** ✓ No change
+
+**Feedback:** ✓ sounds natural
+
+---
+### 2026-08-05 17:22:20  (session: sess_1785974520939)
+
+**You said:**
+¿Qué hiciste el fin de semana pasado?
+
+**Corrected:** ✓ No change
+
+**Feedback:** ✓ sounds natural
+
+---
+### 2026-08-05 17:45:20  (session: sess_1785976871793)
+
+**You said:**
+¿Qué hay de nuevo? ¿Qué hiciste el fin de semana pasado?
+
+**Corrected:** ✓ No change
+
+**Feedback:** ✓ sounds natural
+
+---
+### 2026-08-05 17:55:27  (session: sess_1785977383509)
+
+**You said:**
+¿Qué hay de nuevo? ¿Qué existe del fin de semana pasado?
+
+**Corrected:**
+¿Qué hay de nuevo? ¿Qué hiciste el fin de semana pasado?
+
+**Feedback:**
+The phrase '¿Qué existe del fin de semana pasado?' is unnatural; '¿Qué hiciste el fin de semana pasado?' is the correct way to ask.
