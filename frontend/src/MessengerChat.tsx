@@ -1096,7 +1096,7 @@ export default function MessengerChat({
         pendingReplyChunksRef.current = data?.response_chunks || [];
         await startCorrectionDrill(pendingDrill);
       } else {
-        await playResponseAudio(data?.response_chunks || [], { withReactions: eyesFree });
+        await playResponseAudio(data?.response_chunks || []);
       }
 
     } catch (e) {
@@ -1111,43 +1111,132 @@ export default function MessengerChat({
     }
   }
 
-  async function playResponseAudio(chunks: ResponseChunk[], opts?: { withReactions?: boolean }) {
-    for (const chunk of chunks) {
-      const isTargetAudio = chunk.modality === "audio" && chunk.audio_file && chunk.language === "target";
+  // --- Playback pacing (task 3.8) --------------------------------------------
+  // The character speaks only the target language now, so a reply is three
+  // target-language clips in a row. Gaps are an anti-overwhelm requirement first:
+  // back-to-back sentences with no breathing room are a wall. They also happen to
+  // hide the translate->TTS chain, which is why pairing and pacing landed together.
+  //
+  // The asymmetry between the two gaps is what makes `pairs` sound like pairs
+  // rather than six unrelated clips: EN and ES of the SAME sentence sit close
+  // together, and the gap between sentences is much longer.
+  const WITHIN_PAIR_GAP_MS = 500;   // EN -> ES of one sentence: they belong together
+  const BETWEEN_SENTENCE_GAP_MS = 1200;  // floor; scaled up by clip length below
 
-      if (isTargetAudio) {
-        // Pairs mode (task 3.6): lead with the English translation, live TTS — only
-        // chunks that already carry one (the v2/eyes-free challenge chunk's
-        // native_text) get paired; other target-audio chunks just play as-is.
-        if (pairingMode === "pairs" && chunk.native_text) {
-          await audioPlayer.play(chunk.native_text, localeFor(fluent.code));
-        }
-        await audioPlayer.playUrl(`${apiBase}${chunk.audio_file}`);
-        continue;
-      }
+  function betweenSentenceGap(text: string): number {
+    return Math.min(2200, Math.max(BETWEEN_SENTENCE_GAP_MS, text.length * 30));
+  }
 
-      if (opts?.withReactions && chunk.reaction_audio_file) {
-        // The persona's opener, from the pre-generated bank (task 3.2): free — a
-        // static file, no Azure roundtrip. Silently no-ops until
-        // backend/scripts/generate_reaction_audio.py has actually been run.
-        await audioPlayer.playUrl(`${apiBase}${chunk.reaction_audio_file}`);
-        continue;
-      }
+  // Gaps are a FLOOR, not a fixed delay: whichever of (pause, audio-ready) takes
+  // longer wins. Fast translation still gets its full pause; slow translation
+  // stretches the pause instead of producing a stall. Extra latency in `pairs` is
+  // permitted, never manufactured — see task 3.8.
+  async function pauseAtLeast<T>(ms: number, work: Promise<T>): Promise<T> {
+    const [result] = await Promise.all([work, delay(ms)]);
+    return result;
+  }
 
-      // Alternating mode (task 3.6): voice every remaining chunk in whatever
-      // language it's actually written in, with no translation pairing — the
-      // target-language parts stay unaided, forcing comprehension without an
-      // English crutch. Still prefers the free reaction-bank audio for an exact
-      // match (even outside eyes-free) before falling back to live TTS.
-      if (pairingMode === "alternating" && chunk.text) {
-        if (chunk.reaction_audio_file) {
-          await audioPlayer.playUrl(`${apiBase}${chunk.reaction_audio_file}`);
-        } else {
-          const locale = chunk.language === "target" ? (chunk.locale || localeFor(learning.code)) : localeFor(fluent.code);
-          await audioPlayer.play(chunk.text, locale);
-        }
-      }
+  // Fetch UI-language translations for the chunks the active mode actually needs.
+  // Never throws: a null entry means "no translation available", and playback
+  // degrades to the target clip alone rather than hanging the conversation.
+  async function fetchTranslations(texts: string[]): Promise<(string | null)[]> {
+    if (texts.length === 0) return [];
+    try {
+      const res = await fetch(`${apiBase}/api/messenger/translate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          texts,
+          source_lang: learning.name,
+          target_lang: fluent.name,
+        }),
+      });
+      if (!res.ok) return texts.map(() => null);
+      const data = await res.json();
+      return (data.translations || texts.map(() => null)) as (string | null)[];
+    } catch (e) {
+      console.warn("Translation unavailable, playing target-only:", e);
+      return texts.map(() => null);
     }
+  }
+
+  // Which chunks need a UI-language rendering, given the mode. Chunk 0 is the
+  // reaction opener and never gets one — it's short, carried by tone, and it's the
+  // clip the learner is waiting on before anything else can play.
+  function chunksNeedingTranslation(chunks: ResponseChunk[]): number[] {
+    if (pairingMode === "targetOnly") return [];
+    const rest = chunks.map((_, i) => i).filter(i => i > 0);
+    if (pairingMode === "pairs") return rest;
+    // alternating: every other chunk after the opener is heard in the UI language
+    // instead of the target — a comprehension anchor, not a withheld crutch.
+    return rest.filter((_, n) => n % 2 === 0);
+  }
+
+  // `withReactions` is gone: chunk 0 is always the target-language reaction opener
+  // now, so the pre-generated clip is preferred in every mode, not just eyes-free.
+  async function playResponseAudio(chunks: ResponseChunk[]) {
+    const playable = chunks.filter(c => c.text || c.audio_file || c.reaction_audio_file);
+    if (playable.length === 0) return;
+
+    const needed = new Set(chunksNeedingTranslation(playable));
+    // Kicked off before the first clip plays, so chunk 0's playback covers it.
+    const pending = fetchTranslations(
+      playable.map((c, i) => (needed.has(i) ? (c.native_text || c.text || "") : ""))
+        .filter((_, i) => needed.has(i))
+    );
+    const neededIdx = [...needed].sort((a, b) => a - b);
+
+    let translations: (string | null)[] = [];
+    const translationFor = async (i: number): Promise<string | null> => {
+      if (!needed.has(i)) return null;
+      // The v2/eyes-free challenge already carries its translation from the main
+      // call — no roundtrip needed, and it's guaranteed present for hover-reveal.
+      if (playable[i].native_text) return playable[i].native_text!;
+      if (translations.length === 0) translations = await pending;
+      const slot = neededIdx.indexOf(i);
+      return slot >= 0 ? (translations[slot] ?? null) : null;
+    };
+
+    const playTarget = async (chunk: ResponseChunk) => {
+      // Prefer the pre-generated reaction clip (task 3.2): free, no Azure roundtrip.
+      // Silently absent until backend/scripts/generate_reaction_audio.py has run.
+      if (chunk.reaction_audio_file) {
+        await audioPlayer.playUrl(`${apiBase}${chunk.reaction_audio_file}`);
+      } else if (chunk.audio_file) {
+        await audioPlayer.playUrl(`${apiBase}${chunk.audio_file}`);
+      } else if (chunk.text) {
+        await audioPlayer.play(chunk.text, chunk.locale || localeFor(learning.code));
+      }
+    };
+
+    for (let i = 0; i < playable.length; i++) {
+      const chunk = playable[i];
+
+      if (i > 0) {
+        // Between sentences: the long gap, floored, absorbing the next
+        // translate->TTS chain if it hasn't finished yet.
+        await pauseAtLeast(
+          betweenSentenceGap(playable[i - 1].text || ""),
+          translationFor(i),
+        );
+      }
+
+      const english = await translationFor(i);
+
+      if (pairingMode === "alternating" && english) {
+        // This chunk is heard in the UI language INSTEAD of the target.
+        await audioPlayer.play(english, localeFor(fluent.code));
+        continue;
+      }
+
+      if (pairingMode === "pairs" && english) {
+        await audioPlayer.play(english, localeFor(fluent.code));
+        await delay(WITHIN_PAIR_GAP_MS);
+      }
+
+      await playTarget(chunk);
+    }
+
   }
 
   // --- Repeat-after-me correction drill (eyes-free) ---------------------------
@@ -1224,7 +1313,7 @@ export default function MessengerChat({
     if (!chunks?.length) return;
     setBusy(true);
     try {
-      await playResponseAudio(chunks, { withReactions: eyesFree });
+      await playResponseAudio(chunks);
     } finally {
       setBusy(false);
     }

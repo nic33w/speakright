@@ -31,9 +31,11 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 BACKEND_DIR = SCRIPT_DIR.parent
 PERSONA_DIR = BACKEND_DIR / "prompts" / "persona"
 
-# Reactions are always spoken in the learner's UI language; today that's English only.
-REACTION_LANG_CODE = "en"
-REACTION_LOCALE = LOCALE_MAP.get(REACTION_LANG_CODE, "en-US")
+# Reactions are spoken in the TARGET language (task 3.8): the character speaks only
+# the target language now, so response_chunks[0] is a target-language clip. Override
+# with REACTION_LANG=id to build a bank for another target language.
+REACTION_LANG_CODE = os.getenv("REACTION_LANG", "es")
+REACTION_LOCALE = LOCALE_MAP.get(REACTION_LANG_CODE, "es-MX")
 
 
 def generate_for_persona(persona_id: str) -> None:

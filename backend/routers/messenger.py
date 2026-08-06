@@ -30,7 +30,7 @@ from profile_store import (
 )
 from prompts.messenger_prompt import build_layered_prompt, normalize_prompt_version
 from quiz_store import add_quiz_item, get_pending_quiz
-from settings import API_ROOT, ENABLE_QUIZZING, MOCK_MODE, PERSONA
+from settings import API_ROOT, ENABLE_QUIZZING, MOCK_MODE, PERSONA, REACTIONS_AUDIO_DIR
 from tts_helpers import tts_bytes_for_chunk
 
 router = APIRouter()
@@ -275,7 +275,7 @@ def messenger_chat_turn(req: MessengerTurnRequest):
 
     _apply_output_gates(llm_response, is_assessment_turn, version)
 
-    chunk_dicts, pending = _prepare_chunks(llm_response.get("response_chunks", []))
+    chunk_dicts, pending = _prepare_chunks(llm_response.get("response_chunks", []), _target_code(profile))
     _run_tts(pending)
 
     return _finalize_turn(req, profile, llm_response, chunk_dicts, turn_id)
@@ -350,16 +350,24 @@ def _mock_llm_response(req, profile: dict, version: str = "v1") -> dict:
             "quiz_prompt": "How do you say 'the store' in Spanish?"
         }]
 
-    mock_chunks_v1 = [{"text": "¡Hola! How can I help you today?", "language": "ui", "modality": "text", "purpose": "greeting"}]
-    mock_chunks_v2 = [
-        {"text": "Oh, interesting! Tell me more.", "language": "ui", "modality": "text", "purpose": "reaction"},
-        {"text": "¿Cuándo empezaste a aprender español?", "language": "target", "modality": "text", "locale": "es-MX", "native_text": "When did you start learning Spanish?", "is_challenge": True},
+    # Every chunk is target-language audio since task 3.8 — the character speaks
+    # only the target language, and UI-language translations are fetched separately
+    # via /api/messenger/translate. Chunk 0 is a verbatim reaction-bank opener, so
+    # these mocks exercise both the bank lookup and the TTS path in _prepare_chunk.
+    mock_chunks_v1 = [
+        {"text": "¡Ah, qué bien!", "language": "target", "modality": "audio", "locale": "es-MX", "purpose": "reaction"},
+        {"text": "Oye, cuéntame más de eso.", "language": "target", "modality": "audio", "locale": "es-MX", "purpose": "question"},
+        {"text": "¿Y qué hiciste después?", "language": "target", "modality": "audio", "locale": "es-MX", "purpose": "question"},
     ]
-    # Eyes-free is the shape the real prompt asks for: one reaction, one short
-    # target-language sentence, and it really is audio (the only messenger mock
-    # that exercises _prepare_chunk's TTS path).
+    mock_chunks_v2 = [
+        {"text": "¡Ah, qué bien!", "language": "target", "modality": "audio", "locale": "es-MX", "purpose": "reaction"},
+        {"text": "Oye, eso suena divertido.", "language": "target", "modality": "audio", "locale": "es-MX", "purpose": "feedback"},
+        {"text": "¿Cuándo empezaste a aprender español?", "language": "target", "modality": "audio", "locale": "es-MX", "native_text": "When did you start learning Spanish?", "is_challenge": True},
+    ]
+    # Eyes-free is the shape the real prompt asks for: exactly one reaction opener
+    # plus one short target-language sentence.
     mock_chunks_eyesfree = [
-        {"text": "Oh, interesting! Tell me more.", "language": "ui", "modality": "text", "purpose": "reaction"},
+        {"text": "¡Ah, qué bien!", "language": "target", "modality": "audio", "locale": "es-MX", "purpose": "reaction"},
         {"text": "¿Y qué hiciste después?", "language": "target", "modality": "audio", "locale": "es-MX", "native_text": "And what did you do afterwards?", "is_challenge": True},
     ]
     chunks_by_version = {"v2": mock_chunks_v2, "eyesfree": mock_chunks_eyesfree}
@@ -394,23 +402,41 @@ def _mock_llm_response(req, profile: dict, version: str = "v1") -> dict:
 _REACTION_AUDIO_LOOKUP: Optional[Dict[str, str]] = None
 
 
-def _reaction_audio_lookup() -> Dict[str, str]:
+def _target_code(profile: dict) -> str:
+    """The learner's target-language code — what the character speaks (task 3.8)."""
+    return profile.get("target_language", {}).get("code", "es")
+
+
+def _reaction_audio_lookup(lang_code: str) -> Dict[str, str]:
     """text -> pre-generated static audio URL, for exact REACTION OPENERS matches.
-    Built once from the active persona's `reactions.en` (see messenger_prompt.py's
-    reaction_bank_section and scripts/generate_reaction_audio.py, which produces the
-    files this maps to)."""
+
+    Keyed on the TARGET language since task 3.8: the character speaks only the
+    target language, so response_chunks[0] is a target-language clip (see
+    messenger_prompt.py's reaction_bank_section and
+    scripts/generate_reaction_audio.py, which produces the files this maps to).
+
+    Only entries whose .wav actually exists are included. The bank is worthless
+    until the generator script has run, and chunk 0 is the first thing the learner
+    hears — a missing file has to fall through to live TTS, not play silence.
+    """
     global _REACTION_AUDIO_LOOKUP
     if _REACTION_AUDIO_LOOKUP is None:
+        _REACTION_AUDIO_LOOKUP = {}
+    if lang_code not in _REACTION_AUDIO_LOOKUP:
         persona_data = load_persona_json(PERSONA) or {}
-        reactions = persona_data.get("reactions", {}).get("en", [])
-        _REACTION_AUDIO_LOOKUP = {
-            r["text"]: f"/api/audio_file/reactions/{PERSONA}/{r['id']}.wav"
-            for r in reactions if r.get("id") and r.get("text")
-        }
-    return _REACTION_AUDIO_LOOKUP
+        reactions = persona_data.get("reactions", {}).get(lang_code, [])
+        lookup = {}
+        for r in reactions:
+            rid, text = r.get("id"), r.get("text")
+            if not rid or not text:
+                continue
+            if (REACTIONS_AUDIO_DIR / PERSONA / f"{rid}.wav").exists():
+                lookup[text] = f"/api/audio_file/reactions/{PERSONA}/{rid}.wav"
+        _REACTION_AUDIO_LOOKUP[lang_code] = lookup
+    return _REACTION_AUDIO_LOOKUP[lang_code]
 
 
-def _prepare_chunk(chunk) -> tuple:
+def _prepare_chunk(chunk, target_code: str = "es") -> tuple:
     """Normalize one response chunk and resolve its audio URL.
 
     Returns ``(chunk_dict, pending)`` where pending is ``(text, locale, disk_path)``
@@ -419,11 +445,16 @@ def _prepare_chunk(chunk) -> tuple:
     bytes exist on disk.
     """
     chunk_dict = chunk if isinstance(chunk, dict) else chunk.dict()
+
+    # Reaction openers come from the pre-generated bank: free, instant, and no
+    # Azure roundtrip on the one clip the learner is waiting for. Checked before
+    # the TTS path so a bank hit skips generation entirely.
+    reaction_audio = _reaction_audio_lookup(target_code).get(chunk_dict.get("text", ""))
+    if reaction_audio:
+        chunk_dict["reaction_audio_file"] = reaction_audio
+        return chunk_dict, None
+
     if chunk_dict.get("modality") != "audio":
-        if chunk_dict.get("language") == "ui":
-            reaction_audio = _reaction_audio_lookup().get(chunk_dict.get("text", ""))
-            if reaction_audio:
-                chunk_dict["reaction_audio_file"] = reaction_audio
         return chunk_dict, None
 
     # Never generate TTS for ui-language chunks — downgrade to text
@@ -450,11 +481,11 @@ def _prepare_chunk(chunk) -> tuple:
     return chunk_dict, (None if cache_hit else (text, locale, cache_disk_path))
 
 
-def _prepare_chunks(chunks) -> tuple:
+def _prepare_chunks(chunks, target_code: str = "es") -> tuple:
     """_prepare_chunk over a whole list. Order is preserved throughout."""
     chunk_dicts, pending = [], []
     for chunk in chunks:
-        chunk_dict, work = _prepare_chunk(chunk)
+        chunk_dict, work = _prepare_chunk(chunk, target_code)
         chunk_dicts.append(chunk_dict)
         if work:
             pending.append(work)
@@ -612,7 +643,7 @@ def messenger_chat_turn_stream(req: MessengerTurnRequest):
             llm_response = None
             for kind, payload in stream:
                 if kind == "chunk":
-                    chunk_dict, work = _prepare_chunk(payload)
+                    chunk_dict, work = _prepare_chunk(payload, _target_code(profile))
                     index = len(chunk_dicts)
                     chunk_dicts.append(chunk_dict)
                     if work:
@@ -630,7 +661,7 @@ def messenger_chat_turn_stream(req: MessengerTurnRequest):
             # Recovery: if the model emitted response_chunks somewhere the incremental
             # scanner couldn't reach it, fall back to the completed document.
             if not chunk_dicts:
-                chunk_dicts, pending = _prepare_chunks(llm_response.get("response_chunks", []))
+                chunk_dicts, pending = _prepare_chunks(llm_response.get("response_chunks", []), _target_code(profile))
                 _run_tts(pending)
                 for index, chunk_dict in enumerate(chunk_dicts):
                     yield json.dumps({

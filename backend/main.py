@@ -8,7 +8,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from usage_tracker import startup_commit
-from routers import audio, checks, guessing, messenger, misc, quiz, story, worddrill
+from routers import audio, checks, guessing, messenger, misc, quiz, story, translate, worddrill
 
 app = FastAPI(title="Story Cards Game Backend")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
@@ -19,7 +19,7 @@ async def on_startup():
     startup_commit()
 
 
-for r in (story, audio, misc, checks, messenger, guessing, quiz, worddrill):
+for r in (story, audio, misc, checks, messenger, translate, guessing, quiz, worddrill):
     app.include_router(r.router)
 
 

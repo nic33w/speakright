@@ -50,6 +50,15 @@ CONV_ROOT.mkdir(exist_ok=True, parents=True)
 QUIZ_DIR = API_ROOT / "quiz_items"
 QUIZ_DIR.mkdir(exist_ok=True, parents=True)
 
+# Cached chunk translations (task 3.8). Small JSON, content-hash keyed — the same
+# target sentence recurs across turns and a hit makes a re-listen free.
+TRANSLATION_CACHE_PATH = API_ROOT / "translation_cache.json"
+
+# Translation is a mechanical, context-free job: no persona, no schema, no student
+# model, ~100 input tokens against the messenger call's ~2.5k. Runs on the cheapest
+# model in MODEL_PRICING rather than DEFAULT_MODEL.
+TRANSLATE_MODEL = os.getenv("TRANSLATE_MODEL", "gpt-4.1-nano")
+
 DEFAULT_QUIZ_PATH = QUIZ_DIR / "default_quiz.json"
 DEFAULT_PROFILE_PATH = PROFILE_DIR / "default_profile.json"
 

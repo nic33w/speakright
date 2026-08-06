@@ -256,8 +256,10 @@ def test_messenger_turn_eyesfree(client):
     body = r.json()
     chunks = body["response_chunks"]
     assert len(chunks) == 2
-    assert chunks[0]["language"] == "ui"
-    assert chunks[0]["modality"] == "text"
+    # Since task 3.8 the character speaks only the target language — the reaction
+    # opener included. UI-language renderings come from /api/messenger/translate.
+    assert chunks[0]["language"] == "target"
+    assert chunks[0]["modality"] == "audio"
     last = chunks[-1]
     assert last["language"] == "target"
     assert last["modality"] == "audio"
@@ -323,6 +325,114 @@ def test_messenger_turn_stream_falls_back_for_premade(client):
         assert [e["type"] for e in _read_ndjson(r)] == ["fallback"]
     finally:
         messenger_router.premade_sessions.pop(session, None)
+
+
+@pytest.mark.parametrize("version", ["v1", "v2", "eyesfree"])
+def test_character_speaks_only_the_target_language(client, version):
+    """Task 3.8's core contract: no UI-language chunks, in any prompt version.
+    The learner's English comes from /api/messenger/translate, never from a chunk."""
+    r = client.post("/api/messenger/turn", json={
+        "user_input": "hola que tal",
+        "session_id": f"pytest_alltarget_{version}",
+        "prompt_version": version,
+    })
+    assert r.status_code == 200
+    chunks = r.json()["response_chunks"]
+    assert chunks
+    for i, c in enumerate(chunks):
+        assert c["language"] == "target", f"{version} chunk {i} is {c['language']}"
+        # Either live TTS resolved it, or it came free from the reaction bank
+        assert c.get("audio_file") or c.get("reaction_audio_file"), \
+            f"{version} chunk {i} has no playable audio"
+
+
+def test_reaction_bank_falls_through_when_audio_is_missing():
+    """The bank is only usable once scripts/generate_reaction_audio.py has run.
+    Until then chunk 0 must reach live TTS — it is the first thing the learner
+    hears, so a dangling URL would be silence at the top of every turn."""
+    from routers import messenger as messenger_router
+
+    messenger_router._REACTION_AUDIO_LOOKUP = None
+    try:
+        chunk, pending = messenger_router._prepare_chunk(
+            {"text": "¡Ah, qué bien!", "language": "target",
+             "modality": "audio", "locale": "es-MX"},
+            "es",
+        )
+        assert not chunk.get("reaction_audio_file"), \
+            "matched a bank entry whose .wav does not exist"
+        assert chunk.get("audio_file"), "must fall through to the TTS path"
+    finally:
+        messenger_router._REACTION_AUDIO_LOOKUP = None
+
+
+def test_reaction_bank_is_used_when_audio_exists(tmp_path, monkeypatch):
+    """And once the file is there, the bank hit skips TTS entirely — that free,
+    instant chunk 0 is the whole point of the closed set."""
+    from routers import messenger as messenger_router
+    from profile_store import load_persona_json
+    from settings import PERSONA
+
+    reactions = (load_persona_json(PERSONA) or {}).get("reactions", {}).get("es", [])
+    if not reactions:
+        pytest.skip(f"persona '{PERSONA}' has no Spanish reaction bank")
+    first = reactions[0]
+
+    fake_dir = tmp_path / PERSONA
+    fake_dir.mkdir(parents=True)
+    (fake_dir / f"{first['id']}.wav").write_bytes(b"RIFF")
+
+    monkeypatch.setattr(messenger_router, "REACTIONS_AUDIO_DIR", tmp_path)
+    messenger_router._REACTION_AUDIO_LOOKUP = None
+    try:
+        chunk, pending = messenger_router._prepare_chunk(
+            {"text": first["text"], "language": "target",
+             "modality": "audio", "locale": "es-MX"},
+            "es",
+        )
+        assert chunk["reaction_audio_file"].endswith(f"{first['id']}.wav")
+        assert pending is None, "a bank hit must not queue a TTS roundtrip"
+    finally:
+        messenger_router._REACTION_AUDIO_LOOKUP = None
+
+
+# --- Chunk translation (task 3.8) --------------------------------------------
+
+
+def test_messenger_translate(client):
+    r = client.post("/api/messenger/translate", json={
+        "texts": ["¿Qué tal tu día?", "Ay, no manches."],
+        "source_lang": "Spanish",
+        "target_lang": "English",
+    })
+    assert r.status_code == 200
+    body = r.json()
+    assert body["ok"] is True
+    assert len(body["translations"]) == 2
+    assert all(t for t in body["translations"])
+
+
+def test_messenger_translate_empty_is_a_noop(client):
+    r = client.post("/api/messenger/translate", json={"texts": []})
+    assert r.status_code == 200
+    assert r.json() == {"translations": [], "cache_hits": 0, "ok": True}
+
+
+def test_messenger_translate_degrades_instead_of_raising(client, monkeypatch):
+    """A failed LLM leg must return nulls, never a 500 — the client's fallback is
+    to play the target audio alone, and pairing mode must not hang the turn."""
+    import llm_call
+
+    def boom(*args, **kwargs):
+        raise RuntimeError("simulated translate outage")
+
+    monkeypatch.setattr(llm_call, "translate_texts", boom)
+
+    r = client.post("/api/messenger/translate", json={"texts": ["hola", "adiós"]})
+    assert r.status_code == 200
+    body = r.json()
+    assert body["ok"] is False
+    assert body["translations"] == [None, None]
 
 
 # --- Guessing ----------------------------------------------------------------

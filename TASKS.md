@@ -37,7 +37,7 @@ Switch with `/model` before starting a task.
 - Backend python is the venv: **`backend/venv/Scripts/python.exe`** — the system `python` on PATH
   lacks fastapi and will fail at conftest import.
 - Run `venv/Scripts/python.exe -m pytest tests/ -q` from `backend/` after any backend change.
-  Baseline is **74 passed, 1 xfailed** (62 before task 3.3's eyes-free goldens, 72 before 3.4).
+  Baseline is **89 passed, 1 xfailed** (74 before task 3.8).
 - **Never break the messenger prompt-cache invariant** — the static prefix must stay byte-identical
   across turns. `tests/test_prompt_snapshot.py` enforces it; if it fails, the fix is to move the new
   content into the dynamic tail, not to update the golden.
@@ -480,7 +480,7 @@ misses the prompt cache, and the snapshot goldens need updating.
 
 ---
 
-### [ ] 3.8 — Spanish-only chunks + on-demand translation + playback pacing (corrects 3.6) 🔴 Opus
+### [x] 3.8 — Spanish-only chunks + on-demand translation + playback pacing (corrects 3.6) 🔴 Opus
 
 **What 3.6 got wrong:** it treated each chunk as inherently one language, with a translation only on
 the final challenge sentence, and it assumed the fix would be "make the model emit both languages for
@@ -584,6 +584,38 @@ together, and consider exposing gap length as a setting if the fixed values don'
 **Deferred, not scheduled:** back-filling translations for chunks the active mode didn't need, so any
 sentence can be revealed on demand (hover, or the "explain" button from 3.4). Nearly free once Part B
 exists — it's the same endpoint — but not needed for the mode to work.
+
+**Shipped as:**
+- **Part A** — `chat_system_prompt.txt` rewritten (the 70/20/10 rules lived there, not just in
+  `messenger_prompt.py`); persona block, schema, reminders and all three version blocks now specify
+  target-language audio for every chunk. Persona greetings/examples/few-shots are filtered to the
+  target language rather than falling back to UI-language ones, since a UI-language example is a
+  worked demonstration of exactly what the prompt forbids.
+- **Part B** — `POST /api/messenger/translate` (`routers/translate.py`), `llm_call.translate_texts`
+  on `gpt-4.1-nano` (`settings.TRANSLATE_MODEL`), cached in `translation_store.py`. Never raises:
+  a failure returns `ok:false` with nulls and the client plays target-only.
+- **Part C** — `playResponseAudio` rewritten around `pauseAtLeast(gap, work)`. `WITHIN_PAIR_GAP_MS`
+  500, `betweenSentenceGap()` 1200–2200ms scaled by clip length. Translations are requested before
+  the first clip plays, so chunk 0's playback covers the chain.
+
+**⚠️ Collision this task did not anticipate — resolved, but worth knowing:** 3.2/3.3 made
+`response_chunks[0]` a verbatim **English** reaction precisely so its audio could be pre-generated and
+free. All-target chunks break that. Resolved by moving the bank to the target language:
+`reactions.es` added to both personas (50 for Jorge, 6 for Sombongo so the goldens keep covering the
+code path), `_reaction_audio_lookup` re-keyed on target language, and the lookup now only returns
+entries whose `.wav` actually exists so a missing file falls through to live TTS instead of playing
+silence at the top of every turn.
+
+**➜ ACTION REQUIRED before this feels right:** run
+`venv/Scripts/python.exe scripts/generate_reaction_audio.py` (needs Azure keys, ~1k characters). Until
+then chunk 0 pays a live TTS roundtrip every turn — correct, but not free.
+
+**⚠️ Azure cost went up and was not budgeted here:** a turn was 1 spoken sentence, it is now 3. With
+the bank generated that is 2 live + 1 free; `pairs` mode adds 2 more English clips. Roughly 2–5× the
+previous per-turn characters against the 500k/month cap. Check `/api/usage` after a real session.
+
+**Not verified:** no real-API run and no click-through with audio. The gap constants are reasoned, not
+tuned by ear — expect to adjust `WITHIN_PAIR_GAP_MS` / `betweenSentenceGap` once heard.
 
 ---
 

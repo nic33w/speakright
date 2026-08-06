@@ -15,6 +15,7 @@ from settings import (
     MOCK_MODE,
     MODEL_PRICING,
     OPENAI_API_KEY,
+    TRANSLATE_MODEL,
     locale_for,
 )
 
@@ -502,6 +503,58 @@ def stream_llm_for_messenger(
                f"Total: {total_tokens}, Cost: {cost_cents:.4f} cents")
 
     yield "done", parsed
+
+
+def translate_texts(
+    texts: List[str],
+    source_lang: str,
+    target_lang: str,
+    model: Optional[str] = None,
+) -> List[str]:
+    """Translate a batch of short sentences. Task 3.8's second call.
+
+    Deliberately context-free: no persona, no output schema, no student model —
+    ~100 input tokens against the messenger call's ~2.5k, on the cheapest model in
+    MODEL_PRICING. It runs off the critical path while the learner is already
+    hearing chunk 1, so latency here costs nothing.
+
+    Returns one translation per input, in order. Raises on API/parse failure —
+    the caller degrades to target-only playback rather than stalling.
+    """
+    if not texts:
+        return []
+
+    if MOCK_MODE:
+        return [f"[mock {source_lang}->{target_lang}] {t}" for t in texts]
+
+    numbered = "\n".join(f"{i + 1}. {t}" for i, t in enumerate(texts))
+    prompt = f"""Translate each numbered {source_lang} sentence into natural, casual {target_lang}.
+
+Rules:
+- Translate meaning, not word-for-word. Write what a native {target_lang} speaker would actually say.
+- Keep each translation roughly as short as the original — these are spoken aloud back to back.
+- Preserve tone: if the original is playful or sarcastic, the translation is too.
+- Return exactly {len(texts)} translations, in the same order.
+
+{numbered}
+
+Return ONLY valid JSON (no markdown, no commentary):
+{{"translations": ["...", "..."]}}"""
+
+    result = _call_openai_json(
+        prompt,
+        label="TRANSLATE",
+        model=model or TRANSLATE_MODEL,
+        temperature=0.3,
+        max_output_tokens=400,
+    )
+    parsed = result.parsed or {}
+    out = parsed.get("translations")
+    if not isinstance(out, list):
+        raise ValueError("translate response missing 'translations' list")
+    if len(out) != len(texts):
+        raise ValueError(f"translate returned {len(out)} items for {len(texts)} inputs")
+    return [str(t) for t in out]
 
 
 def _mock_response(transcript: str, active_cards: List[Dict[str,Any]], fluent: Dict[str,Any], learning: Dict[str,Any]) -> Dict[str,Any]:

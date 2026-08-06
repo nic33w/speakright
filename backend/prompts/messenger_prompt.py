@@ -63,7 +63,7 @@ def generate_turn_instruction(profile: Dict[str, Any]) -> str:
 
     # Regular turn: light assessment + adaptive response
     return f"""Current learner level: {level}
-- Provide natural persona response following language mix rules (70-80% UI, 15-25% target text, 5-10% target audio)
+- Provide a natural persona response: 3 chunks, every one pure target-language audio, one sentence each
 - Respond to the user's intended meaning — do NOT correct or mention errors in your response_chunks
 - Do NOT include the "level_assessment" field this turn
 - Decide response mode per chunk: use target audio for new vocab/patterns appropriate to level"""
@@ -105,7 +105,7 @@ def build_layered_prompt(user_input: str, profile: Dict[str, Any], prompt_versio
         # Fallback if prompt file missing
         system_filled = f"""You are a conversational language-learning partner.
 The learner's UI language is {ui_lang} and they are learning {target_lang}.
-Provide responses following language mix rules: 70-80% UI language, 15-25% target language text, 5-10% target language audio.
+Every response_chunk is pure {target_lang}, spoken aloud — the learner gets {ui_lang} translations separately, on request.
 Correct errors gently and adapt to learner's level."""
 
     # Layer 2: Persona Prompt (from JSON)
@@ -116,51 +116,59 @@ Correct errors gently and adapt to learner's level."""
 {persona_bio}
 
 PERSONALITY RULES (CRITICAL - YOU MUST FOLLOW THESE):
-- Express your personality IN {ui_lang}. Your snark, humor, and reactions should be in the UI language.
-- Only use {target_lang} for teaching vocabulary, giving examples, or light flavor (not for your main conversational voice).
+- You speak ONLY {target_lang}. Every response_chunk is {target_lang} — your snark, humor and reactions all come through in {target_lang}, never in {ui_lang}.
+- Write casual, natural {target_lang} that a native would actually say. Not textbook {target_lang}, and not simplified to death.
+- The learner gets {ui_lang} translations separately, on request. NEVER put {ui_lang} in a response_chunk to help them — that is handled outside your reply.
 - DO: {', '.join(persona_voice_notes.get('do_en', []))}
 - DON'T: {', '.join(persona_voice_notes.get('dont_en', []))}
 - {persona_voice_notes.get('language_guidance', '')}
 
-EXAMPLE GREETINGS (in {ui_lang}):
+EXAMPLE GREETINGS (in {target_lang}):
 """
-    # Add example greetings - prefer UI language examples
-    greetings = persona_data.get("example_greetings", {}).get(ui_code, []) or persona_data.get("example_greetings", {}).get(target_code, [])
+    # Persona examples are target-language only now. Falling back to the UI-language
+    # variants would show the character speaking {ui_lang}, contradicting the rule
+    # above — better to omit a section than to demonstrate the wrong thing.
+    greetings = persona_data.get("example_greetings", {}).get(target_code, [])
     for greeting in greetings[:2]:
         persona_prompt += f"- {greeting}\n"
 
-    # Add examples from persona - prefer UI language versions
     if persona_data.get("examples"):
-        persona_prompt += f"\nEXAMPLE INTERACTION STYLE (show personality IN {ui_lang}):\n"
-        for ex in persona_data["examples"][:2]:
-            # Prefer UI language persona lines
-            persona_line = ex.get("persona_line", {}).get(ui_code, "") or ex.get("persona_line", {}).get(target_code, "")
-            if persona_line:
-                persona_prompt += f"- \"{persona_line}\"\n"
+        example_lines = [
+            ex.get("persona_line", {}).get(target_code, "")
+            for ex in persona_data["examples"][:2]
+        ]
+        example_lines = [line for line in example_lines if line]
+        if example_lines:
+            persona_prompt += f"\nEXAMPLE INTERACTION STYLE (show personality IN {target_lang}):\n"
+            for line in example_lines:
+                persona_prompt += f"- \"{line}\"\n"
 
-    # Add few-shot examples if available
+    # Few-shot dialogue: only turns already written in the target language. A turn
+    # labelled (in en) would be a worked example of exactly what we just forbade.
     if persona_data.get("few_shot_examples"):
-        persona_prompt += f"\nFEW-SHOT DIALOGUE EXAMPLES:\n"
+        shots = []
         for fs in persona_data["few_shot_examples"][:2]:
-            scenario = fs.get("scenario", "")
-            if scenario:
-                persona_prompt += f"Scenario: {scenario}\n"
-            for turn in fs.get("dialogue", []):
-                who = turn.get("who", "")
-                text = turn.get("text", "")
-                lang = turn.get("lang", ui_code)
-                if who and text:
-                    persona_prompt += f"  {who}: \"{text}\" (in {lang})\n"
+            turns = [t for t in fs.get("dialogue", [])
+                     if t.get("who") and t.get("text") and t.get("lang") == target_code]
+            if turns:
+                shots.append((fs.get("scenario", ""), turns))
+        if shots:
+            persona_prompt += f"\nFEW-SHOT DIALOGUE EXAMPLES:\n"
+            for scenario, turns in shots:
+                if scenario:
+                    persona_prompt += f"Scenario: {scenario}\n"
+                for turn in turns:
+                    persona_prompt += f"  {turn['who']}: \"{turn['text']}\"\n"
 
     # Reaction bank (persona-specific, static within a run): forces response_chunks[0]
     # to be picked verbatim from a closed set so it can be served from pre-generated
     # audio with zero latency/cost instead of live TTS. See scripts/generate_reaction_audio.py.
     reaction_bank_section = ''
-    reactions = persona_data.get("reactions", {}).get(ui_code, [])
+    reactions = persona_data.get("reactions", {}).get(target_code, [])
     if reactions:
         reaction_lines = "\n".join(f'- "{r["text"]}"' for r in reactions if r.get("text"))
         reaction_bank_section = f"""REACTION OPENERS — CLOSED SET:
-response_chunks[0] MUST be chosen verbatim, word-for-word, from the list below (language="ui", modality="text", purpose="reaction"). Pick whichever line best matches how {character_name} would react to what the user just said. Do not alter, translate, paraphrase, or invent a new line — copy one exactly as written, including punctuation. Continue your actual reply normally starting at response_chunks[1].
+response_chunks[0] MUST be chosen verbatim, word-for-word, from the list below (language="target", modality="audio", purpose="reaction"). Pick whichever line best matches how {character_name} would react to what the user just said. Do not alter, translate, paraphrase, or invent a new line — copy one exactly as written, including punctuation. Continue your actual reply normally starting at response_chunks[1].
 {reaction_lines}"""
 
     # Layer 3: Student Model
@@ -187,9 +195,9 @@ response_chunks[0] MUST be chosen verbatim, word-for-word, from the list below (
     if prompt_version == "v2":
         # The V2 block lives in the static prefix (for prompt caching); this
         # end-of-prompt reminder keeps it salient — without it the model tends
-        # to fall back to the regular language-mix format.
-        turn_instruction += "\n- FOLLOW THE V2 CHALLENGE FORMAT defined above: all chunks except the last are {ui} text; the LAST chunk is the {target} audio challenge sentence with \"native_text\" and \"is_challenge\": true".format(
-            ui=ui_lang, target=target_lang)
+        # to drift back toward writing {ui_lang} chunks.
+        turn_instruction += "\n- FOLLOW THE V2 CHALLENGE FORMAT defined above: every chunk is pure {target} audio; the LAST chunk is the challenge sentence and carries \"native_text\" and \"is_challenge\": true".format(
+            target=target_lang)
     elif prompt_version == "eyesfree":
         # Same reason as v2: the format block is in the static prefix, and without
         # an end-of-prompt reminder the model drifts back to the language-mix format.
@@ -222,11 +230,11 @@ conversation. Do not reorder, and do not repeat a field later in the object.
 {{
   "response_chunks": [
     {{
-      "text": "...",  // MOST chunks should have language="ui" (speak in {ui_lang}). Only use "target" for teaching vocabulary/phrases.
-      "language": "ui" | "target",  // "ui" = {ui_lang}, "target" = {target_lang}
-      "modality": "text" | "audio",  // audio ONLY for language="target" chunks — NEVER audio for language="ui"
-      "locale": "{target_code}-XX",  // only set when modality=="audio"; always target locale, never ui locale
-      "purpose": "reaction" | "greeting" | "question" | "feedback" | "encouragement"  // "reaction" is REQUIRED for response_chunks[0] — see REACTION OPENERS below
+      "text": "...",  // PURE {target_lang}, always. Every chunk. Zero {ui_lang} words.
+      "language": "target",  // ALWAYS "target" — you no longer write {ui_lang} chunks at all
+      "modality": "audio",   // ALWAYS "audio" — every chunk is spoken
+      "locale": "{target_code}-XX",  // always the target locale
+      "purpose": "reaction" | "greeting" | "question" | "feedback" | "encouragement"  // "reaction" is REQUIRED for response_chunks[0] — see REACTION OPENERS above
     }}
   ],
   "corrected_input": "...",  // The corrected or naturalized version of what the user said. CRITICAL: If had_errors=true, corrected_input MUST be different from the user's input — it must contain the natural/correct {target_lang} version. NEVER leave corrected_input the same as the user's input when had_errors=true. Rules: (1) Fix grammar errors. (2) If phrasing is unnatural, replace the whole phrase with what a native speaker would actually say — even completely different words, same meaning. (3) NEVER make it a response or answer to a question. (4) Copy exactly only when had_errors=false.
@@ -257,11 +265,11 @@ conversation. Do not reorder, and do not repeat a field later in the object.
     reminders_section = f"""CRITICAL REMINDERS:
 - response_chunks[0] MUST be copied verbatim from the REACTION OPENERS list above (purpose="reaction") when that list is non-empty. Never write a custom line for chunk 0.
 - FIELD ORDER IS LOAD-BEARING: emit "response_chunks" first, exactly as laid out in the OUTPUT SCHEMA. Before you write it, silently work out what the user actually meant and how their {target_lang} should be corrected — then write the reply first and record that correction in the later fields. Getting the reply out first is what keeps the conversation fast; it must not make the correction sloppier.
-- Your response_chunks should be MOSTLY in {ui_lang} (language="ui", modality="text"). Only use "target" sparingly for teaching.
-- NEVER set modality="audio" for a language="ui" chunk. Audio is ONLY for pure {target_lang} text.
-- A chunk with modality="audio" must have its "text" field contain ONLY {target_lang} — no {ui_lang} words, no mixed phrases.
+- EVERY response_chunk is language="target", modality="audio", and PURE {target_lang}. There are no {ui_lang} chunks any more — not for reactions, not for asides, not to help the learner.
+- Default to exactly 3 chunks: the reaction opener, then two more sentences that carry the conversation. Fewer only if the reply genuinely fits in fewer.
+- Keep each chunk to ONE spoken sentence. They are played as separate audio clips with a pause between them, so a chunk holding two sentences reads as a run-on.
 - NEVER use target-language audio to repeat, paraphrase, or demonstrate the corrected version of what the user said. Audio must be an organic part of your character's own response — not a correction or teaching moment about the user's mistake.
-- Stay in character! Your personality should come through IN {ui_lang}.
+- Stay in character! Your personality should come through IN {target_lang}.
 - NEVER mention corrections or errors in your response_chunks. Respond as if the user spoke perfectly.
 - Pico handles corrections separately via corrected_input/had_errors/error_explanation — fill those fields accurately but keep them out of your conversational response.
 - input_intent: "english" if the user was primarily speaking {ui_lang} (even with some {target_lang} thrown in); "spanish" if the user was clearly attempting {target_lang} (even if they got stuck on words and used {ui_lang} for those). Example: "I went to the store today, gracias!" = "english". "Fui al store porque no tenía food" = "spanish"."""
@@ -287,10 +295,9 @@ conversation. Do not reorder, and do not repeat a field later in the object.
     # static within a run; last in the prefix so v1/v2 share everything above it)
     v2_section = ''
     if prompt_version == "v2":
-        v2_section = f"""V2 CHALLENGE FORMAT — OVERRIDES response_chunks rules above:
-- Default to exactly 2 response_chunks: one {ui_lang} text chunk, then the {target_lang} audio challenge. Only use more than 2 when the reply genuinely requires it (e.g. a multi-part reaction that truly can't fit in one sentence). Keep extra chunks rare — 2 is the norm.
-- ALL chunks except the LAST: language="ui", modality="text" (speak in {ui_lang})
-- The LAST chunk MUST be a challenge sentence in {target_lang}:
+        v2_section = f"""V2 CHALLENGE FORMAT — REFINES the response_chunks rules above:
+- Chunk count and language are unchanged: 3 chunks, all language="target", modality="audio", pure {target_lang}.
+- The LAST chunk is additionally marked as the challenge — the sentence the learner is meant to answer:
   {{
     "text": "<natural {target_lang} sentence — PURE {target_lang} ONLY, absolutely zero {ui_lang} words>",
     "language": "target",
@@ -299,29 +306,29 @@ conversation. Do not reorder, and do not repeat a field later in the object.
     "native_text": "<{ui_lang} translation of the challenge sentence>",
     "is_challenge": true
   }}
+- "native_text" is required on the challenge chunk ONLY. It backs the learner's hover-to-reveal, so it must always be there even though the other chunks have no translation.
 - The "text" field must be ONLY the {target_lang} sentence itself — absolutely NO intro phrases, labels, or preamble in ANY language (e.g. not "Try this:", "¡Intenta decir esto!", "How about:", "Let's try:", etc.)
-- Difficulty: slightly above the learner's current level — comprehensible input that stretches them a little
-- The challenge sentence should flow naturally as the conclusion of the reply
-- CRITICAL — avoid repetition: The {ui_lang} text chunk should ONLY react/acknowledge what the user said (a short natural response). Do NOT include a follow-up question or prompt in the {ui_lang} chunk — the {target_lang} challenge is the ONLY forward-moving piece. The two chunks should complement each other, not say the same thing twice in different languages."""
+- Difficulty: the challenge sits slightly above the learner's current level — comprehensible input that stretches them a little. The earlier chunks stay comfortably at their level.
+- The challenge should flow naturally as the conclusion of the reply, and it is the ONLY forward-moving piece: earlier chunks react and add colour, they do not ask their own follow-up question. Do not say the same thing twice in different words."""
 
     # Eyes-free override (version-conditional, static within a run; last in the
     # prefix so it has the final word over the language-mix and v2 rules).
     #
     # Why this is a separate profile and not "v2 + TTS": with the screen off the
     # turn becomes a strictly serial audio stream, so every field is a cost in
-    # seconds. The v1/v2 output — 70-80% UI text, a challenge sentence, an
+    # seconds. The v1/v2 output — three target-language sentences, an
     # explanation written to be read, plus 2 suggested replies — is ~40s of speech
     # per turn. Capping it at one reaction + one short target sentence gets that
-    # under ~10s. Keeping chunk 0 the pre-generated reaction opener also keeps the
-    # English side of the stream free (see scripts/generate_reaction_audio.py):
-    # any other UI chunk would need live English TTS, which burns ~4-5x the Azure
-    # characters of the target sentence it is introducing.
+    # under ~10s. Keeping chunk 0 the pre-generated reaction opener also keeps it
+    # free and instant (see scripts/generate_reaction_audio.py) — a free-form
+    # opener would cost a live Azure roundtrip on the one clip the learner is
+    # waiting on before anything else can play.
     eyesfree_section = ''
     if prompt_version == "eyesfree":
         eyesfree_section = f"""EYES-FREE FORMAT — OVERRIDES the response_chunks, error_explanation and suggestion rules above:
 The learner is listening with the screen off. Everything you write is spoken aloud, one field after another, and they cannot skim it, re-read it, or glance back at it. Length is the enemy — a long reply buries the one sentence they are supposed to answer.
 - Emit EXACTLY 2 response_chunks. Never 1, never 3.
-- Chunk 1 is the reaction opener: copied verbatim from the REACTION OPENERS list above when that list is present, otherwise one short {ui_lang} reaction of 10 words or fewer. language="ui", modality="text", purpose="reaction". Nothing else in {ui_lang} — no second sentence, no setup, no follow-up question.
+- Chunk 1 is the reaction opener: copied verbatim from the REACTION OPENERS list above when that list is present, otherwise one short {target_lang} reaction of 8 words or fewer. language="target", modality="audio", purpose="reaction". No setup, no second sentence, no follow-up question.
 - Chunk 2 is the {target_lang} sentence the learner will hear and answer:
   {{
     "text": "<natural {target_lang} sentence — PURE {target_lang} ONLY, absolutely zero {ui_lang} words, 12 words maximum>",
