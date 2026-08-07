@@ -623,6 +623,10 @@ tuned by ear — expect to adjust `WITHIN_PAIR_GAP_MS` / `betweenSentenceGap` on
 
 ### [x] 4.1 — Controller → F13 mapper 🟡 Sonnet
 
+**Recording is press-to-toggle, not hold** (settled): click a stick (L3 *or* R3) to start recording,
+click again to stop → auto-send window opens. Earcons from 2.3 announce start and stop, which is what
+makes this safe with the screen off.
+
 **Corrected from the first draft — your F13 idea is right and it removes the WebSocket relay
 entirely.** Map a controller button to **F13** (a real keycode no application claims), set F13 as
 Wispr's hotkey, and let the browser Gamepad API handle everything else in-page. No IPC, no backend
@@ -640,9 +644,10 @@ sender, not an architecture.
 - **JoyToKey / reWASD** — GUI mappers, also fine.
 
 **⚠️ Avoid AutoHotkey for this.** AHK's joystick support uses the legacy WinMM API, which **combines
-LT and RT onto a single shared axis** — so "hold RT to talk" and "hold LT for translation" can't be
-told apart cleanly, and holding both cancels out. That directly breaks the 4.2 mapping. Use an
-XInput-aware mapper instead.
+LT and RT onto a single shared axis**, so the two triggers can't be told apart cleanly and holding
+both cancels out. Recording doesn't depend on a trigger (it's the stick click), but 4.2's
+"LT hold = hear the translation" does, and stick clicks are only reliably readable through XInput
+anyway. Use an XInput-aware mapper.
 
 **Free bonus worth designing around:** when the browser is focused it *also* receives the F13 keydown.
 Use that as the in-app "recording started" signal — the recording indicator and earcon sync for free,
@@ -655,10 +660,6 @@ working. If that turns out to bite, *then* revisit the WebSocket relay.
 
 **Files:** new `tools/controller/` (mapper script), `frontend/src/sharedGameHooks.ts` (new
 `useGamepad` hook), `frontend/src/MessengerChat.tsx`.
-
-**Recording is press-to-toggle, not hold** (settled): click a stick (L3 *or* R3) to start recording,
-click again to stop → auto-send window opens. Earcons from 2.3 announce start and stop, which is what
-makes this safe with the screen off.
 
 Three things this requires:
 1. **Wispr must be in tap/toggle mode for F13**, not hold-to-talk — otherwise a single tap starts and
