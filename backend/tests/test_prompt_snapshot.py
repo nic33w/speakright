@@ -316,6 +316,65 @@ def test_scene_without_an_ending_is_dropped():
     assert "CURRENT SCENE" not in user and "SCENE PACING" not in user
 
 
+# --- Persistent character state (task 5.2) ---
+# Like the scene block, this is per-turn content that reads like setup — a
+# character_state fixture in the static prefix would mint a new prompt-cache
+# entry every time a scene completes.
+
+CHARACTER_STATE = {
+    "situation": "you needed the learner to agree to be your alibi. It was supposed to end when they agreed or refused — never actually found out how it went.",
+    "mood": "cagey, hoping it never comes up again",
+    "energy": "restless, glancing over your shoulder a little",
+    "updated_at": 1700000000,
+}
+
+
+def _character_state_profile(**overrides):
+    profile = _profile(turn_count=3)
+    profile["character_state"] = {**CHARACTER_STATE, **overrides}
+    return profile
+
+
+def test_character_state_goes_in_the_dynamic_tail_only():
+    profile = _character_state_profile()
+    system, user = build_layered_prompt(USER_INPUT, profile, "v1")
+    assert "CHARACTER CONTINUITY" in user
+    assert CHARACTER_STATE["situation"] in user
+    assert CHARACTER_STATE["mood"] in user
+    assert CHARACTER_STATE["energy"] in user
+    for text in (CHARACTER_STATE["situation"], CHARACTER_STATE["mood"],
+                 CHARACTER_STATE["energy"], "CHARACTER CONTINUITY"):
+        assert text not in system, "character state leaked into the cached static prefix"
+
+
+def test_static_prefix_survives_a_character_state_change():
+    for version in VERSIONS:
+        sys_a, _ = build_layered_prompt("hola", _character_state_profile(), version)
+        sys_b, _ = build_layered_prompt("hola", _character_state_profile(
+            situation="a completely different scheme", mood="thrilled", energy="wired",
+        ), version)
+        sys_none, _ = build_layered_prompt("hola", _profile(turn_count=3), version)
+        assert sys_a == sys_b == sys_none, f"character state changed the {version} prefix"
+
+
+def test_no_character_state_produces_the_pre_5_2_tail():
+    """A fresh profile (no scene has ever completed) must render exactly the
+    pre-5.2 tail — no blank gap where the block would go."""
+    profile = _profile(turn_count=3)
+    _, user = build_layered_prompt(USER_INPUT, profile, "v1")
+    assert "CHARACTER CONTINUITY" not in user
+    assert "\n\n\n" not in user
+
+
+def test_character_state_and_scene_can_render_together():
+    profile = _character_state_profile()
+    profile["scene"] = {**SCENE, "turns_elapsed": 0, "status": "active"}
+    _, user = build_layered_prompt(USER_INPUT, profile, "v1")
+    assert "CHARACTER CONTINUITY" in user
+    assert "CURRENT SCENE" in user
+    assert user.index("CHARACTER CONTINUITY") < user.index("CURRENT SCENE")
+
+
 def test_unknown_prompt_version_falls_back_to_v1():
     """An unrecognized version must reuse v1's prefix, not mint a fourth
     cache entry."""

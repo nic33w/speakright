@@ -1027,7 +1027,7 @@ setting/goal".
 
 ---
 
-### [ ] 5.2 — Persistent character state 🟡 Sonnet
+### [x] 5.2 — Persistent character state 🟡 Sonnet
 
 **Fix:** Give the character mood, energy, and an ongoing situation that persists across sessions,
 stored next to `level_history` in the profile. Continuity — "last time you mentioned X" — is what
@@ -1040,6 +1040,54 @@ funnier than one without.
 **Files:** `backend/profile_store.py`, `backend/prompts/messenger_prompt.py` (dynamic tail).
 
 **Depends on:** 5.1.
+
+**Shipped as:** `profile["character_state"]` — `{situation, mood, energy, updated_at}`, `None` until a
+scene has completed at least once (mirrors `scene: None`'s lazy-init pattern, so pre-5.2 profiles stay
+valid). Deliberately **no new LLM call** — a scene ends on a turn budget, not a model verdict, so there
+is no real "how it went" to ask about; the state is folded in deterministically from the scene that
+just finished.
+
+`profile_store.update_character_state(profile, completed_scene)` builds `situation` from the scene's
+own `character_goal` + `completion_condition` ("...never actually found out how it went" — honest
+about the ambiguity rather than inventing an outcome), and `mood`/`energy` from two new fields on each
+`character_goals` entry in `scene_dimensions.json`: `mood_after`/`energy_after`, written to read right
+either way a scheme could have gone (e.g. "smug if you got it, sulking if you did not"). `pick_scene_dimensions`
+carries them into the draw and `new_scene` copies them onto the scene object — kept **outside**
+`SCENE_DIMENSION_KEYS` so `generate_scene`'s LLM concretization (which knows nothing about mood) can
+never overwrite them. The wiring point is `advance_scene` itself: the moment it flips a scene to
+`"complete"` it calls `update_character_state` right there, so **`routers/messenger.py` needed zero
+changes** — the router already calls `advance_scene` at the right time for both endpoints.
+
+Prompt side: new `build_character_state_context()` in `messenger_prompt.py`, same shape as 5.1's
+`build_scene_context` (reads `prompts/templates/character_state.txt`, falls back to an inline block if
+the file is missing), returns `""` when `character_state` is `None` so a fresh profile renders exactly
+the pre-5.2 tail. Rendered in the **dynamic tail only**, positioned before the scene block ("here's how
+the character feels walking in" then "here's what's happening now") — verified not to leak into the
+static prefix the same way 5.1's scene tests do.
+
+**State is overwritten, not accumulated** — only the most recent scheme is kept, matching
+`level_history`'s "current level" model rather than a growing log. Simpler than a capped list, and
+avoids the prompt slowly filling up with old schemes the way `weak_points` did before 1.4.
+
+**Tests: 119 passed, 1 xfailed** (was 109/1) — `pick_scene_dimensions`/`new_scene` carry mood/energy
+correctly and concretization can't touch them, `update_character_state` builds/overwrites state
+correctly, `advance_scene` fires it exactly on completion (not before), and 5 new
+`test_prompt_snapshot.py` cases mirror 5.1's scene coverage (dynamic-tail-only, prefix survives a
+character-state change, no-state produces the pre-5.2 tail, renders alongside an active scene in the
+right order). One existing scene test needed a one-line fix:
+`test_generate_scene_passes_the_draw_through_to_the_prompt` was asserting every value in the *draw*
+appears in the generation prompt, which broke once the draw grew `mood_after`/`energy_after` — updated
+to check only `SCENE_DIMENSION_KEYS`, which is what the prompt actually contains. **Goldens did not
+move**, same as 5.1 — none of the existing golden fixtures have a `character_state`, so the block
+renders empty for all of them.
+
+**Verified live** via the mock-mode buffered endpoint: forced a scene one turn from its budget, ran a
+turn, confirmed `character_state` landed correctly in the saved profile with the right situation/mood/
+energy, then confirmed the *next* `build_layered_prompt()` call rendered the "CHARACTER CONTINUITY"
+block with that exact content. **Caveat — this accidentally hit the real API**, not mock mode (the
+verification script didn't check `MOCK_MODE` first): cost **~1.17 cents** and ~2062 Azure characters,
+against the existing ~$10/500k budgets. Small, but a mistake — should have gone through mock mode or
+checked `/api/usage` first, per the ground rules.
 
 ---
 

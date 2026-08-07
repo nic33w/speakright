@@ -12,6 +12,7 @@ from profile_store import (
     load_profile,
     new_scene,
     pick_scene_dimensions,
+    update_character_state,
 )
 from settings import SCENE_MAX_TURNS, SCENE_MIN_TURNS
 
@@ -40,6 +41,29 @@ def test_new_scene_starts_active_with_a_bounded_budget():
     assert SCENE_MIN_TURNS <= scene["turn_budget"] <= SCENE_MAX_TURNS
     assert scene["source"] == "dimensions"
     assert scene["id"].startswith("scene_")
+
+
+def test_dimension_draw_carries_mood_and_energy(monkeypatch):
+    """Task 5.2: every character_goal in scene_dimensions.json declares
+    mood_after/energy_after, and the draw (not just the concretized scene)
+    must surface them — new_scene reads them straight off the draw."""
+    dims = pick_scene_dimensions()
+    assert dims.get("mood_after")
+    assert dims.get("energy_after")
+    scene = new_scene(dims)
+    assert scene["mood_after"] == dims["mood_after"]
+    assert scene["energy_after"] == dims["energy_after"]
+
+
+def test_concretization_never_overwrites_mood_or_energy():
+    """mood_after/energy_after are not in SCENE_DIMENSION_KEYS, so an LLM
+    concretization result — even one that happens to carry those keys — must
+    not be able to touch them."""
+    dims = pick_scene_dimensions()
+    concretized = {k: f"generated {k}" for k in SCENE_DIMENSION_KEYS}
+    concretized["mood_after"] = "should never appear"
+    scene = new_scene(dims, concretized)
+    assert scene["mood_after"] == dims["mood_after"]
 
 
 def test_generated_fields_override_the_draw_and_blanks_do_not():
@@ -76,6 +100,49 @@ def test_advance_scene_tolerates_a_profile_without_one():
     assert profile == {}
 
 
+# --- Persistent character state (task 5.2) ---
+
+
+def test_update_character_state_carries_the_scene_forward():
+    scene = new_scene(pick_scene_dimensions())
+    profile = {}
+    update_character_state(profile, scene)
+
+    state = profile["character_state"]
+    assert scene["character_goal"] in state["situation"]
+    assert scene["completion_condition"] in state["situation"]
+    assert state["mood"] == scene["mood_after"]
+    assert state["energy"] == scene["energy_after"]
+    assert state["updated_at"]
+
+
+def test_update_character_state_overwrites_rather_than_accumulates():
+    """Only the most recent scheme is kept — like level_history's 'current
+    level', not an accumulating log."""
+    profile = {}
+    first = new_scene(pick_scene_dimensions())
+    update_character_state(profile, first)
+    second = new_scene(pick_scene_dimensions())
+    update_character_state(profile, second)
+
+    assert second["character_goal"] in profile["character_state"]["situation"]
+    assert first["character_goal"] not in profile["character_state"]["situation"]
+
+
+def test_advance_scene_sets_character_state_on_completion():
+    """The wiring point: advance_scene, not the router, owns the transition
+    into persistent state — so the router needs no changes to pick this up."""
+    profile = {"scene": new_scene(pick_scene_dimensions())}
+    budget = profile["scene"]["turn_budget"]
+    for _ in range(budget - 1):
+        advance_scene(profile)
+        assert "character_state" not in profile, "must not fire before the scene actually ends"
+
+    advance_scene(profile)
+    assert profile["scene"]["status"] == "complete"
+    assert profile["character_state"]["situation"]
+
+
 # --- generate_scene (the LLM leg, stubbed — no keys, no spend) ---
 
 
@@ -104,8 +171,11 @@ def test_generate_scene_passes_the_draw_through_to_the_prompt(monkeypatch):
     result, captured, dims = _generate_with(monkeypatch, canned)
 
     assert result == canned
-    for value in dims.values():
-        assert value in captured["prompt"]
+    # Only the SCENE_DIMENSION_KEYS fields go into the generation prompt —
+    # mood_after/energy_after (task 5.2) are carried straight through to the
+    # scene without ever involving the model.
+    for key in SCENE_DIMENSION_KEYS:
+        assert dims[key] in captured["prompt"]
     assert "Jorge" in captured["prompt"]
     assert captured["kwargs"]["model"] == "gpt-4.1-nano", "scene setup must stay on the cheap model"
 

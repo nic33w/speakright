@@ -1,0 +1,5 @@
+CHARACTER CONTINUITY — carried over from your last scene:
+- What was going on: {{situation}}
+- Your mood since then: {{mood}}
+- Your energy right now: {{energy}}
+If it fits naturally, drop in a callback — you remember this, the learner might not. Don't explain it or narrate it; let it come through in what you say.

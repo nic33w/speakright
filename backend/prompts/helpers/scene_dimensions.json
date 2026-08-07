@@ -1,5 +1,5 @@
 {
-  "_comment": "Scene dimensions (task 5.1). A scene is sampled as one item per list, then concretized by a cheap LLM call (llm_call.generate_scene). Deliberately NOT a catalog of finished scenes: the combinations are what keep it from repeating. Each character_goal carries its own completion condition, so a scene stays coherent even when the LLM leg fails and the raw dimensions are used as-is. Keep entries setting-agnostic and culture-neutral — they have to play in Spanish and Indonesian alike. Written in second person: the character reads them as their own goal.",
+  "_comment": "Scene dimensions (task 5.1). A scene is sampled as one item per list, then concretized by a cheap LLM call (llm_call.generate_scene). Deliberately NOT a catalog of finished scenes: the combinations are what keep it from repeating. Each character_goal carries its own completion condition, so a scene stays coherent even when the LLM leg fails and the raw dimensions are used as-is. Keep entries setting-agnostic and culture-neutral — they have to play in Spanish and Indonesian alike. Written in second person: the character reads them as their own goal. Each character_goal also carries mood_after/energy_after (task 5.2): how the character carries the scheme into the NEXT scene, once this one's turn budget runs out. We never learn which way the scene actually resolved (no model verdict, just a turn count), so these are written to work either way — a mood that plays whether the scheme worked or didn't.",
 
   "settings": [
     "a crowded neighborhood market on a Saturday morning",
@@ -19,51 +19,75 @@
   "character_goals": [
     {
       "goal": "you need the learner to agree to be your alibi for last night, without telling them why",
-      "completion": "the learner has clearly agreed to cover for you, or clearly refused"
+      "completion": "the learner has clearly agreed to cover for you, or clearly refused",
+      "mood_after": "cagey, hoping it never comes up again",
+      "energy_after": "restless, glancing over your shoulder a little"
     },
     {
       "goal": "you want to borrow something of theirs and you are being cagey about what it is for",
-      "completion": "they agree to lend it to you, or give you a flat no"
+      "completion": "they agree to lend it to you, or give you a flat no",
+      "mood_after": "pleased with yourself, still not explaining why you needed it",
+      "energy_after": "loose, riding the high of getting away with it"
     },
     {
       "goal": "you are trying to talk them into a scheme that needs exactly one other person",
-      "completion": "the learner is in, or has talked you out of it"
+      "completion": "the learner is in, or has talked you out of it",
+      "mood_after": "wired, already three steps into the next version of the plan",
+      "energy_after": "buzzing, can't sit still"
     },
     {
       "goal": "you broke something of theirs and you are working up to confessing it",
-      "completion": "you have actually admitted it out loud and heard their reaction"
+      "completion": "you have actually admitted it out loud and heard their reaction",
+      "mood_after": "lighter, like a weight finally came off",
+      "energy_after": "calmer than you have been all week"
     },
     {
       "goal": "you want them to deliver a message you are too much of a coward to deliver yourself",
-      "completion": "they have agreed to pass it on, or told you to do it yourself"
+      "completion": "they have agreed to pass it on, or told you to do it yourself",
+      "mood_after": "relieved it is not your problem anymore, a little guilty about that",
+      "energy_after": "settled, but still avoiding the topic"
     },
     {
       "goal": "you are fishing for a piece of information they have and you cannot ask for directly",
-      "completion": "you have gotten the answer, or they have caught you fishing"
+      "completion": "you have gotten the answer, or they have caught you fishing",
+      "mood_after": "smug if you got it, sulking if you did not",
+      "energy_after": "sharp, already turning the answer over in your head"
     },
     {
       "goal": "you are trying to get them to admit something you are already sure of",
-      "completion": "they admit it, or they convince you that you were wrong"
+      "completion": "they admit it, or they convince you that you were wrong",
+      "mood_after": "insufferably vindicated, or unusually quiet about being wrong",
+      "energy_after": "still a little worked up about it"
     },
     {
       "goal": "you need to keep them here a few more minutes and you cannot say why",
-      "completion": "they agree to stay a while longer, or they say they are leaving and mean it"
+      "completion": "they agree to stay a while longer, or they say they are leaving and mean it",
+      "mood_after": "relieved, like you pulled off something bigger than it looked",
+      "energy_after": "winding down now that the pressure is off"
     },
     {
       "goal": "you want to undo a favor you already promised them, gracefully",
-      "completion": "you are off the hook, or you are stuck with it and you know it"
+      "completion": "you are off the hook, or you are stuck with it and you know it",
+      "mood_after": "either off the hook and pleased about it, or resigned and grumbling",
+      "energy_after": "low, like you used up all your cleverness on that one"
     },
     {
       "goal": "you are trying to sell them on something nobody sensible would want",
-      "completion": "they buy in, or they turn you down for good"
+      "completion": "they buy in, or they turn you down for good",
+      "mood_after": "riding high if they bought in, sulking if they did not",
+      "energy_after": "still pitching a little, out of habit"
     },
     {
       "goal": "you are stalling because you already told two people two different stories and they are about to compare notes",
-      "completion": "the stories collide and you deal with it, or you get out clean"
+      "completion": "the stories collide and you deal with it, or you get out clean",
+      "mood_after": "jumpy, replaying which version you told who",
+      "energy_after": "on edge, checking the door more than usual"
     },
     {
       "goal": "you want an apology from them for something small that you have not stopped thinking about",
-      "completion": "you get the apology, or you admit out loud that it was not a big deal"
+      "completion": "you get the apology, or you admit out loud that it was not a big deal",
+      "mood_after": "smug if you got it, still keeping score if you did not",
+      "energy_after": "lighter either way, glad it is off your chest"
     }
   ],
 

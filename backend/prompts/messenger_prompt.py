@@ -167,6 +167,43 @@ def scene_progress_instruction(profile: Dict[str, Any]) -> str:
     return f"{header}\n{body}"
 
 
+def build_character_state_context(profile: Dict[str, Any], character_name: str) -> str:
+    """Render persistent character state into a prompt block (task 5.2).
+
+    Returns "" when no scene has completed yet — a fresh profile has nothing to
+    carry forward, and that has to render as a clean omission, not a blank
+    gap (same rule as build_scene_context).
+
+    DYNAMIC TAIL ONLY. The static prefix must never learn about a specific
+    character state, or every scene completion mints a new prompt-cache prefix.
+    """
+    state = profile.get("character_state") or {}
+    situation = state.get("situation", "")
+    if not situation:
+        return ""
+
+    fields = {
+        "character_name": character_name,
+        "situation": situation,
+        "mood": state.get("mood") or "",
+        "energy": state.get("energy") or "",
+    }
+
+    template_file = PROMPTS_DIR / "templates" / "character_state.txt"
+    if template_file.exists():
+        block = template_file.read_text(encoding="utf-8")
+    else:
+        block = """CHARACTER CONTINUITY — carried over from your last scene:
+- What was going on: {{situation}}
+- Your mood since then: {{mood}}
+- Your energy right now: {{energy}}
+If it fits naturally, drop in a callback — you remember this, the learner might not."""
+
+    for key, value in fields.items():
+        block = block.replace("{{" + key + "}}", value)
+    return block.rstrip()
+
+
 def generate_turn_instruction(profile: Dict[str, Any]) -> str:
     """Generate turn instruction based on turn count and level."""
     turn_count = profile.get("turn_count", 0)
@@ -310,14 +347,18 @@ response_chunks[0] MUST be chosen verbatim, word-for-word, from the list below (
     else:
         student_context = f"Learner level: {profile.get('level', 'beginner')}"
 
-    # Layer 4: Scene (dynamic — task 5.1; empty when no scene is active)
+    # Layer 4: Persistent character state (dynamic — task 5.2; empty until a
+    # scene has completed at least once)
+    character_state_context = build_character_state_context(profile, character_name)
+
+    # Layer 5: Scene (dynamic — task 5.1; empty when no scene is active)
     scene_context = build_scene_context(profile, character_name)
     scene_pacing = scene_progress_instruction(profile)
 
-    # Layer 5: Conversation Context (dynamic)
+    # Layer 6: Conversation Context (dynamic)
     context_str = build_conversation_context(profile.get("recent_turns", []))
 
-    # Layer 6: Turn Instruction (dynamic)
+    # Layer 7: Turn Instruction (dynamic)
     turn_instruction = generate_turn_instruction(profile)
     if prompt_version == "v2":
         # The V2 block lives in the static prefix (for prompt caching); this
@@ -486,13 +527,15 @@ The learner is listening with the screen off. Everything you write is spoken alo
 
     # ------------------------------------------------------------------
     # DYNAMIC TAIL (user message): everything that changes per turn —
-    # student model (mutable profile lists), the active scene and its pacing,
-    # conversation context, turn instruction, and the user's input.
-    # Empty sections are dropped rather than left as blank gaps, so a profile
-    # with no scene produces exactly the pre-5.1 tail.
+    # student model (mutable profile lists), persistent character state, the
+    # active scene and its pacing, conversation context, turn instruction, and
+    # the user's input. Empty sections are dropped rather than left as blank
+    # gaps, so a profile with no scene/character state produces exactly the
+    # pre-5.1 tail.
     # ------------------------------------------------------------------
     user_message = "\n\n".join(section for section in [
         student_context,
+        character_state_context,
         scene_context,
         context_str,
         turn_instruction,

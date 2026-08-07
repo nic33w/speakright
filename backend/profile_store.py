@@ -64,7 +64,10 @@ def init_default_profile(ui_lang: LangSpec, target_lang: LangSpec) -> Dict[str, 
         "recent_turns": [],
         # Task 5.1. None until the first turn creates one; every reader uses
         # .get("scene"), so profiles written before 5.1 stay valid.
-        "scene": None
+        "scene": None,
+        # Task 5.2. None until a scene has completed at least once; every
+        # reader uses .get("character_state"), so pre-5.2 profiles stay valid.
+        "character_state": None,
     }
 
 
@@ -136,6 +139,12 @@ def pick_scene_dimensions(previous: Optional[Dict[str, Any]] = None) -> Dict[str
         "user_goal": random.choice(user_goals),
         "complication": random.choice(complications),
         "completion_condition": goal.get("completion", "the goal is settled one way or the other"),
+        # Task 5.2: how the character carries this scheme forward once its turn
+        # budget runs out. Tied to the goal (not the draw as a whole) so it
+        # stays coherent with what actually happened, and not part of
+        # SCENE_DIMENSION_KEYS — generate_scene never rewrites these.
+        "mood_after": goal.get("mood_after", ""),
+        "energy_after": goal.get("energy_after", ""),
     }
 
 
@@ -157,6 +166,10 @@ def new_scene(dimensions: Dict[str, str], concretized: Optional[Dict[str, Any]] 
     }
     for key in SCENE_DIMENSION_KEYS:
         scene[key] = dimensions.get(key, "")
+    # Task 5.2's mood/energy carry-forward. Drawn, not generated — kept outside
+    # SCENE_DIMENSION_KEYS so the concretization merge below never touches them.
+    scene["mood_after"] = dimensions.get("mood_after", "")
+    scene["energy_after"] = dimensions.get("energy_after", "")
     if concretized:
         for key in SCENE_DIMENSION_KEYS:
             value = concretized.get(key)
@@ -181,6 +194,39 @@ def advance_scene(profile: Dict[str, Any]) -> None:
     if scene["turns_elapsed"] >= scene.get("turn_budget", SCENE_MAX_TURNS):
         scene["status"] = "complete"
         scene["completed_at"] = int(time.time())
+        update_character_state(profile, scene)
+
+
+# --- Persistent character state (task 5.2) ---
+#
+# recent_turns is a rolling window of 10 and a scene resets to a brand new
+# premise every 5-10 turns, so nothing about the character survives a session
+# on its own. update_character_state folds a just-completed scene into a small
+# persistent object next to level_history: the open thread the scheme left
+# behind, plus a mood/energy carried forward from it. Deliberately no LLM call
+# here — the scene ends on a turn budget, not a model verdict, so there is no
+# real "how it went" to ask for; the situation line is written to work as a
+# callback either way (see scene_dimensions.json's mood_after/energy_after).
+
+def update_character_state(profile: Dict[str, Any], completed_scene: Dict[str, Any]) -> None:
+    """Carry a just-completed scene's premise into the character's persistent state.
+
+    Overwrites any previous character_state — only the most recent scheme is
+    kept, matching level_history's "current level" rather than an accumulating
+    log. Mutates `profile` in place, same as advance_scene/new_scene; the
+    caller's save_profile persists it.
+    """
+    situation = completed_scene.get("character_goal", "").strip()
+    completion = completed_scene.get("completion_condition", "").strip()
+    if situation and completion:
+        situation = f"{situation} It was supposed to end when {completion} — never actually found out how it went."
+
+    profile["character_state"] = {
+        "situation": situation,
+        "mood": completed_scene.get("mood_after", ""),
+        "energy": completed_scene.get("energy_after", ""),
+        "updated_at": int(time.time()),
+    }
 
 
 # --- Level Assessment Logic ---
