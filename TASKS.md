@@ -823,7 +823,7 @@ still **89 passed, 1 xfailed.**
 
 ---
 
-### [ ] 4.4 — Haptics 🟡 Sonnet
+### [x] 4.4 — Haptics 🟡 Sonnet
 
 **Fix:** Short pulse = recording on. Double pulse = sent. Long buzz = correction incoming.
 
@@ -834,6 +834,25 @@ merely possible.
 **Files:** frontend `gamepad.vibrationActuator`, or `tools/controller/` for XInput rumble.
 
 **Depends on:** 4.1.
+
+**Shipped as:** the browser `gamepad.vibrationActuator` path (no native mapper changes) — new
+`frontend/src/gamepad/haptics.ts`, structured as the rumble mirror of `audio/earcons.ts`: a
+`playHaptic(pattern)` that grabs whatever `Gamepad` `navigator.getGamepads()` currently reports,
+best-effort no-ops (silent catch) if there's no controller or no `vibrationActuator`, so no caller
+ever needs to check `gamepad.connected` first. `useHaptics()` in `sharedGameHooks.ts` wraps it the
+same way `useEarcons()` wraps `playEarcon`, memoized for the same reason.
+
+Only the three patterns TASKS.md names — not full parity with earcons' six — wired at the exact spots
+their earcon counterparts already fire, so audio and rumble land together: `"recordingStarted"` in
+the F13 toggle listener (on the *on* edge only — no stop rumble was asked for), `"sent"` right after
+`sendMessage`'s drill/busy/empty guards clear (drill-attempt submissions go through `finishDrill`
+instead, so they don't double up with the pass/fail earcon), `"correctionIncoming"` in
+`startCorrectionDrill` alongside its earcon.
+
+**Not verified:** no physical controller in this environment, same caveat as 4.1–4.3 — rumble in
+particular is unverifiable without real hardware; the magnitudes/durations in `haptics.ts` are
+reasoned, not felt. Typecheck and lint clean (same pre-existing repo-wide lint errors as before, none
+new). Backend untouched; suite still **89 passed, 1 xfailed.**
 
 ---
 

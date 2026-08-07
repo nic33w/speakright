@@ -4,6 +4,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { API_BASE } from "./config";
 import { playEarcon, type EarconType } from "./audio/earcons";
+import { playHaptic, type HapticPattern } from "./gamepad/haptics";
 
 // ── useAudioPlayer ────────────────────────────────────────────────────────────
 // Fetch → cache → play → stop for TTS audio. One player per component instance:
@@ -273,6 +274,19 @@ export function useWisprAutoSend({
 export function useEarcons() {
   const play = useCallback((type: EarconType) => {
     void playEarcon(type);
+  }, []);
+
+  return useMemo(() => ({ play }), [play]);
+}
+
+// ── useHaptics ───────────────────────────────────────────────────────────────
+// Controller rumble feedback (task 4.4): recording started, sent, correction
+// incoming. Wraps gamepad/haptics.ts playHaptic() — a no-op when no controller
+// is connected or it has no rumble motor, so callers never need to check
+// `gamepad.connected` first. Memoized for the same reason as useEarcons.
+export function useHaptics() {
+  const play = useCallback((pattern: HapticPattern) => {
+    void playHaptic(pattern);
   }, []);
 
   return useMemo(() => ({ play }), [play]);

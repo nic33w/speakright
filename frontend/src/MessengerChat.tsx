@@ -2,7 +2,7 @@
 // Persona-based adaptive language learning chat with Mateo
 import React, { useEffect, useState, useRef, useCallback } from "react";
 import { GameTextarea, CorrectionTokens } from "./sharedGameComponents";
-import { useAudioPlayer, useReplayStack, useEarcons, useGamepad } from "./sharedGameHooks";
+import { useAudioPlayer, useReplayStack, useEarcons, useHaptics, useGamepad } from "./sharedGameHooks";
 import { API_BASE, localeFor, SLOW_TTS_RATE } from "./config";
 import { buildCorrectionTokens, checkFuzzyMatch } from "./sharedGameUtils";
 import type { CorrectionToken } from "./sharedGameUtils";
@@ -261,6 +261,7 @@ export default function MessengerChat({
   const [eyesFree, setEyesFree] = useState<boolean>(false);
   const activeVersion = eyesFree ? "eyesfree" : promptVersion;
   const earcons = useEarcons();
+  const haptics = useHaptics();
 
   // --- Controller → F13 recording toggle (task 4.1) ---------------------------
   // A press-to-toggle click on a controller thumbstick is turned into an F13 tap
@@ -592,12 +593,15 @@ export default function MessengerChat({
       setRecording(prev => {
         const next = !prev;
         earcons.play(next ? "recordingStarted" : "recordingStopped");
+        // Haptics (task 4.4): only the "on" edge — TASKS.md doesn't ask for a
+        // stop rumble, and the earcon pair already covers that half.
+        if (next) haptics.play("recordingStarted");
         return next;
       });
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [earcons]);
+  }, [earcons, haptics]);
 
   // Desync guard (task 4.1): the app infers recording state purely by counting
   // F13 edges, but Wispr holds the real state — a dropped keypress (e.g. the
@@ -915,6 +919,7 @@ export default function MessengerChat({
     setDrill(null);  // clear the finished drill's banner
 
     setBusy(true);
+    haptics.play("sent"); // task 4.4 — drill attempts go through finishDrill above, not here
     const userMsgId = Date.now();
 
     // Detect if text matches a suggested reply (click path or typed-match path)
@@ -1387,13 +1392,15 @@ export default function MessengerChat({
     return { target, locale: localeFor(learning.code), explanation: data.error_explanation };
   }
 
-  // Earcon first (it lands before any speech does), then the prompt, then the
-  // sentence at 0.75x. Leaves the drill open: the caller's `finally` drops `busy`,
-  // which re-enables the textarea — that is the "mic opens" step.
+  // Earcon and haptic first (they land before any speech does), then the
+  // prompt, then the sentence at 0.75x. Leaves the drill open: the caller's
+  // `finally` drops `busy`, which re-enables the textarea — that is the "mic
+  // opens" step.
   async function startCorrectionDrill(next: CorrectionDrill) {
     drillRef.current = next;
     setDrill(next);
     earcons.play("correctionIncoming");
+    haptics.play("correctionIncoming"); // task 4.4 — the long buzz, screen-off's only cue an interrupt is coming
     await speakDrillTarget(next, { withPrefix: true });
     textareaRef.current?.focus();
   }
