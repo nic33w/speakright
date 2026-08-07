@@ -715,15 +715,29 @@ Backend untouched; suite still **89 passed, 1 xfailed.**
 | Control | Action |
 |---|---|
 | **L3 / R3** (click either stick) | Toggle recording on/off (via F13) — earcon on each edge |
-| **B** (East) | Cancel pending send / stop audio |
+| **Stick deflection** (either, any direction, past a large deadzone) | **Cancel the pending auto-send** — earcon on cancel |
+| **B** (East) | Backup cancel + stop audio |
 | **A** (South) | Repeat last target sentence |
 | **Y** (North) | Repeat **slower** (0.75×) — needs 2.1 |
 | **X** (West) | Explain that — spoken `error_explanation` (3.4) |
 | LT (hold) | Hold to hear the English translation |
 
 **Design notes:**
-- **Cancel is B**, not a stick flick — thumbs rest on sticks and accidental cancels will be common.
-  Optionally *also* accept a hard deflection past a large deadzone (>0.7) as a deliberate flick.
+- **Cancel is a stick flick** (settled): push either stick past a large deadzone, any direction,
+  during the ~1.5s pending-send window. The threshold is what makes this safe — a resting thumb sits
+  near 0.0, so **0.8** magnitude (`Math.hypot(x, y) > 0.8`) cannot happen by accident. It also means
+  the cancel gesture lives on the same stick you just clicked to stop recording: click, then flick if
+  you didn't mean it. No hand repositioning.
+- **Four rules for the flick, or it misfires:**
+  1. **Only armed while a send is pending.** Outside that window, stick movement does nothing —
+     otherwise idle fidgeting cancels things that aren't happening.
+  2. **Edge-triggered, not level.** Fire once on crossing the threshold; don't re-fire while held out,
+     and require a return below ~0.3 before it can arm again.
+  3. **Magnitude, not direction** — any direction counts, as you specified. Don't special-case axes.
+  4. **Earcon on cancel** (2.3's low thud). With the screen off it's the only confirmation that the
+     flick registered, and a silent cancel is indistinguishable from a missed one.
+- **B stays as a backup cancel, and keeps stop-audio.** Two different jobs: the flick is for the
+  time-critical auto-send window, B is the general "stop / back" that also kills playback mid-clip.
   Redundant cancel is fine; redundant confirm is not.
 - Drive the existing `useWisprAutoSend` hook — do **not** spin up a parallel cancel timer.
 - **LT translation is free** in v2: the challenge chunk already carries `native_text`, so revealing or
