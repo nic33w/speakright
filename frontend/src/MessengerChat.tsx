@@ -318,6 +318,17 @@ export default function MessengerChat({
         case 3: void repeatLastAudioSlow(); break;        // Y — repeat slower (0.75x)
         case 4: replayStack.stepBack(); break;             // LB — replay stack: older
         case 5: replayStack.stepForward(); break;          // RB — replay stack: newer
+        // D-pad (task 4.5): session-level settings, not per-turn actions — kept
+        // off the face buttons deliberately (see TASKS.md's rationale).
+        case 12: setEyesFree(prev => !prev); break;         // D-pad Up — toggle eyes-free
+        case 13:                                            // D-pad Down — cycle pairing mode
+          setPairingMode(prev =>
+            prev === "targetOnly" ? "pairs" : prev === "pairs" ? "alternating" : "targetOnly");
+          break;
+        case 14:                                            // D-pad Left — change topic / skip
+        case 15:                                            // D-pad Right — change topic / skip
+          void handlePivot();
+          break;
         default: break;
       }
     },
@@ -1750,7 +1761,7 @@ export default function MessengerChat({
               </label>
               <span
                 title={gamepad.connected
-                  ? "Controller seen by the browser — A repeat, B cancel/stop, X explain, Y repeat slow, LB/RB step through replay history, stick flick cancels a pending send, LT-hold plays the translation"
+                  ? "Controller seen by the browser — A repeat, B cancel/stop, X explain, Y repeat slow, LB/RB step through replay history, stick flick cancels a pending send, LT-hold plays the translation, D-pad up/down toggle eyes-free/cycle pairing mode, D-pad left/right change topic"
                   : "No controller seen by the browser. Recording (F13) still works via the native mapper regardless — this only affects in-page buttons, and it also goes dark whenever the window loses focus"}
                 style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, color: gamepad.connected ? '#16a34a' : '#9ca3af' }}
               >

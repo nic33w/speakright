@@ -856,7 +856,7 @@ new). Backend untouched; suite still **89 passed, 1 xfailed.**
 
 ---
 
-### [ ] 4.5 — D-pad mode toggles 🟡 Sonnet
+### [x] 4.5 — D-pad mode toggles 🟡 Sonnet
 
 | Control | Action |
 |---|---|
@@ -869,7 +869,28 @@ face buttons you press constantly. The D-pad is exactly right for infrequent set
 
 **Depends on:** 4.1, 3.3, 3.6.
 
+**Shipped as:** four more `onButtonChange` cases in the same `useGamepad` call from 4.2/4.3 (standard
+mapping 12–15 = D-pad up/down/left/right) — no new hook plumbing needed, this task is pure wiring
+onto state and functions that already existed. Up flips `setEyesFree`; down cycles `pairingMode`
+targetOnly → pairs → alternating → targetOnly (3.6/3.8's existing three modes, in the order the table
+lists them); left and right both call the existing `handlePivot()` — the function already backing the
+🔀 "Change topic" button — since the pivot queue (`getNextPivot()`) is a forward-only shuffle with no
+backward step to give left and right distinct behavior, and the task's own row groups both arrows
+under one action ("change topic / skip") rather than describing two.
+
+Toolbar tooltip (4.1/4.2's "🎮 connected" badge) extended to list the D-pad mappings.
+
+**Not verified:** no physical controller in this environment, same caveat as the rest of Phase 4.
+Typecheck and lint clean (same pre-existing repo-wide lint errors as before, none new). Backend
+untouched; suite still **89 passed, 1 xfailed.**
+
 ---
+
+**Phase 4 complete.** Every button on the controller now does something: L3/R3 record, A/B/X/Y/LT
+handle the turn, LB/RB browse replay history, D-pad handles session settings, and rumble confirms the
+three highest-stakes moments. RT stays intentionally unassigned (4.2). None of it has been touched by
+a physical controller — every task from 4.1 on carries that same caveat, and it's the one thing left
+before this phase can be called actually done rather than just implemented.
 
 # Phase 5 — Engagement
 
