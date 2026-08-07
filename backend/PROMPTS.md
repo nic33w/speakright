@@ -58,15 +58,26 @@ also keeps English TTS out of the loop (~4–5× the Azure characters).
 8. Student model (level, comfortable/weak/avoid lists — mutable)
 9. `CURRENT SCENE` (task 5.1; `prompts/templates/scene.txt`) — omitted entirely
    when no scene is active, so a sceneless profile produces the pre-5.1 tail
-10. Conversation context (last 3 turns)
-11. Turn instruction (regular vs every-5th-turn assessment; v2 adds a one-line
+10. `THE SECRET` (task 5.3; `prompts/templates/secret.txt`) — only for a secret
+    scene, and only one that actually has a secret. Holds the thing the learner
+    is extracting, plus the rules for holding it (never state it early, never
+    lie about it, reward good questions)
+11. Conversation context (last 3 turns)
+12. Turn instruction (regular vs every-5th-turn assessment; v2 adds a one-line
     challenge-format reminder — without it the model drops the v2 format)
-12. `SCENE PACING` — "turn N of M" plus what to do about it (open / push /
+13. `SCENE PACING` — "turn N of M" plus what to do about it (open / push /
     set up the ending / resolve now). Deliberately the *last* directive before
     the input: the final-turn "resolve now" is the one line that must not get
-    buried. Omitted with the scene block.
-13. `CURRENT USER INPUT`
-14. "Return ONLY valid JSON"
+    buried. Omitted with the scene block. A secret scene swaps in its own four
+    phases (`_secret_pacing`): make it obvious you're holding out → leak exactly
+    one new detail → all but name it → final turn, say it yourself. Plus a fifth,
+    "they just named it", which fires the moment the guess lands and closes the
+    scene whatever the clock says.
+14. `CURRENT USER INPUT`
+15. "Return ONLY valid JSON"
+
+**A secret must never reach the static prefix either** — it would be cached and
+carried into scenes it doesn't belong to. Same rule, higher stakes.
 
 **The scene never touches the static prefix.** It reads like setup, which is
 exactly why it's tempting to put it there — but a new scene every 5–10 turns

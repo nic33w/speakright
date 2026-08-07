@@ -117,6 +117,81 @@ Play it in character and never narrate or explain the scene to the learner."""
     return block.rstrip()
 
 
+def build_secret_context(profile: Dict[str, Any], character_name: str) -> str:
+    """Render the secret block for an information-asymmetry scene (task 5.3).
+
+    Returns "" for any scene that isn't a secret scene, or one that lost its
+    secret and got demoted (see profile_store.new_scene) — same clean-omission
+    rule as the scene and character-state blocks.
+
+    DYNAMIC TAIL ONLY, like everything else about a specific scene.
+    """
+    scene = active_scene(profile)
+    if scene.get("type") != "secret" or not scene.get("secret"):
+        return ""
+
+    fields = {"character_name": character_name, "secret": scene["secret"]}
+
+    template_file = PROMPTS_DIR / "templates" / "secret.txt"
+    if template_file.exists():
+        block = template_file.read_text(encoding="utf-8")
+    else:
+        block = """THE SECRET — this scene runs on what only you know:
+- What you know: {{secret}}
+- The learner does not know it. Getting you to say it is the whole scene.
+Never state it outright until the SCENE PACING block says to, never lie about it, and react like
+you got caught the moment they name it."""
+
+    for key, value in fields.items():
+        block = block.replace("{{" + key + "}}", value)
+    return block.rstrip()
+
+
+def _secret_pacing(scene: Dict[str, Any], current: int, budget: int) -> str:
+    """Pacing body for a secret scene (task 5.3).
+
+    A different clock from a standard scene: the learner can end this one early
+    by naming the secret, so the budget is a *deadline* for the character to give
+    it up rather than a schedule for resolving a situation. Clues escalate toward
+    that deadline so the scene can't end with the learner having learned nothing.
+    """
+    if scene.get("secret_solved"):
+        return (
+            "- THEY JUST NAMED IT. The scene ends here, this turn.\n"
+            f"- Confirm it — it really is \"{scene.get('secret', '')}\" — and react like someone "
+            "who has just been caught out. Do not deny it, do not stall, do not make them say it "
+            "twice.\n"
+            "- Then let it land: no new hook, no next scheme, nothing to extract."
+        )
+    if current >= budget:
+        return (
+            "- FINAL turn: they have run out of chances, so YOU say it. Out loud, plainly, in this "
+            "reply.\n"
+            f"- Tell them it was \"{scene.get('secret', '')}\" — grudgingly, dramatically, however "
+            "fits you, but actually tell them.\n"
+            "- A secret you never give up is a scene the learner cannot tell they finished. End it."
+        )
+    if current >= budget - 1:
+        return (
+            "- One turn left after this. Give them a clue that all but names it — the most specific "
+            "thing you can say without saying the thing.\n"
+            "- Make it obvious you are on the edge of telling them."
+        )
+    if current == 1:
+        return (
+            "- Open by making it unmistakable that you are holding something back, without hinting "
+            "at what it is yet.\n"
+            "- Invite the questions: say something they will want to pull on."
+        )
+    return (
+        "- Middle of the scene: leak exactly ONE new concrete detail this turn, and only if they "
+        "asked something worth answering.\n"
+        "- Never repeat a clue you have already given — repeating one is the same as stalling, and "
+        "they cannot narrow anything down with it.\n"
+        "- Keep dodging the thing itself. They have to name it; you do not hand it over."
+    )
+
+
 def scene_progress_instruction(profile: Dict[str, Any]) -> str:
     """The pacing line for this turn: where the scene is, and what to do about it.
 
@@ -132,6 +207,9 @@ def scene_progress_instruction(profile: Dict[str, Any]) -> str:
     budget = scene.get("turn_budget", 7)
     current = scene.get("turns_elapsed", 0) + 1
     header = f"SCENE PACING — turn {min(current, budget)} of {budget} in this scene:"
+
+    if scene.get("type") == "secret" and scene.get("secret"):
+        return f"{header}\n{_secret_pacing(scene, current, budget)}"
 
     if current >= budget:
         body = (
@@ -351,8 +429,10 @@ response_chunks[0] MUST be chosen verbatim, word-for-word, from the list below (
     # scene has completed at least once)
     character_state_context = build_character_state_context(profile, character_name)
 
-    # Layer 5: Scene (dynamic — task 5.1; empty when no scene is active)
+    # Layer 5: Scene (dynamic — task 5.1; empty when no scene is active) plus
+    # its secret, for information-asymmetry scenes (task 5.3)
     scene_context = build_scene_context(profile, character_name)
+    secret_context = build_secret_context(profile, character_name)
     scene_pacing = scene_progress_instruction(profile)
 
     # Layer 6: Conversation Context (dynamic)
@@ -537,6 +617,7 @@ The learner is listening with the screen off. Everything you write is spoken alo
         student_context,
         character_state_context,
         scene_context,
+        secret_context,
         context_str,
         turn_instruction,
         scene_pacing,  # last directive before the input: "resolve now" has to be loud

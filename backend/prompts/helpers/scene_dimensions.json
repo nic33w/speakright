@@ -91,6 +91,75 @@
     }
   ],
 
+  "_secret_comment": "Task 5.3: information-asymmetry scenes, ported from the guessing game. A secret scene is drawn from secret_goals instead of character_goals (SECRET_SCENE_CHANCE of the time) and it ends the moment the learner NAMES the thing — the only scene type whose ending the learner can earn early. The concrete secret and the target-language phrasings it can be matched against come from llm_call.generate_scene, so a secret scene demotes to a standard one if that call fails: there is nothing language-neutral to fall back on here. secret_kind tells the generator what class of thing to invent. Because this is the one scene type whose outcome we actually know, mood_after_solved / mood_after_unsolved replace the hedged single mood the other goals carry.",
+
+  "secret_goals": [
+    {
+      "goal": "you know exactly what happened to the thing of theirs that went missing, and you are not volunteering it",
+      "secret_kind": "what actually happened to a small thing of theirs that disappeared",
+      "completion": "the learner has named what happened to it, out loud",
+      "mood_after_solved": "caught out, and weirdly relieved to have it in the open",
+      "mood_after_unsolved": "quietly pleased that they still have no idea",
+      "energy_after": "watchful, waiting to see if it comes up again"
+    },
+    {
+      "goal": "you were somewhere last night you should not have been, and you will not name the place",
+      "secret_kind": "where you actually were last night",
+      "completion": "the learner has named the place out loud",
+      "mood_after_solved": "busted, laughing it off a beat too hard",
+      "mood_after_unsolved": "smug, still sitting on it",
+      "energy_after": "keyed up, like you got away with something"
+    },
+    {
+      "goal": "you know who started the rumor going around and you are enjoying not saying",
+      "secret_kind": "who started the rumor",
+      "completion": "the learner has named who it was",
+      "mood_after_solved": "delighted they worked it out, already planning what to do with it",
+      "mood_after_unsolved": "insufferable about knowing something they don't",
+      "energy_after": "chatty, itching to bring it up again"
+    },
+    {
+      "goal": "you spent money on something ridiculous and you keep dodging what it was",
+      "secret_kind": "what you actually spent the money on",
+      "completion": "the learner has named what you bought",
+      "mood_after_solved": "sheepish but defending the purchase anyway",
+      "mood_after_unsolved": "cheerfully evasive, changing the subject on reflex",
+      "energy_after": "up, because you still think it was a good idea"
+    },
+    {
+      "goal": "you have already arranged a surprise for them and you are trying not to give it away",
+      "secret_kind": "what the surprise is",
+      "completion": "the learner has named the surprise",
+      "mood_after_solved": "annoyed you spoiled it, secretly glad they are excited",
+      "mood_after_unsolved": "smug, sitting on it and enjoying every second",
+      "energy_after": "fizzing, barely containing it"
+    },
+    {
+      "goal": "someone told you something about the learner and you will not say who",
+      "secret_kind": "who told you",
+      "completion": "the learner has named who told you",
+      "mood_after_solved": "guilty about the person you just gave up",
+      "mood_after_unsolved": "loyal and a bit self-satisfied about it",
+      "energy_after": "careful, choosing your words more than usual"
+    },
+    {
+      "goal": "you know the real reason the plan got called off and you are pretending you don't",
+      "secret_kind": "the real reason the plan fell through",
+      "completion": "the learner has named the real reason",
+      "mood_after_solved": "relieved to stop pretending",
+      "mood_after_unsolved": "tired of keeping the story straight",
+      "energy_after": "flat, like the whole thing wore you out"
+    },
+    {
+      "goal": "you are holding onto something with a story behind it and you keep deflecting about where it came from",
+      "secret_kind": "where the thing you are carrying actually came from",
+      "completion": "the learner has named where it came from",
+      "mood_after_solved": "showing it off now that the story is out",
+      "mood_after_unsolved": "amused, letting them keep guessing",
+      "energy_after": "playful, drawing it out"
+    }
+  ],
+
   "user_goals": [
     "find out what you are actually up to",
     "get a straight answer to a simple question you keep dodging",

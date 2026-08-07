@@ -90,6 +90,13 @@ SCENE_MAX_TURNS = 10
 # on the cheapest model, same reasoning as TRANSLATE_MODEL.
 SCENE_MODEL = os.getenv("SCENE_MODEL", "gpt-4.1-nano")
 
+# Task 5.3: how often a scene is drawn from `secret_goals` instead of
+# `character_goals` — the character knows one specific thing and the learner has
+# to extract it. Roughly one scene in three: it is the strongest engine here, but
+# it is also the most demanding turn for the learner (they have to drive), so it
+# earns its place as a change of gear rather than the default mode.
+SECRET_SCENE_CHANCE = 0.34
+
 # Profile weak_points/comfortable_with lists: cap size (keep most recently reaffirmed,
 # near-duplicates merged — see profile_store._upsert_tag) and reject weak_points items that
 # contradict the app's own STT-tolerance rules (accents/punctuation are never penalized).

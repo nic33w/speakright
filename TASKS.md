@@ -1091,7 +1091,7 @@ checked `/api/usage` first, per the ground rules.
 
 ---
 
-### [ ] 5.3 — Port the secret/information-asymmetry mechanic into messenger 🔴 Opus
+### [x] 5.3 — Port the secret/information-asymmetry mechanic into messenger 🔴 Opus
 
 **Fix:** The strongest conversation engine is the character knowing something the user has to extract.
 You already built it — `GuessingGame.tsx` + `call_llm_to_pick_secret` in `llm_call.py`. This is a
@@ -1101,6 +1101,73 @@ merge into the scene system, not new invention.
 `frontend/src/GuessingGame.tsx` (read for the mechanic, don't modify).
 
 **Depends on:** 5.1 — the secret is a scene type.
+
+**Shipped as:** a scene *type*, exactly as the task framed it — no new mode, no new endpoint, no
+frontend. `scene_dimensions.json` gains `secret_goals` (8 entries, each with a `secret_kind` telling
+the generator what class of thing to invent), drawn instead of `character_goals` at
+`settings.SECRET_SCENE_CHANCE` (0.34) and **never twice in a row** — back to back they stop being a
+change of gear and turn into a quiz. `generate_scene` returns two extra fields for them: the concrete
+`secret` and 4–6 **target-language** `secret_aliases`.
+
+**The mechanic's core is free.** `profile_store.check_secret_guess` matches the learner's input
+against the aliases locally — normalized, accent/punctuation-tolerant, whole-word-sequence only (bare
+substring would fire "la fiesta" inside "manifiesta", and a scene ended by a false positive is worse
+than one that runs a turn long). No LLM check, per the app's own fuzzy-match-first rule. The router
+calls it in `_check_secret` **before** the prompt is built, so the same turn that receives the guess
+answers it, and `advance_scene` closes the scene at the end of that turn — the learner *earns* the
+ending, which is the only early exit 5.1's turn budget has ever allowed.
+
+Prompt side: `build_secret_context` (new `prompts/templates/secret.txt`) plus a secret variant of the
+pacing block, `_secret_pacing`, with four phases — make it obvious you're holding out → leak exactly
+one new detail per turn → all but name it → **final turn, say it yourself** (an unsolved secret still
+gets told, or the learner can't tell the scene finished). A fifth branch fires on the solved turn.
+Both dynamic-tail only; a test asserts the secret appears nowhere in the cached prefix.
+
+**Three things a secret scene deliberately withholds from the LLM:**
+- Its **completion condition** stays the drawn one. Seen live: nano invented an *object* as the secret
+  while rewriting the ending to "the learner names the person who told you" — two different targets.
+  The drawn condition already agrees with `secret_kind` by construction.
+- Its **user_goal** is overwritten with `work out {secret_kind}`. The shared `user_goals` pool is drawn
+  independently, and a stray "make a plan with you for later" pulls against the only thing the scene
+  is about.
+- Its **mood/energy**, as in 5.2 — but this is the one scene type whose outcome we actually know, so it
+  carries `mood_after_solved` / `mood_after_unsolved` and `update_character_state` states what happened
+  ("They worked it out — it was X, and they said it to your face") instead of 5.2's honest hedge.
+
+**Without a generated secret the scene demotes to a standard one.** Unlike every other part of a
+scene there is no language-neutral fallback — aliases have to be in the learner's target language, so
+only the LLM can produce them. Mock mode therefore carries a canned secret (the one place mock is not
+simply the fallback path), which is what makes the whole mechanic testable with no keys and no spend.
+
+**Verified live** on gpt-4.1-nano — two calls, **0.030 cents**. The first exposed two real defects,
+both fatal to the mechanic and both invisible to stub tests:
+1. **Aliases came back in English** (`["the bike lock", "the lock key"]`) while the learner types
+   Spanish — `check_secret_guess` could never have fired. Fixed by calling out that this is the one
+   non-English field in the JSON, saying why (matched literally against learner input), and showing
+   the shape.
+2. **The secret didn't match its own `secret_kind`** — kind "who told you" (a person), secret "the bike
+   lock key" (an object). Fixed by making the field spec read the kind literally ("if it asks WHO, the
+   secret is a person"), plus the pinned completion condition above.
+
+Re-verified clean: secret "the nightclub" for kind "where you actually were last night", aliases
+`["el club nocturno", "el nightclub", "la discoteca", "la sala de baile"]`, all four matching a
+realistic learner sentence, unrelated input not matching. The second call also showed a milder slip —
+`character_goal` ending "…and you won't tell **me** where" — so **5.1's perspective guard now also
+blanks any I/me/my** in the two second-person fields (nobody speaks in the first person there, so it
+is always a slip), falling back to the drawn dimension as before.
+
+**Tests: 139 passed, 1 xfailed** (was 119/1). 20 new across `test_scene.py` (draw shape, no-two-in-a-row,
+demotion, guess detection incl. the accent and false-positive cases, early close, budget close,
+outcome-aware character state, the generate_scene secret contract, mock playability, and an end-to-end
+solve through the endpoint) and `test_prompt_snapshot.py` (secret in the tail and nowhere in the
+prefix, all five pacing phases, standard and demoted scenes rendering no secret block). Existing scene
+tests needed deterministic draws — `standard_draw()` / `secret_draw()` helpers pin the pool instead of
+leaving 5.1's tests flaky at `SECRET_SCENE_CHANCE`. **Goldens did not move.**
+
+**Out of scope, left alone on purpose:** `GuessingGame.tsx` and `/api/guessing/*` are untouched, as
+the task specified — the standalone mode still runs its own LLM-per-turn loop. Nothing is exposed to
+the frontend: no "you solved it" banner, no guess counter, no give-up button. The character reacting
+to being caught *is* the feedback, and adding UI would make it a quiz again.
 
 ---
 

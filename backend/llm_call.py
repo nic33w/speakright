@@ -567,7 +567,7 @@ def generate_scene(
     character_bio: str,
     target_language: str,
     model: Optional[str] = None,
-) -> Dict[str, str]:
+) -> Dict[str, Any]:
     """Turn a scene dimension draw into a concrete premise (task 5.1).
 
     Called once per scene (every 5-10 turns), not once per turn, and deliberately
@@ -580,11 +580,26 @@ def generate_scene(
     the model got that field wrong (see the perspective guard below) — the caller
     merges per field over the draw, so an empty one falls back rather than
     sinking the scene. Raises on API/parse failure, same fallback.
+
+    For a secret scene (task 5.3 — the draw carries `secret_kind`) it also returns
+    `secret` and `secret_aliases`: the concrete thing the character is sitting on,
+    and the {target_language} phrasings a learner might use to name it, which is
+    what `profile_store.check_secret_guess` matches against for free. Both are
+    required; without them the caller demotes the scene to a standard one.
     """
+    secret_kind = dimensions.get("secret_kind", "")
+
     if MOCK_MODE:
         # The dimensions ARE the fallback scene, so the mock is the fallback path:
         # mock runs exercise scene assembly without pretending a call happened.
-        return {key: dimensions.get(key, "") for key in SCENE_FIELDS}
+        mock = {key: dimensions.get(key, "") for key in SCENE_FIELDS}
+        if secret_kind:
+            # ...except the secret, which has no language-neutral fallback to be.
+            # Canned here so mock mode can play a whole secret scene end to end,
+            # guess included, with no keys and no spend.
+            mock["secret"] = "the mock secret"
+            mock["secret_aliases"] = ["el secreto", "the mock secret"]
+        return mock
 
     prompt = f"""You are setting up a short improvised scene for a language-practice chat.
 
@@ -613,12 +628,25 @@ PERSPECTIVE — this is the part that goes wrong most often, so read it twice:
 Return ONLY valid JSON (no markdown, no commentary):
 {{"setting": "...", "character_goal": "...", "user_goal": "...", "complication": "...", "completion_condition": "..."}}"""
 
+    if secret_kind:
+        prompt += f"""
+
+THIS IS A SECRET SCENE. {character_name} knows one specific thing the learner does not, and the scene ends when the learner NAMES it. Two extra fields:
+
+- "secret": it must be exactly this, and nothing else — {secret_kind}. Read that phrase literally and answer it: if it asks WHO, the secret is a person; if WHERE, a place; if WHAT you spent the money on or what happened to something, a thing or an event. Invent one concrete, guessable instance of it — not abstract ("something embarrassing"), not a whole story. A handful of good questions has to be able to narrow it down.
+- "secret_aliases": 4 to 6 ways of naming that secret, **written in {target_language}**. This is the one field in this JSON that is NOT in English — the learner speaks {target_language} and types in {target_language}, and these strings are matched literally against what they type, so an English alias can never match and makes the scene unwinnable. Each is the bare thing, a few words at most: no question words, no "is it", no full sentence. Give the most obvious wording first, then natural variants — with and without an article, singular/plural, an everyday synonym.
+  Shape (if the secret were "the broken blender" and the language were Spanish): ["la licuadora", "la licuadora rota", "licuadora", "la batidora"]. Same idea in whatever {target_language} actually is.
+- The other five fields must stay consistent with the secret: "character_goal" is you dodging THIS secret, "user_goal" is the learner trying to work out THIS secret, and the complication does not contradict it.
+
+Return ONLY valid JSON, now with all seven fields (English everywhere except secret_aliases):
+{{"setting": "...", "character_goal": "...", "user_goal": "...", "complication": "...", "completion_condition": "...", "secret": "...", "secret_aliases": ["...", "..."]}}"""
+
     result = _call_openai_json(
         prompt,
         label="SCENE",
         model=model or SCENE_MODEL,
         temperature=0.9,  # premise variety is the entire point of this call
-        max_output_tokens=400,
+        max_output_tokens=600 if secret_kind else 400,
     )
     parsed = result.parsed or {}
     scene = {}
@@ -635,10 +663,34 @@ Return ONLY valid JSON (no markdown, no commentary):
     # since the block is injected under "Your goal (Jorge)". Observed on nano.
     # Blank the field, not the scene: the drawn dimension has the perspective
     # right by construction, so falling back costs specificity and nothing else.
+    # Second signature of the same swap, seen live: the model writes the field as
+    # if the learner were speaking ("you won't tell me where"). These fields are
+    # addressed TO the character and nobody is speaking in the first person in
+    # them, so any I/me/my is a slip, not a phrasing choice.
     for key in ("character_goal", "complication"):
         if character_name and character_name.lower() in scene[key].lower():
             print(f"[SCENE] dropped inverted {key} (it names {character_name})")
             scene[key] = ""
+        elif re.search(r"\b(i|me|my|mine)\b", scene[key], re.IGNORECASE):
+            print(f"[SCENE] dropped inverted {key} (first person)")
+            scene[key] = ""
+
+    if secret_kind:
+        secret = parsed.get("secret")
+        aliases = parsed.get("secret_aliases")
+        if not isinstance(secret, str) or not secret.strip():
+            raise ValueError("secret scene response missing 'secret'")
+        if not isinstance(aliases, list):
+            raise ValueError("secret scene response missing 'secret_aliases'")
+        # Long "aliases" are whole sentences the model wrote instead of a name;
+        # matching against those never fires, and keeping them would make the
+        # scene look solvable when it is not.
+        aliases = [a.strip() for a in aliases
+                   if isinstance(a, str) and 0 < len(a.split()) <= 6 and a.strip()]
+        if not aliases:
+            raise ValueError("secret scene response had no usable secret_aliases")
+        scene["secret"] = secret.strip()
+        scene["secret_aliases"] = aliases
     return scene
 
 

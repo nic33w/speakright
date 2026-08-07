@@ -23,6 +23,7 @@ from models import (
 )
 from profile_store import (
     advance_scene,
+    check_secret_guess,
     init_default_profile,
     load_persona_json,
     load_profile,
@@ -268,6 +269,7 @@ def messenger_chat_turn(req: MessengerTurnRequest):
     # --- Normal LLM path ---
     profile = load_profile()
     _ensure_scene(profile)
+    _check_secret(profile, req.user_input)
     is_assessment_turn = _is_assessment_turn(profile)
     version = normalize_prompt_version(req.prompt_version)
     system_prompt, user_message = build_layered_prompt(req.user_input, profile, version)
@@ -287,6 +289,20 @@ def messenger_chat_turn(req: MessengerTurnRequest):
 
 
 # --- Turn helpers (shared by the buffered and streaming endpoints) -------------
+
+
+def _check_secret(profile: dict, user_input: str) -> None:
+    """Did this input name the active scene's secret? (task 5.3)
+
+    Runs before the prompt is built, so a hit is visible to the turn that
+    answers it: the SCENE PACING block flips to "they just named it, confirm and
+    close", and advance_scene ends the scene at the end of this same turn. Free —
+    local matching only, no LLM check (see profile_store.check_secret_guess).
+    """
+    scene = profile.get("scene")
+    if check_secret_guess(scene, user_input):
+        print(f"[SCENE] secret named on turn {scene.get('solved_at_turn')} "
+              f"of {scene.get('turn_budget')}: {scene.get('secret')}")
 
 
 def _ensure_scene(profile: dict) -> None:
@@ -329,8 +345,8 @@ def _ensure_scene(profile: dict) -> None:
 
     scene = new_scene(dimensions, concretized)
     profile["scene"] = scene
-    print(f"[SCENE] new scene {scene['id']} ({scene['source']}, {scene['turn_budget']} turns): "
-          f"{scene['character_goal']}")
+    print(f"[SCENE] new {scene.get('type', 'standard')} scene {scene['id']} "
+          f"({scene['source']}, {scene['turn_budget']} turns): {scene['character_goal']}")
 
 
 def _is_assessment_turn(profile: dict) -> bool:
@@ -682,6 +698,7 @@ def messenger_chat_turn_stream(req: MessengerTurnRequest):
 
         profile = load_profile()
         _ensure_scene(profile)
+        _check_secret(profile, req.user_input)
         is_assessment_turn = _is_assessment_turn(profile)
         version = normalize_prompt_version(req.prompt_version)
         system_prompt, user_message = build_layered_prompt(req.user_input, profile, version)

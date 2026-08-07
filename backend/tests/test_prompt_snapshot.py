@@ -375,6 +375,83 @@ def test_character_state_and_scene_can_render_together():
     assert user.index("CHARACTER CONTINUITY") < user.index("CURRENT SCENE")
 
 
+# --- Secret scenes (task 5.3) ---
+# Same prefix rule as 5.1/5.2, plus one of its own: the secret itself must never
+# reach the static prefix, or it would be cached and carried into the next scene.
+
+SECRET = "you broke their blender and hid the pieces"
+
+
+def _secret_profile(turns_elapsed=0, solved=False, **overrides):
+    return _scene_profile(
+        turns_elapsed=turns_elapsed,
+        type="secret",
+        secret=SECRET,
+        secret_aliases=["la licuadora rota"],
+        secret_solved=solved,
+        **overrides,
+    )
+
+
+def test_secret_block_goes_in_the_dynamic_tail_only():
+    system, user = build_layered_prompt(USER_INPUT, _secret_profile(), "v1")
+    assert "THE SECRET" in user
+    assert SECRET in user
+    assert SECRET not in system, "the secret leaked into the cached static prefix"
+    assert "THE SECRET" not in system
+
+
+def test_static_prefix_survives_a_secret_scene():
+    for version in VERSIONS:
+        sys_secret, _ = build_layered_prompt("hola", _secret_profile(), version)
+        sys_plain, _ = build_layered_prompt("hola", _scene_profile(), version)
+        sys_none, _ = build_layered_prompt("hola", _profile(turn_count=3), version)
+        assert sys_secret == sys_plain == sys_none, f"secret changed the {version} prefix"
+
+
+def test_standard_scene_renders_no_secret_block():
+    _, user = build_layered_prompt(USER_INPUT, _scene_profile(), "v1")
+    assert "THE SECRET" not in user
+
+
+def test_demoted_secret_scene_renders_no_secret_block():
+    """profile_store.new_scene demotes a secret scene whose generation failed —
+    the type can survive in an old saved profile, so the prompt guards on the
+    secret itself, not the label."""
+    _, user = build_layered_prompt(USER_INPUT, _scene_profile(type="secret", secret=""), "v1")
+    assert "THE SECRET" not in user
+    assert "leak exactly ONE new concrete detail" not in user, \
+        "secret pacing must not run without a secret to pace"
+
+
+def test_secret_pacing_escalates_toward_the_deadline():
+    def pacing(turns_elapsed, solved=False):
+        _, user = build_layered_prompt(
+            USER_INPUT, _secret_profile(turns_elapsed, solved), "v1")
+        return user.split(PACING_HEADER)[1]
+
+    assert "holding something back" in pacing(0)
+    assert "leak exactly ONE new concrete detail" in pacing(2)
+    assert "all but names it" in pacing(4)
+
+    # Final turn: the character gives it up, so a scene the learner never solved
+    # still ends with them knowing the answer.
+    final = pacing(5)
+    assert "FINAL turn" in final
+    assert SECRET in final
+
+
+def test_solved_secret_closes_the_scene_whatever_the_clock_says():
+    """The learner earned the ending — the pacing must not still be telling the
+    character to hold out, and it must not wait for the budget."""
+    _, user = build_layered_prompt(USER_INPUT, _secret_profile(turns_elapsed=1, solved=True), "v1")
+    pacing = user.split(PACING_HEADER)[1]
+    assert "THEY JUST NAMED IT" in pacing
+    assert SECRET in pacing
+    assert "leak exactly ONE" not in pacing
+    assert "Middle of the scene" not in pacing
+
+
 def test_unknown_prompt_version_falls_back_to_v1():
     """An unrecognized version must reuse v1's prefix, not mint a fourth
     cache entry."""
