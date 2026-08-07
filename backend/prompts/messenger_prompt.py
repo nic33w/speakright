@@ -21,6 +21,23 @@ PROMPT_VERSIONS = ("v1", "v2", "eyesfree")
 DEFAULT_PROMPT_VERSION = "v1"
 
 
+def get_persona_tuning() -> Dict[str, Any]:
+    """Sampling params for the active persona (task 5.0).
+
+    Reads meta.temperature and tuning.max_tokens from the persona JSON. Falls
+    back to the pre-5.0 hardcoded values (temperature 0.2, 800 output tokens)
+    when a persona doesn't declare them, so an untuned persona behaves exactly
+    as it did before this existed.
+    """
+    persona_data = load_persona_json(PERSONA) or {}
+    meta = persona_data.get("meta", {})
+    tuning = persona_data.get("tuning", {})
+    return {
+        "temperature": meta.get("temperature", 0.2),
+        "max_output_tokens": tuning.get("max_tokens", 800),
+    }
+
+
 def normalize_prompt_version(version: Any) -> str:
     """Map anything unrecognized onto v1.
 

@@ -847,6 +847,7 @@ def call_llm_for_messenger(
     user_message: str,
     model: Optional[str] = None,
     temperature: float = 0.2,
+    max_output_tokens: int = 800,
     timeout: int = 30,
 ) -> Dict[str, Any]:
     """
@@ -924,7 +925,7 @@ def call_llm_for_messenger(
             label="MESSENGER CHAT",
             model=model,
             temperature=temperature,
-            max_output_tokens=800,
+            max_output_tokens=max_output_tokens,
             timeout=timeout,
         )
         parsed = result.parsed

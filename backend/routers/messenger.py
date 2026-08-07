@@ -28,7 +28,7 @@ from profile_store import (
     save_profile,
     update_profile_from_assessment,
 )
-from prompts.messenger_prompt import build_layered_prompt, normalize_prompt_version
+from prompts.messenger_prompt import build_layered_prompt, get_persona_tuning, normalize_prompt_version
 from quiz_store import add_quiz_item, get_pending_quiz
 from settings import API_ROOT, ENABLE_QUIZZING, MOCK_MODE, PERSONA, REACTIONS_AUDIO_DIR
 from tts_helpers import tts_bytes_for_chunk
@@ -271,7 +271,8 @@ def messenger_chat_turn(req: MessengerTurnRequest):
     if MOCK_MODE:
         llm_response = _mock_llm_response(req, profile, version)
     else:
-        llm_response = call_llm_for_messenger(system_prompt, user_message)
+        tuning = get_persona_tuning()
+        llm_response = call_llm_for_messenger(system_prompt, user_message, **tuning)
 
     _apply_output_gates(llm_response, is_assessment_turn, version)
 
@@ -638,7 +639,8 @@ def messenger_chat_turn_stream(req: MessengerTurnRequest):
                 stream = [("chunk", c) for c in mock.get("response_chunks", [])]
                 stream.append(("done", mock))
             else:
-                stream = stream_llm_for_messenger(system_prompt, user_message)
+                tuning = get_persona_tuning()
+                stream = stream_llm_for_messenger(system_prompt, user_message, **tuning)
 
             llm_response = None
             for kind, payload in stream:

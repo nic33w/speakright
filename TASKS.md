@@ -898,7 +898,7 @@ before this phase can be called actually done rather than just implemented.
 except the every-5th assessment — no arc, no stakes, nothing that can resolve. A conversation that
 *can't end* is structurally boring regardless of content.
 
-### [ ] 5.0 — Wire persona tuning through to the LLM call 🟡 Sonnet
+### [x] 5.0 — Wire persona tuning through to the LLM call 🟡 Sonnet
 
 **Do this before judging Jorge.** `jorge.json` declares `meta.temperature: 0.9` and
 `tuning.max_tokens: 140`, and **nothing reads either one.** `build_layered_prompt` only consumes
@@ -916,6 +916,31 @@ This single change probably matters more to how Jorge feels than any prompt word
 
 **Watch for:** higher temperature raises schema-violation risk — keep an eye on malformed JSON and
 on chunks that mix languages. If it gets flaky, 0.7 is a reasonable compromise.
+
+**Shipped as:** a new `get_persona_tuning()` in `prompts/messenger_prompt.py` — reads
+`meta.temperature` and `tuning.max_tokens` off the active persona JSON (already loaded via
+`load_persona_json(PERSONA)`), falling back to the old hardcoded values (temperature 0.2, 800 output
+tokens) if a persona omits them, so an untuned persona is unaffected. `build_layered_prompt`'s
+signature/return shape is untouched — the many `system, user = build_layered_prompt(...)` call sites
+in `tests/test_prompt_snapshot.py` didn't need updating.
+
+`routers/messenger.py` calls `get_persona_tuning()` at both LLM call sites (buffered
+`/api/messenger/turn` and the streaming `/api/messenger/turn/stream`, which is what the frontend
+actually prefers — patching only the buffered path would have left the primary experience still
+running at the 0.2 default) and spreads it into `call_llm_for_messenger(**tuning)` /
+`stream_llm_for_messenger(**tuning)`. `call_llm_for_messenger` gained a `max_output_tokens` param
+(previously hardcoded to 800 inside the function) so it can accept the persona's value the same way
+`stream_llm_for_messenger` already did.
+
+Verified: `get_persona_tuning()` returns `{"temperature": 0.9, "max_output_tokens": 140}` for Jorge
+and reads Sombongo's `0.8`/`120` correctly too. **89 passed, 1 xfailed** — same baseline, no re-golden
+needed since this never touches the prompt text itself. Not verified against a real API call (no
+budget spent this session) — the malformed-JSON/language-mixing risk called out above is still open
+to watch for in a live session.
+
+**Out of scope, left alone on purpose:** `presence_penalty` (both personas declare
+`meta.presence_penalty`, but the task only asked for temperature/max_tokens, and OpenAI's Responses
+API support for it wasn't checked — a separate call if wanted).
 
 ---
 
