@@ -303,7 +303,7 @@ export default function MessengerChat({
 
   const gamepad = useGamepad({
     onButtonChange: (e) => {
-      if (!e.pressed) return; // face buttons fire on press only
+      if (!e.pressed) return; // face/shoulder buttons fire on press only
       switch (e.index) {
         case 0: void repeatLastAudio(); break;          // A — repeat last target sentence
         case 1:                                          // B — backup cancel + stop audio
@@ -315,6 +315,8 @@ export default function MessengerChat({
           break;
         case 2: void explainDrill(); break;               // X — explain that
         case 3: void repeatLastAudioSlow(); break;        // Y — repeat slower (0.75x)
+        case 4: replayStack.stepBack(); break;             // LB — replay stack: older
+        case 5: replayStack.stepForward(); break;          // RB — replay stack: newer
         default: break;
       }
     },
@@ -1408,24 +1410,26 @@ export default function MessengerChat({
     await audioPlayer.play(d.explanation, localeFor(fluent.code));
   }
 
-  // Alt+R: hear it again. During a drill that is the sentence to repeat; otherwise
-  // the last thing that was spoken (the replay stack from task 2.2).
+  // Alt+R / controller A: hear it again. During a drill that is the sentence to
+  // repeat; otherwise whatever the replay stack's cursor currently points at
+  // (task 2.2's stack, task 4.3's cursor over it — LB/RB move it, this reads it).
+  // Defaults to the latest item until something steps the cursor back.
   async function repeatLastAudio() {
     const d = drillRef.current;
     if (d) { await speakDrillTarget(d); return; }
-    const last = replayStack.items[replayStack.items.length - 1];
-    if (last) await audioPlayer.playUrl(last.audioUrl);
+    const item = replayStack.current();
+    if (item) await audioPlayer.playUrl(item.audioUrl);
   }
 
-  // Controller Y (task 4.2): same "hear it again" target, always at 0.75x. A
+  // Controller Y (task 4.2): same target as repeatLastAudio, always at 0.75x. A
   // drill target is already spoken slow by speakDrillTarget, so that path is
-  // identical to repeatLastAudio; the replay-stack path re-fetches at
-  // SLOW_TTS_RATE instead of replaying the cached (normal-speed) clip.
+  // identical; the replay-stack path re-fetches at SLOW_TTS_RATE instead of
+  // replaying the cached (normal-speed) clip.
   async function repeatLastAudioSlow() {
     const d = drillRef.current;
     if (d) { await speakDrillTarget(d); return; }
-    const last = replayStack.items[replayStack.items.length - 1];
-    if (last) await audioPlayer.play(last.text, last.locale, SLOW_TTS_RATE);
+    const item = replayStack.current();
+    if (item) await audioPlayer.play(item.text, item.locale, SLOW_TTS_RATE);
   }
 
   // Controller LT hold (task 4.2): speaks the native-language translation of the
@@ -1739,7 +1743,7 @@ export default function MessengerChat({
               </label>
               <span
                 title={gamepad.connected
-                  ? "Controller seen by the browser — A repeat, B cancel/stop, X explain, Y repeat slow, stick flick cancels a pending send, LT-hold plays the translation"
+                  ? "Controller seen by the browser — A repeat, B cancel/stop, X explain, Y repeat slow, LB/RB step through replay history, stick flick cancels a pending send, LT-hold plays the translation"
                   : "No controller seen by the browser. Recording (F13) still works via the native mapper regardless — this only affects in-page buttons, and it also goes dark whenever the window loses focus"}
                 style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, color: gamepad.connected ? '#16a34a' : '#9ca3af' }}
               >

@@ -789,7 +789,7 @@ Backend untouched; suite still **89 passed, 1 xfailed.**
 
 ---
 
-### [ ] 4.3 — Shoulder-button replay navigation 🟡 Sonnet
+### [x] 4.3 — Shoulder-button replay navigation 🟡 Sonnet
 
 **Fix:** LB steps back through the replay stack, RB steps forward. Keep the iPod semantic if you like
 the feel — LB within the first 50% of playback goes back one, after 50% restarts current. (Simpler
@@ -798,6 +798,28 @@ alternative: LB/RB purely move a cursor and A replays current. Either is fine.)
 **Files:** `frontend/src/MessengerChat.tsx`, `frontend/src/sharedGameHooks.ts`.
 
 **Depends on:** 2.2, 4.1.
+
+**Shipped as:** the simpler alternative — LB/RB move a cursor, A (already mapped in 4.2) replays
+whatever it points at. Chosen over the iPod split because that variant needs to track how far into
+the *current* clip playback has gotten, which nothing here does today; the cursor gets the same "step
+back through history" feel without inventing a progress tracker for it.
+
+`useReplayStack` (`sharedGameHooks.ts`) grew `cursorRef` (a ref, not state — LB/RB now touch zero
+React state, so a shoulder-button tap doesn't re-render the chat) plus `stepBack()` / `stepForward()`
+/ `current()`. `-1` means "track the latest item"; `push()` resets to `-1` on every new item, so
+browsing back with LB doesn't leave the controller's A/Y repeat buttons pinned to a stale sentence
+once the conversation has moved on — you have to deliberately still be parked there. `items`/`push`
+are unchanged, so this is additive to 2.2's original API.
+
+`repeatLastAudio()`/`repeatLastAudioSlow()` (task 4.2's A/Y handlers, and the Alt+R hotkey) switched
+their non-drill branch from `replayStack.items[items.length - 1]` to `replayStack.current()` — this
+is the one line that turns cursor movement into audible navigation, matching "A replays current" from
+the simpler design. LB/RB themselves are silent per the design notes; the drill branch (speaking the
+correction target) is untouched.
+
+**Not verified:** no physical controller in this environment, same caveat as 4.1/4.2. Typecheck and
+lint clean (same pre-existing repo-wide lint errors as before, none new). Backend untouched; suite
+still **89 passed, 1 xfailed.**
 
 ---
 

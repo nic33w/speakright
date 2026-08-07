@@ -113,14 +113,51 @@ export type ReplayItem = {
   audioUrl: string;
 };
 
+// A cursor into `items`, for task 4.3's shoulder-button history navigation
+// (LB/RB move the cursor, a separate "play current" action speaks it — the
+// simpler of the two designs TASKS.md offered, chosen over the iPod-style
+// playback-position split to avoid tracking in-flight playback progress here).
+// A ref, not state: nothing renders off it today, and re-rendering the whole
+// chat on every shoulder-button tap would be wasted work. `-1` means "track
+// the latest item" — the common case, and what push() resets to whenever a
+// new turn's audio arrives, so browsing back doesn't silently keep the
+// controller's A/Y repeat buttons pinned to a stale sentence once the
+// conversation has moved on.
 export function useReplayStack() {
   const [items, setItems] = useState<ReplayItem[]>([]);
+  const cursorRef = useRef(-1);
+  const lengthRef = useRef(0);
 
   const push = useCallback((item: ReplayItem) => {
-    setItems(prev => [...prev, item]);
+    setItems(prev => {
+      const next = [...prev, item];
+      lengthRef.current = next.length;
+      cursorRef.current = -1;
+      return next;
+    });
   }, []);
 
-  return { items, push };
+  const resolvedIndex = useCallback(() => (cursorRef.current < 0 ? lengthRef.current - 1 : cursorRef.current), []);
+
+  // Silent — per the design notes, LB/RB only move the cursor. Nothing plays
+  // until the caller's own "repeat current" action reads current(). Neither
+  // touches React state, so tapping a shoulder button doesn't re-render the chat.
+  const stepBack = useCallback(() => {
+    if (lengthRef.current === 0) return;
+    cursorRef.current = Math.max(0, resolvedIndex() - 1);
+  }, [resolvedIndex]);
+
+  const stepForward = useCallback(() => {
+    if (lengthRef.current === 0) return;
+    cursorRef.current = Math.min(lengthRef.current - 1, resolvedIndex() + 1);
+  }, [resolvedIndex]);
+
+  const current = useCallback((): ReplayItem | null => {
+    if (items.length === 0) return null;
+    return items[resolvedIndex()] ?? null;
+  }, [items, resolvedIndex]);
+
+  return { items, push, stepBack, stepForward, current };
 }
 
 // ── useWisprAutoSend ──────────────────────────────────────────────────────────
