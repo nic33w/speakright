@@ -222,6 +222,7 @@ export function GameTextarea({
   theme = "dark",
   autoFocus = false,
   textareaRef: externalRef,
+  onAutoSendChange,
 }: {
   value: string;
   onChange: (val: string) => void;
@@ -234,6 +235,11 @@ export function GameTextarea({
   theme?: "dark" | "light";
   autoFocus?: boolean;
   textareaRef?: React.RefObject<HTMLTextAreaElement | null>;
+  // Exposes the pending auto-send window and its cancel() to the caller, so an
+  // external gesture (task 4.2's controller stick-flick) can cancel it without
+  // a second, competing timer — useWisprAutoSend stays the one implementation.
+  // Optional and additive: existing callers are unaffected.
+  onAutoSendChange?: (state: { pending: boolean; cancel: () => void }) => void;
 }) {
   const internalRef = useRef<HTMLTextAreaElement>(null);
   const textareaRef = externalRef ?? internalRef;
@@ -241,6 +247,10 @@ export function GameTextarea({
 
   const isDisabled = busy || disabled;
   const autoSend = useWisprAutoSend({ value, onSubmit, disabled: isDisabled });
+
+  useEffect(() => {
+    onAutoSendChange?.({ pending: autoSend.pending, cancel: autoSend.cancel });
+  }, [autoSend.pending, autoSend.cancel, onAutoSendChange]);
 
   function clearInput() {
     autoSend.cancel();

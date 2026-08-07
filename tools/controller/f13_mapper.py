@@ -9,7 +9,13 @@ architecture: it does nothing but watch for the press edge and forward it.
 
 Windows only (XInput). Requires an XInput-aware mapper library — deliberately
 not AutoHotkey, whose legacy WinMM joystick support combines LT/RT onto a
-single shared axis and would break the 4.2 trigger mapping later.
+single shared axis and would have broken 4.2's LT-hold mapping.
+
+L3/R3 are the only buttons this script touches. Everything task 4.2 added
+(A/B/X/Y, the stick-flick cancel, LT-hold-to-translate) reads straight off the
+in-page Gamepad API via `useGamepad` in frontend/src/sharedGameHooks.ts — no
+native bridge needed there, because none of it has to reach an app outside
+the browser the way recording has to reach Wispr.
 
 Setup:
     pip install -r requirements.txt

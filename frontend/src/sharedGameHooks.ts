@@ -251,17 +251,32 @@ export function useEarcons() {
 // Task 4.1 itself doesn't map any button through this hook — L3/R3 recording
 // toggle goes through the native F13 mapper instead, precisely because
 // getGamepads() only reports while the document is focused (see TASKS.md
-// 4.1). This hook exists so 4.2 (face buttons), 4.3 (shoulder buttons), and
-// 4.5 (d-pad) have one polling loop to build on instead of each rolling its
-// own rAF loop, and so 4.1 can show a "controller seen by the browser" status
-// next to the F13 recording indicator.
+// 4.1). Task 4.2 is the first real consumer: `onButtonChange` drives the
+// discrete face buttons (A/B/X/Y — fire once on press), and `onFrame` carries
+// the continuous analog state (`axes`, and each button's `value` — not just
+// `pressed`) that the stick-flick cancel gesture and the LT hold-to-translate
+// gesture need, since both require magnitude/threshold logic across frames
+// rather than a single edge. Both callbacks share this one polling loop
+// rather than each gesture rolling its own rAF.
 export type GamepadButtonChange = { index: number; pressed: boolean };
+export type GamepadFrame = {
+  buttons: readonly { pressed: boolean; value: number }[];
+  axes: readonly number[];
+};
 
-export function useGamepad(onButtonChange?: (e: GamepadButtonChange) => void) {
+export function useGamepad({
+  onButtonChange,
+  onFrame,
+}: {
+  onButtonChange?: (e: GamepadButtonChange) => void;
+  onFrame?: (frame: GamepadFrame) => void;
+} = {}) {
   const [connected, setConnected] = useState(false);
   const prevButtonsRef = useRef<boolean[]>([]);
   const onButtonChangeRef = useRef(onButtonChange);
+  const onFrameRef = useRef(onFrame);
   onButtonChangeRef.current = onButtonChange;
+  onFrameRef.current = onFrame;
 
   useEffect(() => {
     if (typeof navigator === "undefined" || !navigator.getGamepads) return;
@@ -277,6 +292,10 @@ export function useGamepad(onButtonChange?: (e: GamepadButtonChange) => void) {
             onButtonChangeRef.current?.({ index, pressed: button.pressed });
           }
           prevButtonsRef.current[index] = button.pressed;
+        });
+        onFrameRef.current?.({
+          buttons: pad.buttons.map(b => ({ pressed: b.pressed, value: b.value })),
+          axes: pad.axes,
         });
       } else {
         prevButtonsRef.current = [];

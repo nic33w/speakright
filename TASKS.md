@@ -710,7 +710,7 @@ Backend untouched; suite still **89 passed, 1 xfailed.**
 
 ---
 
-### [ ] 4.2 — Map the per-turn action buttons 🟡 Sonnet
+### [x] 4.2 — Map the per-turn action buttons 🟡 Sonnet
 
 | Control | Action |
 |---|---|
@@ -748,6 +748,44 @@ Backend untouched; suite still **89 passed, 1 xfailed.**
 **Files:** `frontend/src/MessengerChat.tsx`, `frontend/src/sharedGameHooks.ts`, `tools/controller/`.
 
 **Depends on:** 4.1, 2.1, 3.4.
+
+**Shipped as:**
+- **`useGamepad`** (`sharedGameHooks.ts`) extended from 4.1's edge-only callback to an options object
+  `{ onButtonChange, onFrame }`. `onFrame` carries the continuous state — `axes` and each button's
+  analog `value`, not just `pressed` — that the flick and LT-hold gestures need, since both are
+  threshold/magnitude logic across frames rather than a single edge. One rAF loop still drives both.
+- **A/B/X/Y** wired via `onButtonChange` (fires on press only) straight onto the functions the
+  eyes-free keyboard hotkeys already used: A → `repeatLastAudio()`, X → `explainDrill()`. Y is new —
+  `repeatLastAudioSlow()`, identical to `repeatLastAudio()` for a drill (already spoken at
+  `SLOW_TTS_RATE`) but re-fetches the replay-stack item at `SLOW_TTS_RATE` instead of replaying the
+  cached normal-speed clip. B cancels a pending send (if any) and unconditionally calls
+  `audioPlayer.stop()`.
+- **Stick flick** — read every frame in `onFrame`: `Math.max(Math.hypot(lx,ly), Math.hypot(rx,ry))`
+  against the two thresholds from the design notes (arm-fires past 0.8, re-arms below 0.3,
+  `flickArmedRef` gates re-firing while held out). The cancel + earcon only actually happen if
+  `autoSendStateRef.current?.pending` is true at the moment of the edge — outside the window the
+  hysteresis bookkeeping still runs but nothing observable happens, satisfying "stick movement does
+  nothing" outside the pending window without special-casing the polling loop itself.
+- **`autoSendStateRef`** — the seam that lets the controller drive `useWisprAutoSend` without a second
+  timer. `GameTextarea` (`sharedGameComponents.tsx`) gained an optional `onAutoSendChange?: (state:
+  {pending, cancel}) => void` prop, called from a new effect whenever `autoSend.pending` changes;
+  MessengerChat mirrors it into the ref via a `useCallback`. Purely additive — every other
+  `GameTextarea` caller is unaffected, no default behavior changed.
+- **LT hold** — `frame.buttons[6].value` (standard mapping) thresholded at 0.5 rather than trusting
+  the browser's `pressed` boolean, which is too sensitive for a deliberate hold gesture. Press edge
+  calls the new `speakLastChallengeTranslation()`; release calls `audioPlayer.stop()`, cutting the
+  clip off exactly like letting go of a walkie-talkie button. Speaks `lastChallengeChunkRef.current
+  .native_text` — a new ref, populated in `revealChunk` and the pivot flow wherever a chunk carrying
+  `native_text` is revealed, so it survives past the per-message `<MessengerChallengePair>` component
+  it mirrors (hover triggers the same reveal with the mouse; this is the same data, controller-driven).
+- **Toolbar badge** (from 4.1) tooltip updated to list the live button map now that one exists.
+- **`tools/controller/f13_mapper.py`** — docstring note only, clarifying L3/R3 stay the only buttons
+  routed through the native mapper; everything in this task reads the in-page Gamepad API directly
+  and needed no mapper changes.
+
+**Not verified:** no physical controller in this environment, same caveat as 4.1. Typecheck and lint
+are clean on every touched line (same pre-existing repo-wide lint errors as before, none new).
+Backend untouched; suite still **89 passed, 1 xfailed.**
 
 ---
 

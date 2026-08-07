@@ -1,6 +1,6 @@
 // MessengerChat.tsx
 // Persona-based adaptive language learning chat with Mateo
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState, useRef, useCallback } from "react";
 import { GameTextarea, CorrectionTokens } from "./sharedGameComponents";
 import { useAudioPlayer, useReplayStack, useEarcons, useGamepad } from "./sharedGameHooks";
 import { API_BASE, localeFor, SLOW_TTS_RATE } from "./config";
@@ -272,8 +272,81 @@ export default function MessengerChat({
   // badge, since getGamepads() goes dark exactly when the window loses focus —
   // which is when the F13 signal below matters most.
   const [recording, setRecording] = useState(false);
-  const gamepad = useGamepad();
   const prevTranscriptLenRef = useRef(0);
+
+  // --- Controller per-turn action buttons (task 4.2) ---------------------------
+  // A/B/X/Y map onto the same functions the eyes-free keyboard hotkeys already
+  // drive (repeatLastAudio/explainDrill — see the Alt+R/Alt+E listener below),
+  // plus a slow-repeat and an LT-hold translation. Refs, not state: these are
+  // read from rAF-driven gamepad callbacks, not render output, so there's
+  // nothing to re-render on and state would just add stale-closure risk.
+  //
+  // Mirrors GameTextarea's internal useWisprAutoSend state (via the
+  // onAutoSendChange prop below) so the stick-flick/B cancel gesture can drive
+  // the *existing* pending-send timer instead of running a second one.
+  const autoSendStateRef = useRef<{ pending: boolean; cancel: () => void } | null>(null);
+  const handleAutoSendChange = useCallback((state: { pending: boolean; cancel: () => void }) => {
+    autoSendStateRef.current = state;
+  }, []);
+  // The most recent v2/eyes-free challenge chunk (the one with `native_text`) —
+  // LT-hold speaks its translation, the controller equivalent of hovering the
+  // native-language zone of <MessengerChallengePair>. Updated wherever a
+  // challenge chunk is revealed (revealChunk, and the pivot flow).
+  const lastChallengeChunkRef = useRef<ResponseChunk | null>(null);
+  // Stick-flick cancel hysteresis: fires once on crossing the 0.8 deadzone, and
+  // won't fire again until the stick has returned below 0.3 — otherwise holding
+  // the stick out floods repeat cancels instead of firing once per flick.
+  const flickArmedRef = useRef(true);
+  // LT hold state, so the translation is spoken once on press and cut off on
+  // release rather than replayed every frame the trigger stays down.
+  const ltHeldRef = useRef(false);
+
+  const gamepad = useGamepad({
+    onButtonChange: (e) => {
+      if (!e.pressed) return; // face buttons fire on press only
+      switch (e.index) {
+        case 0: void repeatLastAudio(); break;          // A — repeat last target sentence
+        case 1:                                          // B — backup cancel + stop audio
+          if (autoSendStateRef.current?.pending) {
+            autoSendStateRef.current.cancel();
+            earcons.play("sendCancelled");
+          }
+          audioPlayer.stop();
+          break;
+        case 2: void explainDrill(); break;               // X — explain that
+        case 3: void repeatLastAudioSlow(); break;        // Y — repeat slower (0.75x)
+        default: break;
+      }
+    },
+    onFrame: (frame) => {
+      // Stick flick: either stick, any direction, past a large deadzone,
+      // cancels a pending auto-send. Only does anything while a send is
+      // actually pending — outside that window a flick is a no-op, so idle
+      // stick movement can't cancel something that isn't happening.
+      const [lx = 0, ly = 0, rx = 0, ry = 0] = frame.axes;
+      const magnitude = Math.max(Math.hypot(lx, ly), Math.hypot(rx, ry));
+      if (magnitude > 0.8 && flickArmedRef.current) {
+        flickArmedRef.current = false;
+        if (autoSendStateRef.current?.pending) {
+          autoSendStateRef.current.cancel();
+          earcons.play("sendCancelled");
+        }
+      } else if (magnitude < 0.3) {
+        flickArmedRef.current = true;
+      }
+
+      // LT hold: standard-mapping button 6, analog. `pressed` is too sensitive
+      // for a deliberate hold gesture, so this thresholds `value` instead.
+      const ltValue = frame.buttons[6]?.value ?? 0;
+      const ltHeld = ltValue > 0.5;
+      if (ltHeld && !ltHeldRef.current) {
+        void speakLastChallengeTranslation();
+      } else if (!ltHeld && ltHeldRef.current) {
+        audioPlayer.stop();
+      }
+      ltHeldRef.current = ltHeld;
+    },
+  });
 
   // A repeat-after-me drill: the correction spoken as "try saying X" instead of
   // drawn as a diff. Only a substantive (severity "major") error opens one.
@@ -701,18 +774,20 @@ export default function MessengerChat({
     setIsTyping(false);
 
     const charMsgId2 = Date.now();
+    const pivotChunk: ResponseChunk = {
+      text: pivot.audio_message,
+      language: "target" as const,
+      modality: "audio" as const,
+      audio_file: audioPath ?? undefined,
+      locale,
+      native_text: pivot.audio_message_translation,
+    };
+    if (pivotChunk.native_text) lastChallengeChunkRef.current = pivotChunk;
     setMessages(prev => [...prev, {
       id: charMsgId2,
       timestamp: new Date(),
       side: "character",
-      responseChunks: [{
-        text: pivot.audio_message,
-        language: "target" as const,
-        modality: "audio" as const,
-        audio_file: audioPath ?? undefined,
-        locale,
-        native_text: pivot.audio_message_translation,
-      }],
+      responseChunks: [pivotChunk],
     }]);
 
     if (audioPath) {
@@ -896,6 +971,7 @@ export default function MessengerChat({
       // appended as they arrive so the streaming path can render bubble 1 while the
       // model is still writing corrections and suggestions.
       const revealChunk = async (chunk: ResponseChunk) => {
+        if (chunk.native_text) lastChallengeChunkRef.current = chunk;
         const index = shownCount;
         if (!characterCreated) {
           setProcessingMsgId(null);
@@ -1341,6 +1417,28 @@ export default function MessengerChat({
     if (last) await audioPlayer.playUrl(last.audioUrl);
   }
 
+  // Controller Y (task 4.2): same "hear it again" target, always at 0.75x. A
+  // drill target is already spoken slow by speakDrillTarget, so that path is
+  // identical to repeatLastAudio; the replay-stack path re-fetches at
+  // SLOW_TTS_RATE instead of replaying the cached (normal-speed) clip.
+  async function repeatLastAudioSlow() {
+    const d = drillRef.current;
+    if (d) { await speakDrillTarget(d); return; }
+    const last = replayStack.items[replayStack.items.length - 1];
+    if (last) await audioPlayer.play(last.text, last.locale, SLOW_TTS_RATE);
+  }
+
+  // Controller LT hold (task 4.2): speaks the native-language translation of the
+  // most recent v2/eyes-free challenge sentence — the controller equivalent of
+  // hovering <MessengerChallengePair>'s native zone. Free: native_text already
+  // came back with the main call, no translate roundtrip. No-op if there's been
+  // no challenge chunk yet this session.
+  async function speakLastChallengeTranslation() {
+    const chunk = lastChallengeChunkRef.current;
+    if (!chunk?.native_text) return;
+    await audioPlayer.play(chunk.native_text, localeFor(fluent.code));
+  }
+
   // Closes the drill and resumes the conversation. `attempt` is undefined when the
   // drill was skipped rather than answered.
   async function finishDrill(attempt?: string) {
@@ -1641,7 +1739,7 @@ export default function MessengerChat({
               </label>
               <span
                 title={gamepad.connected
-                  ? "Controller seen by the browser — face/shoulder/d-pad buttons (once mapped) will work"
+                  ? "Controller seen by the browser — A repeat, B cancel/stop, X explain, Y repeat slow, stick flick cancels a pending send, LT-hold plays the translation"
                   : "No controller seen by the browser. Recording (F13) still works via the native mapper regardless — this only affects in-page buttons, and it also goes dark whenever the window loses focus"}
                 style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, color: gamepad.connected ? '#16a34a' : '#9ca3af' }}
               >
@@ -2642,6 +2740,7 @@ export default function MessengerChat({
               theme="light"
               autoFocus
               textareaRef={textareaRef}
+              onAutoSendChange={handleAutoSendChange}
             />
           </div>
         </div>
