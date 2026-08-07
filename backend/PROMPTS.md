@@ -56,11 +56,24 @@ also keeps English TTS out of the loop (~4–5× the Azure characters).
 
 **DYNAMIC TAIL** — everything that changes per turn:
 8. Student model (level, comfortable/weak/avoid lists — mutable)
-9. Conversation context (last 3 turns)
-10. Turn instruction (regular vs every-5th-turn assessment; v2 adds a one-line
+9. `CURRENT SCENE` (task 5.1; `prompts/templates/scene.txt`) — omitted entirely
+   when no scene is active, so a sceneless profile produces the pre-5.1 tail
+10. Conversation context (last 3 turns)
+11. Turn instruction (regular vs every-5th-turn assessment; v2 adds a one-line
     challenge-format reminder — without it the model drops the v2 format)
-11. `CURRENT USER INPUT`
-12. "Return ONLY valid JSON"
+12. `SCENE PACING` — "turn N of M" plus what to do about it (open / push /
+    set up the ending / resolve now). Deliberately the *last* directive before
+    the input: the final-turn "resolve now" is the one line that must not get
+    buried. Omitted with the scene block.
+13. `CURRENT USER INPUT`
+14. "Return ONLY valid JSON"
+
+**The scene never touches the static prefix.** It reads like setup, which is
+exactly why it's tempting to put it there — but a new scene every 5–10 turns
+would mint a new cache prefix every 5–10 turns. Scene *length* is likewise
+decided by the router's turn budget rather than a `scene_complete` field, so the
+output schema stays static too. `test_prompt_snapshot.py` asserts both
+directions: scene content appears in the tail and appears nowhere in the prefix.
 
 **Invariant: never insert per-turn content before the student-model section.**
 `tests/test_prompt_snapshot.py` enforces prefix stability (identical static

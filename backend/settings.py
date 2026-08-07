@@ -78,6 +78,18 @@ PERSONA = os.getenv("MESSENGER_PERSONA", "jorge")
 # Quiz scheduling: show quiz after N turns
 QUIZ_TURNS_DELAY = 3
 
+# Scene layer (task 5.1): how long a scene runs before it genuinely ends. Each
+# scene draws its own budget from this range, so scene length is not a constant
+# the learner can feel coming. Under ~5 there is no room for a complication to
+# bite; over ~10 the ending stops feeling like one.
+SCENE_MIN_TURNS = 5
+SCENE_MAX_TURNS = 10
+
+# Scene generation is a small, one-off call every 5-10 turns (~250 in / ~150 out
+# tokens) and its output is a premise, not learner-facing language — so it runs
+# on the cheapest model, same reasoning as TRANSLATE_MODEL.
+SCENE_MODEL = os.getenv("SCENE_MODEL", "gpt-4.1-nano")
+
 # Profile weak_points/comfortable_with lists: cap size (keep most recently reaffirmed,
 # near-duplicates merged — see profile_store._upsert_tag) and reject weak_points items that
 # contradict the app's own STT-tolerance rules (accents/punctuation are never penalized).

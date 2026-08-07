@@ -61,6 +61,112 @@ def build_conversation_context(recent_turns: List[Dict[str, Any]]) -> str:
     return "\n".join(lines)
 
 
+def active_scene(profile: Dict[str, Any]) -> Dict[str, Any]:
+    """The profile's scene if it is running and usable, else {}.
+
+    One gate for both the scene block and its pacing line: a scene missing its
+    goal or its ending is dropped entirely rather than half-rendered, since a
+    premise that can never resolve is worse than plain conversation.
+    """
+    scene = profile.get("scene") or {}
+    if scene.get("status") != "active":
+        return {}
+    if not scene.get("character_goal") or not scene.get("completion_condition"):
+        return {}
+    return scene
+
+
+def build_scene_context(profile: Dict[str, Any], character_name: str) -> str:
+    """Render the active scene into a prompt block (task 5.1).
+
+    Returns "" when there is no active scene — pre-5.1 profiles, a dimensions
+    file that failed to load, or the gap after a scene completes but before the
+    router has built the next one. The rest of the prompt has to read correctly
+    without this block, so it is a clean omission rather than a placeholder.
+
+    DYNAMIC TAIL ONLY. The static prefix must never learn about a specific
+    scene, or every scene change mints a new prompt-cache prefix.
+    """
+    scene = active_scene(profile)
+    if not scene:
+        return ""
+
+    fields = {
+        "character_name": character_name,
+        "setting": scene.get("setting", ""),
+        "character_goal": scene.get("character_goal", ""),
+        "user_goal": scene.get("user_goal", ""),
+        "complication": scene.get("complication", ""),
+        "completion_condition": scene.get("completion_condition", ""),
+    }
+
+    scene_file = PROMPTS_DIR / "templates" / "scene.txt"
+    if scene_file.exists():
+        block = scene_file.read_text(encoding="utf-8")
+    else:
+        block = """CURRENT SCENE — this conversation is a scene with an ending, not an open-ended chat:
+- Where you are: {{setting}}
+- What {{character_name}} wants: {{character_goal}}
+- What the learner is after: {{user_goal}}
+- Complication: {{complication}}
+- The scene is over once: {{completion_condition}}
+Play it in character and never narrate or explain the scene to the learner."""
+
+    for key, value in fields.items():
+        block = block.replace("{{" + key + "}}", value)
+    return block.rstrip()
+
+
+def scene_progress_instruction(profile: Dict[str, Any]) -> str:
+    """The pacing line for this turn: where the scene is, and what to do about it.
+
+    An arc the model can't see the clock on is just a premise, so the turn number
+    and the budget are stated outright. Note turns_elapsed counts *completed*
+    turns (routers.messenger advances it in _finalize_turn), so the turn being
+    written right now is turns_elapsed + 1.
+    """
+    scene = active_scene(profile)
+    if not scene:
+        return ""
+
+    budget = scene.get("turn_budget", 7)
+    current = scene.get("turns_elapsed", 0) + 1
+    header = f"SCENE PACING — turn {min(current, budget)} of {budget} in this scene:"
+
+    if current >= budget:
+        body = (
+            "- This is the FINAL turn of the scene. End it here.\n"
+            f"- \"{scene.get('completion_condition', '')}\" must actually happen in THIS reply — "
+            "state it, do it, land it.\n"
+            "- No cliffhanger, no new hook, no \"we'll talk later\". A scene that gets postponed "
+            "never happened.\n"
+            "- Your last chunk still gives the learner something to say back, but it closes this "
+            "situation rather than opening another one."
+        )
+    elif current >= budget - 1:
+        body = (
+            "- One turn left after this one. Everything now points at the ending.\n"
+            f"- Set up \"{scene.get('completion_condition', '')}\" so it can land next turn: force "
+            "the question, make the ask, drop the pretense.\n"
+            "- Do not introduce anything new."
+        )
+    elif current == 1:
+        body = (
+            "- The scene has just started. Open it by playing it, not by describing it — walk in "
+            "mid-situation.\n"
+            "- Show the learner what you want without stating the goal outright, and give them an "
+            "obvious way in."
+        )
+    else:
+        body = (
+            "- Middle of the scene: push it forward. Pursue your goal harder than last turn and let "
+            "the complication get in the way.\n"
+            "- Do not stall, repeat the setup, or reset the situation — something must be different "
+            "at the end of this reply than at the start of it."
+        )
+    return f"{header}\n{body}"
+
+
 def generate_turn_instruction(profile: Dict[str, Any]) -> str:
     """Generate turn instruction based on turn count and level."""
     turn_count = profile.get("turn_count", 0)
@@ -204,10 +310,14 @@ response_chunks[0] MUST be chosen verbatim, word-for-word, from the list below (
     else:
         student_context = f"Learner level: {profile.get('level', 'beginner')}"
 
-    # Layer 4: Conversation Context (dynamic)
+    # Layer 4: Scene (dynamic — task 5.1; empty when no scene is active)
+    scene_context = build_scene_context(profile, character_name)
+    scene_pacing = scene_progress_instruction(profile)
+
+    # Layer 5: Conversation Context (dynamic)
     context_str = build_conversation_context(profile.get("recent_turns", []))
 
-    # Layer 5: Turn Instruction (dynamic)
+    # Layer 6: Turn Instruction (dynamic)
     turn_instruction = generate_turn_instruction(profile)
     if prompt_version == "v2":
         # The V2 block lives in the static prefix (for prompt caching); this
@@ -376,17 +486,19 @@ The learner is listening with the screen off. Everything you write is spoken alo
 
     # ------------------------------------------------------------------
     # DYNAMIC TAIL (user message): everything that changes per turn —
-    # student model (mutable profile lists), conversation context, turn
-    # instruction, and the user's input.
+    # student model (mutable profile lists), the active scene and its pacing,
+    # conversation context, turn instruction, and the user's input.
+    # Empty sections are dropped rather than left as blank gaps, so a profile
+    # with no scene produces exactly the pre-5.1 tail.
     # ------------------------------------------------------------------
-    user_message = f"""{student_context}
-
-{context_str}
-
-{turn_instruction}
-
-CURRENT USER INPUT: {user_input}
-
-Return ONLY valid JSON (no markdown, no commentary)."""
+    user_message = "\n\n".join(section for section in [
+        student_context,
+        scene_context,
+        context_str,
+        turn_instruction,
+        scene_pacing,  # last directive before the input: "resolve now" has to be loud
+        f"CURRENT USER INPUT: {user_input}",
+        "Return ONLY valid JSON (no markdown, no commentary).",
+    ] if section)
 
     return full_system, user_message

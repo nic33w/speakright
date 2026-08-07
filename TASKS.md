@@ -944,7 +944,7 @@ API support for it wasn't checked — a separate call if wanted).
 
 ---
 
-### [ ] 5.1 — Scene layer with an explicit ending condition 🔴 Opus
+### [x] 5.1 — Scene layer with an explicit ending condition 🔴 Opus
 
 **Fix:** Add a `scenario` object to the prompt — setting, character goal, user goal, completion
 condition — plus "turns elapsed in scene: N, move toward resolution" in the turn instruction. Scenes
@@ -963,6 +963,67 @@ built-in ending.
 
 **⚠️ Cache invariant:** the scene goes in the **dynamic tail**. The static prefix must not learn about
 specific scenes.
+
+**Shipped as:** scene state in the profile under `scene` (`profile_store.py`: `pick_scene_dimensions`
+/ `new_scene` / `advance_scene`), drawn from a new `prompts/helpers/scene_dimensions.json` — 12
+settings × 12 character goals × 8 user goals × 8 complications, each character goal carrying its own
+completion condition. `llm_call.generate_scene()` concretizes one draw ("a favor" → "the scooter you
+lent him on Tuesday") in a single ~250-token call on `settings.SCENE_MODEL` (gpt-4.1-nano), once per
+scene rather than per turn. Prompt side: `build_scene_context()` renders
+`prompts/templates/scene.txt` and `scene_progress_instruction()` emits the `SCENE PACING — turn N of
+M` line, **both in the dynamic tail**, with pacing last so the final-turn "resolve now" isn't buried.
+
+**Three decisions worth knowing about:**
+- **Scene end is a turn budget (`SCENE_MIN_TURNS`..`SCENE_MAX_TURNS` = 5–10, drawn per scene), not a
+  model flag.** A `scene_complete` field would have gone in the OUTPUT SCHEMA — i.e. the static
+  prefix — and let the model postpone endings indefinitely, which is the exact failure this task
+  exists to fix. The completion *condition* is what the character plays toward; the budget is what
+  makes it land.
+- **The draw happens in Python, the LLM only makes it specific.** Asking a model for "a scene"
+  repeatedly converges on the same three scenes. `pick_scene_dimensions` also excludes the previous
+  scene's setting and character goal, so consecutive scenes never open the same way.
+- **Rotation happens in `_finalize_turn`, not at turn start.** `_ensure_scene` is called at the top
+  of both endpoints too, but that's the cold-start path; the normal case draws the next scene the
+  moment a budget runs out, so the ~1s setup call lands while the learner is still hearing the reply
+  instead of in front of the first audio chunk.
+
+A failed or skipped `generate_scene` falls back to the raw draw, which is already playable — and
+mock mode *is* that fallback path, so the tests exercise it for real.
+
+**Tests: 109 passed, 1 xfailed** (was 89/1). New `tests/test_scene.py` (draw, no-repeat, budget
+lifecycle, rotation through both endpoints, stubbed `generate_scene`) plus 9 scene cases in
+`test_prompt_snapshot.py`, including "scene content appears nowhere in the static prefix" and "two
+different scenes produce byte-identical prefixes". **Goldens did not move** — a sceneless profile
+produces exactly the pre-5.1 tail (empty sections are dropped, not left as blank gaps).
+
+**Verified live** on gpt-4.1-nano — two real calls, **0.0221 cents total** (spend 34.833 → 34.855).
+Valid JSON, exactly the five keys, all non-empty, first try both times; ~410–560 in / ~150 out, so a
+scene costs ~0.012 cents every 5–10 turns.
+
+The first live call exposed a real defect the stub tests could never have caught: **nano inverted the
+perspective**, writing `character_goal` from the learner's side — *"You need Jorge to stall them so
+you can slip away"* — which is nonsense once it lands in the prompt under `Your goal (Jorge):`. It
+also ended the scene on an external event ("the door swings open"), which no amount of talking can
+cause. Three fixes, then re-verified with the second call:
+1. An explicit PERSPECTIVE section in the generation prompt (second person = the character in
+   `character_goal`/`complication`, third person "the learner" in `user_goal`, never the character's
+   own name in their own goal).
+2. A "reachable through what they SAY — never an external event" rule on the completion condition.
+3. A deterministic guard in `generate_scene`: if `character_goal` or `complication` contains the
+   character's name, that field is blanked and `new_scene` falls back to the drawn dimension, which
+   cannot be inverted. One bad field never sinks the scene.
+
+Two dimension entries whose own completion conditions invited an external ending were reworded at the
+same time (the "keep them here" and "borrow something" goals).
+
+**Still slightly loose:** the second call let the completion condition drift toward the *user's* goal
+("you finally admit you were wrong" instead of "you got the answer"). Both branches are still things
+the character does in dialogue, so it plays — worth watching, not worth another prompt round.
+
+**Out of scope, left alone on purpose:** nothing is exposed to the frontend — no scene banner, no
+"scene complete" beat in the UI; the ending is meant to be felt through dialogue. Completed scenes
+are not retained anywhere (5.2's job), so the generator has no memory beyond "don't repeat the last
+setting/goal".
 
 ---
 

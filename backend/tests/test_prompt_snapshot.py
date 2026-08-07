@@ -200,6 +200,122 @@ def test_eyesfree_replaces_rather_than_contradicts_suggestion_rules():
     assert "Keep suggestions brief" not in sys_ef
 
 
+# --- Scene layer (task 5.1) ---
+# The scene is the one piece of per-turn content most likely to be written into
+# the static prefix by accident (it reads like setup), and doing so would mint a
+# new prompt-cache prefix every 5-10 turns. These tests exist to catch that.
+
+SCENE = {
+    "id": "scene_test",
+    "created_at": 1700000000,
+    "setting": "a corner café ten minutes before it closes",
+    "character_goal": "you need the learner to agree to be your alibi for last night",
+    "user_goal": "find out what you are actually up to",
+    "complication": "you have about five minutes before you have to go",
+    "completion_condition": "the learner has clearly agreed to cover for you, or clearly refused",
+    "turn_budget": 6,
+    "turns_elapsed": 0,
+    "status": "active",
+    "source": "dimensions",
+}
+
+
+def _scene_profile(turns_elapsed=0, status="active", turn_count=3, **scene_overrides):
+    profile = _profile(turn_count=turn_count)
+    profile["scene"] = {**SCENE, "turns_elapsed": turns_elapsed, "status": status,
+                        **scene_overrides}
+    return profile
+
+
+def test_scene_goes_in_the_dynamic_tail_only():
+    profile = _scene_profile()
+    system, user = build_layered_prompt(USER_INPUT, profile, "v1")
+    assert SCENE["character_goal"] in user
+    assert SCENE["completion_condition"] in user
+    assert "CURRENT SCENE" in user
+    for text in (SCENE["setting"], SCENE["character_goal"], SCENE["complication"],
+                 SCENE["completion_condition"], "CURRENT SCENE", "SCENE PACING"):
+        assert text not in system, "scene content leaked into the cached static prefix"
+
+
+def test_static_prefix_survives_a_scene_change():
+    """Two different scenes, same run config → the prefix must not move a byte."""
+    for version in VERSIONS:
+        sys_a, _ = build_layered_prompt("hola", _scene_profile(), version)
+        sys_b, _ = build_layered_prompt("hola", _scene_profile(
+            turns_elapsed=4,
+            setting="a rooftop at night",
+            character_goal="you broke something of theirs",
+            completion_condition="you have actually admitted it out loud",
+        ), version)
+        sys_none, _ = build_layered_prompt("hola", _profile(turn_count=3), version)
+        assert sys_a == sys_b == sys_none, f"scene state changed the {version} prefix"
+
+
+def test_no_scene_produces_the_pre_scene_tail():
+    """A profile with no scene (pre-5.1, or a failed draw) must produce exactly
+    the tail it produced before the scene layer existed — no blank gaps."""
+    profile = _profile(turn_count=3)
+    _, user = build_layered_prompt(USER_INPUT, profile, "v1")
+    assert "CURRENT SCENE" not in user and "SCENE PACING" not in user
+    assert "\n\n\n" not in user
+
+
+def test_completed_scene_is_not_rendered():
+    _, user = build_layered_prompt(USER_INPUT, _scene_profile(turns_elapsed=6, status="complete"), "v1")
+    assert "CURRENT SCENE" not in user and "SCENE PACING" not in user
+
+
+# The scene block references the pacing block by name, so tests match the header
+# itself rather than the bare words.
+PACING_HEADER = "SCENE PACING —"
+
+
+def test_scene_pacing_tracks_the_clock():
+    """turns_elapsed counts completed turns, so the turn being written is +1."""
+    def pacing(turns_elapsed):
+        _, user = build_layered_prompt(USER_INPUT, _scene_profile(turns_elapsed), "v1")
+        return user.split(PACING_HEADER)[1]
+
+    assert "turn 1 of 6" in pacing(0)
+    assert "just started" in pacing(0)
+
+    middle = pacing(2)
+    assert "turn 3 of 6" in middle
+    assert "push it forward" in middle
+
+    penultimate = pacing(4)
+    assert "One turn left" in penultimate
+
+    final = pacing(5)
+    assert "turn 6 of 6" in final
+    assert "FINAL turn" in final
+    # The ending has to be named, not gestured at
+    assert SCENE["completion_condition"] in final
+
+
+def test_scene_pacing_is_the_last_directive_before_the_input():
+    _, user = build_layered_prompt(USER_INPUT, _scene_profile(turns_elapsed=5), "v1")
+    assert user.index(PACING_HEADER) > user.index("Current learner level")
+    assert user.index(PACING_HEADER) < user.index("CURRENT USER INPUT")
+
+
+def test_scene_pacing_survives_an_assessment_turn():
+    """Every 5th turn replaces the turn instruction wholesale — the scene clock
+    must not disappear with it."""
+    profile = _scene_profile(turns_elapsed=4, turn_count=10)
+    _, user = build_layered_prompt(USER_INPUT, profile, "v1")
+    assert "ASSESSMENT TURN" in user
+    assert "SCENE PACING" in user
+
+
+def test_scene_without_an_ending_is_dropped():
+    """A scene whose completion condition went missing is worse than no scene:
+    it is a premise that can never resolve."""
+    _, user = build_layered_prompt(USER_INPUT, _scene_profile(completion_condition=""), "v1")
+    assert "CURRENT SCENE" not in user and "SCENE PACING" not in user
+
+
 def test_unknown_prompt_version_falls_back_to_v1():
     """An unrecognized version must reuse v1's prefix, not mint a fourth
     cache entry."""

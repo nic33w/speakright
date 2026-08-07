@@ -22,9 +22,12 @@ from models import (
     TokenUsage,
 )
 from profile_store import (
+    advance_scene,
     init_default_profile,
     load_persona_json,
     load_profile,
+    new_scene,
+    pick_scene_dimensions,
     save_profile,
     update_profile_from_assessment,
 )
@@ -264,6 +267,7 @@ def messenger_chat_turn(req: MessengerTurnRequest):
 
     # --- Normal LLM path ---
     profile = load_profile()
+    _ensure_scene(profile)
     is_assessment_turn = _is_assessment_turn(profile)
     version = normalize_prompt_version(req.prompt_version)
     system_prompt, user_message = build_layered_prompt(req.user_input, profile, version)
@@ -283,6 +287,50 @@ def messenger_chat_turn(req: MessengerTurnRequest):
 
 
 # --- Turn helpers (shared by the buffered and streaming endpoints) -------------
+
+
+def _ensure_scene(profile: dict) -> None:
+    """Make sure the profile has an active scene before the prompt is built (task 5.1).
+
+    No-op while a scene is running, so the cost is one cheap LLM call every 5-10
+    turns. The usual caller is _finalize_turn, the moment a scene's budget runs
+    out; the calls at the top of both turn endpoints are the cold-start path
+    (first turn ever, a pre-5.1 profile, or a rotation that failed last turn).
+
+    Mutates `profile` in place — the turn's own save_profile persists it. If this
+    turn then fails, the scene is simply redrawn next turn; nothing downstream
+    requires a scene to exist.
+    """
+    from llm_call import generate_scene
+
+    previous = profile.get("scene")
+    if previous and previous.get("status") == "active":
+        return
+
+    dimensions = pick_scene_dimensions(previous)
+    if not dimensions:
+        print("[SCENE] no dimensions available — running this turn without a scene")
+        return
+
+    concretized = None
+    try:
+        persona_data = load_persona_json(PERSONA) or {}
+        ui_code = profile.get("ui_language", {}).get("code", "en")
+        concretized = generate_scene(
+            dimensions,
+            character_name=persona_data.get("meta", {}).get("display_name", "the character"),
+            character_bio=persona_data.get("short_bio", {}).get(ui_code, ""),
+            target_language=profile.get("target_language", {}).get("name", "Spanish"),
+        )
+    except Exception as e:
+        # The drawn dimensions are already a playable scene; a failed call costs
+        # specificity, not the feature.
+        print(f"[SCENE] generation failed, using raw dimensions: {e}")
+
+    scene = new_scene(dimensions, concretized)
+    profile["scene"] = scene
+    print(f"[SCENE] new scene {scene['id']} ({scene['source']}, {scene['turn_budget']} turns): "
+          f"{scene['character_goal']}")
 
 
 def _is_assessment_turn(profile: dict) -> bool:
@@ -539,6 +587,14 @@ def _finalize_turn(req, profile: dict, llm_response: dict, chunk_dicts: list,
     if len(profile["recent_turns"]) > 10:
         profile["recent_turns"] = profile["recent_turns"][-10:]
 
+    # Count this turn against the scene's budget, and if that ended the scene,
+    # draw the next one now rather than at the start of the next turn. The
+    # generation call costs ~1s: here the learner is still listening to the reply
+    # audio, whereas at turn start it would sit in front of the first chunk.
+    advance_scene(profile)
+    if (profile.get("scene") or {}).get("status") == "complete":
+        _ensure_scene(profile)
+
     assessment = llm_response.get("level_assessment", {})
     profile, profile_updated = update_profile_from_assessment(profile, assessment)
     save_profile(profile)
@@ -625,6 +681,7 @@ def messenger_chat_turn_stream(req: MessengerTurnRequest):
             return
 
         profile = load_profile()
+        _ensure_scene(profile)
         is_assessment_turn = _is_assessment_turn(profile)
         version = normalize_prompt_version(req.prompt_version)
         system_prompt, user_message = build_layered_prompt(req.user_input, profile, version)

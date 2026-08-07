@@ -15,6 +15,7 @@ from settings import (
     MOCK_MODE,
     MODEL_PRICING,
     OPENAI_API_KEY,
+    SCENE_MODEL,
     TRANSLATE_MODEL,
     locale_for,
 )
@@ -555,6 +556,90 @@ Return ONLY valid JSON (no markdown, no commentary):
     if len(out) != len(texts):
         raise ValueError(f"translate returned {len(out)} items for {len(texts)} inputs")
     return [str(t) for t in out]
+
+
+SCENE_FIELDS = ("setting", "character_goal", "user_goal", "complication", "completion_condition")
+
+
+def generate_scene(
+    dimensions: Dict[str, str],
+    character_name: str,
+    character_bio: str,
+    target_language: str,
+    model: Optional[str] = None,
+) -> Dict[str, str]:
+    """Turn a scene dimension draw into a concrete premise (task 5.1).
+
+    Called once per scene (every 5-10 turns), not once per turn, and deliberately
+    tiny: no output schema, no student model, no conversation history — just the
+    drawn dimensions plus who the character is, on the cheapest model. The
+    variety comes from the draw (profile_store.pick_scene_dimensions); this call
+    only makes the draw specific enough to play.
+
+    Returns the same five keys it was given, any of which may come back empty if
+    the model got that field wrong (see the perspective guard below) — the caller
+    merges per field over the draw, so an empty one falls back rather than
+    sinking the scene. Raises on API/parse failure, same fallback.
+    """
+    if MOCK_MODE:
+        # The dimensions ARE the fallback scene, so the mock is the fallback path:
+        # mock runs exercise scene assembly without pretending a call happened.
+        return {key: dimensions.get(key, "") for key in SCENE_FIELDS}
+
+    prompt = f"""You are setting up a short improvised scene for a language-practice chat.
+
+THE CHARACTER: {character_name}
+{character_bio}
+
+The scene must be built from exactly these dimensions — keep each one, make each one specific:
+- Setting: {dimensions.get('setting', '')}
+- {character_name}'s goal: {dimensions.get('character_goal', '')}
+- What the learner wants: {dimensions.get('user_goal', '')}
+- Complication: {dimensions.get('complication', '')}
+- Scene ends when: {dimensions.get('completion_condition', '')}
+
+Rewrite them into one coherent situation:
+- Invent the missing specifics — what exactly was broken, who exactly is waiting, what exactly was said last night. Concrete beats generic; a scene about "a favor" is dead, a scene about "the scooter you lent him on Tuesday" is not.
+- Keep it in character for {character_name} and plausible in a {target_language}-speaking place. Do not name the learner.
+- Everything must be sayable in a 5-10 turn conversation between two people. No third characters who need to speak, no events that have to happen offscreen.
+- The completion condition must be reachable through what the two of them SAY: an agreement, a refusal, a confession, a question finally answered. NEVER an external event — no door swinging open, no phone ringing, no third person arriving. {character_name} cannot make those happen by talking, so a scene that ends on one cannot be played to its ending.
+- One sentence per field, written in English.
+
+PERSPECTIVE — this is the part that goes wrong most often, so read it twice:
+- "character_goal" and "complication" are addressed TO {character_name}, in the second person: "you" IS {character_name}, and the goal is {character_name}'s own. Never write the name "{character_name}" inside either field — if you catch yourself typing it, you have swapped the two people.
+- "user_goal" is ABOUT the learner, in the third person: begin it with "the learner". Never "you" in that field.
+- "setting" is a plain description of the place. No second person at all.
+
+Return ONLY valid JSON (no markdown, no commentary):
+{{"setting": "...", "character_goal": "...", "user_goal": "...", "complication": "...", "completion_condition": "..."}}"""
+
+    result = _call_openai_json(
+        prompt,
+        label="SCENE",
+        model=model or SCENE_MODEL,
+        temperature=0.9,  # premise variety is the entire point of this call
+        max_output_tokens=400,
+    )
+    parsed = result.parsed or {}
+    scene = {}
+    for key in SCENE_FIELDS:
+        value = parsed.get(key)
+        if not isinstance(value, str) or not value.strip():
+            raise ValueError(f"scene response missing '{key}'")
+        scene[key] = value.strip()
+
+    # Perspective guard. character_goal and complication are written in the
+    # second person TO the character, so the character's own name turning up
+    # inside one is the signature of the model swapping the two people ("you
+    # need Jorge to stall them so you can slip away") — which inverts the scene,
+    # since the block is injected under "Your goal (Jorge)". Observed on nano.
+    # Blank the field, not the scene: the drawn dimension has the perspective
+    # right by construction, so falling back costs specificity and nothing else.
+    for key in ("character_goal", "complication"):
+        if character_name and character_name.lower() in scene[key].lower():
+            print(f"[SCENE] dropped inverted {key} (it names {character_name})")
+            scene[key] = ""
+    return scene
 
 
 def _mock_response(transcript: str, active_cards: List[Dict[str,Any]], fluent: Dict[str,Any], learning: Dict[str,Any]) -> Dict[str,Any]:

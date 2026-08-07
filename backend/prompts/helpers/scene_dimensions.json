@@ -1,0 +1,91 @@
+{
+  "_comment": "Scene dimensions (task 5.1). A scene is sampled as one item per list, then concretized by a cheap LLM call (llm_call.generate_scene). Deliberately NOT a catalog of finished scenes: the combinations are what keep it from repeating. Each character_goal carries its own completion condition, so a scene stays coherent even when the LLM leg fails and the raw dimensions are used as-is. Keep entries setting-agnostic and culture-neutral — they have to play in Spanish and Indonesian alike. Written in second person: the character reads them as their own goal.",
+
+  "settings": [
+    "a crowded neighborhood market on a Saturday morning",
+    "the back seat of a bus that keeps stopping",
+    "a rooftop at night, one floor above a party you both left",
+    "a corner café ten minutes before it closes",
+    "the waiting area of a repair shop, nothing else to do",
+    "a family gathering where you two are the only ones not helping",
+    "a queue that has not moved in twenty minutes",
+    "a parked car in the rain, waiting for it to let up",
+    "the hallway outside a room you are both avoiding",
+    "a beach at the ugly hour between afternoon and evening",
+    "a shared kitchen at midnight",
+    "the front row of a long, extremely boring event"
+  ],
+
+  "character_goals": [
+    {
+      "goal": "you need the learner to agree to be your alibi for last night, without telling them why",
+      "completion": "the learner has clearly agreed to cover for you, or clearly refused"
+    },
+    {
+      "goal": "you want to borrow something of theirs and you are being cagey about what it is for",
+      "completion": "they agree to lend it to you, or give you a flat no"
+    },
+    {
+      "goal": "you are trying to talk them into a scheme that needs exactly one other person",
+      "completion": "the learner is in, or has talked you out of it"
+    },
+    {
+      "goal": "you broke something of theirs and you are working up to confessing it",
+      "completion": "you have actually admitted it out loud and heard their reaction"
+    },
+    {
+      "goal": "you want them to deliver a message you are too much of a coward to deliver yourself",
+      "completion": "they have agreed to pass it on, or told you to do it yourself"
+    },
+    {
+      "goal": "you are fishing for a piece of information they have and you cannot ask for directly",
+      "completion": "you have gotten the answer, or they have caught you fishing"
+    },
+    {
+      "goal": "you are trying to get them to admit something you are already sure of",
+      "completion": "they admit it, or they convince you that you were wrong"
+    },
+    {
+      "goal": "you need to keep them here a few more minutes and you cannot say why",
+      "completion": "they agree to stay a while longer, or they say they are leaving and mean it"
+    },
+    {
+      "goal": "you want to undo a favor you already promised them, gracefully",
+      "completion": "you are off the hook, or you are stuck with it and you know it"
+    },
+    {
+      "goal": "you are trying to sell them on something nobody sensible would want",
+      "completion": "they buy in, or they turn you down for good"
+    },
+    {
+      "goal": "you are stalling because you already told two people two different stories and they are about to compare notes",
+      "completion": "the stories collide and you deal with it, or you get out clean"
+    },
+    {
+      "goal": "you want an apology from them for something small that you have not stopped thinking about",
+      "completion": "you get the apology, or you admit out loud that it was not a big deal"
+    }
+  ],
+
+  "user_goals": [
+    "find out what you are actually up to",
+    "get a straight answer to a simple question you keep dodging",
+    "get you to leave them alone about it",
+    "get your help with something of their own",
+    "figure out whether you are telling the truth",
+    "make a plan with you for later",
+    "settle who was right about something from last time",
+    "get you to admit you were wrong"
+  ],
+
+  "complications": [
+    "someone you both know is within earshot",
+    "you have about five minutes before you have to go",
+    "you already told someone else the opposite of what you are saying now",
+    "you need their help but explaining why would ruin everything",
+    "they are in a hurry and you are not",
+    "you owe them something and neither of you has mentioned it yet",
+    "the thing you are talking around is much bigger than you are letting on",
+    "you got the story secondhand and half of it is probably wrong"
+  ]
+}
