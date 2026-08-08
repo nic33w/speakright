@@ -597,6 +597,12 @@ export default function MessengerChat({
   // press-to-toggle recording signal from the controller mapper, useful with the
   // screen on too. `e.repeat` guard: the mapper sends a single clean tap per
   // click, but this stays safe if a hold ever leaks through.
+  //
+  // MODIFIERS ARE DELIBERATELY IGNORED. Real mappers send F13 with modifiers
+  // attached — the working local setup sends Ctrl+F13 — and `e.key` is "F13"
+  // either way. Do NOT add `!e.ctrlKey` / `!e.altKey` guards here "for
+  // correctness": it silently breaks controller recording, and the failure looks
+  // like a dead button rather than a code change.
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
       if (e.key !== "F13" || e.repeat) return;

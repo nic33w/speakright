@@ -682,6 +682,12 @@ doubled cues.
   intentionally not folded into `backend/requirements.txt`, this runs standalone, not through the
   app's venv. **Not run against real hardware** — no controller in this environment; reasoned from
   the XInput-Python/`keyboard` APIs, not verified end-to-end.
+**➜ Real-hardware status:** the mic side is **working**, via the user's own mapper rather than
+`tools/controller/f13_mapper.py` (which was written blind and is still unverified). Their mapper sends
+**Ctrl+F13**, which the in-app listener accepts unchanged — `e.key` is `"F13"` regardless of
+modifiers, and the listener deliberately does not inspect them. Keep `f13_mapper.py` only as a
+fallback for a machine without that setup.
+
 - **In-app recording signal** — new F13 `keydown` listener in `MessengerChat.tsx` (window-level,
   same pattern as the existing Alt+R/Alt+E listener), not eyes-free-gated since it's useful with the
   screen on too. Toggles a new `recording` state and plays `earcons.play("recordingStarted" |
