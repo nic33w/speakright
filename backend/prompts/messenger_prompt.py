@@ -21,20 +21,36 @@ PROMPT_VERSIONS = ("v1", "v2", "eyesfree")
 DEFAULT_PROMPT_VERSION = "v1"
 
 
+# The whole-turn JSON budget. A turn is not just the character's reply: it also
+# carries corrected_input, user_translation, error_explanation, two suggested
+# replies, and on every 5th turn a level_assessment. 800 is the pre-5.0 value
+# that this is known to fit in.
+MIN_TURN_OUTPUT_TOKENS = 800
+
+
 def get_persona_tuning() -> Dict[str, Any]:
     """Sampling params for the active persona (task 5.0).
 
-    Reads meta.temperature and tuning.max_tokens from the persona JSON. Falls
-    back to the pre-5.0 hardcoded values (temperature 0.2, 800 output tokens)
-    when a persona doesn't declare them, so an untuned persona behaves exactly
-    as it did before this existed.
+    Reads meta.temperature and tuning.max_tokens from the persona JSON, falling
+    back to the pre-5.0 defaults (temperature 0.2, MIN_TURN_OUTPUT_TOKENS) when a
+    persona doesn't declare them.
+
+    A persona's `tuning.max_tokens` can only ever RAISE the output cap, never
+    lower it. It describes how long the character talks — Jorge declares 140 —
+    whereas max_output_tokens caps the entire JSON envelope. 5.0 wired the two
+    together, and the result was that every real turn got truncated mid-JSON:
+    the reply bubbles still rendered (response_chunks is the first field, so the
+    stream scanner had them before the cutoff) and then the final parse failed,
+    which surfaced as "Failed to send message" with no audio. Reply length is a
+    prompt concern, not a token-limit concern.
     """
     persona_data = load_persona_json(PERSONA) or {}
     meta = persona_data.get("meta", {})
     tuning = persona_data.get("tuning", {})
+    declared = tuning.get("max_tokens") or 0
     return {
         "temperature": meta.get("temperature", 0.2),
-        "max_output_tokens": tuning.get("max_tokens", 800),
+        "max_output_tokens": max(int(declared), MIN_TURN_OUTPUT_TOKENS),
     }
 
 

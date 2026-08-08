@@ -452,6 +452,35 @@ def test_solved_secret_closes_the_scene_whatever_the_clock_says():
     assert "Middle of the scene" not in pacing
 
 
+def test_persona_tuning_cannot_shrink_the_output_budget(monkeypatch):
+    """Regression: task 5.0 passed the persona's tuning.max_tokens straight
+    through as max_output_tokens. Jorge declares 140 — how long he TALKS — while
+    max_output_tokens caps the whole JSON envelope (reply + correction +
+    translation + suggestions + assessment). Every real turn came back truncated
+    mid-JSON: the bubbles rendered, then the parse failed, and the user got
+    "Failed to send message" with no audio."""
+    from prompts.messenger_prompt import MIN_TURN_OUTPUT_TOKENS, get_persona_tuning
+
+    for persona in ("jorge", "sombongo"):
+        monkeypatch.setattr(PROMPT_MODULE, "PERSONA", persona)
+        tuning = get_persona_tuning()
+        assert tuning["max_output_tokens"] >= MIN_TURN_OUTPUT_TOKENS, \
+            f"{persona}'s reply-length knob must not cap the JSON envelope"
+        # The half of 5.0 that was right still works.
+        assert tuning["temperature"] > 0.2
+
+
+def test_persona_tuning_can_still_raise_the_output_budget(monkeypatch):
+    """It only ever raises: a persona that genuinely needs more room gets it."""
+    from prompts import messenger_prompt
+
+    monkeypatch.setattr(messenger_prompt, "load_persona_json",
+                        lambda _p: {"meta": {"temperature": 0.5}, "tuning": {"max_tokens": 1500}})
+    assert messenger_prompt.get_persona_tuning() == {
+        "temperature": 0.5, "max_output_tokens": 1500,
+    }
+
+
 def test_unknown_prompt_version_falls_back_to_v1():
     """An unrecognized version must reuse v1's prefix, not mint a fourth
     cache entry."""

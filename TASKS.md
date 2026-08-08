@@ -944,6 +944,20 @@ needed since this never touches the prompt text itself. Not verified against a r
 budget spent this session) — the malformed-JSON/language-mixing risk called out above is still open
 to watch for in a live session.
 
+> **⚠️ Half of this was wrong, and unverified is why (fixed 2026-08-08).** Passing the persona's
+> `tuning.max_tokens` through as `max_output_tokens` **broke every real messenger turn.** 140 is how
+> long Jorge *talks*; `max_output_tokens` caps the whole JSON envelope — reply + `corrected_input` +
+> `user_translation` + `error_explanation` + 2 suggested replies + (every 5th turn) `level_assessment`.
+> A real turn measures **397 completion tokens**, so the model was cut off mid-JSON every single time.
+> The failure was near-invisible: `response_chunks` is the first field, so the stream scanner had all
+> three bubbles *before* the cutoff and they rendered with working audio — only the final `json.loads`
+> failed, which surfaced in the UI as "Failed to send message. Please try again." with no autoplay.
+> `get_persona_tuning()` now treats `tuning.max_tokens` as a floor-guarded hint: it can only ever
+> **raise** the cap above `MIN_TURN_OUTPUT_TOKENS` (800, the pre-5.0 value), never lower it. The
+> temperature half of 5.0 was right and is untouched. Reply length is a prompt concern, not a
+> token-limit concern. Regression-tested in `test_prompt_snapshot.py`; `stream_llm_for_messenger` now
+> names the token cap in its parse error instead of surfacing a bare `JSONDecodeError`.
+
 **Out of scope, left alone on purpose:** `presence_penalty` (both personas declare
 `meta.presence_penalty`, but the task only asked for temperature/max_tokens, and OpenAI's Responses
 API support for it wasn't checked — a separate call if wanted).

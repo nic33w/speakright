@@ -482,7 +482,20 @@ def stream_llm_for_messenger(
             final_response = getattr(event, "response", None)
 
     raw_text = scanner.text
-    parsed = _extract_json(raw_text)
+    try:
+        parsed = _extract_json(raw_text)
+    except Exception as e:
+        # The classic cause is max_output_tokens cutting the model off mid-JSON.
+        # It is invisible from the client — response_chunks is the first field,
+        # so the bubbles render and their TTS runs, and only the correction and
+        # suggestions go missing — so name it here rather than re-deriving it
+        # from a JSONDecodeError next time.
+        status = getattr(final_response, "status", None)
+        raise ValueError(
+            f"streamed messenger response did not parse (status={status}, "
+            f"{len(raw_text)} chars, max_output_tokens={max_output_tokens}); "
+            f"a truncated reply usually means the token cap is too low: {e}"
+        ) from e
     if not isinstance(parsed, dict):
         raise ValueError("streamed messenger response did not parse to a JSON object")
 
