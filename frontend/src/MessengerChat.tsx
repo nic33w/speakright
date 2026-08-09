@@ -593,6 +593,23 @@ export default function MessengerChat({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [eyesFree]);
 
+  // Wispr itself takes a beat to actually spin up the mic after the hotkey —
+  // observed ~1s on the real setup. Firing the indicator/earcon/haptic on the
+  // keydown edge made them lie about what the mic was doing, so the *start*
+  // side is delayed to match. Stop isn't delayed: Wispr's stop is prompt, and
+  // the "real" stop signal (the transcript landing) is already handled by the
+  // desync guard below.
+  const F13_START_DELAY_MS = 1000;
+  // Raw toggle parity from F13 presses — flips synchronously on every press,
+  // independent of the delayed `recording` state, so a second press arriving
+  // before the delayed start lands still toggles correctly instead of reading
+  // a stale `recording` value that hasn't caught up yet.
+  const desiredRecordingRef = useRef(false);
+  const startTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const clearPendingStart = useCallback(() => {
+    if (startTimerRef.current) { clearTimeout(startTimerRef.current); startTimerRef.current = null; }
+  }, []);
+
   // F13 recording toggle (task 4.1). Not eyes-free-gated — it's the general
   // press-to-toggle recording signal from the controller mapper, useful with the
   // screen on too. `e.repeat` guard: the mapper sends a single clean tap per
@@ -607,36 +624,51 @@ export default function MessengerChat({
     function onKeyDown(e: KeyboardEvent) {
       if (e.key !== "F13" || e.repeat) return;
       e.preventDefault();
-      setRecording(prev => {
-        const next = !prev;
-        earcons.play(next ? "recordingStarted" : "recordingStopped");
-        // Haptics (task 4.4): only the "on" edge — TASKS.md doesn't ask for a
-        // stop rumble, and the earcon pair already covers that half.
-        if (next) haptics.play("recordingStarted");
-        return next;
-      });
+      const next = !desiredRecordingRef.current;
+      desiredRecordingRef.current = next;
+      clearPendingStart();
+      if (next) {
+        startTimerRef.current = setTimeout(() => {
+          startTimerRef.current = null;
+          setRecording(true);
+          earcons.play("recordingStarted");
+          haptics.play("recordingStarted"); // task 4.4 — only the "on" edge
+        }, F13_START_DELAY_MS);
+      } else {
+        setRecording(false);
+        earcons.play("recordingStopped");
+      }
     }
     window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [earcons, haptics]);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      clearPendingStart();
+    };
+  }, [earcons, haptics, clearPendingStart]);
 
   // Desync guard (task 4.1): the app infers recording state purely by counting
   // F13 edges, but Wispr holds the real state — a dropped keypress (e.g. the
   // stop-tap landing while the window was unfocused) leaves `recording` stuck
   // true forever otherwise. Wispr only ever pastes a finished transcript in one
-  // shot, so any growth in `transcript` while we still think we're recording
-  // means recording has in fact already ended; resync and fire the stop earcon
-  // now, since the edge that should have triggered it never arrived.
+  // shot, so any growth in `transcript` while F13 still thinks it's mid-toggle
+  // means recording has in fact already ended; resync (cancelling a pending
+  // start too, in case the drop happened inside that window) and fire the stop
+  // earcon now, since the edge that should have triggered it never arrived.
+  // Gated on `desiredRecordingRef` so plain typing — unrelated to F13 — never
+  // touches this; without that gate, normal keystrokes growing `transcript`
+  // one character at a time would cancel an in-flight start.
   useEffect(() => {
     const grew = transcript.length > prevTranscriptLenRef.current;
     prevTranscriptLenRef.current = transcript.length;
-    if (!grew) return;
+    if (!grew || !desiredRecordingRef.current) return;
+    clearPendingStart();
+    desiredRecordingRef.current = false;
     setRecording(prev => {
       if (!prev) return prev;
       earcons.play("recordingStopped");
       return false;
     });
-  }, [transcript, earcons]);
+  }, [transcript, earcons, clearPendingStart]);
 
   // Helper function for delays
   function delay(ms: number): Promise<void> {
