@@ -1636,18 +1636,19 @@ export default function MessengerChat({
     await audioPlayer.play(d.explanation, localeFor(fluent.code));
   }
 
-  // Task 3.13 point 4: show a replayed item's translation alongside its
-  // audio — no hide-then-play beat this time, since replay is a repair
-  // action rather than the listening test the first pass is, so it gets
-  // more support, not less. eyesFree has no visual channel to show it on.
+  // Task 3.13 point 4, revised: preview a replayed item's translation with
+  // the same "hide, then play" beat as the first pass — show it, hide, then
+  // a short gap before the audio starts — rather than showing it alongside
+  // the clip. Held for half of flashDurationMs: on replay the learner has
+  // already heard the sentence once, so the preview only needs to jog memory,
+  // not carry a full first read. eyesFree has no visual channel to show it on.
   async function withReplayThought<T>(item: ReplayItem, play: () => Promise<T>): Promise<T> {
     if (eyesFree || !item.nativeText) return play();
     setThoughtText(item.nativeText);
-    try {
-      return await play();
-    } finally {
-      setThoughtText(null);
-    }
+    await delay(flashDurationMs(item.nativeText) / 2);
+    setThoughtText(null);
+    await delay(200);
+    return play();
   }
 
   // Alt+R / controller A: hear it again. During a drill that is the sentence to
