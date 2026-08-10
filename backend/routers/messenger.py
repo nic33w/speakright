@@ -501,6 +501,98 @@ def _reaction_audio_lookup(lang_code: str) -> Dict[str, str]:
     return _REACTION_AUDIO_LOOKUP[lang_code]
 
 
+# task 3.11: split a chunk's text into one sentence per chunk, server-side,
+# instead of trusting the prompt's "ONE spoken sentence" rule (which the model
+# does not reliably obey). Narrow on purpose — see TASKS.md task 3.11 "Watch
+# for": general-purpose sentence-boundary regexes over-split on abbreviations
+# and decimals.
+MIN_SENTENCE_WORDS = 4
+_SENTENCE_ABBREVIATIONS = {"sr", "sra", "srta", "dr", "dra", "ud", "uds", "etc"}
+_SENTENCE_END_RE = re.compile(r'([.?!]+)(\s+|$)')
+
+
+def _split_into_sentences(text: str) -> list:
+    """Split on ., ?, ! boundaries.
+
+    Only a boundary punctuation mark followed by whitespace or end-of-string
+    counts — "3.50" has no following whitespace, so decimals are excluded with
+    no extra logic. A single period preceded by a known abbreviation ("Sr.",
+    "etc.") is the one case that DOES have trailing whitespace but isn't a
+    real sentence end, so that's checked explicitly.
+    """
+    if not text:
+        return []
+    sentences = []
+    start = 0
+    for m in _SENTENCE_END_RE.finditer(text):
+        punct, boundary_end = m.group(1), m.end()
+        if punct == ".":
+            preceding = re.search(r'(\w+)$', text[start:m.start()])
+            if preceding and preceding.group(1).lower() in _SENTENCE_ABBREVIATIONS:
+                continue
+        piece = text[start:boundary_end].strip()
+        if piece:
+            sentences.append(piece)
+        start = boundary_end
+    remainder = text[start:].strip()
+    if remainder:
+        sentences.append(remainder)
+    return sentences
+
+
+def _merge_short_fragments(sentences: list, min_words: int = MIN_SENTENCE_WORDS) -> list:
+    """Fold any fragment under `min_words` into a neighbour.
+
+    Without this, "¿En serio?" gets its own bubble and its own inter-sentence
+    pacing gap, which reads as a stall rather than a beat. Merges into the
+    previous piece; the first piece (no previous) merges forward instead.
+    Re-checks the merged result so a run of several short fragments collapses
+    all the way down rather than leaving a still-short remainder.
+    """
+    merged = list(sentences)
+    i = 0
+    while len(merged) > 1 and i < len(merged):
+        if len(merged[i].split()) < min_words:
+            if i == 0:
+                merged[0:2] = [merged[0] + " " + merged[1]]
+            else:
+                merged[i - 1:i + 1] = [merged[i - 1] + " " + merged[i]]
+                i -= 1
+        else:
+            i += 1
+    return merged
+
+
+def _split_chunk_into_sentences(chunk_dict: dict) -> list:
+    """One response chunk -> one chunk per sentence (task 3.11).
+
+    Only eligible for audio, target-language chunks — ui/text chunks and any
+    chunk that only contains one sentence pass through unchanged. TRAP 2
+    (TASKS.md task 3.11): a chunk carrying is_challenge/native_text can't keep
+    native_text once split, since it translated the whole original chunk, not
+    any single sentence of it — dropped in favour of 3.8's
+    /api/messenger/translate fetching per-sentence translations on demand
+    (wired up by 3.12). is_challenge moves to the LAST piece.
+    """
+    if chunk_dict.get("modality") != "audio" or chunk_dict.get("language") != "target":
+        return [chunk_dict]
+
+    sentences = _merge_short_fragments(_split_into_sentences(chunk_dict.get("text", "")))
+    if len(sentences) <= 1:
+        return [chunk_dict]
+
+    pieces = []
+    for sentence in sentences:
+        piece = dict(chunk_dict)
+        piece["text"] = sentence
+        piece.pop("native_text", None)
+        piece.pop("is_challenge", None)
+        pieces.append(piece)
+    if chunk_dict.get("is_challenge"):
+        pieces[-1]["is_challenge"] = True
+    return pieces
+
+
 def _prepare_chunk(chunk, target_code: str = "es") -> tuple:
     """Normalize one response chunk and resolve its audio URL.
 
@@ -548,13 +640,21 @@ def _prepare_chunk(chunk, target_code: str = "es") -> tuple:
 
 
 def _prepare_chunks(chunks, target_code: str = "es") -> tuple:
-    """_prepare_chunk over a whole list. Order is preserved throughout."""
+    """_prepare_chunk over a whole list. Order is preserved throughout.
+
+    Every chunk except index 0 is split into one sentence per chunk first
+    (task 3.11). Index 0 is never split — it's the reaction opener, matched
+    verbatim against the pre-generated bank (TRAP 1 in TASKS.md task 3.11).
+    """
     chunk_dicts, pending = [], []
-    for chunk in chunks:
-        chunk_dict, work = _prepare_chunk(chunk, target_code)
-        chunk_dicts.append(chunk_dict)
-        if work:
-            pending.append(work)
+    for i, chunk in enumerate(chunks):
+        raw = chunk if isinstance(chunk, dict) else chunk.dict()
+        pieces = [raw] if i == 0 else _split_chunk_into_sentences(raw)
+        for piece in pieces:
+            chunk_dict, work = _prepare_chunk(piece, target_code)
+            chunk_dicts.append(chunk_dict)
+            if work:
+                pending.append(work)
     return chunk_dicts, pending
 
 
@@ -706,6 +806,7 @@ def messenger_chat_turn_stream(req: MessengerTurnRequest):
 
         chunk_dicts: list = []
         emitted = 0
+        raw_index = 0  # counts raw LLM-emitted chunks, before task 3.11's split
         pool = ThreadPoolExecutor(max_workers=4)
         futures: dict = {}
         try:
@@ -720,15 +821,21 @@ def messenger_chat_turn_stream(req: MessengerTurnRequest):
             llm_response = None
             for kind, payload in stream:
                 if kind == "chunk":
-                    chunk_dict, work = _prepare_chunk(payload, _target_code(profile))
-                    index = len(chunk_dicts)
-                    chunk_dicts.append(chunk_dict)
-                    if work:
-                        futures[index] = pool.submit(_generate_and_save, work)
-                    yield json.dumps({
-                        "type": "chunk", "index": index, "chunk": chunk_dict
-                    }, ensure_ascii=False) + "\n"
-                    emitted += 1
+                    # task 3.11: every raw chunk except the first (the reaction
+                    # opener, TRAP 1) is split into one sentence per chunk before
+                    # TTS, same as the buffered path's _prepare_chunks.
+                    pieces = [payload] if raw_index == 0 else _split_chunk_into_sentences(payload)
+                    raw_index += 1
+                    for piece in pieces:
+                        chunk_dict, work = _prepare_chunk(piece, _target_code(profile))
+                        index = len(chunk_dicts)
+                        chunk_dicts.append(chunk_dict)
+                        if work:
+                            futures[index] = pool.submit(_generate_and_save, work)
+                        yield json.dumps({
+                            "type": "chunk", "index": index, "chunk": chunk_dict
+                        }, ensure_ascii=False) + "\n"
+                        emitted += 1
                 elif kind == "done":
                     llm_response = payload
 

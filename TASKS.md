@@ -807,7 +807,7 @@ volume problem it was never meant to solve.
 **Not verified by ear** — same caveat as 3.9 and most of Phase 3/4: the transform is reasoned from the
 spec and unit-tested as a pure function, but no real Azure call has been heard with breaks inserted.
 
-### [ ] 3.11 — Split chunks into one sentence each, server-side 🟡 Sonnet
+### [x] 3.11 — Split chunks into one sentence each, server-side 🟡 Sonnet
 
 **Problem:** the prompt already says "Keep each chunk to ONE spoken sentence" and the model does not
 reliably obey — the content chunk regularly arrives holding two or three sentences. Since it is one
@@ -858,6 +858,50 @@ knowingly:
 **Watch for:** Spanish sentence boundaries are not just `.` — `¿…?` and `¡…!` are the common cases here,
 and an abbreviation or a decimal must not split. Keep the splitter narrow and test it directly rather
 than trusting a general-purpose regex.
+
+**Shipped as:**
+- **`_split_into_sentences`** (`routers/messenger.py`) — one regex, `([.?!]+)(\s+|$)`, treating a
+  `.`/`?`/`!` run as a boundary only when followed by whitespace or end-of-string. Decimals ("3.50")
+  need no special case: there's no whitespace after the period, so the regex never matches there. A
+  small abbreviation set (`sr, sra, srta, dr, dra, ud, uds, etc`) additionally guards the one case
+  that *does* have trailing whitespace but isn't a real sentence end.
+- **`_merge_short_fragments`** — folds any piece under `MIN_SENTENCE_WORDS` (4) into a neighbour: the
+  previous piece normally, or the next piece if it's the very first one with nothing before it.
+  Re-checks after each merge so a run of several short fragments collapses in one pass rather than
+  leaving a still-short remainder.
+- **`_split_chunk_into_sentences`** — the two above plus TRAP 2's resolution: only eligible for
+  `modality="audio", language="target"` chunks; a chunk that comes out to one sentence is returned
+  as the *same object*, untouched, so nothing downstream (native_text, is_challenge) is disturbed
+  when there's nothing to split. When it does split, `native_text` is dropped from every piece
+  (chose the recommended "per-sentence translate later, via 3.8's endpoint" resolution — this task
+  doesn't add the fetch, that's 3.12's job) and `is_challenge` moves to the last piece only.
+- **Wired into both endpoints:** `_prepare_chunks` (buffered) splits every chunk except index 0 before
+  calling `_prepare_chunk`; the streaming endpoint does the same per raw chunk as it arrives, tracked
+  by a separate `raw_index` counter (distinct from the emitted/split index) so only the *first raw LLM
+  chunk* is exempt — TRAP 1, the reaction opener must never be split or altered, since it's matched
+  verbatim against the pre-generated bank. `_prepare_chunks`' recovery path (used when the streaming
+  scanner couldn't reach a chunk incrementally) reuses the same updated function, so both routes to a
+  "final" response go through identical splitting logic.
+- **`build_premade_response_chunks`** intentionally untouched — premade audio parts are already
+  hand-scripted one clip per line, and that whole path is separately known-broken (xfail, missing
+  `input_intent`).
+- **New `tests/test_sentence_split.py`** (22 cases): the splitter directly (boundaries, decimals,
+  abbreviations, ellipsis), the merge logic (leading/trailing/cascading short fragments), the
+  chunk-level wrapper (non-audio passthrough, challenge-flag migration, native_text drop,
+  single-sentence identity-preservation), the index-0 exemption, and two end-to-end tests against the
+  live buffered and streaming endpoints with a mocked multi-sentence LLM reply. **173 passed, 1
+  xfailed** (up from 151 — no prompt goldens touched, this is turn-processing code, not the prompt).
+- **Verified against a real LLM call** (not just mocked): a real turn returned
+  `"La última vez cambié el aceite de un coche por gelatina. ¡Desastre total!"` as one raw chunk —
+  exactly the bug this task targets. The splitter found both sentences; the merge step correctly
+  folded the 2-word `"¡Desastre total!"` back into its neighbour (the same rule as the `"¿En serio?"`
+  example above), matching the spec rather than producing a stray micro-bubble.
+
+**Not done here, deferred to 3.12 on purpose:** nothing in the frontend fetches a per-sentence
+translation to replace the `native_text` that a split challenge chunk no longer carries — until 3.12
+lands, the hover-reveal for a challenge sentence that happened to need splitting has no translation to
+show. Single-sentence challenge chunks (the common case) are unaffected, since they never lose
+`native_text` in the first place.
 
 ---
 
