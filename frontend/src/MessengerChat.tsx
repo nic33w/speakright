@@ -120,12 +120,16 @@ function savePivotSet(key: string, s: Set<string>) {
 
 // --- V2 Challenge Pair: 3-zone hover-reveal card (light theme for messenger) ---
 function MessengerChallengePair({
-  chunk, fluentName, learningName, audioUrl,
+  chunk, fluentName, learningName, audioUrl, forceRevealNative,
 }: {
   chunk: ResponseChunk;
   fluentName: string;
   learningName: string;
   audioUrl: string | undefined;
+  // Task 3.12: briefly forces the native-language zone open without a hover,
+  // for the post-reveal translation flash. The zone still responds to real
+  // hover/pin normally once this goes false again.
+  forceRevealNative?: boolean;
 }) {
   const [pinned, setPinned] = useState<Set<"native" | "learning">>(new Set());
   const [hovered, setHovered] = useState<"native" | "learning" | "audio" | null>(null);
@@ -168,14 +172,20 @@ function MessengerChallengePair({
 
   const zoneBase: React.CSSProperties = { padding: "3px 10px", borderRadius: 6, cursor: "pointer", transition: "background 0.15s", display: "flex", alignItems: "center", justifyContent: "space-between", border: "1px solid rgba(0,0,0,0.08)", minHeight: 26 };
 
-  const nativeVisible = hovered === "native" || pinned.has("native");
+  const nativeVisible = hovered === "native" || pinned.has("native") || !!forceRevealNative;
   const learningVisible = hovered === "learning" || pinned.has("learning");
 
   return (
     <div style={{ background: "white", borderRadius: 18, padding: "8px 14px", boxShadow: "0 2px 8px rgba(0,0,0,0.15)", border: "2px solid rgba(99,102,241,0.2)", display: "flex", flexDirection: "column", gap: 0 }}>
       {/* Zone 1: native */}
       <div
-        style={{ ...zoneBase, background: pinned.has("native") ? "rgba(0,0,0,0.07)" : hovered === "native" ? "rgba(0,0,0,0.05)" : "rgba(0,0,0,0.03)" }}
+        style={{
+          ...zoneBase,
+          background: forceRevealNative
+            ? "rgba(99,102,241,0.14)"
+            : pinned.has("native") ? "rgba(0,0,0,0.07)" : hovered === "native" ? "rgba(0,0,0,0.05)" : "rgba(0,0,0,0.03)",
+          transition: "background 0.3s",
+        }}
         onMouseEnter={() => setHovered("native")}
         onMouseLeave={() => setHovered(null)}
         onClick={() => togglePin("native")}
@@ -386,6 +396,13 @@ export default function MessengerChat({
   const [streamLetters, setStreamLetters] = useState<boolean>(false);
   // Per-message chunk reveal counts (for progressive bubble-by-bubble appearance)
   const [visibleChunkCounts, setVisibleChunkCounts] = useState<Map<number, number>>(new Map());
+  // Task 3.12: which chunk (by message + index) is currently flashing its
+  // translation open. Reuses <MessengerChallengePair>'s own native-language
+  // zone rather than a separate overlay — the bubble that flashes open is the
+  // exact bubble that then "settles" back into its idle, hover-reveal state.
+  // Screen-on, `pairs` mode only — eyes-free speaks the translation instead,
+  // via the untouched playResponseAudio path.
+  const [flashChunk, setFlashChunk] = useState<{ messageId: number; index: number } | null>(null);
   const [audioEnabled, setAudioEnabled] = useState<boolean>(false);
   const [liveReactions, setLiveReactions] = useState<boolean>(true);
 
@@ -1076,6 +1093,59 @@ export default function MessengerChat({
         shownCount = index + 1;
       };
 
+      // Screen-on per-sentence reveal (task 3.12): the bubble settles in via
+      // revealChunk above, then — only in `pairs` mode, and only for the
+      // chunks that mode needs translated — flashes its native-language zone
+      // open for a beat before playing this chunk's own audio. Only called
+      // once the whole turn is available (after the stream or buffered fetch
+      // resolves), never chunk-by-chunk as the model is still writing: a
+      // cache-miss chunk's audio isn't confirmed on disk until the "audio"
+      // events at the END of the stream, so playing inline while more chunks
+      // are still arriving isn't safe. Eyes-free never calls this — it has no
+      // visual channel to flash on, and a pending correction drill needs this
+      // turn's audio held back entirely (task 3.4), which this doesn't support;
+      // it keeps the old revealChunk-then-playResponseAudio path unchanged.
+      const revealTurnChunk = async (chunk: ResponseChunk, index: number) => {
+        if (chunk.modality !== "audio") {
+          await revealChunk(chunk);
+          return;
+        }
+
+        const needsPlaybackTranslation = needsTranslationAt(index);
+        // The v2/eyes-free challenge sentence is guaranteed a working hover-
+        // reveal regardless of pairing mode — task 3.8's original guarantee.
+        // Task 3.11 can strip native_text off it when the sentence gets split
+        // into multiple pieces, so back-fill it here even in targetOnly mode,
+        // where nothing else below would otherwise ask for a translation.
+        const needsHoverFallback = !!chunk.is_challenge && !chunk.native_text;
+        const needsTranslation = needsPlaybackTranslation || needsHoverFallback;
+
+        let english: string | null = chunk.native_text ?? null;
+        if (needsTranslation && !english) {
+          const [translated] = await fetchTranslations([chunk.text || ""]);
+          english = translated;
+        }
+        // Persisted onto the revealed chunk (not just flashed) so the settled
+        // bubble's hover-to-reveal zone still works if the flash is missed —
+        // task 3.12 "Watch for": auto-hide must not strand the learner.
+        const chunkToReveal = english ? { ...chunk, native_text: english } : chunk;
+        await revealChunk(chunkToReveal);
+
+        if (needsPlaybackTranslation && english && pairingMode === "pairs") {
+          setFlashChunk({ messageId: characterMsgId, index });
+          await delay(flashDurationMs(english));
+          setFlashChunk(null);
+        }
+
+        if (needsPlaybackTranslation && english && pairingMode === "alternating") {
+          // This chunk is heard in the UI language INSTEAD of the target —
+          // unchanged from the old playResponseAudio behaviour for this mode.
+          await audioPlayer.play(english, localeFor(fluent.code));
+          return;
+        }
+        await playTargetClip(chunkToReveal);
+      };
+
       // Everything that isn't a reply bubble: the correction on the user's own message,
       // suggestions, usage, quiz, level-up. With response_chunks first in the output
       // schema these now land *after* the reply has started rendering.
@@ -1213,7 +1283,11 @@ export default function MessengerChat({
 
           await readNdjson(res, async (evt) => {
             if (evt.type === 'chunk') {
-              await revealChunk(evt.chunk);
+              // Screen-on turns defer reveal+play to the unified pass below
+              // (task 3.12) — a cache-miss chunk's audio isn't confirmed
+              // ready until the stream's trailing "audio" events, so nothing
+              // here is safe to play yet. Eyes-free still reveals live.
+              if (eyesFree) await revealChunk(evt.chunk);
             } else if (evt.type === 'final') {
               data = evt;
               await applyFinal(evt);
@@ -1249,10 +1323,15 @@ export default function MessengerChat({
         const buffered: TurnPayload = await res.json();
         data = buffered;
         // Buffered order matches the pre-streaming behaviour: correction first,
-        // then the reply bubbles.
+        // then the reply bubbles. Premade scripts always reveal immediately here
+        // (they never went through pairing/translation logic); a non-eyes-free
+        // LLM turn that fell back to buffered defers to the unified reveal+play
+        // pass below instead (task 3.12).
         await applyFinal(buffered);
-        for (const chunk of (buffered.response_chunks || [])) {
-          await revealChunk(chunk);
+        if (usePremadeEndpoint || eyesFree) {
+          for (const chunk of (buffered.response_chunks || [])) {
+            await revealChunk(chunk);
+          }
         }
       }
 
@@ -1276,8 +1355,19 @@ export default function MessengerChat({
       if (pendingDrill) {
         pendingReplyChunksRef.current = data?.response_chunks || [];
         await startCorrectionDrill(pendingDrill);
-      } else {
+      } else if (eyesFree || usePremadeEndpoint) {
+        // Eyes-free: no visual channel to flash a translation on, and this is
+        // the unchanged path (see revealTurnChunk's comment above). Premade:
+        // its chunks were already revealed above; this just plays their audio,
+        // exactly as it did before task 3.12.
         await playResponseAudio(data?.response_chunks || []);
+      } else {
+        // Screen-on, real LLM turn (task 3.12): reveal, flash-if-needed, and
+        // play one sentence at a time, instead of every bubble for the whole
+        // turn rendering before any audio starts.
+        for (const [index, chunk] of (data?.response_chunks || []).entries()) {
+          await revealTurnChunk(chunk, index);
+        }
       }
 
     } catch (e) {
@@ -1341,20 +1431,54 @@ export default function MessengerChat({
     }
   }
 
-  // Which chunks need a UI-language rendering, given the mode. Chunk 0 is the
-  // reaction opener and never gets one — it's short, carried by tone, and it's the
-  // clip the learner is waiting on before anything else can play.
-  function chunksNeedingTranslation(chunks: ResponseChunk[]): number[] {
-    if (pairingMode === "targetOnly") return [];
-    const rest = chunks.map((_, i) => i).filter(i => i > 0);
-    if (pairingMode === "pairs") return rest;
+  // Does chunk `index` need a UI-language rendering, given the mode? Chunk 0 is
+  // the reaction opener and never gets one — it's short, carried by tone, and
+  // it's the clip the learner is waiting on before anything else can play.
+  // Factored out (task 3.12) so both the whole-turn player below and the
+  // per-sentence screen-on reveal (`revealTurnChunk`, in sendMessage) agree on
+  // the same rule instead of drifting apart across a third pass over this file.
+  function needsTranslationAt(index: number): boolean {
+    if (pairingMode === "targetOnly" || index === 0) return false;
+    if (pairingMode === "pairs") return true;
     // alternating: every other chunk after the opener is heard in the UI language
     // instead of the target — a comprehension anchor, not a withheld crutch.
-    return rest.filter((_, n) => n % 2 === 0);
+    return (index - 1) % 2 === 0;
+  }
+
+  function chunksNeedingTranslation(chunks: ResponseChunk[]): number[] {
+    return chunks.map((_, i) => i).filter(needsTranslationAt);
+  }
+
+  // Task 3.12: how long a translation flash stays up before hiding — reading
+  // takes longer than listening for the same short phrase, hence the higher
+  // floor than betweenSentenceGap's.
+  function flashDurationMs(text: string): number {
+    return Math.max(1500, Math.min(3500, text.length * 60));
+  }
+
+  // Play one chunk's own clip (never a translation). Prefer the pre-generated
+  // reaction clip (task 3.2): free, no Azure roundtrip. Silently absent until
+  // backend/scripts/generate_reaction_audio.py has run. Factored out (task
+  // 3.12) so the whole-turn player and the per-sentence reveal share it.
+  async function playTargetClip(chunk: ResponseChunk) {
+    if (chunk.reaction_audio_file) {
+      await audioPlayer.playUrl(`${apiBase}${chunk.reaction_audio_file}`);
+    } else if (chunk.audio_file) {
+      await audioPlayer.playUrl(`${apiBase}${chunk.audio_file}`);
+    } else if (chunk.text) {
+      await audioPlayer.play(chunk.text, chunk.locale || localeFor(learning.code));
+    }
   }
 
   // `withReactions` is gone: chunk 0 is always the target-language reaction opener
   // now, so the pre-generated clip is preferred in every mode, not just eyes-free.
+  //
+  // Used only by eyes-free turns since task 3.12 — screen-on turns play each
+  // chunk inline as it's revealed (see `revealTurnChunk` in sendMessage) instead
+  // of rendering every bubble for the whole turn before any audio starts. Eyes-
+  // free keeps this whole-turn version because a pending correction drill needs
+  // audio held back entirely (task 3.4), which the inline path doesn't support,
+  // and because there is no visual channel to flash a translation on anyway.
   async function playResponseAudio(chunks: ResponseChunk[]) {
     const playable = chunks.filter(c => c.text || c.audio_file || c.reaction_audio_file);
     if (playable.length === 0) return;
@@ -1378,17 +1502,7 @@ export default function MessengerChat({
       return slot >= 0 ? (translations[slot] ?? null) : null;
     };
 
-    const playTarget = async (chunk: ResponseChunk) => {
-      // Prefer the pre-generated reaction clip (task 3.2): free, no Azure roundtrip.
-      // Silently absent until backend/scripts/generate_reaction_audio.py has run.
-      if (chunk.reaction_audio_file) {
-        await audioPlayer.playUrl(`${apiBase}${chunk.reaction_audio_file}`);
-      } else if (chunk.audio_file) {
-        await audioPlayer.playUrl(`${apiBase}${chunk.audio_file}`);
-      } else if (chunk.text) {
-        await audioPlayer.play(chunk.text, chunk.locale || localeFor(learning.code));
-      }
-    };
+    const playTarget = playTargetClip;
 
     for (let i = 0; i < playable.length; i++) {
       const chunk = playable[i];
@@ -2236,6 +2350,7 @@ export default function MessengerChat({
                             fluentName={fluent.name}
                             learningName={learning.name}
                             audioUrl={chunk.audio_file ? `${apiBase}${chunk.audio_file}` : undefined}
+                            forceRevealNative={flashChunk?.messageId === message.id && flashChunk?.index === idx}
                           />
                         );
                       }

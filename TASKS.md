@@ -905,7 +905,7 @@ show. Single-sentence challenge chunks (the common case) are unaffected, since t
 
 ---
 
-### [ ] 3.12 — Sequential per-sentence reveal 🟡 Sonnet
+### [x] 3.12 — Sequential per-sentence reveal 🟡 Sonnet
 
 **Problem:** every bubble renders three grey placeholder strips — "Show English", "Show Spanish",
 "🔊 hover to replay" (`MessengerChat.tsx`, the three zones of the chunk bubble) — and **all of them
@@ -964,6 +964,67 @@ Ship "before" first; treat the ladder as the follow-up once it can be felt.
   missed flash is recoverable — verify that still works after the timing change.
 - **This is the third pass over `playResponseAudio`** (3.6, then 3.8, now this). If the mode branching
   is getting hard to follow, factor the per-chunk decision out before adding to it.
+
+**Shipped as:**
+- **Factored out, per the "Watch for" above:** `needsTranslationAt(index)` (replaces the old
+  `chunksNeedingTranslation`'s inline logic — that function now just filters by it), `playTargetClip(chunk)`
+  (the old `playResponseAudio`'s local `playTarget`, promoted to component scope), and `flashDurationMs(text)`.
+  Both the untouched whole-turn player and the new per-sentence path agree on one definition of "does this
+  chunk need a translation" instead of drifting into a second copy.
+- **The flash reuses the existing bubble instead of a new overlay.** `<MessengerChallengePair>` gained
+  `forceRevealNative?: boolean`, which forces its native-language zone open (with a distinct indigo tint so
+  it reads as automatic, not hover) without a real hover. `flashChunk` state (`{messageId, index} | null`)
+  drives it. "Settle into the existing replay-able bubble" is then literal — it's the same card, same zone,
+  reverting to idle hover/pin behavior the instant the flash ends (`nativeVisible = hovered || pinned ||
+  forceRevealNative`).
+- **`revealTurnChunk(chunk, index)`** (new, in `sendMessage`'s closure next to `revealChunk`): reveals the
+  bubble (via the unchanged `revealChunk`), then — `pairs` mode only, and only for chunks that mode needs
+  translated — flashes the zone open for `flashDurationMs`, hides it, then plays the chunk's own audio.
+  `alternating` is untouched (still substitutes spoken English for the chunk's own audio, unchanged from the
+  old `playResponseAudio`) — the task scoped the visual-flash change to `pairs` only. The resolved
+  translation is written onto the chunk `native_text` field before reveal (not just flashed), so the
+  "Watch for" requirement holds structurally: a missed flash is still recoverable by hovering, because the
+  zone reads from the same field either way.
+- **Closes a gap 3.11 flagged as deferred here:** a v2/eyes-free challenge chunk that task 3.11's
+  sentence-splitter divides into multiple pieces loses `native_text` on all but the tagged `is_challenge`
+  piece, and even that piece's `native_text` is dropped by 3.11's design (see 3.11 Trap 2). Task 3.8's
+  original guarantee was "the challenge sentence's translation needs no roundtrip, in every mode" —
+  `revealTurnChunk` restores that specifically: an `is_challenge` chunk with no `native_text` always fetches
+  one via `/api/messenger/translate`, even in `targetOnly` mode where `needsTranslationAt` would otherwise
+  say no. This is purely a hover-reveal backfill — it never drives a flash or an audio substitution; only
+  `pairingMode` does that.
+- **⚠️ Real constraint that reshaped the "per sentence, in step with playback" ask:** the streaming
+  endpoint's `"audio"` confirmation events (task 1.6) are emitted *after every chunk has already streamed*
+  (`routers/messenger.py` awaits all TTS futures, then emits them, only once the model has finished writing
+  the whole turn) — never interleaved live per chunk. Playing a chunk's audio the instant its text arrives
+  would race a cache-miss chunk's TTS generation and could 404. Resolved by keeping the *live* per-chunk
+  reveal (`revealChunk` alone, no audio) for eyes-free only, and — for screen-on turns — not revealing
+  *anything* during the raw NDJSON stream at all: chunks are accumulated silently, and the whole
+  reveal-flash-play sequence runs as one paced loop only once the turn (streaming or buffered) fully resolves
+  and every chunk's audio is guaranteed on disk. The reaction-icon indicator (task 1.1, unchanged) simply
+  covers the whole wait instead of being cut short at chunk 1 — real latency is still hidden, just no
+  longer as a bubble-by-bubble reveal during generation for screen-on turns specifically. Eyes-free's
+  existing live reveal + deferred-audio-for-drills path (task 3.4) is completely untouched.
+- **Call-site branching, all in `sendMessage`:** the streaming NDJSON handler now only calls `revealChunk`
+  live `if (eyesFree)`; the buffered-path loop only runs immediately `if (usePremadeEndpoint || eyesFree)`
+  (premade scripts never went through pairing/translation logic, so they keep the old immediate reveal
+  regardless of `eyesFree`); the final drill/play block is now a three-way branch — drill (unchanged),
+  `eyesFree || usePremadeEndpoint` → the old whole-turn `playResponseAudio`, else → the new per-chunk
+  `revealTurnChunk` loop.
+- **Ladder reassignment (alternating=after, targetOnly=hover-only) not done** — the task explicitly scoped
+  this to follow-up ("ship 'before' first; treat the ladder as the follow-up once it can be felt").
+- **Translation fetches are now per-chunk, not batched for the whole turn** — simpler to reason about
+  alongside the per-sentence loop, at the cost of a few more `/api/messenger/translate` round trips per
+  turn; each is still content-hash-cached (3.8), so a repeated sentence is still free the second time.
+
+**Not verified in a browser** — no `chromium-cli`, Playwright, or `claude-in-chrome` tooling available in
+this environment (checked all three). `npx tsc --noEmit` and `npm run lint` are clean on every touched
+line (same 2 pre-existing, unrelated errors elsewhere in the file as before this task). Noticed the user
+already had a live dev session running (frontend on :5173, backend on :8000, `mock_mode: false`) — did not
+touch, restart, or interact with it, and shut down the separate throwaway instance (:5174) started to check
+that `npm run dev` at least boots. **Please click through `pairs` mode yourself** — timings
+(`flashDurationMs`, the reaction-indicator-covers-the-whole-wait trade-off) are reasoned, not tuned by ear
+or eye, same caveat as most of Phase 3.
 
 ---
 
