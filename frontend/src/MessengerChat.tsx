@@ -3,6 +3,7 @@
 import React, { useEffect, useState, useRef, useCallback } from "react";
 import { GameTextarea, CorrectionTokens } from "./sharedGameComponents";
 import { useAudioPlayer, useReplayStack, useEarcons, useHaptics, useGamepad } from "./sharedGameHooks";
+import type { ReplayItem } from "./sharedGameHooks";
 import { API_BASE, localeFor, SLOW_TTS_RATE } from "./config";
 import { buildCorrectionTokens, checkFuzzyMatch } from "./sharedGameUtils";
 import type { CorrectionToken } from "./sharedGameUtils";
@@ -126,9 +127,10 @@ function MessengerChallengePair({
   fluentName: string;
   learningName: string;
   audioUrl: string | undefined;
-  // Task 3.12: briefly forces the native-language zone open without a hover,
-  // for the post-reveal translation flash. The zone still responds to real
-  // hover/pin normally once this goes false again.
+  // Task 3.12's post-reveal auto-flash; superseded by 3.13's ephemeral
+  // thought line, which no caller wires this to anymore. Left in place —
+  // cheap to keep, and the zone it opens (below) is still real, hover-driven
+  // UI independent of this prop.
   forceRevealNative?: boolean;
 }) {
   const [pinned, setPinned] = useState<Set<"native" | "learning">>(new Set());
@@ -172,7 +174,10 @@ function MessengerChallengePair({
 
   const zoneBase: React.CSSProperties = { padding: "3px 10px", borderRadius: 6, cursor: "pointer", transition: "background 0.15s", display: "flex", alignItems: "center", justifyContent: "space-between", border: "1px solid rgba(0,0,0,0.08)", minHeight: 26 };
 
-  const nativeVisible = hovered === "native" || pinned.has("native") || !!forceRevealNative;
+  // Task 3.13 point 4: replaying a sentence's audio (hovering zone 3) also
+  // shows its translation, the settled-bubble equivalent of "show it again"
+  // for whoever missed the ephemeral thought the first time.
+  const nativeVisible = hovered === "native" || hovered === "audio" || pinned.has("native") || !!forceRevealNative;
   const learningVisible = hovered === "learning" || pinned.has("learning");
 
   return (
@@ -396,13 +401,13 @@ export default function MessengerChat({
   const [streamLetters, setStreamLetters] = useState<boolean>(false);
   // Per-message chunk reveal counts (for progressive bubble-by-bubble appearance)
   const [visibleChunkCounts, setVisibleChunkCounts] = useState<Map<number, number>>(new Map());
-  // Task 3.12: which chunk (by message + index) is currently flashing its
-  // translation open. Reuses <MessengerChallengePair>'s own native-language
-  // zone rather than a separate overlay — the bubble that flashes open is the
-  // exact bubble that then "settles" back into its idle, hover-reveal state.
-  // Screen-on, `pairs` mode only — eyes-free speaks the translation instead,
-  // via the untouched playResponseAudio path.
-  const [flashChunk, setFlashChunk] = useState<{ messageId: number; index: number } | null>(null);
+  // Task 3.13: the character's pre-verbal "thought" — an ephemeral translation
+  // line shown in the message flow (next to the reaction-phase indicator)
+  // before a bubble arrives, and again during replay. Supersedes 3.12's
+  // in-bubble flash (`flashChunk`/`forceRevealNative`), which is gone: this is
+  // the default for every sentence but chunk 0, regardless of `pairingMode`,
+  // whenever the screen is on.
+  const [thoughtText, setThoughtText] = useState<string | null>(null);
   const [audioEnabled, setAudioEnabled] = useState<boolean>(false);
   const [liveReactions, setLiveReactions] = useState<boolean>(true);
 
@@ -1043,7 +1048,12 @@ export default function MessengerChat({
       // later calls keep the original read-then-type gap between bubbles. Chunks are
       // appended as they arrive so the streaming path can render bubble 1 while the
       // model is still writing corrections and suggestions.
-      const revealChunk = async (chunk: ResponseChunk) => {
+      // `skipPacing` (task 3.13): revealTurnChunk already ran its own
+      // reading/thinking/typing sequence (with the translation "thought" shown
+      // mid-sequence) before calling this — don't double up the read-then-type
+      // gap here. Callers that reveal chunks directly (eyes-free, premade) leave
+      // it unset and keep the pacing this function has always done.
+      const revealChunk = async (chunk: ResponseChunk, opts?: { skipPacing?: boolean }) => {
         if (chunk.native_text) lastChallengeChunkRef.current = chunk;
         const index = shownCount;
         if (!characterCreated) {
@@ -1060,7 +1070,7 @@ export default function MessengerChat({
             suggestedReplies: [],
           }]);
           characterCreated = true;
-        } else {
+        } else if (!opts?.skipPacing) {
           await delay(readingDelay(lastChunkText));
           setIsTyping(true);
           await delay(chunkRevealDelay(lastChunkText));
@@ -1080,6 +1090,7 @@ export default function MessengerChat({
             locale: chunk.locale ?? localeFor(learning.code),
             source: "character",
             audioUrl: `${apiBase}${chunk.audio_file}`,
+            nativeText: chunk.native_text,
           });
         }
 
@@ -1093,18 +1104,26 @@ export default function MessengerChat({
         shownCount = index + 1;
       };
 
-      // Screen-on per-sentence reveal (task 3.12): the bubble settles in via
-      // revealChunk above, then — only in `pairs` mode, and only for the
-      // chunks that mode needs translated — flashes its native-language zone
-      // open for a beat before playing this chunk's own audio. Only called
-      // once the whole turn is available (after the stream or buffered fetch
-      // resolves), never chunk-by-chunk as the model is still writing: a
-      // cache-miss chunk's audio isn't confirmed on disk until the "audio"
-      // events at the END of the stream, so playing inline while more chunks
-      // are still arriving isn't safe. Eyes-free never calls this — it has no
-      // visual channel to flash on, and a pending correction drill needs this
-      // turn's audio held back entirely (task 3.4), which this doesn't support;
-      // it keeps the old revealChunk-then-playResponseAudio path unchanged.
+      // Screen-on per-sentence reveal (task 3.12, presentation superseded by
+      // 3.13). Every chunk but the first (the reaction opener, never
+      // translated — task 3.8) gets its translation shown as an ephemeral
+      // "thought" — the character thinking the meaning before writing it in
+      // the target language — sequenced between the reading and typing beats,
+      // then hidden before the bubble and its audio arrive ("hide, then
+      // play": the whole point is training listening, not reading along).
+      // That's now the default regardless of `pairingMode`; `pairingMode`
+      // still separately governs whether the turn's *audio* pairs/substitutes
+      // a spoken translation (untouched below).
+      //
+      // Only called once the whole turn is available (after the stream or
+      // buffered fetch resolves), never chunk-by-chunk as the model is still
+      // writing: a cache-miss chunk's audio isn't confirmed on disk until the
+      // "audio" events at the END of the stream, so playing inline while more
+      // chunks are still arriving isn't safe. Eyes-free never calls this — it
+      // has no visual channel to show a thought on, and a pending correction
+      // drill needs this turn's audio held back entirely (task 3.4), which
+      // this doesn't support; it keeps the old revealChunk-then-
+      // playResponseAudio path unchanged.
       const revealTurnChunk = async (chunk: ResponseChunk, index: number) => {
         if (chunk.modality !== "audio") {
           await revealChunk(chunk);
@@ -1115,26 +1134,58 @@ export default function MessengerChat({
         // The v2/eyes-free challenge sentence is guaranteed a working hover-
         // reveal regardless of pairing mode — task 3.8's original guarantee.
         // Task 3.11 can strip native_text off it when the sentence gets split
-        // into multiple pieces, so back-fill it here even in targetOnly mode,
-        // where nothing else below would otherwise ask for a translation.
+        // into multiple pieces, so back-fill it here too.
         const needsHoverFallback = !!chunk.is_challenge && !chunk.native_text;
-        const needsTranslation = needsPlaybackTranslation || needsHoverFallback;
+        // Task 3.13: every sentence but chunk 0 gets a thought, independent
+        // of pairingMode/needsPlaybackTranslation.
+        const needsThought = index !== 0;
+        const needsTranslation = needsPlaybackTranslation || needsHoverFallback || needsThought;
 
-        let english: string | null = chunk.native_text ?? null;
-        if (needsTranslation && !english) {
-          const [translated] = await fetchTranslations([chunk.text || ""]);
-          english = translated;
+        // Fire the translate call immediately so its latency lands inside the
+        // reading/thinking beats below instead of stalling after them — the
+        // thinking icon is free cover for it, same trick as task 1.1.
+        const englishPromise: Promise<string | null> = chunk.native_text
+          ? Promise.resolve(chunk.native_text)
+          : needsTranslation
+            ? fetchTranslations([chunk.text || ""]).then(([t]) => t ?? null)
+            : Promise.resolve(null);
+
+        let english: string | null;
+        if (index === 0) {
+          english = await englishPromise;
+        } else {
+          setReactionPhase('reading');
+          await delay(readingDelay(lastChunkText));
+
+          setReactionPhase('thinking');
+          // A translate outage degrades to no thought shown, never a stall —
+          // task 3.8's ok:false/nulls contract, re-verified for this default path.
+          english = await englishPromise;
+          if (english) {
+            setThoughtText(english);
+            await delay(flashDurationMs(english));
+            setThoughtText(null);
+            // The beat that keeps "hide, then play" from reading as a dead
+            // stall while stopping the text and audio from overlapping.
+            await delay(200);
+          }
+
+          setReactionPhase('typing');
+          await delay(chunkRevealDelay(lastChunkText));
+          setReactionPhase(null);
         }
-        // Persisted onto the revealed chunk (not just flashed) so the settled
-        // bubble's hover-to-reveal zone still works if the flash is missed —
-        // task 3.12 "Watch for": auto-hide must not strand the learner.
+
+        // Persisted onto the revealed chunk (not just the ephemeral thought)
+        // so the settled bubble's hover-to-reveal zone still works if the
+        // thought is missed — task 3.12 "Watch for": auto-hide must not
+        // strand the learner. skipPacing: the reading/thinking/typing beats
+        // above already ran, so revealChunk shouldn't run its own too.
         const chunkToReveal = english ? { ...chunk, native_text: english } : chunk;
-        await revealChunk(chunkToReveal);
+        await revealChunk(chunkToReveal, { skipPacing: true });
 
         if (needsPlaybackTranslation && english && pairingMode === "pairs") {
-          setFlashChunk({ messageId: characterMsgId, index });
-          await delay(flashDurationMs(english));
-          setFlashChunk(null);
+          await audioPlayer.play(english, localeFor(fluent.code));
+          await delay(WITHIN_PAIR_GAP_MS);
         }
 
         if (needsPlaybackTranslation && english && pairingMode === "alternating") {
@@ -1362,9 +1413,9 @@ export default function MessengerChat({
         // exactly as it did before task 3.12.
         await playResponseAudio(data?.response_chunks || []);
       } else {
-        // Screen-on, real LLM turn (task 3.12): reveal, flash-if-needed, and
-        // play one sentence at a time, instead of every bubble for the whole
-        // turn rendering before any audio starts.
+        // Screen-on, real LLM turn (task 3.12, presentation per 3.13): show
+        // the thought, reveal, and play one sentence at a time, instead of
+        // every bubble for the whole turn rendering before any audio starts.
         for (const [index, chunk] of (data?.response_chunks || []).entries()) {
           await revealTurnChunk(chunk, index);
         }
@@ -1377,6 +1428,7 @@ export default function MessengerChat({
       setBusy(false);
       setIsTyping(false);
       setReactionPhase(null);
+      setThoughtText(null);
       setProcessingMsgId(null);
       setStreamingMessageId(null);
     }
@@ -1431,12 +1483,16 @@ export default function MessengerChat({
     }
   }
 
-  // Does chunk `index` need a UI-language rendering, given the mode? Chunk 0 is
-  // the reaction opener and never gets one — it's short, carried by tone, and
-  // it's the clip the learner is waiting on before anything else can play.
-  // Factored out (task 3.12) so both the whole-turn player below and the
-  // per-sentence screen-on reveal (`revealTurnChunk`, in sendMessage) agree on
-  // the same rule instead of drifting apart across a third pass over this file.
+  // Does chunk `index` need its translation spoken (pairs) or substituted
+  // (alternating) in the *audio*, given the mode? Chunk 0 is the reaction
+  // opener and never gets one — it's short, carried by tone, and it's the
+  // clip the learner is waiting on before anything else can play. This no
+  // longer governs the visual "thought" text (task 3.13 shows that for every
+  // sentence but chunk 0 regardless of pairingMode) — only whether the audio
+  // itself pairs/substitutes a spoken translation. Factored out (task 3.12)
+  // so both the whole-turn player below and the per-sentence screen-on reveal
+  // (`revealTurnChunk`, in sendMessage) agree on the same audio rule instead
+  // of drifting apart across a third pass over this file.
   function needsTranslationAt(index: number): boolean {
     if (pairingMode === "targetOnly" || index === 0) return false;
     if (pairingMode === "pairs") return true;
@@ -1580,6 +1636,20 @@ export default function MessengerChat({
     await audioPlayer.play(d.explanation, localeFor(fluent.code));
   }
 
+  // Task 3.13 point 4: show a replayed item's translation alongside its
+  // audio — no hide-then-play beat this time, since replay is a repair
+  // action rather than the listening test the first pass is, so it gets
+  // more support, not less. eyesFree has no visual channel to show it on.
+  async function withReplayThought<T>(item: ReplayItem, play: () => Promise<T>): Promise<T> {
+    if (eyesFree || !item.nativeText) return play();
+    setThoughtText(item.nativeText);
+    try {
+      return await play();
+    } finally {
+      setThoughtText(null);
+    }
+  }
+
   // Alt+R / controller A: hear it again. During a drill that is the sentence to
   // repeat; otherwise whatever the replay stack's cursor currently points at
   // (task 2.2's stack, task 4.3's cursor over it — LB/RB move it, this reads it).
@@ -1588,7 +1658,7 @@ export default function MessengerChat({
     const d = drillRef.current;
     if (d) { await speakDrillTarget(d); return; }
     const item = replayStack.current();
-    if (item) await audioPlayer.playUrl(item.audioUrl);
+    if (item) await withReplayThought(item, () => audioPlayer.playUrl(item.audioUrl));
   }
 
   // Controller Y (task 4.2): same target as repeatLastAudio, always at 0.75x. A
@@ -1599,7 +1669,7 @@ export default function MessengerChat({
     const d = drillRef.current;
     if (d) { await speakDrillTarget(d); return; }
     const item = replayStack.current();
-    if (item) await audioPlayer.play(item.text, item.locale, SLOW_TTS_RATE);
+    if (item) await withReplayThought(item, () => audioPlayer.play(item.text, item.locale, SLOW_TTS_RATE));
   }
 
   // Controller LT hold (task 4.2): speaks the native-language translation of the
@@ -2350,7 +2420,6 @@ export default function MessengerChat({
                             fluentName={fluent.name}
                             learningName={learning.name}
                             audioUrl={chunk.audio_file ? `${apiBase}${chunk.audio_file}` : undefined}
-                            forceRevealNative={flashChunk?.messageId === message.id && flashChunk?.index === idx}
                           />
                         );
                       }
@@ -2559,6 +2628,24 @@ export default function MessengerChat({
               </div>
             </div>
           ))}
+
+          {/* Task 3.13: the character's ephemeral "thought" — the translation of
+              the sentence about to be spoken (or just replayed), shown once and
+              gone. Deliberately muted/small: the learner should be able to look
+              away and simply not read it, which is what makes it optional
+              scaffolding instead of a crutch. Decoupled from reactionPhase so it
+              also shows during replay, when no reaction sequence is running. */}
+          {thoughtText && (
+            <div style={{ alignSelf: 'flex-start', maxWidth: '70%', padding: '0 4px' }}>
+              <span style={{
+                fontSize: 12,
+                fontStyle: 'italic',
+                color: 'rgba(255,255,255,0.5)',
+              }}>
+                {thoughtText}
+              </span>
+            </div>
+          )}
 
           {/* Typing indicator */}
           {(isTyping || reactionPhase !== null) && (

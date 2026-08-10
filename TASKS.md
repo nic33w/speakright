@@ -1031,7 +1031,7 @@ that `npm run dev` at least boots. **Please click through `pairs` mode yourself*
 (`flashDurationMs`, the reaction-indicator-covers-the-whole-wait trade-off) are reasoned, not tuned by ear
 or eye, same caveat as most of Phase 3.
 
-### [ ] 3.13 — Translation as the character's thought, not a bubble zone 🟡 Sonnet
+### [x] 3.13 — Translation as the character's thought, not a bubble zone 🟡 Sonnet
 
 **Supersedes 3.12's flash *presentation*.** 3.12 shipped the reveal as `forceRevealNative` opening the
 native-language zone **inside** the message card (indigo tint), in `pairs` mode only, for the chunks

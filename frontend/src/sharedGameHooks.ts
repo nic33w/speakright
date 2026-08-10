@@ -112,6 +112,9 @@ export type ReplayItem = {
   locale: string;
   source: "character" | "user";
   audioUrl: string;
+  // Messenger task 3.13: the UI-language translation, when known, so a replay
+  // can show the same "thought" text it showed the first time around.
+  nativeText?: string;
 };
 
 // A cursor into `items`, for task 4.3's shoulder-button history navigation

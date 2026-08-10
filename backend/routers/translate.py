@@ -1,16 +1,20 @@
 """On-demand chunk translation (task 3.8).
 
 The messenger character speaks only the target language. UI-language translations
-are fetched here, by the client, only for the chunks the active pairing mode
-actually needs:
+are fetched here, by the client, on demand.
 
-    targetOnly    0 translations
-    alternating   1 (the chunk voiced in the UI language)
-    pairs         2 (chunks 2 and 3; the reaction opener never gets one)
+As of task 3.13, the client's default screen-on behaviour is to fetch one for
+every chunk but the reaction opener (`response_chunks[0]`), regardless of
+`pairingMode`, to show as an ephemeral "thought" before each bubble. `pairingMode`
+separately still governs whether the turn's *audio* additionally speaks or
+substitutes a translation (`pairs` speaks it before the target clip, `alternating`
+substitutes it for every other chunk, `targetOnly` does neither) — but by task
+3.13 that no longer changes whether this endpoint gets called, only whether its
+result is also read aloud.
 
-Keeping this out of the messenger turn is what makes the modes cheap: `targetOnly`
-never calls it at all, one prompt shape serves every mode, and a mode switch can be
-applied retroactively to messages already on screen.
+Keeping this out of the messenger turn is what keeps a mode switch retroactive:
+one prompt shape serves every mode, and translations already fetched for the
+visual thought are reused instead of re-fetched when audio pairing wants them too.
 """
 from typing import List, Optional
 
