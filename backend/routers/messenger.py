@@ -35,7 +35,7 @@ from profile_store import (
 from prompts.messenger_prompt import build_layered_prompt, get_persona_tuning, normalize_prompt_version
 from quiz_store import add_quiz_item, get_pending_quiz
 from settings import API_ROOT, ENABLE_QUIZZING, MOCK_MODE, PERSONA, REACTIONS_AUDIO_DIR
-from tts_helpers import tts_bytes_for_chunk
+from tts_helpers import DEFAULT_CLAUSE_PAUSE_MS, tts_bytes_for_chunk
 
 router = APIRouter()
 
@@ -99,10 +99,10 @@ def build_premade_response_chunks(display_text: str, audio_parts: list, session_
         locale = part.get("locale", "es-MX")
 
         # Generate/cache TTS
-        url_path, exists, disk_path = get_cached_audio_path(text, locale)
+        url_path, exists, disk_path = get_cached_audio_path(text, locale, pause_ms=DEFAULT_CLAUSE_PAUSE_MS)
         if not exists:
             try:
-                wav_bytes = tts_bytes_for_chunk(text, locale)
+                wav_bytes = tts_bytes_for_chunk(text, locale, pause_ms=DEFAULT_CLAUSE_PAUSE_MS)
             except Exception as e:
                 print(f"TTS failed for premade chunk, using silence: {e}")
                 wav_bytes = generate_silent_wav(duration_secs=min(3.0, 0.25 * len(text.split())))
@@ -541,7 +541,8 @@ def _prepare_chunk(chunk, target_code: str = "es") -> tuple:
 
     # Content-hash cache before generating fresh TTS (chunks repeat: greetings,
     # suggested replies, common challenge sentences)
-    cache_url, cache_hit, cache_disk_path = get_cached_audio_path(text, locale)
+    cache_url, cache_hit, cache_disk_path = get_cached_audio_path(
+        text, locale, pause_ms=DEFAULT_CLAUSE_PAUSE_MS)
     chunk_dict["audio_file"] = cache_url
     return chunk_dict, (None if cache_hit else (text, locale, cache_disk_path))
 
@@ -560,7 +561,7 @@ def _prepare_chunks(chunks, target_code: str = "es") -> tuple:
 def _generate_and_save(item) -> None:
     text, locale, disk_path = item
     try:
-        wav_bytes = tts_bytes_for_chunk(text, locale)
+        wav_bytes = tts_bytes_for_chunk(text, locale, pause_ms=DEFAULT_CLAUSE_PAUSE_MS)
     except Exception as e:
         print(f"TTS failed for chunk, using silence: {e}")
         wav_bytes = generate_silent_wav(duration_secs=min(3.0, 0.25 * len(text.split())))

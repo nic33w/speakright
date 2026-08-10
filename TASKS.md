@@ -675,7 +675,7 @@ the spec, not tuned by ear. Task 3.10 depends on this being judged first.
 
 ---
 
-### [ ] 3.10 — Pauses between clauses (SSML `<break>`) 🟡 Sonnet
+### [x] 3.10 — Pauses between clauses (SSML `<break>`) 🟡 Sonnet
 
 **Why this and not just slowing the audio down.** When slowed speech helps L2 comprehension, most of
 the benefit comes from the **added pause time, not the slower articulation** — and slowing carries a
@@ -766,6 +766,46 @@ widen the within-pair gap to ~700ms; final call by ear once it can actually be h
 **Depends on:** 3.9. Ship the length cap first and listen to the result — if shorter sentences alone
 fix the complaint, this task gets tuned against a much clearer baseline instead of compensating for a
 volume problem it was never meant to solve.
+
+**Shipped as:**
+- **`insert_clause_breaks(text, pause_ms)`** (`tts_helpers.py`) — the pure backend transform: one regex
+  alternation, `([,;])\s+` or `\s+(?=cue\b)` for `que|porque|pero|cuando|si|y` (case-insensitive),
+  substituted in a single left-to-right pass so a cue word right after a comma (`", pero"`) gets exactly
+  one `<break>`, not two (the whitespace is already consumed by the punctuation branch by the time the
+  cue branch would look at it). `pause_ms=0` is a hard no-op — returns `text` unchanged, byte-for-byte —
+  and a single-clause sentence is also a no-op even with `pause_ms` set, since no boundary regex fires.
+  `DEFAULT_CLAUSE_PAUSE_MS = 250`, matching the ladder table.
+- **`azure_tts_bytes_real` / `tts_bytes_for_chunk`** (`tts_helpers.py`) both gained a `pause_ms: int = 0`
+  parameter; the SSML text goes through `insert_clause_breaks` before being wrapped in the existing
+  `<prosody>` block — one TTS call, continuous prosody, per the "not separate clips" requirement above.
+- **TRAP 1, applied exactly as written:** `get_cached_audio_path` (`audio_utils.py`) now takes
+  `pause_ms: int = 0` and appends `|p{pause_ms}` to the hash key only when non-zero — `rate` and
+  `pause_ms` are independent axes (a rate-only call, a pause-only call, and a call with both each hash
+  to a distinct file; tested in `test_cache_key_independent_axes_for_rate_and_pause`). `pause_ms=0`
+  reproduces the exact pre-3.10 (and pre-2.1, when `rate` is also 0) key, so nothing already on disk is
+  orphaned.
+- **`/api/trivia/audio`** (`routers/audio.py`) gained a passthrough `pause_ms` field on `TriviaAudioReq`,
+  same pattern as 2.1's `rate` — this is what the Files list scoped the task to, and it's enough for any
+  client-driven playback (drills, repeat-slower) to opt in later.
+- **The actual fix, beyond the three listed files:** `routers/messenger.py`'s own three internal TTS
+  call sites (`build_premade_response_chunks`, `_prepare_chunk`, `_generate_and_save`) now pass
+  `pause_ms=DEFAULT_CLAUSE_PAUSE_MS` explicitly. Without this the feature would sit unused — the
+  character's actual per-turn speech (the thing "sentences feel too fast" is about) is generated
+  server-side in `routers/messenger.py`, not through `/api/trivia/audio`, so wiring only the three listed
+  files would have shipped dead code. Called out here since it wasn't in the task's file list.
+- **New `tests/test_tts_pauses.py`** (10 cases): the no-op paths (pause_ms=0, single clause), comma vs.
+  cue-word insertion, the no-double-break case at a punctuation+cue boundary, the substring false-positive
+  guard (`y` inside `yo`, `si` inside `siempre`), configurable duration, and the three cache-key
+  invariants above. **151 passed, 1 xfailed** (up from 141 — no prompt goldens touched, this task is
+  runtime TTS code, not the static prefix).
+- **Not touched:** `WITHIN_PAIR_GAP_MS` / `betweenSentenceGap()` (task 3.8) — the ladder in the table
+  above (250 / 500 / 1200–2200) already sits ~2× apart at each step with no change needed. Also not
+  touched: `scripts/generate_reaction_audio.py`'s pre-generated bank (short, typically single-clause,
+  and out of this task's file list) and `story.py`'s live per-turn TTS (out of scope — this task is
+  messenger-specific per the pacing-ladder framing above).
+
+**Not verified by ear** — same caveat as 3.9 and most of Phase 3/4: the transform is reasoned from the
+spec and unit-tested as a pure function, but no real Azure call has been heard with breaks inserted.
 
 ---
 

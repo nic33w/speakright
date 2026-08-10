@@ -36,15 +36,22 @@ def save_wav(session_id: str, turn_id: str, lang_code: str, idx: int, wav_bytes:
     return f"/api/audio_file/{safe}/{filename}"
 
 
-def get_cached_audio_path(text: str, locale: str, rate: int = 0) -> tuple[str, bool, Path]:
+def get_cached_audio_path(text: str, locale: str, rate: int = 0, pause_ms: int = 0) -> tuple[str, bool, Path]:
     """
-    Check if audio for this text+locale(+rate) already exists.
+    Check if audio for this text+locale(+rate)(+pause_ms) already exists.
     rate: SSML prosody rate percent offset (0 = normal speed). rate=0 hashes identically to the
     pre-rate cache key so existing files stay valid as the normal-speed variant.
+    pause_ms: SSML <break> length at clause boundaries (task 3.10). pause_ms=0 hashes identically
+    to the pre-3.10 key so existing files stay valid as the no-pause variant — see TASKS.md task
+    3.10 "TRAP 1" for why this has to land in the same commit as the SSML change.
     Returns: (url_path, exists, disk_path)
     """
-    # Create deterministic hash from text + locale (+ rate, only when non-default)
-    key = f"{text}|{locale}" if rate == 0 else f"{text}|{locale}|{rate}"
+    # Create deterministic hash from text + locale (+ rate, + pause_ms, only when non-default)
+    key = f"{text}|{locale}"
+    if rate != 0:
+        key += f"|{rate}"
+    if pause_ms != 0:
+        key += f"|p{pause_ms}"
     hash_input = key.encode('utf-8')
     text_hash = hashlib.md5(hash_input).hexdigest()[:12]  # First 12 chars
 
