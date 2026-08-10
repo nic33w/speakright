@@ -907,6 +907,11 @@ show. Single-sentence challenge chunks (the common case) are unaffected, since t
 
 ### [x] 3.12 — Sequential per-sentence reveal 🟡 Sonnet
 
+**⚠️ Presentation superseded by 3.13** — the flash moves out of the message card and becomes the
+default for every sentence, not a `pairs`-only bubble zone. The plumbing this task factored out
+(`needsTranslationAt`, `playTargetClip`, `flashDurationMs`, `revealTurnChunk`, the `is_challenge`
+hover backfill) is all still in use.
+
 **Problem:** every bubble renders three grey placeholder strips — "Show English", "Show Spanish",
 "🔊 hover to replay" (`MessengerChat.tsx`, the three zones of the chunk bubble) — and **all of them
 appear before any audio plays**. The learner gets a dead visual moment: a set of controls for content
@@ -1025,6 +1030,95 @@ touch, restart, or interact with it, and shut down the separate throwaway instan
 that `npm run dev` at least boots. **Please click through `pairs` mode yourself** — timings
 (`flashDurationMs`, the reaction-indicator-covers-the-whole-wait trade-off) are reasoned, not tuned by ear
 or eye, same caveat as most of Phase 3.
+
+### [ ] 3.13 — Translation as the character's thought, not a bubble zone 🟡 Sonnet
+
+**Supersedes 3.12's flash *presentation*.** 3.12 shipped the reveal as `forceRevealNative` opening the
+native-language zone **inside** the message card (indigo tint), in `pairs` mode only, for the chunks
+that mode needs translated. Everything underneath it stays — `needsTranslationAt`, `flashDurationMs`,
+`playTargetClip`, `revealTurnChunk`, and the `is_challenge` hover-reveal backfill are all reused. What
+changes is where the translation appears, what it looks like, when it appears, and how often.
+
+**The problem with a bubble zone:** a translation rendered *inside* the message card implicitly claims
+to be part of the message — it competes with the target sentence for being "the content". The learner
+should never be in doubt that the Spanish **is** the message.
+
+**The conceit that fixes it:** the translation is the character's **pre-verbal thought**; the target
+sentence is what they actually say. Thought is fleeting and quiet, speech is the artifact that stays
+in the bubble. That framing is what the styling below is expressing — it is not decoration.
+
+---
+
+**Four changes:**
+
+1. **Move it out of the message card.** Render the translation as an ephemeral line in the message
+   flow where the reaction-phase indicator already lives (`reactionPhase`: reading → thinking →
+   typing), sequenced **between `thinking` and `typing`**. Narratively: the character thinks the
+   meaning, then writes it in the target language. Then it disappears and the bubble arrives.
+
+2. **Every sentence except `response_chunks[0]`.** Currently only the chunks `pairs` mode asks for.
+   Chunk 0 stays untranslated — it is the reaction opener, it is short, it is carried by tone, and
+   that rule was settled in 3.8.
+
+3. **Muted, ignorable styling.** Low contrast, small, visually subordinate to everything around it.
+   The requirement is that the learner can **choose to look away and simply not read it** — which is
+   what makes it optional scaffolding rather than a crutch that is impossible to avoid. If it draws
+   the eye, it has failed.
+
+4. **Show it on replay too.** When the learner replays a sentence's audio, show the same thought text
+   again alongside it. Ephemeral text creates a real anxiety — "I missed it and it's gone" — and
+   replay is the answer. The asymmetry is deliberate: the first pass is a listening test, replay is a
+   repair action, so repair gets more support.
+
+**Keep "hide, then play" — do not overlap the text with the audio.** With the text still up, the
+learner reads and listens at once, which in practice means they read. Hiding it first forces them to
+hold the meaning in memory and map the target audio onto it. That is the version that trains
+listening, and it is the whole reason this is worth building.
+
+**The thinking icons are free cover for the translate call.** The character is visibly "thinking"
+while `/api/messenger/translate` is in flight, so the latency lands inside the fiction instead of
+behind a spinner — the same trick as task 1.1. Sequence the fetch to start as early as possible and
+let the `thinking` phase absorb it.
+
+---
+
+**This becomes the default when the screen is on, regardless of `pairingMode`.**
+
+- **Keep the three modes in the code.** They are cheap to keep and expensive to rebuild if this
+  doesn't survive contact with real use. This is a change of default, not a deletion.
+- **Eyes-free is unaffected and must stay that way.** A muted visual thought does nothing with the
+  screen off, so eyes-free keeps its spoken-English path. Gate on eyes-free, not on `pairingMode`.
+- `alternating`'s audio substitution is untouched.
+
+**Files:** `frontend/src/MessengerChat.tsx` (`revealTurnChunk`, the reaction-phase indicator, the
+replay handler, and `MessengerChallengePair`'s `forceRevealNative` — which may become unused for the
+flash but is still wanted for the `is_challenge` hover backfill).
+
+---
+
+**⚠️ The translate endpoint becomes load-bearing for the default experience.**
+
+It was opt-in (pairs mode only); now every turn depends on it. Two consequences:
+- **Volume roughly doubles** — ~2 translations per turn instead of only what `pairs` asked for. Still
+  the cheapest model and still cached (`translation_store.py`), so this is a note, not a blocker.
+- **Its failure mode now matters more.** Task 3.8 made `/api/messenger/translate` return `ok:false`
+  with nulls rather than raising, so a failure means the thought text simply doesn't appear and the
+  audio plays as normal. **Verify that still holds** — a translate outage must degrade to
+  target-only, never stall the turn or block the bubble.
+
+**⚠️ Don't lose the recovery path.** 3.12 deliberately writes the resolved translation onto the
+chunk's `native_text` before revealing, so a missed flash is still recoverable by hovering the bubble
+zone. Moving the flash out of the card must **not** stop that write — the hover zone stays as the
+"I looked away and want it back" path, alongside replay.
+
+**Watch for:**
+- **Flash duration must scale with length** and hold a floor — `flashDurationMs` already exists, reuse
+  it rather than inventing a second timing rule.
+- **There must be a beat between hiding the text and starting the audio**, but not a dead one. If it
+  reads as a stall, shorten the gap rather than overlapping the text back into the audio.
+- **This is the fourth pass over the reveal/playback path** (3.6, 3.8, 3.12, now this). 3.12 already
+  factored out `needsTranslationAt` / `playTargetClip` / `flashDurationMs` — build on those rather
+  than adding a fifth branch beside them.
 
 ---
 
