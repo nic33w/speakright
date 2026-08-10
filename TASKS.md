@@ -807,6 +807,120 @@ volume problem it was never meant to solve.
 **Not verified by ear** — same caveat as 3.9 and most of Phase 3/4: the transform is reasoned from the
 spec and unit-tested as a pure function, but no real Azure call has been heard with breaks inserted.
 
+### [ ] 3.11 — Split chunks into one sentence each, server-side 🟡 Sonnet
+
+**Problem:** the prompt already says "Keep each chunk to ONE spoken sentence" and the model does not
+reliably obey — the content chunk regularly arrives holding two or three sentences. Since it is one
+chunk it is also one audio file, so the learner cannot replay a single sentence; the only replay unit
+is the whole run.
+
+**Prompting harder is the wrong fix** — the rule exists and is being ignored. Split deterministically
+in the backend, before TTS, so the guarantee holds regardless of what the model emits.
+
+**Fix:** in `_prepare_chunks`, split each chunk's text on sentence boundaries and emit one chunk per
+sentence, each with its own audio. Merge any fragment under ~4 words into its neighbour — otherwise
+`"¿En serio?"` gets its own bubble and its own 1.2–2.2s gap, which reads as a stall rather than a beat.
+
+**Three things this buys beyond the ask:**
+- **Per-sentence replay**, which is the actual request (and feeds 4.3's LB/RB navigation).
+- **A better cache hit rate** — short sentences recur across turns far more than long ones do.
+- **Composes with 3.10's clause pauses** instead of competing: `<break>` handles boundaries *within* a
+  sentence, this handles boundaries *between* them.
+
+**Files:** `backend/routers/messenger.py` (`_prepare_chunks` / `_prepare_chunk`), `backend/models.py`
+if the challenge flag needs to move.
+
+---
+
+**⚠️ TRAP 1 — do not split `response_chunks[0]`.**
+
+The reaction opener is matched **verbatim** against the closed reaction bank
+(`_reaction_audio_lookup`) to hit its pre-generated audio. Split it, or alter its text in any way, and
+the match fails and every reaction falls through to live TTS — silently losing the thing that makes
+chunk 0 free and instant. Skip index 0 entirely; it is one sentence by construction anyway.
+
+**⚠️ TRAP 2 — `native_text` and `is_challenge` do not survive a split.**
+
+In v2 the last chunk carries `native_text`, a translation of **the whole chunk**. Split that chunk into
+three sentences and the translation no longer corresponds to any one of them.
+
+Resolution, and it is a real trade rather than a detail: split first, put `is_challenge` on the **last**
+piece, and drop `native_text` in favour of per-sentence translations from 3.8's
+`/api/messenger/translate`. More consistent — every sentence is then translated the same way — but it
+gives up the property 3.8 deliberately preserved, that the challenge sentence always has a translation
+available with **no roundtrip**, which is what backs the hover-reveal in `targetOnly` mode. Decide
+knowingly:
+- *Per-sentence translate* (recommended): consistent, works with 3.12's visual reveal, costs one cached
+  roundtrip the first time each sentence is seen.
+- *Keep `native_text` on the last piece*: preserves the no-roundtrip guarantee, but the translation
+  covers text the learner is no longer being shown as one unit.
+
+**Watch for:** Spanish sentence boundaries are not just `.` — `¿…?` and `¡…!` are the common cases here,
+and an abbreviation or a decimal must not split. Keep the splitter narrow and test it directly rather
+than trusting a general-purpose regex.
+
+---
+
+### [ ] 3.12 — Sequential per-sentence reveal 🟡 Sonnet
+
+**Problem:** every bubble renders three grey placeholder strips — "Show English", "Show Spanish",
+"🔊 hover to replay" (`MessengerChat.tsx`, the three zones of the chunk bubble) — and **all of them
+appear before any audio plays**. The learner gets a dead visual moment: a set of controls for content
+they have not heard yet, with nothing in them.
+
+The underlying design (listen first, reveal on demand) is right. The *timing* is what is wrong:
+everything materialises at once, up front, instead of arriving when it is relevant.
+
+**Fix:** drive the reveal per sentence, in step with playback, rather than rendering the whole turn and
+then starting audio. For each sentence: reaction icons (looking → thinking → writing) → briefly show
+the UI-language sentence → hide it → play the target audio → settle into the existing replay-able
+bubble. Then the next sentence.
+
+**`response_chunks[0]` gets no translation** — it is the reaction opener, it is short, and it is
+carried by tone. This matches the rule already settled in 3.8.
+
+**Files:** `frontend/src/MessengerChat.tsx` (the chunk bubble component and `playResponseAudio`).
+
+**Depends on:** 3.11 — per-sentence reveal needs per-sentence units, or the "brief English" step is
+showing a translation of two sentences at once.
+
+---
+
+**Visual English should REPLACE spoken English when the screen is on.**
+
+Reading a short UI-language sentence takes ~1s; hearing it takes ~3s, and costs Azure characters —
+that is the 2× TTS cost flagged when 3.8 shipped. So pairing becomes **modality-aware**: screen on →
+visual flash, screen off (eyes-free) → spoken English. Same crutch, delivered through whichever channel
+the learner actually has. This makes `pairs` mode both faster and free in the common case, and it means
+`playResponseAudio`'s `pairs` branch should stop speaking `native_text` whenever eyes-free is off.
+
+**The before/after fork — decide it, don't default into it.**
+
+*When* the translation appears changes what the activity is:
+
+| English shows | What it becomes | Difficulty |
+|---|---|---|
+| **Before** the audio | Scaffolding — meaning first, then hear it | easier |
+| **After** the audio | Self-check — try, then find out | harder, better retention |
+
+"Before" is the right default while the app feels overwhelming, and is what was asked for. But "after"
+is the stronger learning activity, and the existing mode names already give it a home:
+
+- `pairs` → English **before** (scaffolded)
+- `alternating` → English **after** (self-check)
+- `targetOnly` → no English unless hovered
+
+That reuses the ladder from 3.6/3.8 in the visual channel rather than inventing a fourth setting.
+Ship "before" first; treat the ladder as the follow-up once it can be felt.
+
+**Watch for:**
+- **Flash duration must scale with length** and hold a floor (~1.5s) — a 3-word gloss and a 12-word one
+  cannot get the same window.
+- **Auto-hide must not strand the learner.** The existing click-to-pin/hover-to-reveal zones stay, so a
+  missed flash is recoverable — verify that still works after the timing change.
+- **This is the third pass over `playResponseAudio`** (3.6, then 3.8, now this). If the mode branching
+  is getting hard to follow, factor the per-chunk decision out before adding to it.
+
 ---
 
 # Phase 4 — Xbox controller
