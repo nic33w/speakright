@@ -617,7 +617,7 @@ previous per-turn characters against the 500k/month cap. Check `/api/usage` afte
 **Not verified:** no real-API run and no click-through with audio. The gap constants are reasoned, not
 tuned by ear — expect to adjust `WITHIN_PAIR_GAP_MS` / `betweenSentenceGap` once heard.
 
-### [ ] 3.9 — Cap sentence length in v1/v2 🟡 Sonnet
+### [x] 3.9 — Cap sentence length in v1/v2 🟡 Sonnet
 
 **Problem:** the eyes-free block caps its target sentence at **12 words maximum**
 (`messenger_prompt.py`, EYES-FREE FORMAT). v1 and v2 have **no length cap at all** — only "Keep each
@@ -647,6 +647,31 @@ all three versions. Expected — follow the procedure in `tests/test_prompt_snap
 **Watch for:** the clause cap must not fight the existing "ONE spoken sentence per chunk" rule. One
 sentence, N clauses — say that explicitly or the model will read the two rules as contradictory and
 pick one.
+
+**Shipped as:** all three changes together, in `reminders_section` (shared by v1/v2), the v2 challenge
+chunk's inline format, and `generate_turn_instruction`'s regular-turn line (dynamic tail):
+- **Word cap:** 14 words maximum per chunk, matching eyes-free's existing 12-word cap on the same
+  order of magnitude.
+- **Level-adaptive clause cap:** "beginner = 1 clause, intermediate = 2 clauses, advanced = 3 clauses,"
+  stated as a rule referencing "the learner's current level (stated further down in this prompt)"
+  rather than embedding a level value — the level itself is dynamic-tail content
+  (`Current learner level: {level}` in the turn instruction), so the static prefix states the mapping
+  generically instead of a specific level, keeping the cache invariant intact. Explicitly phrased as
+  "limits clauses within the one sentence; never a second sentence or chunk" per the watch-for above.
+- **Chunk count 3→2** (the "cheap experiment"): default dropped in `reminders_section`, the v2 section
+  (now "2 chunks", "the reaction-opener chunk" singular, "the opener" instead of "earlier chunks"), and
+  the regular-turn instruction text. Not benchmarked against 3 chunks in this pass — shipped per the
+  task's framing that it isolates volume from complexity better than prompt wording alone; revert to 3
+  in `reminders_section`/`v2_section`/`generate_turn_instruction` if it turns out chunk count wasn't
+  the issue.
+
+**⚠️ Cache invariant:** all edits confined to `reminders_section` and `v2_section` (static prefix) plus
+`generate_turn_instruction`'s regular-turn string (dynamic tail, already per-turn) — no new dynamic
+content leaked into the prefix. Goldens re-baselined (`tests/goldens/` deleted and regenerated, 18
+files). **141 passed, 1 xfailed** — same test count as before, just re-baselined content.
+
+**Not verified by listening** — same caveat as most of Phase 3/4: word/clause caps are reasoned from
+the spec, not tuned by ear. Task 3.10 depends on this being judged first.
 
 ---
 

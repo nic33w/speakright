@@ -317,7 +317,7 @@ def generate_turn_instruction(profile: Dict[str, Any]) -> str:
 
     # Regular turn: light assessment + adaptive response
     return f"""Current learner level: {level}
-- Provide a natural persona response: 3 chunks, every one pure target-language audio, one sentence each
+- Provide a natural persona response: 2 chunks, every one pure target-language audio, one sentence each
 - Respond to the user's intended meaning — do NOT correct or mention errors in your response_chunks
 - Do NOT include the "level_assessment" field this turn
 - Decide response mode per chunk: use target audio for new vocab/patterns appropriate to level"""
@@ -530,8 +530,9 @@ conversation. Do not reorder, and do not repeat a field later in the object.
 - response_chunks[0] MUST be copied verbatim from the REACTION OPENERS list above (purpose="reaction") when that list is non-empty. Never write a custom line for chunk 0.
 - FIELD ORDER IS LOAD-BEARING: emit "response_chunks" first, exactly as laid out in the OUTPUT SCHEMA. Before you write it, silently work out what the user actually meant and how their {target_lang} should be corrected — then write the reply first and record that correction in the later fields. Getting the reply out first is what keeps the conversation fast; it must not make the correction sloppier.
 - EVERY response_chunk is language="target", modality="audio", and PURE {target_lang}. There are no {ui_lang} chunks any more — not for reactions, not for asides, not to help the learner.
-- Default to exactly 3 chunks: the reaction opener, then two more sentences that carry the conversation. Fewer only if the reply genuinely fits in fewer.
-- Keep each chunk to ONE spoken sentence. They are played as separate audio clips with a pause between them, so a chunk holding two sentences reads as a run-on.
+- Default to exactly 2 chunks: the reaction opener, then one more sentence that carries the conversation. Fewer only if the reply genuinely fits in fewer — never more.
+- Keep each chunk to ONE spoken sentence, 14 words maximum. They are played as separate audio clips with a pause between them, so a chunk holding two sentences reads as a run-on.
+- That one sentence may still contain more than one clause — cap the clause count to the learner's current level (stated further down in this prompt): beginner = 1 clause, intermediate = 2 clauses, advanced = 3 clauses. This limits how many clauses the one sentence may hold; it never turns into a second sentence or a second chunk.
 - NEVER use target-language audio to repeat, paraphrase, or demonstrate the corrected version of what the user said. Audio must be an organic part of your character's own response — not a correction or teaching moment about the user's mistake.
 - Stay in character! Your personality should come through IN {target_lang}.
 - NEVER mention corrections or errors in your response_chunks. Respond as if the user spoke perfectly.
@@ -560,10 +561,10 @@ conversation. Do not reorder, and do not repeat a field later in the object.
     v2_section = ''
     if prompt_version == "v2":
         v2_section = f"""V2 CHALLENGE FORMAT — REFINES the response_chunks rules above:
-- Chunk count and language are unchanged: 3 chunks, all language="target", modality="audio", pure {target_lang}.
+- Chunk count and language follow the rules above: 2 chunks, all language="target", modality="audio", pure {target_lang}.
 - The LAST chunk is additionally marked as the challenge — the sentence the learner is meant to answer:
   {{
-    "text": "<natural {target_lang} sentence — PURE {target_lang} ONLY, absolutely zero {ui_lang} words>",
+    "text": "<natural {target_lang} sentence — PURE {target_lang} ONLY, absolutely zero {ui_lang} words, 14 words maximum, clause count per the level rule above>",
     "language": "target",
     "modality": "audio",
     "locale": "<appropriate locale for {target_lang}>",
@@ -572,8 +573,8 @@ conversation. Do not reorder, and do not repeat a field later in the object.
   }}
 - "native_text" is required on the challenge chunk ONLY. It backs the learner's hover-to-reveal, so it must always be there even though the other chunks have no translation.
 - The "text" field must be ONLY the {target_lang} sentence itself — absolutely NO intro phrases, labels, or preamble in ANY language (e.g. not "Try this:", "¡Intenta decir esto!", "How about:", "Let's try:", etc.)
-- Difficulty: the challenge sits slightly above the learner's current level — comprehensible input that stretches them a little. The earlier chunks stay comfortably at their level.
-- The challenge should flow naturally as the conclusion of the reply, and it is the ONLY forward-moving piece: earlier chunks react and add colour, they do not ask their own follow-up question. Do not say the same thing twice in different words."""
+- Difficulty: the challenge sits slightly above the learner's current level — comprehensible input that stretches them a little. The reaction-opener chunk stays comfortably at their level.
+- The challenge should flow naturally as the conclusion of the reply, and it is the ONLY forward-moving piece: the opener reacts and adds colour, it does not ask its own follow-up question. Do not say the same thing twice in different words."""
 
     # Eyes-free override (version-conditional, static within a run; last in the
     # prefix so it has the final word over the language-mix and v2 rules).
