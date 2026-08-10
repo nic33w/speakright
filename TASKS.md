@@ -1120,6 +1120,86 @@ zone. Moving the flash out of the card must **not** stop that write — the hove
   factored out `needsTranslationAt` / `playTargetClip` / `flashDurationMs` — build on those rather
   than adding a fifth branch beside them.
 
+### [ ] 3.14 — Bubble arrives after the audio; empty bubble is the playback indicator 🟡 Sonnet
+
+**Two problems, one fix.**
+
+**Problem 1 — you can still read along, just in the target language.** Task 3.13 hides the translation
+before the audio plays, deliberately: the point is training listening, not reading. But the target
+sentence's bubble is on screen *during* playback, so the learner can read along in the target language
+instead. Same hole, other side of it.
+
+**This is the completion of 3.13's principle, not a layout preference.** Say so in the code, or a
+later pass will "helpfully" restore the text during playback and quietly undo both tasks.
+
+**Problem 2 — hovering resizes the card.** `MessengerChallengePair` has no width constraint
+(`MessengerChat.tsx`, the card's outer `div`), and its zones swap a short placeholder ("Show English")
+for a full sentence. Revealing therefore changes the card's width dramatically, which moves both its
+edges. Horizontal movement is the jarring axis.
+
+---
+
+**Target sequence, per sentence:**
+
+```
+thinking icon → ephemeral translation (3.13) → hidden
+  → bubble appears EMPTY, already at final size, progress sweep fills as the clip plays
+  → audio ends → target text appears inside the bubble it just filled
+```
+
+**Make the empty bubble itself the playback indicator.** It is doing three jobs at once, which is why
+it is worth speccing tightly rather than adding a separate widget:
+
+1. **Reserves the layout** from the first frame, so nothing jumps when the text lands.
+2. **Shows duration** — with no text on screen the learner otherwise has no sense of how long the
+   sentence is or where they are in it.
+3. **Binds the sound to the bubble** it belongs to, rather than floating somewhere else in the flow.
+
+**Progress, not amplitude.** An animated waveform or bouncing equalizer signals "sound is happening",
+which the learner already knows — they can hear it. A progress sweep tells them something they cannot
+otherwise know. A real amplitude meter also needs a Web Audio `AnalyserNode` wired into the player,
+and a *fake* one that isn't tied to the actual signal looks subtly wrong. Drive the sweep from clip
+duration and elapsed time.
+
+**Fallback:** if duration isn't known when playback starts (a cache miss still resolving), use an
+indeterminate shimmer rather than a stalled-looking 0% bar, and switch to real progress once known.
+
+---
+
+**The width fix — two separate causes, fix both:**
+
+1. **Constrain the card**, e.g. `max-width: min(60ch, 85%)`, so a long sentence *wraps* instead of
+   stretching the box. Width then never changes at all.
+2. **Ghost sizer for the reveal.** Render the longest variant invisibly (`visibility: hidden`, or an
+   opacity-0 copy in the same grid cell) and toggle visibility rather than mounting/unmounting the
+   text. The card is then always sized for its widest and tallest state, so hovering changes
+   appearance and nothing else.
+
+Size each box to **its own** longest state (its translation vs its target text, whichever is bigger)
+rather than measuring the longest sentence in the turn — exact, simpler, and with a fixed max-width
+the boxes already look consistent.
+
+---
+
+**Decide: what replay looks like.** By replay time the bubble exists and has text in it. The playback
+visual should **not** hide that text again — a sweep across the existing bubble is right. Replay is a
+repair action; taking the sentence away from the learner at the moment they asked to hear it again is
+the opposite of what repair should do. (The translation *does* show on replay — that is 3.13 point 4,
+already shipped.)
+
+**Files:** `frontend/src/MessengerChat.tsx` — `MessengerChallengePair` (card sizing, zones, the new
+progress state) and `revealTurnChunk` (the reveal/playback ordering).
+
+**Watch for:**
+- **Eyes-free is unaffected.** No visual channel; it keeps the whole-turn `playResponseAudio` path.
+  Gate on eyes-free, exactly as 3.13 does.
+- **An empty bubble for ~3s is the main risk.** A progress sweep should read as "playing", but if it
+  reads as "broken" the fix is to bring the bubble in slightly later or soften its border while empty
+  — not to put the text back during the audio, which would undo the point.
+- **Fifth pass over the reveal/playback path** (3.6, 3.8, 3.12, 3.13, now this). Build on the helpers
+  3.12 factored out (`needsTranslationAt`, `playTargetClip`, `flashDurationMs`) rather than adding
+  another branch beside them.
+
 ---
 
 # Phase 4 — Xbox controller
