@@ -617,6 +617,131 @@ previous per-turn characters against the 500k/month cap. Check `/api/usage` afte
 **Not verified:** no real-API run and no click-through with audio. The gap constants are reasoned, not
 tuned by ear — expect to adjust `WITHIN_PAIR_GAP_MS` / `betweenSentenceGap` once heard.
 
+### [ ] 3.9 — Cap sentence length in v1/v2 🟡 Sonnet
+
+**Problem:** the eyes-free block caps its target sentence at **12 words maximum**
+(`messenger_prompt.py`, EYES-FREE FORMAT). v1 and v2 have **no length cap at all** — only "Keep each
+chunk to ONE spoken sentence". So the default mode is *three target-language sentences, unbounded
+length, back to back*, which is easily 6–9 clauses of unbroken Spanish per turn.
+
+Reported symptom is "sentences feel too fast and have too many clauses". **Do this before touching
+audio speed:** the likely cause is volume, not rate. Before task 3.8 a turn was 2 UI-language
+sentences + 1 target sentence; it is now 3 target sentences with no ceiling. That is a much bigger
+change to listening load than anything about articulation.
+
+**Fix, in two parts — ship them together and judge the result as one:**
+1. **A word cap on v1/v2 chunks.** Start around 12–14 words to match eyes-free, then tune.
+2. **A level-adaptive clause cap** driven by the `level` already in the student model — roughly
+   1 clause for beginner, 2 for intermediate, 3 for advanced. A flat cap forever means no growth, and
+   the goal is difficulty that moves.
+
+**Also try, as the cheap experiment:** drop the v1/v2 default from 3 chunks to **2**. One line, and it
+isolates "too much" from "too complex" better than any amount of prompt wording. If 2 chunks fixes the
+feeling, the clause cap matters less than the chunk count does.
+
+**Files:** `backend/prompts/messenger_prompt.py` (the reminders block and both version blocks).
+
+**⚠️ Cache invariant:** all of this lives in the static prefix, so it re-baselines every golden across
+all three versions. Expected — follow the procedure in `tests/test_prompt_snapshot.py`.
+
+**Watch for:** the clause cap must not fight the existing "ONE spoken sentence per chunk" rule. One
+sentence, N clauses — say that explicitly or the model will read the two rules as contradictory and
+pick one.
+
+---
+
+### [ ] 3.10 — Pauses between clauses (SSML `<break>`) 🟡 Sonnet
+
+**Why this and not just slowing the audio down.** When slowed speech helps L2 comprehension, most of
+the benefit comes from the **added pause time, not the slower articulation** — and slowing carries a
+real cost, because it distorts the connected-speech features (elision, reduction, liaison — all heavy
+in Mexican Spanish) that the learner specifically needs to learn to parse. Training on 0.75× builds
+skill at a signal that does not exist outside this app.
+
+So: **slow playback stays a repair strategy, not an input strategy.** It is already scoped that way —
+task 4.2's Y button, on demand — and should stay there. This task fixes the input itself.
+
+The failure mode it targets is the cascade: the learner is still parsing clause 1 when clause 2
+arrives, misses clause 2 entirely, and is then behind for the rest of the sentence. ~300ms of silence
+at the clause boundary breaks that chain without making anything sound unnatural.
+
+Note this is a **different bottleneck from 3.9**, not a substitute: clause count is working memory,
+pauses are processing time. Pausing inside a 3-clause sentence still leaves 3 clauses to integrate.
+
+**Fix:** insert `<break time="..."/>` at clause boundaries inside the SSML that `tts_helpers.py`
+already builds, within the existing `<prosody>` block.
+
+**Use SSML breaks, NOT separate audio clips per clause.** One TTS call, one cache entry, and — the
+part that matters — prosody stays continuous across the sentence. Splitting a sentence into fragments
+and scheduling them client-side resets intonation at every fragment, which sounds robotic and makes
+parsing *harder*, defeating the point.
+
+**Clause detection:** punctuation plus a small set of target-language cues (`que`, `porque`, `pero`,
+`cuando`, `si`, `y`) as a pure backend transform. Zero LLM cost and zero output tokens, which matters
+given how much of Phase 1 went into getting those down. Only add an LLM-marked segmentation later if
+the heuristic demonstrably fails.
+
+**Files:** `backend/tts_helpers.py` (SSML assembly), `backend/audio_utils.py` (cache key),
+`backend/routers/audio.py` (parameter passthrough).
+
+---
+
+**⚠️ TRAP 1 — the audio cache will serve you the wrong file, silently and stickily.**
+
+The cache names files by hashing their content: currently `text | locale | rate` (task 2.1 added
+`rate`). Add a pause setting without adding it to that key and:
+
+1. Play a sentence with 300ms pauses → hash misses → generates **paused** audio, saves as `abc123`.
+2. Turn pauses off to compare → **same hash**, because pauses aren't in the key → serves the paused
+   file back.
+
+You hear pauses with pauses disabled, conclude the SSML is broken, and debug the wrong thing. And it
+**persists**: the wrong bytes are on disk, so fixing the code later does not fix already-cached
+sentences — the cache has to be wiped.
+
+**Add pause length to the key in the same commit as the feature**, and reuse 2.1's trick so nothing is
+orphaned:
+
+```python
+key = f"{text}|{locale}" if rate == 0 else f"{text}|{locale}|{rate}"
+```
+
+The default value hashes to the *existing* key exactly, so every file cached before this change stays
+valid. Same class of bug as the still-open task 7.4 (voice isn't in the key either).
+
+**⚠️ TRAP 2 — pauses of similar length stop carrying information.**
+
+Silence duration is how a listener tells structure apart: short gap = "still going", long gap = "that
+thought is finished". If two *different* kinds of boundary use similar durations, the signal stops
+meaning anything. In pairs mode the learner would hear:
+
+```
+English sentence [300ms] second clause  [500ms]  Spanish sentence [300ms] second clause
+                   ^ clause boundary       ^ language switch
+```
+
+300 vs 500ms is only 1.7× — too close to categorize instantly.
+
+The worse failure is at the top end: if clause pauses drift toward the between-sentence gap, a
+3-clause sentence starts sounding like **three separate sentences**. The learner tries to interpret
+each clause as a complete thought, fails to connect them, and understands *less* than with no pauses
+at all — a comprehension aid that reduces comprehension.
+
+**Keep the ladder roughly 2× apart at each step:**
+
+| Boundary | Duration | Owner |
+|---|---|---|
+| Between clauses | ~250ms | this task |
+| Within a pair (EN→ES) | 500ms | `WITHIN_PAIR_GAP_MS`, task 3.8 |
+| Between sentences | 1200–2200ms | `betweenSentenceGap()`, task 3.8 |
+
+**These two numbers interact — do not tune one in isolation.** Either drop clause pauses to ~250ms or
+widen the within-pair gap to ~700ms; final call by ear once it can actually be heard.
+
+**Depends on:** 3.9. Ship the length cap first and listen to the result — if shorter sentences alone
+fix the complaint, this task gets tuned against a much clearer baseline instead of compensating for a
+volume problem it was never meant to solve.
+
 ---
 
 # Phase 4 — Xbox controller
