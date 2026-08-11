@@ -1122,6 +1122,10 @@ zone. Moving the flash out of the card must **not** stop that write — the hove
 
 ### [x] 3.14 — Bubble arrives after the audio; empty bubble is the playback indicator 🟡 Sonnet
 
+**⚠️ Indicator superseded by 3.15** (canned equalizer, not a progress sweep) and **the auto-reveal
+was reverted** in `6046d14` — target text stays hover-gated forever. The empty-bubble-reserves-layout
+part of this task stands.
+
 **⚠️ Amended after shipping:** this spec's target sequence has the target-language zone auto-reveal
 ("target text appears inside the bubble it just filled") once the clip finishes. Built that way first,
 then explicitly reverted on user feedback — **both zones stay hover-gated forever, with no auto-reveal
@@ -1205,6 +1209,47 @@ progress state) and `revealTurnChunk` (the reveal/playback ordering).
 - **Fifth pass over the reveal/playback path** (3.6, 3.8, 3.12, 3.13, now this). Build on the helpers
   3.12 factored out (`needsTranslationAt`, `playTargetClip`, `flashDurationMs`) rather than adding
   another branch beside them.
+
+### [ ] 3.15 — Replace the progress sweep with a canned audio-wave animation 🟢 Haiku
+
+**Revises 3.14's playback indicator only.** Everything else 3.14 shipped stays: the bubble still
+arrives empty at final size before the clip, still reserves the layout, and its text still stays
+hover-gated forever (per the revert in `6046d14` — see the hover-gated-text preference in memory).
+
+**Change:** swap the duration-driven progress sweep for a **canned equalizer animation** — a small row
+of bars that animate whenever audio is playing and are identical every time. Not tied to the real
+signal, not tied to clip duration.
+
+**Why, since 3.14 argued the other way and was wrong:** a progress bar reads as *"the app is loading
+something."* Bouncing bars read as *"someone is speaking."* The whole conceit of task 3.13 is that
+this is a character thinking and talking, not a UI fetching content — and a loading bar breaks that
+fiction at precisely the moment it should be strongest. That outweighs the duration argument 3.14
+made, especially now that 3.9 caps sentences short enough that "how much longer" isn't a real
+question, and 3.14's revert means no text arrives at the end to anticipate anyway.
+
+**Implementation — deliberately the cheap version:**
+- 4–5 bars, pure CSS `@keyframes` scaling height, staggered `animation-delay` so they look
+  independent. No Web Audio, no `AnalyserNode`, no rAF loop, no duration tracking.
+- **Pause, don't unmount.** Use `animation-play-state: paused` when idle so the bars freeze in place
+  rather than disappearing — no layout shift, and a frozen equalizer reads as "paused" rather than
+  "gone".
+- **Respect `prefers-reduced-motion`** — fall back to a static or slowly-pulsing form. Cheap to add,
+  and this animation runs on every single sentence.
+
+**Sizing:** this is the *only* thing on screen during playback, so unlike 3.13's deliberately
+ignorable thought text it can be plainly visible. Still small and calm — it marks that someone is
+speaking, it is not the focus.
+
+**What is given up:** the duration cue. Accepted. The empty bubble still does the layout-reservation
+job, which was the most valuable of 3.14's three, and the bars still answer "is it playing". If
+"where am I in this sentence" ever turns out to matter, it can come back as a subtle border fill
+without touching the bars.
+
+**Files:** `frontend/src/MessengerChat.tsx` (`MessengerChallengePair`'s playback indicator).
+
+**Watch for:** the bars must stop when audio stops for *any* reason — clip end, B-button stop-audio
+(task 4.2), or a failed fetch. A permanently animating equalizer with no sound is worse than no
+indicator at all, because it claims audio is playing when it isn't.
 
 ---
 
