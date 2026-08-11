@@ -426,14 +426,17 @@ export default function MessengerChat({
           }
           audioPlayer.stop();
           break;
-        // D-pad (task 4.7): message traversal, replacing 4.5's mode toggles —
-        // eyes-free and pairing-mode both already have on-screen controls
-        // (the 🙈 checkbox and the pairing-mode <select>), so losing their
-        // D-pad shortcut leaves them reachable, just not controller-only.
-        case 12: void repeatLastAudio(); break;              // D-pad Up — play current message's audio
-        case 13: cycleCurrentReveal(); break;                // D-pad Down — cycle text: hidden -> translation -> +target -> hidden
-        case 14: void stepReplayCursor(-1); break;            // D-pad Left — previous message's audio
-        case 15: void stepReplayCursor(1); break;             // D-pad Right — next message's audio
+        // D-pad (task 4.7, remapped per follow-up feedback): message
+        // traversal, replacing 4.5's mode toggles — eyes-free and
+        // pairing-mode both already have on-screen controls (the 🙈 checkbox
+        // and the pairing-mode <select>), so losing their D-pad shortcut
+        // leaves them reachable, just not controller-only. Up/down move the
+        // cursor silently (audio would double up with left); left plays
+        // whatever the cursor points at; right cycles its text reveal.
+        case 12: stepReplayCursor(-1); break;                // D-pad Up — previous message (silent)
+        case 13: stepReplayCursor(1); break;                 // D-pad Down — next message (silent)
+        case 14: void repeatLastAudio(); break;              // D-pad Left — play current message's audio
+        case 15: cycleCurrentReveal(); break;                // D-pad Right — cycle text: hidden -> translation -> +target -> hidden
         default: break;                                     // A/X/Y/LB/RB unbound (task 4.6)
       }
     },
@@ -1800,11 +1803,12 @@ export default function MessengerChat({
     return play();
   }
 
-  // Alt+R / controller D-pad Up (4.7; A until 4.6 unbound it): hear it again.
-  // During a drill that is the sentence to repeat; otherwise whatever the
-  // replay stack's cursor currently points at (task 2.2's stack, its cursor
-  // moved by D-pad Left/Right below). Defaults to the latest item until
-  // something steps the cursor back.
+  // Alt+R / controller D-pad Left (4.7, remapped; A until 4.6 unbound it,
+  // D-pad Up until the follow-up remap below): hear it again. During a drill
+  // that is the sentence to repeat; otherwise whatever the replay stack's
+  // cursor currently points at (task 2.2's stack, its cursor moved silently
+  // by D-pad Up/Down — see stepReplayCursor below). Defaults to the latest
+  // item until something steps the cursor back.
   async function repeatLastAudio() {
     const d = drillRef.current;
     if (d) { await speakDrillTarget(d); return; }
@@ -1834,16 +1838,16 @@ export default function MessengerChat({
     await audioPlayer.play(chunk.native_text, localeFor(fluent.code));
   }
 
-  // D-pad Left/Right (task 4.7): move the replay cursor and immediately speak
-  // whatever it lands on — unlike 4.3's silent LB/RB, traversal itself is now
-  // audible, since the D-pad is the one input eyes-free has left to browse
-  // history with. Clamped, not wrapped, at the ends (TASKS.md's "watch for" —
-  // wrapping from newest to oldest with no visual would be disorienting), and
-  // since eyes-free has no highlight to show a stuck cursor, a repeat of the
-  // same item is the only signal that stepping did nothing — the "sendCancelled"
+  // D-pad Up/Down (task 4.7, remapped per follow-up feedback): move the
+  // replay cursor without playing anything — playback is D-pad Left's job
+  // (repeatLastAudio) now, so traversal and "hear it" are separate presses
+  // rather than one gesture doing both. Clamped, not wrapped, at the ends
+  // (TASKS.md's "watch for" — wrapping from newest to oldest with no visual
+  // would be disorienting). Eyes-free has no highlight to show a stuck
+  // cursor, so the boundary still needs its own signal: the "sendCancelled"
   // thud is reused here as a generic "can't go further" bump rather than
   // inventing a new earcon for one edge case.
-  async function stepReplayCursor(direction: -1 | 1) {
+  function stepReplayCursor(direction: -1 | 1) {
     const prevItem = replayStack.current();
     const item = direction < 0 ? replayStack.stepBack() : replayStack.stepForward();
     if (!item) return;
@@ -1852,10 +1856,9 @@ export default function MessengerChat({
       && prevItem.chunkIndex === item.chunkIndex
       && prevItem.source === item.source;
     if (atBoundary) earcons.play("sendCancelled");
-    await withReplayThought(item, () => audioPlayer.playUrl(item.audioUrl));
   }
 
-  // D-pad Down (task 4.7): cycle the *cursored* bubble's text reveal — hidden
+  // D-pad Right (task 4.7, remapped): cycle the *cursored* bubble's text reveal — hidden
   // -> translation -> translation+target -> hidden. Only character chunks
   // (rendered as <MessengerChallengePair>) have anything to cycle; user items
   // in the replay stack have no hidden/translation zones, so this is a no-op
@@ -2186,7 +2189,7 @@ export default function MessengerChat({
               </label>
               <span
                 title={gamepad.connected
-                  ? "Controller seen by the browser — B cancel/stop, stick flick left cancels+clears a pending send, flick right sends now, D-pad left/right browse message history and play it, D-pad up replays the current one, D-pad down cycles its text (hidden/translation/translation+target). Eyes-free and pairing-mode moved to on-screen controls. A/X/Y/LB/RB/LT are unbound (Alt+R/E/S/T on keyboard cover repeat/explain/slow-repeat/translation)"
+                  ? "Controller seen by the browser — B cancel/stop, stick flick left cancels+clears a pending send, flick right sends now, D-pad up/down browse message history (silent), D-pad left plays the current one, D-pad right cycles its text (hidden/translation/translation+target). Eyes-free and pairing-mode moved to on-screen controls. A/X/Y/LB/RB/LT are unbound (Alt+R/E/S/T on keyboard cover repeat/explain/slow-repeat/translation)"
                   : "No controller seen by the browser. Recording (F13) still works via the native mapper regardless — this only affects in-page buttons, and it also goes dark whenever the window loses focus"}
                 style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, color: gamepad.connected ? '#16a34a' : '#9ca3af' }}
               >

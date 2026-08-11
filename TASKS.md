@@ -1663,6 +1663,20 @@ so browsing the conversation is one thumb in one place.
 | **D-pad ↑** | Play current message's audio |
 | **D-pad ↓** | Cycle the current message's text: hidden → translation → translation + target → hidden |
 
+**⚠️ Remapped after initial ship, per direct follow-up feedback** — the table above is what was
+originally speced; what's actually live is:
+
+| Control | Action |
+|---|---|
+| **D-pad ↑** | Previous message (moves the cursor only — silent) |
+| **D-pad ↓** | Next message (moves the cursor only — silent) |
+| **D-pad ←** | Play the current message's audio |
+| **D-pad →** | Cycle the current message's text: hidden → translation → translation + target → hidden |
+
+Same four actions, reassigned so up/down is purely "move" and left/right is purely "act" — traversal
+and playback no longer happen on the same press. See the 4.7 shipped-as note below for what actually
+changed in code.
+
 **Show which message is current** while traversing — a bolded/coloured border on that bubble.
 Prefer a **border** over a background colour: the card already uses indigo and blue tints for the
 hover/pin/flash states (`MessengerChallengePair`), and another colour there will collide.
@@ -1718,16 +1732,22 @@ styling, every `replayStack.push` call site).
   …)`) rather than wrap, per the watch-for. No other caller of `stepBack`/`stepForward` existed after
   4.6 unbound LB/RB, so the signature change was free.
 - **D-pad remap** (`MessengerChat.tsx`'s `useGamepad` `onButtonChange`, replacing 4.5's up/down toggles
-  entirely): Up → `repeatLastAudio()` (same function Alt+R and the old A button used — "current
-  message" during a drill is still the drill target, matching that existing special case). Down →
-  new `cycleCurrentReveal()`. Left/right → new `stepReplayCursor(-1|1)`.
-- **`stepReplayCursor`** moves the cursor and immediately plays what it lands on (unlike 4.3's silent
-  LB/RB) — traversal itself has to be audible now, since the D-pad is eyes-free's only browsing input
-  and eyes-free has no highlight to look at (the watch-for's third bullet). Boundary feedback reuses
-  the existing `sendCancelled` thud rather than adding a new `EarconType`: if stepping returns the same
-  `(messageId, chunkIndex, source)` as before the step, the cursor didn't move, so the thud plays before
-  the (repeated) item plays — audio-only proof that this is the end of the list, not a swallowed
-  button press.
+  entirely) — **as first shipped:** Up → `repeatLastAudio()`, Down → `cycleCurrentReveal()`, Left/Right
+  → `stepReplayCursor(-1|1)` (moved the cursor *and* played what it landed on). **Revised immediately
+  after, per direct follow-up feedback** to the mapping in the "what's actually live" table above: Up/Down
+  now call `stepReplayCursor` with no playback (traversal and playback split into separate presses),
+  Left calls `repeatLastAudio()` (same function Alt+R and the old A button used — "current message"
+  during a drill is still the drill target, matching that existing special case), Right calls
+  `cycleCurrentReveal()`. Same four building blocks, different buttons; nothing about *what* Up/Down/
+  Left/Right each do changed, only *which one* does which.
+- **`stepReplayCursor`** moves the cursor; after the remap it is synchronous and silent (`void`
+  removed from its return type) rather than also awaiting playback — Left now owns playing what the
+  cursor landed on, via the existing `repeatLastAudio()`. Boundary feedback still reuses the existing
+  `sendCancelled` thud rather than adding a new `EarconType`: if stepping returns the same
+  `(messageId, chunkIndex, source)` as before the step, the cursor didn't move, so the thud plays
+  immediately — audio-only proof that this is the end of the list, not a swallowed button press. (This
+  thud no longer has a repeated *audio clip* riding along with it the way the original version did,
+  since stepping itself is silent now — the thud alone carries the "you're at the edge" signal.)
 - **`cycleCurrentReveal`** cycles a `Map<string, 0|1|2>` (`dpadRevealLevels` state, keyed
   `${messageId}-${chunkIndex}` — the same key format `pendingChunkKeys` already uses) 0→1→2→0 for
   whatever `replayStack.current()` points at. No-ops on user-sourced items, which have no
