@@ -286,9 +286,9 @@ export function GameTextarea({
           rows={2}
           style={{
             flex: 1,
-            padding: isDark ? "10px 12px" : "12px 16px",
-            fontSize: isDark ? 15 : 16,
-            borderRadius: isDark ? 8 : 24,
+            padding: isDark ? "10px 12px" : "8px 14px",
+            fontSize: isDark ? 15 : 15,
+            borderRadius: isDark ? 8 : 20,
             background: isDark ? "rgba(255,255,255,0.07)" : "white",
             border: isDark
               ? "1px solid rgba(255,255,255,0.15)"
@@ -297,8 +297,8 @@ export function GameTextarea({
             resize: "none",
             boxSizing: "border-box" as const,
             outline: "none",
-            minHeight: isDark ? undefined : 48,
-            maxHeight: isDark ? undefined : 120,
+            minHeight: isDark ? undefined : 38,
+            maxHeight: isDark ? undefined : 100,
             opacity: isDisabled ? 0.6 : 1,
             boxShadow: !isDark && isFocused ? "0 0 0 3px rgba(139,92,246,0.12)" : "none",
             transition: "border-color 0.15s, box-shadow 0.15s",
@@ -309,14 +309,14 @@ export function GameTextarea({
           onClick={autoSend.submit}
           disabled={isDisabled || !value.trim()}
           style={{
-            padding: isDark ? "8px 20px" : "12px 24px",
-            fontSize: isDark ? 13 : 16,
+            padding: isDark ? "8px 20px" : "9px 20px",
+            fontSize: isDark ? 13 : 15,
             background: isDark
               ? "linear-gradient(135deg, #7c3aed, #4f46e5)"
               : value.trim() && !isDisabled ? "#3b82f6" : "#d1d5db",
             color: "white",
             border: "none",
-            borderRadius: isDark ? 8 : 24,
+            borderRadius: isDark ? 8 : 20,
             cursor: isDisabled || !value.trim() ? "not-allowed" : "pointer",
             fontWeight: 600,
             whiteSpace: "nowrap" as const,

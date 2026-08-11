@@ -190,7 +190,7 @@ function MessengerChallengePair({
     });
   }
 
-  const zoneBase: React.CSSProperties = { padding: "3px 10px", borderRadius: 6, cursor: "pointer", transition: "background 0.15s", display: "flex", alignItems: "center", justifyContent: "space-between", border: "1px solid rgba(0,0,0,0.08)", minHeight: 26 };
+  const zoneBase: React.CSSProperties = { padding: "2px 9px", borderRadius: 6, cursor: "pointer", transition: "background 0.15s", display: "flex", alignItems: "center", justifyContent: "space-between", border: "1px solid rgba(0,0,0,0.08)", minHeight: 22 };
   // Ghost-sizer: two children in the same grid cell, one real (visible or not)
   // and one an always-rendered, always-invisible copy of the zone's longest
   // possible content. The cell sizes to the taller/wider of the two, so
@@ -216,7 +216,7 @@ function MessengerChallengePair({
     // establishing the card's final size even before anything has played —
     // "already at final size" from 3.14's target sequence.
     <div style={{ position: "relative" }}>
-      <div style={{ background: "white", borderRadius: 18, padding: "8px 14px", boxShadow: "0 2px 8px rgba(0,0,0,0.15)", border: "2px solid rgba(99,102,241,0.2)", display: "flex", flexDirection: "column", gap: 0, maxWidth: "min(60ch, 85%)", visibility: pending ? "hidden" : "visible" }}>
+      <div style={{ background: "white", borderRadius: 16, padding: "6px 12px", boxShadow: "0 2px 8px rgba(0,0,0,0.15)", border: "2px solid rgba(99,102,241,0.2)", display: "flex", flexDirection: "column", gap: 0, maxWidth: "min(60ch, 85%)", visibility: pending ? "hidden" : "visible" }}>
       {/* Zone 1: native */}
       <div
         style={{
@@ -298,7 +298,7 @@ function MessengerChallengePair({
           No Web Audio, no duration tracking — just staggered CSS keyframes,
           identical every time. */}
       {pending && (
-        <div style={{ position: "absolute", inset: 0, background: "white", borderRadius: 18, boxShadow: "0 2px 8px rgba(0,0,0,0.15)", border: "2px solid rgba(99,102,241,0.2)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <div style={{ position: "absolute", inset: 0, background: "white", borderRadius: 16, boxShadow: "0 2px 8px rgba(0,0,0,0.15)", border: "2px solid rgba(99,102,241,0.2)", display: "flex", alignItems: "center", justifyContent: "center" }}>
           <div className="equalizer-bars">
             <span className="equalizer-bar" style={{ animationDelay: "0s" }} />
             <span className="equalizer-bar" style={{ animationDelay: "0.15s" }} />
@@ -1992,19 +1992,19 @@ export default function MessengerChat({
           top: isMockMode ? 40 : 0,
           zIndex: 100,
           background: 'white',
-          padding: '16px 24px',
+          padding: '8px 16px',
           boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
         }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             {onBack && (
               <button
                 onClick={onBack}
                 style={{
-                  padding: '8px 16px',
-                  fontSize: 14,
+                  padding: '5px 12px',
+                  fontSize: 13,
                   background: '#6b7280',
                   color: 'white',
                   border: 'none',
@@ -2015,10 +2015,10 @@ export default function MessengerChat({
                 ← Back
               </button>
             )}
-            <h2 style={{ margin: 0, fontSize: '24px' }}>Chat with Mateo</h2>
+            <h2 style={{ margin: 0, fontSize: '17px' }}>Chat with Mateo</h2>
 
             {/* Feature toggles */}
-            <div style={{ display: 'flex', gap: 12, marginLeft: 16 }}>
+            <div style={{ display: 'flex', gap: 10, marginLeft: 10 }}>
               <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, color: '#6b7280', cursor: 'pointer' }}>
                 <input
                   type="checkbox"
@@ -2133,17 +2133,17 @@ export default function MessengerChat({
               gap: 12,
             }}>
               <div style={{
-                fontSize: '14px',
+                fontSize: '13px',
                 color: '#6b7280',
               }}>
                 {fluent.name} → {learning.name}
               </div>
               <div style={{
-                padding: '6px 12px',
+                padding: '4px 10px',
                 background: '#3b82f6',
                 color: 'white',
-                borderRadius: 16,
-                fontSize: '14px',
+                borderRadius: 14,
+                fontSize: '13px',
                 fontWeight: 600,
               }}>
                 Level: {profile.level.charAt(0).toUpperCase() + profile.level.slice(1)} ({Math.round(profile.level_confidence * 100)}%)
@@ -2151,10 +2151,10 @@ export default function MessengerChat({
               {/* Token Usage Display - always show after first message */}
               {messages.length > 0 && (
                 <div style={{
-                  padding: '6px 12px',
+                  padding: '4px 10px',
                   background: '#10b981',
                   color: 'white',
-                  borderRadius: 16,
+                  borderRadius: 14,
                   fontSize: '12px',
                   fontWeight: 500,
                   display: 'flex',
@@ -2327,10 +2327,10 @@ export default function MessengerChat({
         <div style={{
           flex: 1,
           overflowY: 'auto',
-          padding: '20px',
+          padding: '12px 20px',
           display: 'flex',
           flexDirection: 'column',
-          gap: '12px',
+          gap: '8px',
           minHeight: 0, // Important for flex scrolling
         }}>
           {messages.length === 0 && (
@@ -2386,10 +2386,10 @@ export default function MessengerChat({
                       <div style={{
                         background: '#3b82f6',
                         color: 'white',
-                        padding: '12px 16px',
-                        borderRadius: '18px',
-                        fontSize: '16px',
-                        lineHeight: '1.4',
+                        padding: '9px 13px',
+                        borderRadius: '16px',
+                        fontSize: '15px',
+                        lineHeight: '1.35',
                         wordWrap: 'break-word',
                         boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
                       }}>
@@ -2397,15 +2397,15 @@ export default function MessengerChat({
                       </div>
                       {message.correctedInput && (
                         <div style={{
-                          marginTop: 6,
+                          marginTop: 4,
                           background: 'rgba(255,255,255,0.12)',
                           border: '1px solid rgba(255,255,255,0.2)',
                           borderRadius: 12,
-                          padding: '8px 12px',
+                          padding: '6px 10px',
                           display: 'flex',
                           alignItems: 'center',
                           gap: 8,
-                          fontSize: 14,
+                          fontSize: 13,
                           animation: 'fadeIn 0.35s ease-out',
                         }}>
                           <span style={{ opacity: 0.5, fontSize: 12 }}>🇲🇽</span>
@@ -2439,13 +2439,13 @@ export default function MessengerChat({
                       <div style={{
                         background: 'rgba(251,191,36,0.15)',
                         border: '1px solid rgba(251,191,36,0.35)',
-                        padding: '10px 14px',
-                        borderRadius: '18px',
-                        fontSize: '15px',
-                        lineHeight: '1.6',
+                        padding: '8px 12px',
+                        borderRadius: '16px',
+                        fontSize: '14px',
+                        lineHeight: '1.4',
                         wordWrap: 'break-word',
                         boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
-                        marginBottom: '8px',
+                        marginBottom: '5px',
                         animation: 'fadeIn 0.35s ease-out',
                       }}>
                         {message.correctionTokens
@@ -2457,8 +2457,8 @@ export default function MessengerChat({
                         <div style={{
                           fontSize: '12px',
                           color: 'rgba(255,255,255,0.9)',
-                          marginTop: '4px',
-                          padding: '8px',
+                          marginTop: '3px',
+                          padding: '6px 8px',
                           background: 'rgba(255,255,255,0.2)',
                           borderRadius: '8px',
                         }}>
@@ -2472,10 +2472,10 @@ export default function MessengerChat({
                       style={{
                         background: '#3b82f6',
                         color: 'white',
-                        padding: '12px 16px',
-                        borderRadius: '18px',
-                        fontSize: '16px',
-                        lineHeight: '1.4',
+                        padding: '9px 13px',
+                        borderRadius: '16px',
+                        fontSize: '15px',
+                        lineHeight: '1.35',
                         wordWrap: 'break-word',
                         boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
                       }}
@@ -2550,10 +2550,10 @@ export default function MessengerChat({
                       return (
                         <div key={idx} style={{
                           background: 'white',
-                          padding: '12px 16px',
-                          borderRadius: '18px',
-                          fontSize: '16px',
-                          lineHeight: '1.4',
+                          padding: '9px 13px',
+                          borderRadius: '16px',
+                          fontSize: '15px',
+                          lineHeight: '1.35',
                           wordWrap: 'break-word',
                           boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
                         }}>
@@ -2604,14 +2604,14 @@ export default function MessengerChat({
               style={{
                 alignSelf: 'flex-start',
                 maxWidth: '80%',
-                marginTop: 8,
-                marginBottom: 8,
+                marginTop: 5,
+                marginBottom: 5,
               }}
             >
               <div style={{
                 background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
-                padding: '14px 18px',
-                borderRadius: '18px',
+                padding: '10px 14px',
+                borderRadius: '16px',
                 boxShadow: '0 4px 12px rgba(99, 102, 241, 0.3)',
               }}>
                 {/* Robot header */}
@@ -2619,9 +2619,9 @@ export default function MessengerChat({
                   display: 'flex',
                   alignItems: 'center',
                   gap: 8,
-                  marginBottom: 10,
+                  marginBottom: 6,
                 }}>
-                  <span style={{ fontSize: 20 }}>🤖</span>
+                  <span style={{ fontSize: 17 }}>🤖</span>
                   <span style={{
                     fontSize: 12,
                     fontWeight: 600,
@@ -2645,9 +2645,9 @@ export default function MessengerChat({
                 {/* Question */}
                 <div style={{
                   color: 'white',
-                  fontSize: 15,
-                  lineHeight: 1.4,
-                  marginBottom: 12,
+                  fontSize: 14,
+                  lineHeight: 1.35,
+                  marginBottom: 8,
                 }}>
                   {quizMsg.quiz.quiz_prompt || quizMsg.quiz.quiz_question || quizMsg.quiz.prompt_native}
                 </div>
@@ -2668,7 +2668,7 @@ export default function MessengerChat({
                     disabled={checkingQuiz === quizMsg.quiz.id}
                     style={{
                       flex: 1,
-                      padding: '10px 14px',
+                      padding: '7px 12px',
                       fontSize: 14,
                       border: 'none',
                       borderRadius: 12,
@@ -2687,7 +2687,7 @@ export default function MessengerChat({
                 <div style={{
                   fontSize: 10,
                   color: 'rgba(255,255,255,0.6)',
-                  marginTop: 6,
+                  marginTop: 4,
                 }}>
                   Hover to focus • Auto-submits after typing
                 </div>
@@ -2710,15 +2710,15 @@ export default function MessengerChat({
                 background: quizMsg.isCorrect
                   ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)'
                   : 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
-                padding: '12px 16px',
-                borderRadius: '18px',
+                padding: '8px 12px',
+                borderRadius: '16px',
                 boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
               }}>
                 <div style={{
                   display: 'flex',
                   alignItems: 'center',
                   gap: 8,
-                  marginBottom: 6,
+                  marginBottom: 4,
                 }}>
                   <span style={{ fontSize: 18 }}>{quizMsg.isCorrect ? '✅' : '📝'}</span>
                   <span style={{ color: 'white', fontSize: 13, fontWeight: 600 }}>
@@ -2815,11 +2815,11 @@ export default function MessengerChat({
         {!busy && (
           <div style={{
             position: 'sticky',
-            bottom: 'calc(100px)',  // Above chatbox
+            bottom: '74px',  // Above chatbox (shrunk to match the now-more-compact chatbox)
             zIndex: 99,
             background: 'rgba(255,255,255,0.95)',
             backdropFilter: 'blur(8px)',
-            padding: '12px 20px',
+            padding: '8px 20px',
             boxShadow: '0 -2px 12px rgba(0,0,0,0.1)',
             borderTop: '2px solid #e5e7eb',
           }}>
@@ -2829,9 +2829,9 @@ export default function MessengerChat({
             }}>
               {currentSuggestions.length > 0 && (
                 <div style={{
-                  fontSize: '12px',
+                  fontSize: '11px',
                   color: '#6b7280',
-                  marginBottom: '8px',
+                  marginBottom: '5px',
                   fontWeight: 600,
                 }}>
                   💬 Quick replies (hover to see {learning.name}):
@@ -2840,7 +2840,7 @@ export default function MessengerChat({
               <div style={{
                 display: 'flex',
                 flexWrap: 'wrap',
-                gap: '8px',
+                gap: '6px',
                 alignItems: 'flex-start',
               }}>
                 {/* Pivot button — always first */}
@@ -2850,9 +2850,9 @@ export default function MessengerChat({
                   style={{
                     background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
                     border: 'none',
-                    borderRadius: 14,
-                    padding: '10px 14px',
-                    fontSize: 20,
+                    borderRadius: 12,
+                    padding: '7px 11px',
+                    fontSize: 17,
                     cursor: 'pointer',
                     boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
                     transition: 'opacity 0.15s, transform 0.1s',
@@ -2947,11 +2947,11 @@ export default function MessengerChat({
                           handleSuggestionClick(suggestion);
                         }}
                         style={{
-                          padding: '8px 12px',
+                          padding: '6px 10px',
                           fontSize: 13,
                           color: 'white',
                           fontWeight: 500,
-                          lineHeight: 1.3,
+                          lineHeight: 1.25,
                           userSelect: 'none',
                         }}
                       >
@@ -2961,7 +2961,7 @@ export default function MessengerChat({
                       {/* Revealed target text */}
                       {isRevealed && (
                         <div style={{
-                          padding: '4px 12px 6px',
+                          padding: '3px 10px 4px',
                           fontSize: 12,
                           color: 'rgba(255,255,255,0.92)',
                           fontStyle: 'italic',
@@ -3043,7 +3043,7 @@ export default function MessengerChat({
           bottom: 0,
           zIndex: 100,
           background: 'white',
-          padding: '16px 20px',
+          padding: '9px 20px',
           boxShadow: '0 -2px 8px rgba(0,0,0,0.1)',
         }}>
           <div style={{ maxWidth: '800px', margin: '0 auto' }}>
@@ -3062,9 +3062,9 @@ export default function MessengerChat({
                 this card is also spoken, and reachable by hotkey. */}
             {drill && (
               <div style={{
-                marginBottom: 12,
-                padding: '12px 16px',
-                borderRadius: 14,
+                marginBottom: 8,
+                padding: '8px 14px',
+                borderRadius: 12,
                 background: drill.attempt || drill.skipped ? '#f1f5f9' : 'rgba(13,148,136,0.08)',
                 border: `1px solid ${drill.attempt || drill.skipped ? '#e2e8f0' : 'rgba(13,148,136,0.35)'}`,
                 animation: 'fadeIn 0.25s ease-out',
