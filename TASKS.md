@@ -1122,6 +1122,12 @@ zone. Moving the flash out of the card must **not** stop that write — the hove
 
 ### [x] 3.14 — Bubble arrives after the audio; empty bubble is the playback indicator 🟡 Sonnet
 
+**⚠️ Amended after shipping:** this spec's target sequence has the target-language zone auto-reveal
+("target text appears inside the bubble it just filled") once the clip finishes. Built that way first,
+then explicitly reverted on user feedback — **both zones stay hover-gated forever, with no auto-reveal
+after listening.** Only the pending→empty-progress-card behavior (Problem 1/2 below) shipped as
+specified.
+
 **Two problems, one fix.**
 
 **Problem 1 — you can still read along, just in the target language.** Task 3.13 hides the translation
