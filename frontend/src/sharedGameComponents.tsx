@@ -235,11 +235,12 @@ export function GameTextarea({
   theme?: "dark" | "light";
   autoFocus?: boolean;
   textareaRef?: React.RefObject<HTMLTextAreaElement | null>;
-  // Exposes the pending auto-send window and its cancel() to the caller, so an
-  // external gesture (task 4.2's controller stick-flick) can cancel it without
-  // a second, competing timer — useWisprAutoSend stays the one implementation.
+  // Exposes the pending auto-send window plus its cancel()/submit() to the
+  // caller, so an external gesture (task 4.2's controller stick-flick, and 4.6's
+  // directional left-cancel/right-send-now) can drive it without a second,
+  // competing timer — useWisprAutoSend stays the one implementation.
   // Optional and additive: existing callers are unaffected.
-  onAutoSendChange?: (state: { pending: boolean; cancel: () => void }) => void;
+  onAutoSendChange?: (state: { pending: boolean; cancel: () => void; submit: () => void }) => void;
 }) {
   const internalRef = useRef<HTMLTextAreaElement>(null);
   const textareaRef = externalRef ?? internalRef;
@@ -249,8 +250,8 @@ export function GameTextarea({
   const autoSend = useWisprAutoSend({ value, onSubmit, disabled: isDisabled });
 
   useEffect(() => {
-    onAutoSendChange?.({ pending: autoSend.pending, cancel: autoSend.cancel });
-  }, [autoSend.pending, autoSend.cancel, onAutoSendChange]);
+    onAutoSendChange?.({ pending: autoSend.pending, cancel: autoSend.cancel, submit: autoSend.submit });
+  }, [autoSend.pending, autoSend.cancel, autoSend.submit, onAutoSendChange]);
 
   function clearInput() {
     autoSend.cancel();

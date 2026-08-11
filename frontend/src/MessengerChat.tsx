@@ -366,49 +366,46 @@ export default function MessengerChat({
   const [recording, setRecording] = useState(false);
   const prevTranscriptLenRef = useRef(0);
 
-  // --- Controller per-turn action buttons (task 4.2) ---------------------------
-  // A/B/X/Y map onto the same functions the eyes-free keyboard hotkeys already
-  // drive (repeatLastAudio/explainDrill — see the Alt+R/Alt+E listener below),
-  // plus a slow-repeat and an LT-hold translation. Refs, not state: these are
-  // read from rAF-driven gamepad callbacks, not render output, so there's
-  // nothing to re-render on and state would just add stale-closure risk.
+  // --- Controller per-turn action buttons (tasks 4.2, revised by 4.6) ----------
+  // 4.2 originally spread the turn across A/B/X/Y/LB/RB/LT. 4.6 unbinds all of
+  // those except B (see below) in favor of a directional stick flick, and frees
+  // the sticks up for that. The underlying functions (repeatLastAudio,
+  // explainDrill, repeatLastAudioSlow, speakLastChallengeTranslation,
+  // replayStack.step*) are kept exactly as 4.2/4.3 left them — cheap to
+  // re-bind, and several stay reachable via the Alt+R/Alt+E/Alt+S hotkeys below
+  // or a future task, even though the controller no longer calls most of them.
   //
   // Mirrors GameTextarea's internal useWisprAutoSend state (via the
-  // onAutoSendChange prop below) so the stick-flick/B cancel gesture can drive
-  // the *existing* pending-send timer instead of running a second one.
-  const autoSendStateRef = useRef<{ pending: boolean; cancel: () => void } | null>(null);
-  const handleAutoSendChange = useCallback((state: { pending: boolean; cancel: () => void }) => {
+  // onAutoSendChange prop below) so the flick/B cancel gesture can drive the
+  // *existing* pending-send timer instead of running a second one.
+  const autoSendStateRef = useRef<{ pending: boolean; cancel: () => void; submit: () => void } | null>(null);
+  const handleAutoSendChange = useCallback((state: { pending: boolean; cancel: () => void; submit: () => void }) => {
     autoSendStateRef.current = state;
   }, []);
-  // The most recent v2/eyes-free challenge chunk (the one with `native_text`) —
-  // LT-hold speaks its translation, the controller equivalent of hovering the
-  // native-language zone of <MessengerChallengePair>. Updated wherever a
-  // challenge chunk is revealed (revealChunk, and the pivot flow).
+  // The most recent v2/eyes-free challenge chunk (the one with `native_text`).
+  // No longer read by the controller (LT is unbound in 4.6) but still fed by
+  // revealChunk/the pivot flow — kept in case a future task re-homes the
+  // translation gesture elsewhere.
   const lastChallengeChunkRef = useRef<ResponseChunk | null>(null);
-  // Stick-flick cancel hysteresis: fires once on crossing the 0.8 deadzone, and
-  // won't fire again until the stick has returned below 0.3 — otherwise holding
-  // the stick out floods repeat cancels instead of firing once per flick.
+  // Stick-flick hysteresis: fires once on crossing the 0.8 deadzone, and won't
+  // fire again until the stick has returned below 0.3 — otherwise holding the
+  // stick out floods repeat cancels/sends instead of firing once per flick.
   const flickArmedRef = useRef(true);
-  // LT hold state, so the translation is spoken once on press and cut off on
-  // release rather than replayed every frame the trigger stays down.
-  const ltHeldRef = useRef(false);
 
   const gamepad = useGamepad({
     onButtonChange: (e) => {
       if (!e.pressed) return; // face/shoulder buttons fire on press only
       switch (e.index) {
-        case 0: void repeatLastAudio(); break;          // A — repeat last target sentence
-        case 1:                                          // B — backup cancel + stop audio
+        case 1:                                          // B — cancel + stop audio
+          // The one face button 4.6 keeps: with the screen off this is the
+          // only way to kill a clip mid-play, and it doubles as a backup
+          // cancel alongside the flick.
           if (autoSendStateRef.current?.pending) {
             autoSendStateRef.current.cancel();
             earcons.play("sendCancelled");
           }
           audioPlayer.stop();
           break;
-        case 2: void explainDrill(); break;               // X — explain that
-        case 3: void repeatLastAudioSlow(); break;        // Y — repeat slower (0.75x)
-        case 4: replayStack.stepBack(); break;             // LB — replay stack: older
-        case 5: replayStack.stepForward(); break;          // RB — replay stack: newer
         // D-pad (task 4.5): session-level settings, not per-turn actions — kept
         // off the face buttons deliberately (see TASKS.md's rationale).
         case 12: setEyesFree(prev => !prev); break;         // D-pad Up — toggle eyes-free
@@ -420,36 +417,38 @@ export default function MessengerChat({
         case 15:                                            // D-pad Right — change topic / skip
           void handlePivot();
           break;
-        default: break;
+        default: break;                                     // A/X/Y/LB/RB unbound (task 4.6)
       }
     },
     onFrame: (frame) => {
-      // Stick flick: either stick, any direction, past a large deadzone,
-      // cancels a pending auto-send. Only does anything while a send is
-      // actually pending — outside that window a flick is a no-op, so idle
-      // stick movement can't cancel something that isn't happening.
+      // Directional stick flick (task 4.6): either stick, past the 0.8
+      // deadzone, with the horizontal component clearly dominant
+      // (|x| > 1.5|y|) so a diagonal flick doesn't have to pick a side —
+      // it just doesn't count as either. Left cancels the pending auto-send
+      // and clears the textarea (matching Escape); right skips the rest of
+      // the countdown and sends now. Up/down (or an unarmed magnitude) are
+      // reserved no-ops. Both directions only act while a send is actually
+      // pending — right-flick in particular must never fire something that
+      // wasn't already going to send; it only declines to wait.
       const [lx = 0, ly = 0, rx = 0, ry = 0] = frame.axes;
-      const magnitude = Math.max(Math.hypot(lx, ly), Math.hypot(rx, ry));
+      const leftMag = Math.hypot(lx, ly);
+      const rightMag = Math.hypot(rx, ry);
+      const magnitude = Math.max(leftMag, rightMag);
       if (magnitude > 0.8 && flickArmedRef.current) {
         flickArmedRef.current = false;
-        if (autoSendStateRef.current?.pending) {
-          autoSendStateRef.current.cancel();
-          earcons.play("sendCancelled");
+        const [dx, dy] = leftMag >= rightMag ? [lx, ly] : [rx, ry];
+        if (Math.abs(dx) > 1.5 * Math.abs(dy) && autoSendStateRef.current?.pending) {
+          if (dx < 0) {
+            autoSendStateRef.current.cancel();
+            setTranscript("");
+            earcons.play("sendCancelled");
+          } else {
+            autoSendStateRef.current.submit();
+          }
         }
       } else if (magnitude < 0.3) {
         flickArmedRef.current = true;
       }
-
-      // LT hold: standard-mapping button 6, analog. `pressed` is too sensitive
-      // for a deliberate hold gesture, so this thresholds `value` instead.
-      const ltValue = frame.buttons[6]?.value ?? 0;
-      const ltHeld = ltValue > 0.5;
-      if (ltHeld && !ltHeldRef.current) {
-        void speakLastChallengeTranslation();
-      } else if (!ltHeld && ltHeldRef.current) {
-        audioPlayer.stop();
-      }
-      ltHeldRef.current = ltHeld;
     },
   });
 
@@ -676,10 +675,15 @@ export default function MessengerChat({
   }, []);
 
   // Eyes-free hotkeys. Alt-modified because dictation lands in the focused
-  // textarea — a bare letter key would just be typed. The controller mapping in
-  // task 4.2 drives the same two functions.
+  // textarea — a bare letter key would just be typed.
   //   Alt+R  hear it again (the drill sentence, or the last thing spoken)
   //   Alt+E  explain that (spoken error_explanation; never automatic)
+  //   Alt+S  hear it again, slower — task 4.6 unbound the controller's Y
+  //          (repeatLastAudioSlow) with no other input left to reach it;
+  //          this is the binding TASKS.md's 4.6 flags as worth keeping.
+  //   Alt+T  hear the translation — same story for LT's
+  //          speakLastChallengeTranslation, the keyboard equivalent of
+  //          hovering a challenge chunk's native-language zone.
   useEffect(() => {
     if (!eyesFree) return;
     function onKeyDown(e: KeyboardEvent) {
@@ -687,6 +691,8 @@ export default function MessengerChat({
       const key = e.key.toLowerCase();
       if (key === "r") { e.preventDefault(); void repeatLastAudio(); }
       else if (key === "e") { e.preventDefault(); void explainDrill(); }
+      else if (key === "s") { e.preventDefault(); void repeatLastAudioSlow(); }
+      else if (key === "t") { e.preventDefault(); void speakLastChallengeTranslation(); }
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
@@ -2097,7 +2103,7 @@ export default function MessengerChat({
               </label>
               <span
                 title={gamepad.connected
-                  ? "Controller seen by the browser — A repeat, B cancel/stop, X explain, Y repeat slow, LB/RB step through replay history, stick flick cancels a pending send, LT-hold plays the translation, D-pad up/down toggle eyes-free/cycle pairing mode, D-pad left/right change topic"
+                  ? "Controller seen by the browser — B cancel/stop, stick flick left cancels+clears a pending send, flick right sends now, D-pad up/down toggle eyes-free/cycle pairing mode, D-pad left/right change topic. A/X/Y/LB/RB/LT are unbound (Alt+R/E/S/T on keyboard cover repeat/explain/slow-repeat/translation)"
                   : "No controller seen by the browser. Recording (F13) still works via the native mapper regardless — this only affects in-page buttons, and it also goes dark whenever the window loses focus"}
                 style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, color: gamepad.connected ? '#16a34a' : '#9ca3af' }}
               >

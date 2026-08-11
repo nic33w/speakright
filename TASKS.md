@@ -1540,7 +1540,7 @@ three highest-stakes moments. RT stays intentionally unassigned (4.2). None of i
 a physical controller — every task from 4.1 on carries that same caveat, and it's the one thing left
 before this phase can be called actually done rather than just implemented.
 
-### [ ] 4.6 — Directional stick flick, longer auto-send, unbind the rest 🟡 Sonnet
+### [x] 4.6 — Directional stick flick, longer auto-send, unbind the rest 🟡 Sonnet
 
 **Supersedes the flick half of 4.2 and most of its button map.** Recording stays on L3/R3 via the
 F13 mapper (4.1) — unchanged.
@@ -1602,6 +1602,52 @@ underlying functions** — they are cheap to re-bind and several are still reach
 
 **Watch for:** LT's release handler currently calls `audioPlayer.stop()`. If LT is unbound, make sure
 that stop isn't the only thing halting a stuck clip — see the `B` note above.
+
+**Shipped as:**
+- **Directional flick** (`MessengerChat.tsx`'s `useGamepad` `onFrame`): the two sticks' magnitudes
+  (`Math.hypot`) are compared and the larger one's `x`/`y` is used for direction, so the dominant-axis
+  test (`|x| > 1.5|y|`) is evaluated against whichever stick actually moved, not an average of both.
+  Hysteresis is unchanged from 4.2 — the 0.8-fire/0.3-rearm edge still disarms on *any* direction
+  (including up/down and ambiguous diagonals), so a reserved-direction flick still consumes the arm
+  and doesn't double-fire; it just produces no action. Both left and right are additionally gated on
+  `autoSendStateRef.current?.pending` — left cancels + earcons `sendCancelled` + `setTranscript("")`
+  (mirrors what Escape already does via `GameTextarea`'s `clearInput`, done directly here since
+  `transcript` is owned by `MessengerChat`, not the shared component); right calls the auto-send
+  hook's own `submit()`, which sends whatever's currently in the box and needs no new earcon — it
+  flows straight into `sendMessage`'s existing "sent" haptic/earcon.
+- **`autoSendStateRef`/`onAutoSendChange`** (`sharedGameComponents.tsx`'s `GameTextarea`) extended
+  from `{pending, cancel}` to also carry `submit` — `useWisprAutoSend` already exposed a `submit()`
+  that pre-empts the pending window exactly like Enter does, so right-flick needed no new send path,
+  just a wire to an existing one. Purely additive; every other `GameTextarea` caller is unaffected by
+  the wider state shape since they don't read `onAutoSendChange` at all.
+- **`AUTO_SEND_WINDOW_MS`** (`sharedGameHooks.ts`) raised from 1500 to **3000** — the top of the task's
+  2.5-3s range, per "prefer generous over timid" now that right-flick makes waiting the whole window
+  costless. This is the shared constant every mode's `useWisprAutoSend` call reads, so all seven modes
+  now wait 3s before an unattended dictation auto-sends, not just messenger.
+- **Unbound A/X/Y/LB/RB/LT** — their `case`/`onFrame` handling deleted from `MessengerChat.tsx`'s
+  `useGamepad` call; `B` kept verbatim (backup cancel + `audioPlayer.stop()`), satisfying the LT
+  watch-for note without a code change since B's stop was already unconditional. D-pad (4.5) is
+  untouched here — 4.7 is what replaces it, not this task.
+- **Functions kept but no longer controller-reachable:** `repeatLastAudio`/`explainDrill` stay reachable
+  via the existing Alt+R/Alt+E hotkeys. `repeatLastAudioSlow` (Y) and `speakLastChallengeTranslation`
+  (LT) had no other caller left after unbinding — TypeScript's `noUnusedLocals` (on in this repo) would
+  have failed the build on a truly dead local function, so both got new hotkeys in the same eyes-free
+  listener: **Alt+S** (repeat slower) and **Alt+T** (hear the translation). This goes slightly beyond
+  what the task named (it only flagged Y explicitly) but follows the same reasoning it gave for Y, and
+  keeping LT's translation reachable seemed better than deleting a working feature to satisfy the
+  linter. `replayStack.stepBack`/`stepForward` needed no such treatment — they're methods on a hook
+  object still used elsewhere (`.items`, `.current()`), not standalone local declarations, so an unused
+  method reference isn't a lint/type error the way an unused function is.
+- Toolbar badge tooltip (4.1/4.2/4.5) rewritten to describe the new map: B, directional flick, D-pad,
+  and a pointer to the Alt+R/E/S/T keyboard fallbacks for what's now unbound.
+
+**Not verified:** no physical controller in this environment, same caveat as the rest of Phase 4 — the
+0.8/0.3 hysteresis and 1.5-multiplier dominant-axis threshold are reasoned, not felt. Typecheck
+(`npx tsc --noEmit -p .`) and lint are clean on every touched line — lint shows the same two
+pre-existing `MessengerChat.tsx` errors as before (an `any` and an unused `msgIndex`, both
+unrelated/unmoved) plus the same pre-existing errors in other files. Backend untouched; suite is
+**173 passed, 1 xfailed** (grown from 89 via other sessions' unrelated work landed on `main` since 4.5;
+confirmed via `git status --short` that no backend files were touched this task).
 
 ---
 

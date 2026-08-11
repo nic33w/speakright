@@ -182,13 +182,19 @@ export function useReplayStack() {
 // The one implementation of Wispr auto-send (CLAUDE.md "Shared conventions").
 //
 // Wispr dictation lands as a paste, so a value growth of >= 3 chars in a single
-// update is treated as dictation and opens a ~1.5s window before sending, which
-// the user can cancel (Esc) — that window is the whole point, and typing never
+// update is treated as dictation and opens a window before sending, which the
+// user can cancel (Esc) — that window is the whole point, and typing never
 // auto-sends. A 700ms guard after any send swallows the echo of the send itself.
 //
 // GameTextarea wraps this with a standard textarea. Modes with their own textarea
 // UI call the hook directly and render <AutoSendBar progress={progress} />.
-export const AUTO_SEND_WINDOW_MS = 1500;
+//
+// Task 4.6: widened from 1.5s to 3s. A longer countdown used to mean a longer
+// wait for a false positive; now that the messenger's controller can skip it
+// outright (right-flick — see MessengerChat's useGamepad onFrame) there's no
+// downside to generous, so this took the top of the ~2.5-3s range the task
+// named. Shared across all seven modes, per CLAUDE.md's shared-conventions rule.
+export const AUTO_SEND_WINDOW_MS = 3000;
 const AUTO_SEND_MIN_DELTA = 3;
 const SEND_GUARD_MS = 700;
 
