@@ -1352,6 +1352,9 @@ Backend untouched; suite still **89 passed, 1 xfailed.**
 
 ### [x] 4.2 — Map the per-turn action buttons 🟡 Sonnet
 
+**⚠️ Largely superseded by 4.6** — the flick becomes directional (left cancel+clear / right
+send-now), and A/X/Y/LB/RB/LT are unbound. L3/R3 recording and the 0.8/0.3 flick hysteresis carry over.
+
 | Control | Action |
 |---|---|
 | **L3 / R3** (click either stick) | Toggle recording on/off (via F13) — earcon on each edge |
@@ -1431,6 +1434,8 @@ Backend untouched; suite still **89 passed, 1 xfailed.**
 
 ### [x] 4.3 — Shoulder-button replay navigation 🟡 Sonnet
 
+**⚠️ Superseded by 4.7** — traversal moves from LB/RB to the D-pad, and the cursor becomes visible.
+
 **Fix:** LB steps back through the replay stack, RB steps forward. Keep the iPod semantic if you like
 the feel — LB within the first 50% of playback goes back one, after 50% restarts current. (Simpler
 alternative: LB/RB purely move a cursor and A replays current. Either is fine.)
@@ -1498,6 +1503,9 @@ new). Backend untouched; suite still **89 passed, 1 xfailed.**
 
 ### [x] 4.5 — D-pad mode toggles 🟡 Sonnet
 
+**⚠️ Superseded by 4.7** — the D-pad becomes message traversal. The eyes-free and pairing-mode
+toggles need a new home (see 4.7's last "Watch for").
+
 | Control | Action |
 |---|---|
 | D-pad ↑ | Toggle eyes-free mode |
@@ -1531,6 +1539,125 @@ handle the turn, LB/RB browse replay history, D-pad handles session settings, an
 three highest-stakes moments. RT stays intentionally unassigned (4.2). None of it has been touched by
 a physical controller — every task from 4.1 on carries that same caveat, and it's the one thing left
 before this phase can be called actually done rather than just implemented.
+
+### [ ] 4.6 — Directional stick flick, longer auto-send, unbind the rest 🟡 Sonnet
+
+**Supersedes the flick half of 4.2 and most of its button map.** Recording stays on L3/R3 via the
+F13 mapper (4.1) — unchanged.
+
+**Stick flick becomes directional:**
+
+| Gesture | Action |
+|---|---|
+| **Flick left** (either stick, past 0.8) | Cancel the pending auto-send **and clear the textarea** |
+| **Flick right** (either stick, past 0.8) | Send now — skip the rest of the countdown |
+| Flick up / down | Nothing (reserved) |
+
+**Right-flick is scoped to a pending Wispr auto-send, and only that.** It fires **only** when Wispr
+has pasted text and the countdown is already running; outside that window it does nothing. It is not
+"send the textarea" — a user who *typed* their message gets no flick-send, by design.
+
+**Why that scoping matters (keep it):** it makes right-flick non-destructive. It never sends anything
+that wasn't already going to send — it only declines to wait. Without the scope, a stray flick fires
+a half-formed message at the LLM, which costs money and pollutes the conversation, and unlike cancel
+there is no undo. Cancel is recoverable, send is not; that asymmetry is the whole reason for the
+restriction.
+
+**Left-flick also clears the textarea**, matching what Escape already does in the shared auto-send
+spec — cancelling a dictation you didn't want should not leave its text sitting there.
+
+**Direction needs a dominant-axis rule.** Today the flick is magnitude-only (`Math.hypot`, task 4.2),
+so any direction counts. With direction meaningful, require the horizontal component to clearly
+dominate — `Math.abs(x) > 1.5 * Math.abs(y)` — or a diagonal flick decides for itself which way it
+went. Keep 4.2's existing hysteresis exactly as-is: fires once past 0.8, re-arms below 0.3.
+
+---
+
+**Auto-send timer gets longer** — 1.5s → ~2.5–3s.
+
+Right-flick is what makes this free: a longer countdown costs nothing when you can always skip it, so
+prefer generous over timid. Pick the value with the flick in hand, not before.
+
+**⚠️ This lives in the shared `useWisprAutoSend` hook and therefore changes all seven modes**, not
+just messenger. That is the right place for it (the reasoning generalises, and CLAUDE.md's shared-
+conventions rule says timing belongs in the hook) — but it should be a deliberate choice, not a
+surprise discovered later in trivia.
+
+---
+
+**Unbind the rest.** A, X, Y, LB, RB and LT come off the controller for now; new uses will be assigned
+later. Delete the `case` arms in `MessengerChat.tsx`'s `onButtonChange` / `onFrame`, but **keep the
+underlying functions** — they are cheap to re-bind and several are still reachable elsewhere.
+
+**Two exceptions to check before deleting:**
+1. **Keep `B` = stop audio.** With the screen off there is otherwise no way to kill a clip mid-play,
+   and it costs one line to retain. Worth overriding the "unbind everything" instinct for.
+2. **`Y` (repeat slower) has no keyboard equivalent.** A → `repeatLastAudio` and X → `explainDrill`
+   survive via Alt+R / Alt+E, but `repeatLastAudioSlow` is controller-only. Unbinding Y makes
+   slow-replay unreachable from any input. Fine if intended — just don't lose it by accident. Give it
+   an Alt binding if you want to keep it available.
+
+**Files:** `frontend/src/MessengerChat.tsx` (the `useGamepad` handler),
+`frontend/src/sharedGameHooks.ts` (`useWisprAutoSend`'s delay constant).
+
+**Watch for:** LT's release handler currently calls `audioPlayer.stop()`. If LT is unbound, make sure
+that stop isn't the only thing halting a stuck clip — see the `B` note above.
+
+---
+
+### [ ] 4.7 — D-pad message traversal with a visible cursor 🟡 Sonnet
+
+**Replaces 4.3's LB/RB navigation and 4.5's D-pad mode toggles.** All traversal moves onto the D-pad,
+so browsing the conversation is one thumb in one place.
+
+| Control | Action |
+|---|---|
+| **D-pad ←** | Play previous message's audio |
+| **D-pad →** | Play next message's audio |
+| **D-pad ↑** | Play current message's audio |
+| **D-pad ↓** | Cycle the current message's text: hidden → translation → translation + target → hidden |
+
+**Show which message is current** while traversing — a bolded/coloured border on that bubble.
+Prefer a **border** over a background colour: the card already uses indigo and blue tints for the
+hover/pin/flash states (`MessengerChallengePair`), and another colour there will collide.
+
+---
+
+**⚠️ D-pad ↓ does NOT violate the hover-gated-text rule.** That rule (see the messenger hover-gated
+text preference in memory, and the revert in `6046d14`) forbids text *auto*-revealing after playback.
+A D-pad press is a deliberate request — the controller's equivalent of hovering the zone. State that
+in the code, or a future session will correctly flag it against the preference and stall.
+
+**⚠️ Two pieces of plumbing this needs that don't exist yet:**
+
+1. **`ReplayItem` has no link back to a bubble.** It is
+   `{ text, locale, source, audioUrl, nativeText }` (`sharedGameHooks.ts`) — nothing identifies which
+   message or chunk it came from, so there is nothing to highlight. Add `messageId` + `chunkIndex` at
+   push time.
+
+2. **The cursor is a `ref`, and deliberately so.** From the hook: *"A ref, not state: nothing renders
+   off it today, and re-rendering the whole chat on every shoulder-button tap would be wasted work."*
+   A visible cursor reverses that. The stated cost is real — do it knowingly: promote the cursor to
+   state **and** memoize the bubble component so a D-pad tap re-renders two bubbles (old current, new
+   current), not the entire conversation.
+
+**Files:** `frontend/src/sharedGameHooks.ts` (`ReplayItem`, `useReplayStack`'s cursor),
+`frontend/src/MessengerChat.tsx` (the `useGamepad` D-pad arms, `MessengerChallengePair`'s cursor
+styling, every `replayStack.push` call site).
+
+**Watch for:**
+- **`push()` resets the cursor to `-1` ("track latest")** on every new turn's audio. Keep that — but
+  now it is visible, so make sure a new turn arriving while browsing doesn't silently move the
+  highlight without explanation.
+- **What happens at the ends of the list** — clamp, or wrap? Clamp is safer eyes-free: wrapping from
+  the newest message to the oldest with no visual is disorienting.
+- **The eyes-free case has no highlight at all**, so the audio itself has to carry position. Consider
+  reusing an earcon (2.3) at the list boundary rather than silently doing nothing.
+- **4.5's mode toggles lose their home.** Eyes-free toggle and pairing-mode cycle were on D-pad ↑/↓.
+  Decide where they go — an on-screen control is fine, since both are session-level settings — or
+  they become unreachable from the controller.
+
+---
 
 # Phase 5 — Engagement
 
