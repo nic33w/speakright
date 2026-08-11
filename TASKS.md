@@ -1210,7 +1210,7 @@ progress state) and `revealTurnChunk` (the reveal/playback ordering).
   3.12 factored out (`needsTranslationAt`, `playTargetClip`, `flashDurationMs`) rather than adding
   another branch beside them.
 
-### [ ] 3.15 — Replace the progress sweep with a canned audio-wave animation 🟢 Haiku
+### [x] 3.15 — Replace the progress sweep with a canned audio-wave animation 🟢 Haiku
 
 **Revises 3.14's playback indicator only.** Everything else 3.14 shipped stays: the bubble still
 arrives empty at final size before the clip, still reserves the layout, and its text still stays
