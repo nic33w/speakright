@@ -11,10 +11,10 @@ import { playHaptic, type HapticPattern } from "./gamepad/haptics";
 // each instance stops only its own audio, so a hover-preview player and a
 // turn-playback player can coexist without cutting each other off.
 //
-//   play(text, locale, rate?)  fetches (cached by `locale:rate:text`) and plays.
-//   playUrl(url)               plays an already-known URL (e.g. a backend-generated file).
-//   prefetch(text, ...)        warms the cache so the first play is instant.
-//   stop()                     halts playback and releases any promise awaiting it.
+//   play(text, locale, rate?, onProgress?)  fetches (cached by `locale:rate:text`) and plays.
+//   playUrl(url, onProgress?)               plays an already-known URL (e.g. a backend-generated file).
+//   prefetch(text, ...)                     warms the cache so the first play is instant.
+//   stop()                                  halts playback and releases any promise awaiting it.
 //
 // `rate` is an SSML prosody percent offset (SLOW_TTS_RATE = -25 is 0.75x, the
 // repeat-after-me speed). It is part of both this cache key and the backend's, so
@@ -26,6 +26,14 @@ import { playHaptic, type HapticPattern } from "./gamepad/haptics";
 //
 // Both play() and playUrl() stop this player's current audio first. Audio stops
 // automatically on unmount.
+//
+// `onProgress` (messenger task 3.14): fires on every `timeupdate` with elapsed/
+// total milliseconds, so a caller can drive a playback progress sweep without
+// this hook growing UI opinions. `durationMs` is null until the browser has
+// loaded metadata (or if the source never reports a finite duration) — callers
+// should render an indeterminate state until then rather than a stuck 0% bar.
+export type AudioProgress = { elapsedMs: number; durationMs: number | null };
+
 export function useAudioPlayer(apiBase: string = API_BASE) {
   const cacheRef = useRef<Map<string, string>>(new Map());
   const currentRef = useRef<HTMLAudioElement | null>(null);
@@ -44,7 +52,7 @@ export function useAudioPlayer(apiBase: string = API_BASE) {
     }
   }, []);
 
-  const playUrl = useCallback((url: string): Promise<boolean> => {
+  const playUrl = useCallback((url: string, onProgress?: (p: AudioProgress) => void): Promise<boolean> => {
     return new Promise<boolean>(resolve => {
       stop();
       const audio = new Audio(url);
@@ -57,6 +65,12 @@ export function useAudioPlayer(apiBase: string = API_BASE) {
       };
       audio.onended = done;
       audio.onerror = done;
+      if (onProgress) {
+        const durationMs = () => (isFinite(audio.duration) ? audio.duration * 1000 : null);
+        onProgress({ elapsedMs: 0, durationMs: durationMs() });
+        audio.ontimeupdate = () => onProgress({ elapsedMs: audio.currentTime * 1000, durationMs: durationMs() });
+        audio.onloadedmetadata = () => onProgress({ elapsedMs: audio.currentTime * 1000, durationMs: durationMs() });
+      }
       audio.play().catch(done);
     });
   }, [stop]);
@@ -88,11 +102,11 @@ export function useAudioPlayer(apiBase: string = API_BASE) {
     if (text) void fetchUrl(text, locale, rate);
   }, [fetchUrl]);
 
-  const play = useCallback(async (text: string, locale: string, rate: number = 0): Promise<boolean> => {
+  const play = useCallback(async (text: string, locale: string, rate: number = 0, onProgress?: (p: AudioProgress) => void): Promise<boolean> => {
     if (!text) return false;
     const url = await fetchUrl(text, locale, rate);
     if (!url) return false;
-    return playUrl(url);
+    return playUrl(url, onProgress);
   }, [fetchUrl, playUrl]);
 
   useEffect(() => stop, [stop]);

@@ -1120,7 +1120,7 @@ zone. Moving the flash out of the card must **not** stop that write — the hove
   factored out `needsTranslationAt` / `playTargetClip` / `flashDurationMs` — build on those rather
   than adding a fifth branch beside them.
 
-### [ ] 3.14 — Bubble arrives after the audio; empty bubble is the playback indicator 🟡 Sonnet
+### [x] 3.14 — Bubble arrives after the audio; empty bubble is the playback indicator 🟡 Sonnet
 
 **Two problems, one fix.**
 

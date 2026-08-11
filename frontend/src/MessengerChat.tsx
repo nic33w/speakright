@@ -3,7 +3,7 @@
 import React, { useEffect, useState, useRef, useCallback } from "react";
 import { GameTextarea, CorrectionTokens } from "./sharedGameComponents";
 import { useAudioPlayer, useReplayStack, useEarcons, useHaptics, useGamepad } from "./sharedGameHooks";
-import type { ReplayItem } from "./sharedGameHooks";
+import type { ReplayItem, AudioProgress } from "./sharedGameHooks";
 import { API_BASE, localeFor, SLOW_TTS_RATE } from "./config";
 import { buildCorrectionTokens, checkFuzzyMatch } from "./sharedGameUtils";
 import type { CorrectionToken } from "./sharedGameUtils";
@@ -120,8 +120,23 @@ function savePivotSet(key: string, s: Set<string>) {
 }
 
 // --- V2 Challenge Pair: 3-zone hover-reveal card (light theme for messenger) ---
+// Task 3.14: fixed max-width + a ghost-sizer per zone (an invisible copy of the
+// zone's own longest state, stacked in the same grid cell) so toggling a zone's
+// reveal changes its content, never its footprint — the previous version had no
+// width constraint and swapped a short placeholder for a full sentence, which
+// moved both edges of the card. `pending`/`progress`/`played` are new:
+//
+// - `pending` covers this chunk's first listen: the zones stay mounted (with
+//   their ghost sizers, so the card is already at its final size) but hidden
+//   under a progress-sweep overlay, so there is nothing to read along with —
+//   only the sound and a sense of how far into it the clip is.
+// - `played`, once true, permanently reveals the target-language zone: the
+//   listening test is over the moment the clip finishes, so hiding the text
+//   after that point would just be friction, not training. The native-
+//   language zone stays hover-gated forever, unchanged — that's 3.13's
+//   deliberate translation-recovery path, not part of this problem.
 function MessengerChallengePair({
-  chunk, fluentName, learningName, audioUrl, forceRevealNative,
+  chunk, fluentName, learningName, audioUrl, forceRevealNative, pending, progress, played,
 }: {
   chunk: ResponseChunk;
   fluentName: string;
@@ -132,6 +147,10 @@ function MessengerChallengePair({
   // cheap to keep, and the zone it opens (below) is still real, hover-driven
   // UI independent of this prop.
   forceRevealNative?: boolean;
+  // Task 3.14: see the block comment above.
+  pending?: boolean;
+  progress?: AudioProgress | null;
+  played?: boolean;
 }) {
   const [pinned, setPinned] = useState<Set<"native" | "learning">>(new Set());
   const [hovered, setHovered] = useState<"native" | "learning" | "audio" | null>(null);
@@ -139,6 +158,10 @@ function MessengerChallengePair({
   const isLoopRunning = useRef(false);
   // Own player instance: this card's hover-loop must not cut off the turn's chunk playback.
   const audioPlayer = useAudioPlayer();
+  // Task 3.14 "what replay looks like": a sweep across the existing, already-
+  // text-bearing card rather than hiding it again — this card's own replay
+  // loop feeds it, independent of the first-listen `progress` prop below.
+  const [replayProgress, setReplayProgress] = useState<AudioProgress | null>(null);
 
   async function startAudioLoop() {
     if (isLoopRunning.current) return;
@@ -146,10 +169,11 @@ function MessengerChallengePair({
     await new Promise(r => setTimeout(r, 500));
     while (isHoveringAudio.current) {
       if (!audioUrl) break;
-      await audioPlayer.playUrl(audioUrl);
+      await audioPlayer.playUrl(audioUrl, setReplayProgress);
       if (!isHoveringAudio.current) break;
       await new Promise(r => setTimeout(r, 700));
     }
+    setReplayProgress(null);
     isLoopRunning.current = false;
   }
 
@@ -162,6 +186,7 @@ function MessengerChallengePair({
     setHovered(null);
     isHoveringAudio.current = false;
     audioPlayer.stop();
+    setReplayProgress(null);
   }
 
   function togglePin(zone: "native" | "learning") {
@@ -173,15 +198,36 @@ function MessengerChallengePair({
   }
 
   const zoneBase: React.CSSProperties = { padding: "3px 10px", borderRadius: 6, cursor: "pointer", transition: "background 0.15s", display: "flex", alignItems: "center", justifyContent: "space-between", border: "1px solid rgba(0,0,0,0.08)", minHeight: 26 };
+  // Ghost-sizer: two children in the same grid cell, one real (visible or not)
+  // and one an always-rendered, always-invisible copy of the zone's longest
+  // possible content. The cell sizes to the taller/wider of the two, so
+  // toggling which one is "the real one" being shown never resizes the zone.
+  // gridTemplateColumns: '1fr' pins the track to the zone's own available
+  // width (grid's default auto-column would otherwise size to whichever
+  // child's unwrapped content is widest) — both children then wrap
+  // identically against that same width, which is what keeps the invisible
+  // ghost's height a true match for its visible counterpart.
+  const ghostStack: React.CSSProperties = { display: "grid", gridTemplateColumns: "1fr", width: "100%" };
+  const ghostCell: React.CSSProperties = { gridArea: "1 / 1", minWidth: 0, wordBreak: "break-word", overflowWrap: "break-word" };
 
   // Task 3.13 point 4: replaying a sentence's audio (hovering zone 3) also
   // shows its translation, the settled-bubble equivalent of "show it again"
   // for whoever missed the ephemeral thought the first time.
   const nativeVisible = hovered === "native" || hovered === "audio" || pinned.has("native") || !!forceRevealNative;
-  const learningVisible = hovered === "learning" || pinned.has("learning");
+  // Task 3.14: once played, always visible — see the block comment above.
+  const learningVisible = !!played || hovered === "learning" || pinned.has("learning");
+  const replayPct = replayProgress?.durationMs ? Math.min(100, (replayProgress.elapsedMs / replayProgress.durationMs) * 100) : null;
+  // Task 3.14: the pending overlay's own sweep, from this chunk's first-listen
+  // playback rather than the replay loop above.
+  const pendingPct = progress?.durationMs ? Math.min(100, Math.max(0, (progress.elapsedMs / progress.durationMs) * 100)) : null;
 
   return (
-    <div style={{ background: "white", borderRadius: 18, padding: "8px 14px", boxShadow: "0 2px 8px rgba(0,0,0,0.15)", border: "2px solid rgba(99,102,241,0.2)", display: "flex", flexDirection: "column", gap: 0 }}>
+    // position:relative + the pending overlay below: the zones stay mounted
+    // underneath (visibility:hidden, not unmounted) so their ghost sizers keep
+    // establishing the card's final size even before anything has played —
+    // "already at final size" from 3.14's target sequence.
+    <div style={{ position: "relative" }}>
+      <div style={{ background: "white", borderRadius: 18, padding: "8px 14px", boxShadow: "0 2px 8px rgba(0,0,0,0.15)", border: "2px solid rgba(99,102,241,0.2)", display: "flex", flexDirection: "column", gap: 0, maxWidth: "min(60ch, 85%)", visibility: pending ? "hidden" : "visible" }}>
       {/* Zone 1: native */}
       <div
         style={{
@@ -195,10 +241,15 @@ function MessengerChallengePair({
         onMouseLeave={() => setHovered(null)}
         onClick={() => togglePin("native")}
       >
-        {nativeVisible
-          ? <span style={{ fontSize: 13, color: "#374151" }}>{chunk.native_text}</span>
-          : <span style={{ fontSize: 12, color: "#9ca3af", fontStyle: "italic" }}>Show {fluentName}</span>
-        }
+        <div style={ghostStack}>
+          <span style={{ ...ghostCell, fontSize: 13, visibility: "hidden" }}>{chunk.native_text || " "}</span>
+          <span style={{ ...ghostCell, fontSize: 13, color: "#374151", wordBreak: "break-word" }}>
+            {nativeVisible
+              ? chunk.native_text
+              : <span style={{ fontSize: 12, color: "#9ca3af", fontStyle: "italic" }}>Show {fluentName}</span>
+            }
+          </span>
+        </div>
         {pinned.has("native") && <span style={{ fontSize: 11, color: "#9ca3af", marginLeft: 6, flexShrink: 0 }}>📌</span>}
       </div>
 
@@ -209,18 +260,24 @@ function MessengerChallengePair({
         onMouseLeave={() => setHovered(null)}
         onClick={() => togglePin("learning")}
       >
-        {learningVisible
-          ? <span style={{ fontSize: 13, fontWeight: 600, color: "#3b82f6" }}>{chunk.text}</span>
-          : <span style={{ fontSize: 12, color: "#93c5fd", fontStyle: "italic" }}>Show {learningName}</span>
-        }
+        <div style={ghostStack}>
+          <span style={{ ...ghostCell, fontSize: 13, fontWeight: 600, visibility: "hidden" }}>{chunk.text || " "}</span>
+          <span style={{ ...ghostCell, fontSize: 13, fontWeight: 600, color: "#3b82f6", wordBreak: "break-word" }}>
+            {learningVisible
+              ? chunk.text
+              : <span style={{ fontSize: 12, color: "#93c5fd", fontStyle: "italic", fontWeight: 400 }}>Show {learningName}</span>
+            }
+          </span>
+        </div>
         {pinned.has("learning") && <span style={{ fontSize: 11, color: "#93c5fd", marginLeft: 6, flexShrink: 0 }}>📌</span>}
       </div>
 
-      {/* Zone 3: audio replay — loops while hovering */}
+      {/* Zone 3: audio replay — loops while hovering, sweeping a progress bar */}
       <div
         style={{
           ...zoneBase,
-          justifyContent: "center",
+          flexDirection: "column",
+          gap: 3,
           background: hovered === "audio" ? "rgba(59,130,246,0.1)" : "rgba(0,0,0,0.03)",
           fontSize: 12,
           color: hovered === "audio" ? "#3b82f6" : "#9ca3af",
@@ -230,8 +287,34 @@ function MessengerChallengePair({
         onMouseEnter={onAudioEnter}
         onMouseLeave={onAudioLeave}
       >
-        🔊 {hovered === "audio" ? "replaying…" : "hover to replay"}
+        <span>🔊 {hovered === "audio" ? "replaying…" : "hover to replay"}</span>
+        {hovered === "audio" && (
+          <div style={{ width: "100%", height: 3, borderRadius: 1.5, overflow: "hidden", background: "rgba(59,130,246,0.15)" }}>
+            {replayPct !== null
+              ? <div style={{ height: "100%", width: `${replayPct}%`, background: "#3b82f6", transition: "width 120ms linear" }} />
+              : <div className="progress-shimmer" style={{ height: "100%", width: "100%" }} />
+            }
+          </div>
+        )}
       </div>
+      </div>
+
+      {/* Task 3.14: the "still playing" state — an opaque overlay over the
+          (already correctly sized, just hidden) card above, so there is
+          nothing to read along with during the first listen, only a progress
+          sweep. `durationMs === null` (cache miss still resolving, or a
+          source that never reports one) falls back to an indeterminate
+          shimmer rather than a stalled-looking 0% bar. */}
+      {pending && (
+        <div style={{ position: "absolute", inset: 0, background: "white", borderRadius: 18, boxShadow: "0 2px 8px rgba(0,0,0,0.15)", border: "2px solid rgba(99,102,241,0.2)", display: "flex", alignItems: "center", padding: "0 14px" }}>
+          <div style={{ width: "100%", height: 4, borderRadius: 2, overflow: "hidden", background: "rgba(99,102,241,0.12)" }}>
+            {pendingPct !== null
+              ? <div style={{ height: "100%", width: `${pendingPct}%`, background: "#6366f1", transition: "width 120ms linear" }} />
+              : <div className="progress-shimmer" style={{ height: "100%", width: "100%" }} />
+            }
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -408,6 +491,21 @@ export default function MessengerChat({
   // the default for every sentence but chunk 0, regardless of `pairingMode`,
   // whenever the screen is on.
   const [thoughtText, setThoughtText] = useState<string | null>(null);
+  // Task 3.14: which chunks (keyed `${messageId}-${index}`) are still on their
+  // first listen — <MessengerChallengePair> renders those as the empty
+  // progress-sweep placeholder instead of its normal hover-reveal zones, so
+  // there's nothing to read along with. `playedChunkKeys` is the one-way
+  // switch flipped once a chunk's own clip has finished at least once, which
+  // also permanently reveals its target-language zone from then on. Only the
+  // screen-on real-turn path (`revealTurnChunk`) ever populates these — eyes-
+  // free and premade chunks never appear in either set, so they keep
+  // rendering with the plain pre-3.14 behavior (see revealChunk).
+  const [pendingChunkKeys, setPendingChunkKeys] = useState<Set<string>>(new Set());
+  const [playedChunkKeys, setPlayedChunkKeys] = useState<Set<string>>(new Set());
+  // Progress for whichever pending chunk is actually playing right now. A
+  // single slot, not a map: revealTurnChunk's loop plays chunks strictly one
+  // at a time, so at most one is ever mid-playback.
+  const [activePlayback, setActivePlayback] = useState<{ key: string } & AudioProgress | null>(null);
   const [audioEnabled, setAudioEnabled] = useState<boolean>(false);
   const [liveReactions, setLiveReactions] = useState<boolean>(true);
 
@@ -1181,7 +1279,28 @@ export default function MessengerChat({
         // strand the learner. skipPacing: the reading/thinking/typing beats
         // above already ran, so revealChunk shouldn't run its own too.
         const chunkToReveal = english ? { ...chunk, native_text: english } : chunk;
+
+        // Task 3.14: mark this chunk pending *before* it's revealed, so the
+        // very first frame it appears on is already the empty progress card
+        // — never a flash of the interactive one. `characterMsgId`/`index`
+        // are the same key the render below looks up.
+        const key = `${characterMsgId}-${index}`;
+        setPendingChunkKeys(prev => new Set(prev).add(key));
         await revealChunk(chunkToReveal, { skipPacing: true });
+
+        const onProgress = (p: AudioProgress) => setActivePlayback({ key, ...p });
+        // One-way: pending -> played. Runs once, whichever branch below
+        // actually plays this chunk's clip.
+        const settlePending = () => {
+          setPendingChunkKeys(prev => {
+            if (!prev.has(key)) return prev;
+            const next = new Set(prev);
+            next.delete(key);
+            return next;
+          });
+          setPlayedChunkKeys(prev => new Set(prev).add(key));
+          setActivePlayback(prev => (prev?.key === key ? null : prev));
+        };
 
         if (needsPlaybackTranslation && english && pairingMode === "pairs") {
           await audioPlayer.play(english, localeFor(fluent.code));
@@ -1190,11 +1309,14 @@ export default function MessengerChat({
 
         if (needsPlaybackTranslation && english && pairingMode === "alternating") {
           // This chunk is heard in the UI language INSTEAD of the target —
-          // unchanged from the old playResponseAudio behaviour for this mode.
-          await audioPlayer.play(english, localeFor(fluent.code));
+          // unchanged from the old playResponseAudio behaviour for this mode,
+          // just now with the same progress sweep driving the empty card.
+          await audioPlayer.play(english, localeFor(fluent.code), 0, onProgress);
+          settlePending();
           return;
         }
-        await playTargetClip(chunkToReveal);
+        await playTargetClip(chunkToReveal, onProgress);
+        settlePending();
       };
 
       // Everything that isn't a reply bubble: the correction on the user's own message,
@@ -1431,6 +1553,13 @@ export default function MessengerChat({
       setThoughtText(null);
       setProcessingMsgId(null);
       setStreamingMessageId(null);
+      // Task 3.14 safety net: if a turn errors out mid-reveal, don't strand a
+      // bubble on the empty progress card forever with nothing left to drive
+      // it — falling back to `pending:false, played:false` still renders the
+      // normal hover-reveal card (this chunk's pre-3.14 behavior), just
+      // without the auto-reveal-after-listen bonus.
+      setPendingChunkKeys(new Set());
+      setActivePlayback(null);
     }
   }
 
@@ -1516,13 +1645,16 @@ export default function MessengerChat({
   // reaction clip (task 3.2): free, no Azure roundtrip. Silently absent until
   // backend/scripts/generate_reaction_audio.py has run. Factored out (task
   // 3.12) so the whole-turn player and the per-sentence reveal share it.
-  async function playTargetClip(chunk: ResponseChunk) {
+  // `onProgress` (task 3.14): forwarded straight to whichever play call
+  // actually runs, so the caller can drive a playback-progress sweep without
+  // knowing which of the three sources this chunk resolved to.
+  async function playTargetClip(chunk: ResponseChunk, onProgress?: (p: AudioProgress) => void) {
     if (chunk.reaction_audio_file) {
-      await audioPlayer.playUrl(`${apiBase}${chunk.reaction_audio_file}`);
+      await audioPlayer.playUrl(`${apiBase}${chunk.reaction_audio_file}`, onProgress);
     } else if (chunk.audio_file) {
-      await audioPlayer.playUrl(`${apiBase}${chunk.audio_file}`);
+      await audioPlayer.playUrl(`${apiBase}${chunk.audio_file}`, onProgress);
     } else if (chunk.text) {
-      await audioPlayer.play(chunk.text, chunk.locale || localeFor(learning.code));
+      await audioPlayer.play(chunk.text, chunk.locale || localeFor(learning.code), 0, onProgress);
     }
   }
 
@@ -2414,6 +2546,12 @@ export default function MessengerChat({
                     const visibleCount = visibleChunkCounts.get(message.id) ?? (message.responseChunks?.length ?? 0);
                     return (message.responseChunks || []).slice(0, visibleCount).map((chunk, idx) => {
                       if (chunk.language === "target" && chunk.modality === "audio" && chunk.text) {
+                        // Task 3.14: only revealTurnChunk's screen-on real-turn
+                        // path ever adds to pendingChunkKeys/playedChunkKeys —
+                        // eyes-free and premade chunks are never keyed into
+                        // either, so they fall through to pending:false,
+                        // played:false (the pre-3.14 hover-gated card).
+                        const chunkKey = `${message.id}-${idx}`;
                         return (
                           <MessengerChallengePair
                             key={`challenge-${message.id}-${idx}`}
@@ -2421,6 +2559,9 @@ export default function MessengerChat({
                             fluentName={fluent.name}
                             learningName={learning.name}
                             audioUrl={chunk.audio_file ? `${apiBase}${chunk.audio_file}` : undefined}
+                            pending={pendingChunkKeys.has(chunkKey)}
+                            progress={activePlayback?.key === chunkKey ? activePlayback : null}
+                            played={playedChunkKeys.has(chunkKey)}
                           />
                         );
                       }
@@ -3183,6 +3324,19 @@ export default function MessengerChat({
         @keyframes slideIn {
           0% { transform: translateX(100%); }
           100% { transform: translateX(0); }
+        }
+        @keyframes progressShimmer {
+          0%   { background-position: 150% center; }
+          100% { background-position: -50% center; }
+        }
+        .progress-shimmer {
+          background: linear-gradient(90deg,
+            rgba(99,102,241,0.12) 0%,
+            rgba(99,102,241,0.55) 50%,
+            rgba(99,102,241,0.12) 100%
+          );
+          background-size: 250% 100%;
+          animation: progressShimmer 1.3s ease-in-out infinite;
         }
       `}</style>
     </>
