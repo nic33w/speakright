@@ -1651,7 +1651,7 @@ confirmed via `git status --short` that no backend files were touched this task)
 
 ---
 
-### [ ] 4.7 — D-pad message traversal with a visible cursor 🟡 Sonnet
+### [x] 4.7 — D-pad message traversal with a visible cursor 🟡 Sonnet
 
 **Replaces 4.3's LB/RB navigation and 4.5's D-pad mode toggles.** All traversal moves onto the D-pad,
 so browsing the conversation is one thumb in one place.
@@ -1702,6 +1702,70 @@ styling, every `replayStack.push` call site).
 - **4.5's mode toggles lose their home.** Eyes-free toggle and pairing-mode cycle were on D-pad ↑/↓.
   Decide where they go — an on-screen control is fine, since both are session-level settings — or
   they become unreachable from the controller.
+
+**Shipped as:**
+- **`ReplayItem`** (`sharedGameHooks.ts`) gained required `messageId`/`chunkIndex` fields — the missing
+  plumbing the task called out. All three `replayStack.push` call sites updated: the pivot flow
+  (`charMsgId2`, index 0 — a pivot is always a single-chunk message), the main per-chunk reveal inside
+  `sendMessage` (`characterMsgId`, and the `index`/`shownCount` already tracked there — this is also
+  the eyes-free and premade path, since everything funnels through the same `revealChunk`), and the
+  user's own corrected-sentence audio (`userMsgId`, index 0).
+- **`useReplayStack`'s cursor** promoted from `cursorRef` to `useState`, exactly as flagged. `stepBack`/
+  `stepForward` changed from `void` to returning the `ReplayItem` they land on (`| null`) — needed
+  because `setCursor` is async, so a caller that steps and then wants to act on "wherever we landed"
+  (D-pad left/right playing that item's audio) can't reliably do it through a follow-up `current()`
+  call the way the old ref version could; both now clamp at the ends (`Math.max(0, …)`/`Math.min(len-1,
+  …)`) rather than wrap, per the watch-for. No other caller of `stepBack`/`stepForward` existed after
+  4.6 unbound LB/RB, so the signature change was free.
+- **D-pad remap** (`MessengerChat.tsx`'s `useGamepad` `onButtonChange`, replacing 4.5's up/down toggles
+  entirely): Up → `repeatLastAudio()` (same function Alt+R and the old A button used — "current
+  message" during a drill is still the drill target, matching that existing special case). Down →
+  new `cycleCurrentReveal()`. Left/right → new `stepReplayCursor(-1|1)`.
+- **`stepReplayCursor`** moves the cursor and immediately plays what it lands on (unlike 4.3's silent
+  LB/RB) — traversal itself has to be audible now, since the D-pad is eyes-free's only browsing input
+  and eyes-free has no highlight to look at (the watch-for's third bullet). Boundary feedback reuses
+  the existing `sendCancelled` thud rather than adding a new `EarconType`: if stepping returns the same
+  `(messageId, chunkIndex, source)` as before the step, the cursor didn't move, so the thud plays before
+  the (repeated) item plays — audio-only proof that this is the end of the list, not a swallowed
+  button press.
+- **`cycleCurrentReveal`** cycles a `Map<string, 0|1|2>` (`dpadRevealLevels` state, keyed
+  `${messageId}-${chunkIndex}` — the same key format `pendingChunkKeys` already uses) 0→1→2→0 for
+  whatever `replayStack.current()` points at. No-ops on user-sourced items, which have no
+  hidden/translation zones to cycle. `MessengerChallengePair` takes a new `revealLevel?: 0|1|2` prop
+  and ORs it into the existing `nativeVisible`/`learningVisible` checks (level ≥1 shows the
+  translation, ≥2 also shows the target) — additive to hover/pinned/`forceRevealNative`, not a
+  replacement, so a D-pad-revealed zone and a mouse-pinned zone coexist normally. Documented inline
+  as *not* a hover-gated-text violation, per the task's explicit warning: the rule only bars
+  *automatic* reveal after playback, and a D-pad press is a deliberate request, same as a click.
+- **Visible cursor.** `MessengerChallengePair` gained a `current?: boolean` prop drawn as a 2px amber
+  (`#f59e0b`) border replacing its default indigo one — a border, not a background tint, since the
+  card already uses indigo (its own border) and blue (learning-zone/pinned tints) and another color
+  there would collide, exactly as flagged. Wrapped in `React.memo` per the plumbing note, so a D-pad
+  tap (now real state — `dpadRevealLevels`, and the replay cursor) only re-renders the bubbles whose
+  props actually changed. `currentReplayKey` is computed once per render from `replayStack.current()`
+  and compared against each chunk's existing `chunkKey`; gated on `gamepad.connected` so a mouse-only
+  session never grows a border on its latest bubble — the cursor is genuinely meaningless without a
+  controller to move it. Scoped to `MessengerChallengePair` only (character chunks), matching the
+  task's own Files note; user bubbles don't grow a matching border.
+- **Push resetting the cursor to `-1`** ("track latest") is unchanged and now visibly relevant: a new
+  turn's audio arriving while browsing snaps the border to the new latest bubble. Left as-is rather
+  than adding an explicit callout — the border jumping *is* the visible explanation the watch-for
+  asked for; only the (separately handled) eyes-free case has no visual to carry that.
+- **4.5's toggles.** Eyes-free and pairing-mode both already had on-screen controls (the 🙈 checkbox
+  and the pairing-mode `<select>`) before this task touched anything, so losing the D-pad shortcut
+  leaves both reachable — no new UI needed, matching the "on-screen control is fine" option.
+- Toolbar badge tooltip rewritten again to describe D-pad traversal and point out where eyes-free/
+  pairing-mode moved.
+
+**Not verified:** no physical controller in this environment, same caveat as the rest of Phase 4 — the
+boundary-thud logic and the amber cursor border are reasoned, not seen. Typecheck and lint are clean
+(same two pre-existing `MessengerChat.tsx` errors as 4.6, unmoved in kind, only shifted a few lines by
+the insertions; same 45/10 repo-wide lint totals as before, none new). Backend untouched — confirmed via
+`git status --short` — but its suite is flaky independent of this task: `test_scene.py::
+test_turn_endpoints_create_and_advance_a_scene[/api/messenger/turn]` passed on one run this session
+(173 passed, 1 xfailed) and failed on the next (172 passed, 1 failed, 1 xfailed) with zero code changes
+between them, which points at shared runtime-state files (`backend/profiles/default_profile.json` is
+mutated by test runs and not fully reset) rather than anything in this task.
 
 ---
 

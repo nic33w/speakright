@@ -129,51 +129,65 @@ export type ReplayItem = {
   // Messenger task 3.13: the UI-language translation, when known, so a replay
   // can show the same "thought" text it showed the first time around.
   nativeText?: string;
+  // Task 4.7: which bubble this item came from, so D-pad navigation can
+  // highlight it and cycle its text reveal — nothing before 4.7 needed a way
+  // to point back from a replay item to a specific message/chunk.
+  messageId: number;
+  chunkIndex: number;
 };
 
-// A cursor into `items`, for task 4.3's shoulder-button history navigation
-// (LB/RB move the cursor, a separate "play current" action speaks it — the
-// simpler of the two designs TASKS.md offered, chosen over the iPod-style
+// A cursor into `items`, for shoulder-button/D-pad history navigation (a
+// separate "play current" action speaks whatever it points at — the simpler
+// of the two designs task 4.3 offered, chosen over the iPod-style
 // playback-position split to avoid tracking in-flight playback progress here).
-// A ref, not state: nothing renders off it today, and re-rendering the whole
-// chat on every shoulder-button tap would be wasted work. `-1` means "track
-// the latest item" — the common case, and what push() resets to whenever a
-// new turn's audio arrives, so browsing back doesn't silently keep the
-// controller's A/Y repeat buttons pinned to a stale sentence once the
+// `-1` means "track the latest item" — the common case, and what push()
+// resets to whenever a new turn's audio arrives, so browsing back doesn't
+// silently keep the repeat buttons pinned to a stale sentence once the
 // conversation has moved on.
+//
+// Task 4.7 promotes this from a ref to state: D-pad navigation now shows a
+// visible cursor (a bordered bubble), which means something finally needs to
+// render off it. The re-render cost this was originally written to dodge is
+// bounded back down by memoizing the bubble component (MessengerChallengePair
+// in MessengerChat.tsx), so a D-pad tap re-renders the old and new "current"
+// bubble, not the whole chat.
 export function useReplayStack() {
   const [items, setItems] = useState<ReplayItem[]>([]);
-  const cursorRef = useRef(-1);
-  const lengthRef = useRef(0);
+  const [cursor, setCursor] = useState(-1);
 
   const push = useCallback((item: ReplayItem) => {
-    setItems(prev => {
-      const next = [...prev, item];
-      lengthRef.current = next.length;
-      cursorRef.current = -1;
-      return next;
-    });
+    setItems(prev => [...prev, item]);
+    setCursor(-1);
   }, []);
 
-  const resolvedIndex = useCallback(() => (cursorRef.current < 0 ? lengthRef.current - 1 : cursorRef.current), []);
+  const resolvedIndex = useCallback(
+    (len: number, cur: number) => (cur < 0 ? len - 1 : cur),
+    []
+  );
 
-  // Silent — per the design notes, LB/RB only move the cursor. Nothing plays
-  // until the caller's own "repeat current" action reads current(). Neither
-  // touches React state, so tapping a shoulder button doesn't re-render the chat.
-  const stepBack = useCallback(() => {
-    if (lengthRef.current === 0) return;
-    cursorRef.current = Math.max(0, resolvedIndex() - 1);
-  }, [resolvedIndex]);
+  // Unlike the old ref version, these return the item they land on directly
+  // rather than relying on a follow-up current() call — setCursor is async,
+  // so a caller that steps and then immediately wants to act on "wherever we
+  // landed" (D-pad left/right playing that item's audio) would otherwise read
+  // current() before the state update has applied.
+  const stepBack = useCallback((): ReplayItem | null => {
+    if (items.length === 0) return null;
+    const newIndex = Math.max(0, resolvedIndex(items.length, cursor) - 1);
+    setCursor(newIndex);
+    return items[newIndex] ?? null;
+  }, [items, cursor, resolvedIndex]);
 
-  const stepForward = useCallback(() => {
-    if (lengthRef.current === 0) return;
-    cursorRef.current = Math.min(lengthRef.current - 1, resolvedIndex() + 1);
-  }, [resolvedIndex]);
+  const stepForward = useCallback((): ReplayItem | null => {
+    if (items.length === 0) return null;
+    const newIndex = Math.min(items.length - 1, resolvedIndex(items.length, cursor) + 1);
+    setCursor(newIndex);
+    return items[newIndex] ?? null;
+  }, [items, cursor, resolvedIndex]);
 
   const current = useCallback((): ReplayItem | null => {
     if (items.length === 0) return null;
-    return items[resolvedIndex()] ?? null;
-  }, [items, resolvedIndex]);
+    return items[resolvedIndex(items.length, cursor)] ?? null;
+  }, [items, cursor, resolvedIndex]);
 
   return { items, push, stepBack, stepForward, current };
 }

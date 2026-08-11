@@ -130,8 +130,12 @@ function savePivotSet(key: string, s: Set<string>) {
 // along with during a chunk's first listen. Both language zones stay
 // hover-gated forever once the overlay lifts — text only shows on request,
 // never automatically, even after the clip has played.
-function MessengerChallengePair({
-  chunk, fluentName, learningName, audioUrl, forceRevealNative, pending,
+// Task 4.7: memoized so a D-pad tap — which now changes React state (the
+// promoted replay cursor, and revealLevel below) instead of a silent ref —
+// only re-renders the bubble(s) whose props actually changed (old current,
+// new current) rather than every bubble in the conversation.
+const MessengerChallengePair = React.memo(function MessengerChallengePair({
+  chunk, fluentName, learningName, audioUrl, forceRevealNative, pending, current, revealLevel,
 }: {
   chunk: ResponseChunk;
   fluentName: string;
@@ -144,6 +148,18 @@ function MessengerChallengePair({
   forceRevealNative?: boolean;
   // Task 3.14: see the block comment above.
   pending?: boolean;
+  // Task 4.7: this is the bubble the D-pad cursor currently points at — drawn
+  // as a border, not a background tint, since the card already uses indigo
+  // (its own border) and blue (the learning zone / pinned state) and another
+  // color there would collide.
+  current?: boolean;
+  // Task 4.7: D-pad Down cycles this 0 (hidden) -> 1 (translation) -> 2
+  // (translation + target) -> 0, independent of and additive to the existing
+  // hover/pinned/forceRevealNative sources — a D-pad press is a deliberate
+  // reveal request, the controller's equivalent of hovering the zone, so this
+  // does NOT violate the hover-gated-text rule (that rule only forbids
+  // *automatic* reveal after playback).
+  revealLevel?: 0 | 1 | 2;
 }) {
   const [pinned, setPinned] = useState<Set<"native" | "learning">>(new Set());
   const [hovered, setHovered] = useState<"native" | "learning" | "audio" | null>(null);
@@ -206,8 +222,8 @@ function MessengerChallengePair({
   // Task 3.13 point 4: replaying a sentence's audio (hovering zone 3) also
   // shows its translation, the settled-bubble equivalent of "show it again"
   // for whoever missed the ephemeral thought the first time.
-  const nativeVisible = hovered === "native" || hovered === "audio" || pinned.has("native") || !!forceRevealNative;
-  const learningVisible = hovered === "learning" || pinned.has("learning");
+  const nativeVisible = hovered === "native" || hovered === "audio" || pinned.has("native") || !!forceRevealNative || (revealLevel ?? 0) >= 1;
+  const learningVisible = hovered === "learning" || pinned.has("learning") || (revealLevel ?? 0) >= 2;
   const replayPct = replayProgress?.durationMs ? Math.min(100, (replayProgress.elapsedMs / replayProgress.durationMs) * 100) : null;
 
   return (
@@ -216,7 +232,11 @@ function MessengerChallengePair({
     // establishing the card's final size even before anything has played —
     // "already at final size" from 3.14's target sequence.
     <div style={{ position: "relative" }}>
-      <div style={{ background: "white", borderRadius: 16, padding: "6px 12px", boxShadow: "0 2px 8px rgba(0,0,0,0.15)", border: "2px solid rgba(99,102,241,0.2)", display: "flex", flexDirection: "column", gap: 0, maxWidth: "min(60ch, 85%)", visibility: pending ? "hidden" : "visible" }}>
+      <div style={{
+        background: "white", borderRadius: 16, padding: "6px 12px", boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
+        border: current ? "2px solid #f59e0b" : "2px solid rgba(99,102,241,0.2)",
+        display: "flex", flexDirection: "column", gap: 0, maxWidth: "min(60ch, 85%)", visibility: pending ? "hidden" : "visible",
+      }}>
       {/* Zone 1: native */}
       <div
         style={{
@@ -310,7 +330,7 @@ function MessengerChallengePair({
       )}
     </div>
   );
-}
+});
 
 export default function MessengerChat({
   apiBase = API_BASE,
@@ -406,17 +426,14 @@ export default function MessengerChat({
           }
           audioPlayer.stop();
           break;
-        // D-pad (task 4.5): session-level settings, not per-turn actions — kept
-        // off the face buttons deliberately (see TASKS.md's rationale).
-        case 12: setEyesFree(prev => !prev); break;         // D-pad Up — toggle eyes-free
-        case 13:                                            // D-pad Down — cycle pairing mode
-          setPairingMode(prev =>
-            prev === "targetOnly" ? "pairs" : prev === "pairs" ? "alternating" : "targetOnly");
-          break;
-        case 14:                                            // D-pad Left — change topic / skip
-        case 15:                                            // D-pad Right — change topic / skip
-          void handlePivot();
-          break;
+        // D-pad (task 4.7): message traversal, replacing 4.5's mode toggles —
+        // eyes-free and pairing-mode both already have on-screen controls
+        // (the 🙈 checkbox and the pairing-mode <select>), so losing their
+        // D-pad shortcut leaves them reachable, just not controller-only.
+        case 12: void repeatLastAudio(); break;              // D-pad Up — play current message's audio
+        case 13: cycleCurrentReveal(); break;                // D-pad Down — cycle text: hidden -> translation -> +target -> hidden
+        case 14: void stepReplayCursor(-1); break;            // D-pad Left — previous message's audio
+        case 15: void stepReplayCursor(1); break;             // D-pad Right — next message's audio
         default: break;                                     // A/X/Y/LB/RB unbound (task 4.6)
       }
     },
@@ -492,6 +509,12 @@ export default function MessengerChat({
   // never appear in it, so they keep rendering with the plain pre-3.14
   // behavior (see revealChunk).
   const [pendingChunkKeys, setPendingChunkKeys] = useState<Set<string>>(new Set());
+  // Task 4.7: D-pad Down's per-bubble text-reveal cycle (hidden -> translation
+  // -> translation+target -> hidden), keyed the same way as pendingChunkKeys
+  // (`${messageId}-${chunkIndex}`) so it addresses the exact same bubble. A
+  // deliberate reveal request, layered onto MessengerChallengePair's existing
+  // hover/pinned visibility rather than replacing it.
+  const [dpadRevealLevels, setDpadRevealLevels] = useState<Map<string, 0 | 1 | 2>>(new Map());
   const [audioEnabled, setAudioEnabled] = useState<boolean>(false);
   const [liveReactions, setLiveReactions] = useState<boolean>(true);
 
@@ -959,7 +982,10 @@ export default function MessengerChat({
     }]);
 
     if (audioPath) {
-      replayStack.push({ text: pivot.audio_message, locale, source: "character", audioUrl: `${apiBase}${audioPath}` });
+      replayStack.push({
+        text: pivot.audio_message, locale, source: "character", audioUrl: `${apiBase}${audioPath}`,
+        messageId: charMsgId2, chunkIndex: 0,
+      });
       await audioPlayer.playUrl(`${apiBase}${audioPath}`);
     }
 
@@ -1182,6 +1208,8 @@ export default function MessengerChat({
             source: "character",
             audioUrl: `${apiBase}${chunk.audio_file}`,
             nativeText: chunk.native_text,
+            messageId: characterMsgId,
+            chunkIndex: index,
           });
         }
 
@@ -1332,6 +1360,8 @@ export default function MessengerChat({
                 locale: localeFor(learning.code),
                 source: "user",
                 audioUrl: `${apiBase}${audioPath}`,
+                messageId: userMsgId,
+                chunkIndex: 0,
               });
               // Auto-play for translation mode — user spoke English, play how it sounds in Spanish
               if (data.input_intent === "english") {
@@ -1770,10 +1800,11 @@ export default function MessengerChat({
     return play();
   }
 
-  // Alt+R / controller A: hear it again. During a drill that is the sentence to
-  // repeat; otherwise whatever the replay stack's cursor currently points at
-  // (task 2.2's stack, task 4.3's cursor over it — LB/RB move it, this reads it).
-  // Defaults to the latest item until something steps the cursor back.
+  // Alt+R / controller D-pad Up (4.7; A until 4.6 unbound it): hear it again.
+  // During a drill that is the sentence to repeat; otherwise whatever the
+  // replay stack's cursor currently points at (task 2.2's stack, its cursor
+  // moved by D-pad Left/Right below). Defaults to the latest item until
+  // something steps the cursor back.
   async function repeatLastAudio() {
     const d = drillRef.current;
     if (d) { await speakDrillTarget(d); return; }
@@ -1801,6 +1832,48 @@ export default function MessengerChat({
     const chunk = lastChallengeChunkRef.current;
     if (!chunk?.native_text) return;
     await audioPlayer.play(chunk.native_text, localeFor(fluent.code));
+  }
+
+  // D-pad Left/Right (task 4.7): move the replay cursor and immediately speak
+  // whatever it lands on — unlike 4.3's silent LB/RB, traversal itself is now
+  // audible, since the D-pad is the one input eyes-free has left to browse
+  // history with. Clamped, not wrapped, at the ends (TASKS.md's "watch for" —
+  // wrapping from newest to oldest with no visual would be disorienting), and
+  // since eyes-free has no highlight to show a stuck cursor, a repeat of the
+  // same item is the only signal that stepping did nothing — the "sendCancelled"
+  // thud is reused here as a generic "can't go further" bump rather than
+  // inventing a new earcon for one edge case.
+  async function stepReplayCursor(direction: -1 | 1) {
+    const prevItem = replayStack.current();
+    const item = direction < 0 ? replayStack.stepBack() : replayStack.stepForward();
+    if (!item) return;
+    const atBoundary = !!prevItem
+      && prevItem.messageId === item.messageId
+      && prevItem.chunkIndex === item.chunkIndex
+      && prevItem.source === item.source;
+    if (atBoundary) earcons.play("sendCancelled");
+    await withReplayThought(item, () => audioPlayer.playUrl(item.audioUrl));
+  }
+
+  // D-pad Down (task 4.7): cycle the *cursored* bubble's text reveal — hidden
+  // -> translation -> translation+target -> hidden. Only character chunks
+  // (rendered as <MessengerChallengePair>) have anything to cycle; user items
+  // in the replay stack have no hidden/translation zones, so this is a no-op
+  // on those. A D-pad press is a deliberate reveal request, so this does NOT
+  // violate the hover-gated-text preference — that rule only forbids *automatic*
+  // reveal after playback (see the block comment on MessengerChallengePair's
+  // revealLevel prop).
+  function cycleCurrentReveal() {
+    const item = replayStack.current();
+    if (!item || item.source !== "character") return;
+    const key = `${item.messageId}-${item.chunkIndex}`;
+    setDpadRevealLevels(prev => {
+      const next = new Map(prev);
+      const level = next.get(key) ?? 0;
+      const nextLevel = ((level + 1) % 3) as 0 | 1 | 2;
+      if (nextLevel === 0) next.delete(key); else next.set(key, nextLevel);
+      return next;
+    });
   }
 
   // Closes the drill and resumes the conversation. `attempt` is undefined when the
@@ -1937,6 +2010,16 @@ export default function MessengerChat({
       const score = (id: string) => starredPivots.has(id) ? 0 : dislikedPivots.has(id) ? 2 : 1;
       return score(a.id) - score(b.id);
     });
+
+  // Task 4.7: which bubble the D-pad cursor currently points at, so the
+  // matching <MessengerChallengePair> below can draw its border. Only
+  // character-source items have a bubble of that kind to highlight; only
+  // meaningful while a controller is actually connected, or the last-heard
+  // bubble would carry a border for every mouse-only user too.
+  const cursorItem = gamepad.connected ? replayStack.current() : null;
+  const currentReplayKey = cursorItem?.source === "character"
+    ? `${cursorItem.messageId}-${cursorItem.chunkIndex}`
+    : null;
 
   return (
     <>
@@ -2103,7 +2186,7 @@ export default function MessengerChat({
               </label>
               <span
                 title={gamepad.connected
-                  ? "Controller seen by the browser — B cancel/stop, stick flick left cancels+clears a pending send, flick right sends now, D-pad up/down toggle eyes-free/cycle pairing mode, D-pad left/right change topic. A/X/Y/LB/RB/LT are unbound (Alt+R/E/S/T on keyboard cover repeat/explain/slow-repeat/translation)"
+                  ? "Controller seen by the browser — B cancel/stop, stick flick left cancels+clears a pending send, flick right sends now, D-pad left/right browse message history and play it, D-pad up replays the current one, D-pad down cycles its text (hidden/translation/translation+target). Eyes-free and pairing-mode moved to on-screen controls. A/X/Y/LB/RB/LT are unbound (Alt+R/E/S/T on keyboard cover repeat/explain/slow-repeat/translation)"
                   : "No controller seen by the browser. Recording (F13) still works via the native mapper regardless — this only affects in-page buttons, and it also goes dark whenever the window loses focus"}
                 style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, color: gamepad.connected ? '#16a34a' : '#9ca3af' }}
               >
@@ -2546,6 +2629,8 @@ export default function MessengerChat({
                             learningName={learning.name}
                             audioUrl={chunk.audio_file ? `${apiBase}${chunk.audio_file}` : undefined}
                             pending={pendingChunkKeys.has(chunkKey)}
+                            current={chunkKey === currentReplayKey}
+                            revealLevel={dpadRevealLevels.get(chunkKey) ?? 0}
                           />
                         );
                       }
