@@ -117,7 +117,9 @@ export default function RepeatBack({ target, langCode, ready, onPass }: Props) {
         disabled={done}
         placeholder={done ? "" : "say it back"}
         style={{
-          width: 150, padding: "4px 8px", fontSize: 12, borderRadius: 6,
+          // Sized to sit on the same row as the Spanish buttons rather than
+          // wrapping under them.
+          width: 118, padding: "3px 8px", fontSize: 11, borderRadius: 6,
           border: `1px solid ${done ? "rgba(16,185,129,0.6)" : autoSend.pending ? "rgba(239,68,68,0.6)" : "rgba(255,255,255,0.2)"}`,
           background: done ? "rgba(16,185,129,0.12)" : "rgba(0,0,0,0.3)",
           color: "#e2e8f0", fontFamily: "inherit",
@@ -125,9 +127,9 @@ export default function RepeatBack({ target, langCode, ready, onPass }: Props) {
         }}
       />
       {done ? (
-        <span style={{ fontSize: 11, color: "#6ee7b7", whiteSpace: "nowrap" }}>✓ all words</span>
+        <span style={{ fontSize: 10, color: "#6ee7b7", whiteSpace: "nowrap" }}>✓</span>
       ) : started ? (
-        <span style={{ fontSize: 11, color: "#94a3b8", whiteSpace: "nowrap" }}>
+        <span style={{ fontSize: 10, color: "#94a3b8", whiteSpace: "nowrap" }}>
           {coverage.missing.length} to go
         </span>
       ) : null}

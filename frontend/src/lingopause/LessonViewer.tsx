@@ -997,7 +997,7 @@ function SentenceCard({
           position: "relative",
           width: "fit-content",
           maxWidth: "100%",
-          fontSize: focus ? 21 : 12,
+          fontSize: focus ? 19 : 12,
           fontWeight: focus ? 600 : 400,
           lineHeight: focus ? 1.35 : 1.3,
           color: revealed
@@ -1017,10 +1017,10 @@ function SentenceCard({
         <GapMeter anchored gap={gap?.afterBeatId === (revealed ? tgBeat?.id : enBeat?.id) ? gap : null} />
       </div>
 
-      <div style={{ display: "flex", gap: 6, marginTop: focus ? 9 : 5, flexWrap: "wrap",
-                    position: "relative", width: "fit-content" }}>
+      <div style={{ display: "flex", gap: 6, marginTop: focus ? 8 : 5, alignItems: "center",
+                    flexWrap: "wrap", position: "relative", width: "fit-content" }}>
         <HoverButton
-          small={!focus}
+          small
           onActivate={() => tgBeat && onPlayBeat(tgBeat)}
           disabled={!tgBeat}
           label="▶ Spanish"
@@ -1029,7 +1029,7 @@ function SentenceCard({
         {/* Hovering peeks at the Spanish; clicking pins it. A plain hover-toggle
             would flip the sentence on and off every time the pointer crossed it. */}
         <HoverButton
-          small={!focus}
+          small
           onActivate={onToggleShown}
           onHoverChange={setPeek}
           label={shown ? "Show English" : "Show Spanish"}
