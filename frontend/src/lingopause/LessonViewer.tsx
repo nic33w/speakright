@@ -407,18 +407,23 @@ export default function LessonViewer({ videoId, apiBase = API_BASE, onProgress }
             );
           })()}
 
-          <div style={{ display: "flex", gap: 10, marginTop: 12 }}>
-            <button onClick={() => activate(Math.max(0, blockIndex - 1))}
-                    disabled={blockIndex === 0}
-                    style={{ ...BTN, opacity: blockIndex === 0 ? 0.4 : 1 }}>← Back</button>
-            <button onClick={() => activate(blockIndex + 1)}
-                    disabled={blockIndex >= blocks.length - 1}
-                    style={{ ...BTN, opacity: blockIndex >= blocks.length - 1 ? 0.4 : 1 }}>Next slide →</button>
-          </div>
         </>
       )}
 
-      <div style={{ display: "flex", gap: 10, marginTop: 14, justifyContent: "flex-end" }}>
+      {/* One row of navigation: slides on the left, phrases on the right — the
+          same split as the keyboard (← → versus shift ← →). Outside the
+          has-lesson branch so a phrase still missing its lesson can be stepped
+          past; with no slides, both slide buttons disable themselves. */}
+      <div style={{ display: "flex", gap: 10, marginTop: 12, alignItems: "center", flexWrap: "wrap" }}>
+        <button onClick={() => activate(Math.max(0, blockIndex - 1))}
+                disabled={blockIndex === 0}
+                style={{ ...BTN, opacity: blockIndex === 0 ? 0.4 : 1 }}>← Back</button>
+        <button onClick={() => activate(blockIndex + 1)}
+                disabled={blockIndex >= blocks.length - 1}
+                style={{ ...BTN, opacity: blockIndex >= blocks.length - 1 ? 0.4 : 1 }}>Next slide →</button>
+
+        <div style={{ flex: 1 }} />
+
         <button onClick={prevItem} disabled={index === 0}
                 style={{ ...BTN, opacity: index === 0 ? 0.4 : 1 }}>
           ⇧← Previous phrase
@@ -642,27 +647,39 @@ function SentenceCard({
         border: `1px solid ${speaking ? "rgba(239,68,68,0.6)" : hover ? "rgba(255,255,255,0.28)" : "rgba(255,255,255,0.12)"}`,
         background: speaking ? "rgba(239,68,68,0.09)" : hover ? "rgba(255,255,255,0.05)" : "transparent",
         borderRadius: 10,
-        padding: focus ? "16px 18px" : "6px 10px",
+        padding: focus ? "11px 13px" : "6px 10px",
         transition: "border-color 0.15s, background 0.15s",
       }}
     >
+      {/* The card FLIPS rather than growing: revealing the Spanish replaces the
+          English in place, so nothing below it moves. Colour carries which side is
+          showing — English light, Spanish blue. */}
       <div
-        onMouseEnter={() => enBeat && onPlayBeat(enBeat)}
+        onMouseEnter={() => {
+          const beat = revealed ? tgBeat : enBeat;
+          if (beat) onPlayBeat(beat);
+        }}
         style={{
-          fontSize: focus ? 24 : 12,
+          fontSize: focus ? 21 : 12,
           fontWeight: focus ? 600 : 400,
-          lineHeight: focus ? 1.4 : 1.3,
-          color: focus ? "#e2e8f0" : hover ? "#cbd5e1" : "#64748b",
+          lineHeight: focus ? 1.35 : 1.3,
+          color: revealed
+            ? (focus ? "#7dd3fc" : "#5b8aa6")
+            : (focus ? "#e2e8f0" : hover ? "#cbd5e1" : "#64748b"),
           cursor: "pointer",
           transition: "color 0.15s",
         }}
       >
-        {enBeat && highlight?.beatId === enBeat.id
-          ? <Highlighted text={pair.english} wordIndex={highlight.wordIndex} />
-          : pair.english}
+        {(() => {
+          const beat = revealed ? tgBeat : enBeat;
+          const text = revealed ? pair.target : pair.english;
+          return beat && highlight?.beatId === beat.id
+            ? <Highlighted text={text} wordIndex={highlight.wordIndex} />
+            : text;
+        })()}
       </div>
 
-      <div style={{ display: "flex", gap: 6, marginTop: focus ? 12 : 5, flexWrap: "wrap" }}>
+      <div style={{ display: "flex", gap: 6, marginTop: focus ? 9 : 5, flexWrap: "wrap" }}>
         <HoverButton
           small={!focus}
           onActivate={() => tgBeat && onPlayBeat(tgBeat)}
@@ -676,26 +693,9 @@ function SentenceCard({
           small={!focus}
           onActivate={onToggleShown}
           onHoverChange={setPeek}
-          label={shown ? "Hide" : "Show Spanish"}
+          label={shown ? "Show English" : "Show Spanish"}
         />
       </div>
-
-      {revealed && pair.target && (
-        <div
-          onMouseEnter={() => tgBeat && onPlayBeat(tgBeat)}
-          style={{
-            marginTop: focus ? 10 : 5,
-            fontSize: focus ? 22 : 12,
-            lineHeight: focus ? 1.4 : 1.3,
-            color: focus ? "#7dd3fc" : "#5b8aa6",
-            cursor: "pointer",
-          }}
-        >
-          {tgBeat && highlight?.beatId === tgBeat.id
-            ? <Highlighted text={pair.target} wordIndex={highlight.wordIndex} />
-            : pair.target}
-        </div>
-      )}
     </div>
   );
 }
