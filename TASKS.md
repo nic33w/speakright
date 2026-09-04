@@ -37,7 +37,8 @@ Switch with `/model` before starting a task.
 - Backend python is the venv: **`backend/venv/Scripts/python.exe`** — the system `python` on PATH
   lacks fastapi and will fail at conftest import.
 - Run `venv/Scripts/python.exe -m pytest tests/ -q` from `backend/` after any backend change.
-  Baseline is **89 passed, 1 xfailed** (74 before task 3.8).
+  Baseline is **264 passed, 1 xfailed** (173 before phase 8; the "89" recorded here through phase 3
+  had gone stale well before that).
 - **Never break the messenger prompt-cache invariant** — the static prefix must stay byte-identical
   across turns. `tests/test_prompt_snapshot.py` enforces it; if it fails, the fix is to move the new
   content into the dynamic tail, not to update the golden.
@@ -486,7 +487,13 @@ misses the prompt cache, and the snapshot goldens need updating.
 the final challenge sentence, and it assumed the fix would be "make the model emit both languages for
 every chunk". Both are wrong. The settled design:
 
-**The main LLM call always returns the same thing regardless of mode: 3 chunks, all target-language.**
+**The main LLM call always returns the same thing regardless of mode: 3 chunks, all target-language.
+
+Explanations can mix both voices: the lesson prompt marks target words `[[like this]]`,
+`split_language_runs` cuts the line into per-language runs, and `synthesize_mixed` speaks each in its
+own voice and stitches the clips with Azure's padding trimmed. Several `<voice>` blocks in ONE SSML
+request was tried and rejected — it works and keeps word boundaries, but Azure pads each block as a
+separate utterance: 4.24s vs 2.66s stitched vs 2.69s single-voice on the same sentence.**
 Sentence 1 never gets a translation. Translations for sentences 2–3 come from a separate cheap call,
 requested by the client only when the active mode needs them.
 
@@ -2203,7 +2210,7 @@ both spellings for a while.
 
 ---
 
-### [ ] 7.4 — Add voice to the audio cache key 🟡 Sonnet
+### [x] 7.4 — Add voice to the audio cache key 🟡 Sonnet  *(done as a prerequisite of 8.11)*
 
 **Problem:** The cache key is `text|locale` (+`rate` since 2.1) and still excludes **voice**. Indonesian
 is where this bites: `scripts/generate_worddrill_audio.py` and `generate_battle_audio.py` hardcode
@@ -2218,6 +2225,240 @@ identically to the current key so existing cached files stay valid rather than b
 
 **Also settle:** whether the batch scripts should keep their own hardcoded voices at all, or read
 `VOICE_MAP` like everything else. They should read `VOICE_MAP` — the duplication is the root cause.
+
+---
+
+---
+
+# Phase 8 — LingoPause (video-vocab primer)
+
+Pre-learn a YouTube video's vocabulary before watching it, then pause for mini-lessons during
+playback. Nine-step design; the numbered tasks below follow it. **Read the LingoPause bullet in
+`CLAUDE.md` (Architecture) before starting any of these** — it carries the two rules that are easy
+to get wrong (no parallel LLM calling layer; batch the lesson call).
+
+Design decisions already made, so they are not re-litigated per task:
+- Playback is the **YouTube IFrame Player API**, never a downloaded copy. The only path that touches
+  the media itself is the caption-miss transcription fallback (8.2).
+- Lesson content is **not** projected into the spaced-repetition deck yet (8.6). The two stores answer
+  different questions: `vocab_lessons/` holds what a term means, `quiz_items/` holds when it is due.
+- The two LLM steps (8.3, 8.4) are **run by hand in a browser chat**, not called from the app. They
+  are one-off and per-video, and the prompts are hand-authored — so there is no API spend in this
+  mode at all. Do not add an `llm_call.py` function for them without checking first.
+- Word/example audio needs **no new endpoint** — `useAudioPlayer` → `POST /api/trivia/audio` already
+  does cached Azure TTS. Only a *composed* lesson clip (8.8) needs anything new.
+
+### [x] 8.1 — Ingest: URL, notes, metadata, chapters, captions 🔴 Opus
+
+Steps 1–2 and 4 of the pipeline. `video_source.py` (the only module that knows about YouTube),
+`video_store.py` (per-video session files), `routers/lingopause.py` (`/ingest`, `/sessions`,
+`/session/{id}`, `/confirm`, DELETE), `vocab_store.py` (lesson bank CRUD), `transcribe.py` and
+`lesson_audio.py` (stubs), plus the frontend shell at `frontend/src/lingopause/LingoPauseMode.tsx`
+and the mode key in the three hand-synced places.
+
+`yt-dlp` added to `requirements.txt`, unpinned on purpose. Chapter markers come back from the same
+metadata call, so 8.5's "use YouTube's own chapters" path is already banked at ingest.
+
+**Tests:** `tests/test_lingopause.py` (89 cases through 8.11), all mock-mode (no network).
+
+### [ ] 8.2 — Choose and wire the transcription fallback 🔴 Opus
+
+**Currently a stub.** `transcribe.py` raises with a clear message and `is_available()` is False
+outside mock mode, so a video with no captions reports 422 rather than failing obscurely.
+
+**The decision** (see the module docstring for the full tradeoffs):
+- OpenAI `whisper-1` — the only OpenAI transcription model that returns timestamps
+  (`gpt-4o-*-transcribe` do not support `timestamp_granularities`). ~$0.006/min. Needs a
+  duration-derived cost recorded into `usage_tracker`, which today counts tokens and Azure chars,
+  neither of which describes an audio minute. 25MB upload cap → long videos need chunking.
+- Local faster-whisper / whisper.cpp — $0 per video, heavy Windows install.
+- Azure batch transcription — reuses the Speech key, but is a different API surface than
+  `tts_helpers` (async job + blob upload), so it is new integration work, not reuse.
+
+**Whichever wins:** implement `transcribe_segments` and nothing else changes — the router already
+handles `TranscriptionUnavailable`, and every consumer reads the same `{start, end, text}` shape.
+Gate the audio download to the caption-miss path and delete the file once segments are in hand.
+
+**Files:** `backend/transcribe.py`, `backend/settings.py`, `backend/usage_tracker.py`,
+`backend/requirements.txt`.
+
+### [x] 8.3 — Copy-out / paste-back plumbing for extraction 🔴 Opus
+
+Step 3, **run by hand.** The learner copies one assembled block into browser ChatGPT/Claude and
+pastes the JSON back — the app makes no LLM call, so this mode costs nothing to run.
+
+`vocab_prompts.build_extraction_block` glues the prompt template to the video's own material
+(title/channel/length, YouTube description, the learner's notes, timestamped transcript).
+`GET /api/lingopause/export/{id}` serves it with a token estimate;
+`GET /api/lingopause/transcript/{id}.txt` serves the bare subtitles.
+`POST /api/lingopause/import/candidates` reads the paste back — `parse_pasted_json` tolerates fences,
+preambles and trailing chatter, and `normalize_candidates` accepts a bare array, several wrapper
+keys, and bare strings, filling in any missing `id`. Re-importing clears `confirmed`, since those ids
+addressed the old list.
+
+Template written: `backend/prompts/templates/vocab_extraction.txt`, filled by `{language}`,
+`{user_notes}`, `{description}`, `{transcript}`. **Substitution, never `str.format`** — the output
+spec contains literal JSON braces. `normalize_candidates` maps the prompt's `timestamp_seconds` /
+`short_gloss` onto the `first_ts` / `gloss_ui` the checklist renders, and tolerates a stamp
+("01:35") where the prompt asked for seconds.
+
+### [x] 8.4 — Copy-out / paste-back plumbing for lessons 🔴 Opus
+
+Step 5, same mechanism. `GET /api/lingopause/export/{id}?kind=lessons` builds a block from the
+**confirmed** terms and the line each was used in — deliberately **not** the transcript again, which
+would burn most of the paste budget on context the lesson does not need. 409s before anything is
+confirmed. `POST /api/lingopause/import/lessons` writes through `vocab_store.upsert_lessons` into
+`vocab_lessons/<lang>.json`, tagged with the source video.
+
+A term already in the bank keeps its existing content and only gains the new source — the same word
+in a second video is evidence it matters, not a reason to overwrite an explanation already read.
+
+Template written: `backend/prompts/templates/vocab_lesson.txt`, filled by `{language}`,
+`{description}`, `{user_notes}`, `{confirmed_vocab_list}`.
+
+**The gap this closes:** the prompt asks for "the exact sentence from the transcript" but is not sent
+the transcript. So `quote_for_timestamp` looks that line up locally at candidate-import time and it
+travels with the term in the vocab list — cheaper than re-pasting the transcript, and more accurate
+than asking the model to recall a sentence it can no longer see.
+
+`normalize_lessons` keeps the prompt's fields (`definition`, `colloquial_notes`,
+`example_sentences`, `video_usage`) verbatim and copies `definition`→`description` so the bank's
+top-level shape stays `word_practice_sentences.json`-compatible. A Word Drill adapter would build
+`usecases` from `example_sentences`.
+
+### [x] 8.9 — Three-tab flow, thumbnails, lesson view, `kind` 🔴 Opus
+
+Restructure from one long scrolling page into three tabs, one per hand-off: **Video** (paste a link →
+auto-ingest, thumbnail, context notes) → **Vocabulary** (paste JSON → grouped checklist) →
+**Lessons** (paste JSON → rendered lesson cards with audio). Each tab ends in a button that copies
+the next prompt and advances; tabs stay clickable backwards, plus a Start over.
+
+Also landed: `POST /api/lingopause/notes` (notes stay editable after ingest — both prompts read
+them, and the learner usually only works out what they want from a video after seeing what is in it),
+`GET /api/lingopause/lessons/{id}` (tab 3 renders from here — without it the pipeline ended in a JSON
+file nothing displayed), thumbnails via the deterministic `i.ytimg.com/vi/{id}/hqdefault.jpg`, and
+`kind` on candidates.
+
+**`kind` is the important part.** `word` / `phrase` / `construction`, grouped in the checklist and
+labelled in the lesson prompt. See 8.10 for the half of this that is still open.
+
+### [ ] 8.10 — Make constructions actually practisable 🔴 Opus
+
+**The gap the user named:** "even tho i know the words vamos and estar, i would of like to have
+*vamos a estar subiendo cada semana el video porque yo mando*. its not rly a vocab, but if i were to
+hear that i most likely would not have been able to understand it."
+
+Two halves, and 8.9 only did the first:
+
+1. **Extraction has to look for them.** The current prompt filters on words the learner "would likely
+   NOT already know" — which by construction excludes chunks built entirely from known words. The
+   data model now carries `kind`, but nothing asks the model to populate it. **The prompt is
+   user-authored: propose the amendment, do not rewrite it unilaterally.**
+2. **There has to be somewhere to practise them.** Reading a lesson card is study, not practice. The
+   obvious host is Word Drill — it already does sentence-level production with hints, and the vocab
+   bank is deliberately shaped like `word_practice_sentences.json`. The adapter would build
+   `usecases` from `example_sentences`, and `target` maps onto that bank's hardcoded `spanish` key.
+   Decide with the user whether this is a Word Drill adapter or a new drill inside LingoPause.
+
+**Depends on:** 8.9.
+
+### [x] 8.11 — Lesson viewer (phase 4) 🔴 Opus
+
+Tab 4: guided playback of each confirmed phrase before watching the video.
+
+**Data model reconciliation** (audited against the 134 real bank entries first; nothing had been
+hand-edited): added `written_explanation`, `spoken_explanation` (array of segments), `target_ssml`
+and `target_sentence_ssml`. Three inconsistencies found and fixed:
+- `kind` was on only 49/134 entries because it lived on the candidate and was never carried across —
+  lessons only had one when the model happened to echo it. Now stamped authoritatively from the
+  confirmed candidate at import (`_stamp_from_candidates`), along with `first_ts` and `quote`.
+- `description` duplicated `definition` byte for byte on all 134; `usecases` was `[]` on all 134.
+  Both were Word-Drill shims. No longer written; existing ones are harmless.
+- SSML is filled **mechanically** at import, not asked of the model — it is a pure function of text
+  plus locale, so asking costs output tokens and invites malformed XML in a field that goes straight
+  into a TTS request. It also means all 134 pre-phase-4 entries gained working SSML with no rewrite.
+
+**Prerequisite landed with it — task 7.4 (voice in the audio cache key).** Not optional: the moment
+`en-US-AndrewMultilingualNeural` and the locale default synthesize the same sentence they collide.
+The default voice hashes identically to the pre-voice key, so no cached file was orphaned.
+
+**Playback:** `lesson_audio.build_beats` flattens a lesson into ordered beats. Voices come per beat
+from `VOICE_MAP` (English framing in the en-US voice; target phrase AND explanations in the target
+voice — explanations quote target words inside English prose, and those are the part that must sound
+right). A single multilingual voice was tried first and rejected as not good enough on either
+language. First listen blurs the text (layout fixed,
+nothing to read along with) and fades it legible when that beat's audio ends; replay highlights words
+in sync using Speech-SDK WordBoundary timings, cached in a `.words.json` sidecar. Highlighting runs
+on rAF against `audio.currentTime` — `useAudioPlayer`'s `onProgress` rides on `timeupdate` (~4 Hz)
+and lags visibly per word. `useYouTubePlayer` gives seek+play; audio and video are mutually exclusive
+and that coordination lives in `LessonViewer`, not in either hook.
+
+**Also:** `/api/lingopause/ask` is the one LLM call this mode makes (`answer_lesson_question`) — a
+question asked mid-lesson cannot be a copy-paste round trip. Progress marking via
+`/api/lingopause/progress`.
+
+**Pre-phase-4 lessons still play**: a missing `spoken_explanation` is sentence-split out of the
+written one, marked `derived` and surfaced in the UI so a lower-quality reading is not mistaken for
+the real thing. Regenerate a video's lessons to upgrade it.
+
+**Fixed in passing:** plain text went into SSML unescaped, so an `&` in any sentence produced invalid
+XML and a silent fall-through to silence — app-wide, not just LingoPause.
+
+### [ ] 8.12 — Spoken answers for follow-up questions 🟡 Sonnet
+
+v1 of `/api/lingopause/ask` returns text. Speaking the answer needs the same multilingual-voice
+treatment as a lesson beat — likely reusing `/api/lingopause/audio` with the answer as one beat.
+
+**Depends on:** 8.11.
+
+### [ ] 8.5 — Chapter segmentation fallback 🟡 Sonnet
+
+Step 6. YouTube's own markers are already stored at ingest with `source: "youtube"`. This task adds
+the fallback for videos without them: fixed-interval splits, or LLM-proposed topic breaks over the
+transcript. Keep writing `source` so the three origins stay distinguishable downstream.
+
+**Files:** `backend/video_source.py` or a new `chapters.py`, `backend/routers/lingopause.py`.
+
+**Depends on:** 8.1.
+
+### [ ] 8.6 — Feed video vocab into the spaced-repetition deck 🟡 Sonnet
+
+Deliberately deferred from 8.4. Project confirmed terms into `quiz_items/default_quiz.json` via
+`quiz_store.add_quiz_item`, tagged `source: {"kind": "video", "video_id": ...}`.
+
+**Two things to know before starting:**
+- `add_quiz_item` dedupes on `corrected` (case-insensitive), so a word already learned in
+  conversation will not be duplicated by a video. That is the integration working, not a bug.
+- Scheduling is **turn-count based** (`show_after_turn` vs the messenger profile's `turn_count`), so
+  20 words added at once all come due on the same turn. Stagger them (`+ i*2`), or add a time-based
+  due date — but that second option changes `get_pending_quiz`, which today only understands turns.
+
+**Files:** `backend/vocab_store.py`, `backend/quiz_store.py`, `backend/routers/lingopause.py`.
+
+**Depends on:** 8.4.
+
+### [ ] 8.7 — Video playback with chapter interruptions 🔴 Opus
+
+Step 7. YouTube IFrame Player API in the frontend — `play`/`pause`/`seek`/`getCurrentTime` — so
+playback can be interrupted at chapter boundaries for a mini-lesson. No downloaded copy.
+
+**Files:** `frontend/src/lingopause/`, `frontend/index.html` (IFrame API script).
+
+**Depends on:** 8.5.
+
+### [ ] 8.8 — Audio lesson delivery 🔴 Opus
+
+Step 8, currently a stub at `backend/lesson_audio.py`. **The mechanism is undesigned** — one narrated
+clip per term, an interleaved target/UI pair, or messenger-style per-sentence chunking with its own
+pauses. That choice determines the text being synthesized, so there is nothing to build until it is
+made.
+
+Needs no new TTS dependency: `tts_helpers.tts_bytes_for_chunk` + `audio_utils.get_cached_audio_path`
+are exactly right for it, and fixed lesson text replayed many times is the best case the content-hash
+cache has. **Caveat:** the cache key excludes voice (task 7.4), so lesson audio generated under one
+`VOICE_MAP` default and replayed after it changes will silently mix speakers.
+
+**Depends on:** 8.4.
 
 ---
 

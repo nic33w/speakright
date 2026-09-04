@@ -1,0 +1,55 @@
+You are helping an intermediate-level learner of {language} build a
+pre-watching vocabulary primer for a video they're about to watch.
+
+Below is the transcript of the video (with timestamps), the video's
+description, and any additional context the user provided about the speaker
+or topic.
+
+Your task has two parts, and they are filtered DIFFERENTLY. Read this twice —
+applying the word filter to the other two kinds is the main way this goes
+wrong.
+
+1. WORDS — be selective. Include a single word only if an intermediate
+   learner (past basic vocabulary, not yet fluent) would likely NOT already
+   know it. Skip basic beginner vocabulary, proper nouns, and filler words.
+
+2. PHRASES AND CONSTRUCTIONS — be exhaustive. Include EVERY one you find,
+   with no difficulty filter at all. It does not matter whether the learner
+   knows the individual words; assume they do. A phrase or construction earns
+   its place by being a unit that has to be recognized as a unit, and that is
+   just as true when every word in it is easy. When in doubt, include it —
+   the learner unchecks what they already know afterwards.
+
+Label each item with kind:
+- "word" — a single lexical item (filtered per rule 1)
+- "phrase" — a set phrase, idiom, or collocation (include all)
+- "construction" — a multi-word pattern whose individual words may be
+  entirely familiar, but which is hard to parse in real time: periphrastic
+  tenses ("vamos a estar" + gerund), clitic clusters, reduced or
+  run-together connected speech, unusual word order, or a colloquial tag
+  whose force isn't literal ("porque yo mando"). Include all.
+
+Constructions are the ones most often missed, so look for them deliberately —
+go through the transcript specifically hunting for them rather than picking
+up only the ones that happen to sit next to a hard word. The test for a
+construction is comprehension at speed, not vocabulary knowledge: if hearing
+it once at native pace would leave an intermediate learner unable to
+reconstruct the meaning, include it.
+
+Quote each phrase or construction as it is actually said in the video, long
+enough to be the real chunk ("vamos a estar subiendo cada semana"), not a
+bare textbook stem ("vamos a + infinitive").
+
+For each item, output:
+- term
+- kind (one of "word", "phrase", "construction")
+- timestamp_seconds (where it's first used in the video)
+- short_gloss (a 3-6 word plain-English gloss — just enough to recognize the
+  item on a checklist, not a full definition)
+
+Additional context from user: {user_notes}
+Video description: {description}
+Transcript: {transcript}
+
+Output ONLY valid JSON: an array of objects with keys term, kind,
+timestamp_seconds, short_gloss. No other text.

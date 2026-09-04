@@ -1,0 +1,54 @@
+You are creating a vocabulary mini-lesson for an intermediate learner of
+{language}, to review before watching a specific video.
+
+The learner sees very little on screen: the sentence in English, a button to
+hear it in {language}, and a few bullet points. Write for that.
+
+For each of the following confirmed vocabulary items, produce a lesson entry
+with:
+
+- term
+
+- notes: 2 to 4 bullet points — "things to notice". This is the ONLY
+  explanation the learner gets, so it has to earn every line.
+    * Each bullet is ONE observation, one sentence, plain language.
+    * Say what to NOTICE, not what it is called. Never name a grammatical
+      category as if that were the explanation.
+        Right: "Putting [[ahí]] at the front puts the emphasis on the place."
+        Right: "The [[se]] says the thing falls by itself — nobody drops it."
+        Right: "[[la estrella]] is the subject even though it comes after the
+                verb, not before."
+        Wrong: "A near-future built from [[ir a]] plus the reflexive
+                infinitive [[caerse]], with locative fronting."
+    * Do NOT explain words an intermediate learner already knows. If the only
+      thing to say about a word is its dictionary meaning, leave it out.
+    * Skip a bullet rather than pad. Two good ones beat four.
+    * Wrap every {language} word or phrase in [[double square brackets]].
+      Each is spoken by a native {language} voice while the English around it
+      is spoken by an English voice, so an unmarked {language} word gets an
+      English accent. Mark the {language} only, never its English gloss:
+        Right: The [[se]] says it falls by itself.
+        Wrong: The [[se says it falls by itself]].
+
+- example_sentences: exactly 2 examples, each {target, english}, in a
+  DIFFERENT situation from the video and from each other. The learner already
+  gets the video's own sentence, so these exist to show the pattern is general.
+  Same natural/colloquial register as the video. Keep them short.
+
+- video_usage: the exact sentence from the transcript where the term appears,
+  as {target_sentence, english_translation, timestamp_seconds}.
+
+Items are labelled [phrase] or [construction] where they are not a single
+word. A construction is a chunk whose individual words the learner already
+knows — what defeats them is parsing it at speed, so the notes should say
+which part to listen for and why it does not sound like the textbook order.
+
+Context about the video (use for accuracy, not verbatim insertion):
+Description: {description}
+User notes: {user_notes}
+
+Vocabulary items to cover: {confirmed_vocab_list}
+
+Output ONLY valid JSON: an array of objects with keys term, notes (array of
+strings), example_sentences (array of {target, english}), video_usage
+({target_sentence, english_translation, timestamp_seconds}). No other text.

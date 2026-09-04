@@ -50,6 +50,43 @@ CONV_ROOT.mkdir(exist_ok=True, parents=True)
 QUIZ_DIR = API_ROOT / "quiz_items"
 QUIZ_DIR.mkdir(exist_ok=True, parents=True)
 
+# --- LingoPause (video-vocab primer) ---
+# Per-video working state: metadata, chapters, transcript, vocab candidates, and
+# the user's checklist. One file per video, mirroring conversations/ — these are
+# runtime state, not content, and they are rebuildable from the URL.
+VIDEO_SESSION_DIR = API_ROOT / "video_sessions"
+VIDEO_SESSION_DIR.mkdir(exist_ok=True, parents=True)
+
+# Generated lesson content, keyed by term, one file per target language. Shaped to
+# match word_practice_sentences.json so Word Drill can eventually read it (the one
+# deliberate difference: the demo/practice key is "target", not "spanish").
+VOCAB_LESSON_DIR = API_ROOT / "vocab_lessons"
+VOCAB_LESSON_DIR.mkdir(exist_ok=True, parents=True)
+
+# Vocab extraction reads a whole transcript (~9k tokens for a 40-minute video) and
+# lesson generation writes learner-facing explanations, so neither is a nano job the
+# way TRANSLATE_MODEL and SCENE_MODEL are. Defaults to DEFAULT_MODEL.
+VOCAB_MODEL = os.getenv("VOCAB_MODEL", DEFAULT_MODEL)
+
+# Caption languages tried in order when pulling subtitles for a video. Manually
+# authored subtitles are always preferred over YouTube's auto-generated ones.
+CAPTION_LANG_PREFS = ("es", "es-MX", "es-419", "id", "en")
+
+# Lesson viewer (phase 4). Voices come from VOICE_MAP per beat -- the same speakers
+# every other mode uses -- rather than one multilingual voice: English framing in
+# the UI voice, the target phrase AND the explanations in the target voice. The
+# explanations go to the target voice because they quote target-language words
+# inside English prose, and those quoted words are the part that must sound right.
+# A single multilingual voice was tried first and was not good enough on either
+# language.
+UI_LOCALE = "en-US"
+
+# Gap inserted between spoken_explanation segments during playback, client-side.
+# Longer than the 250ms clause pause (task 3.10): these are separate thoughts, not
+# clauses of one sentence, and the learner needs time to finish each before the
+# next starts.
+LESSON_SEGMENT_PAUSE_MS = 700
+
 # Cached chunk translations (task 3.8). Small JSON, content-hash keyed — the same
 # target sentence recurs across turns and a hit makes a re-listen free.
 TRANSLATION_CACHE_PATH = API_ROOT / "translation_cache.json"

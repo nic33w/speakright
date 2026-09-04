@@ -571,6 +571,68 @@ Return ONLY valid JSON (no markdown, no commentary):
     return [str(t) for t in out]
 
 
+def answer_lesson_question(
+    term: str,
+    explanation: str,
+    question: str,
+    transcript_context: str = "",
+    target_language: str = "Spanish",
+    model: Optional[str] = None,
+) -> str:
+    """Answer a learner's follow-up question about one LingoPause lesson item.
+
+    LingoPause's other two model steps run by hand in a browser chat, deliberately.
+    This one cannot: the learner asks "why is there a se here?" mid-lesson, and a
+    copy-paste round trip would destroy the only thing that makes it worth having.
+
+    Small and single-turn on purpose -- the term, its explanation, and the lines
+    around it in the video. No conversation history: each question is asked about a
+    specific phrase in front of the learner, and threading them would grow the
+    prompt for no gain.
+
+    Returns plain text (v1; a spoken answer can come later). Raises on API failure;
+    the caller degrades to an apology rather than a stack trace.
+    """
+    if MOCK_MODE:
+        return (
+            f"[mock answer] About \"{term}\": {question.strip()} "
+            "In real mode this is answered by the model."
+        )
+
+    prompt = f"""A learner of {target_language} is studying this phrase before watching a video, and has a question about it.
+
+PHRASE: {term}
+
+WHAT THEY HAVE ALREADY BEEN TOLD ABOUT IT:
+{explanation or "(no explanation available)"}
+
+HOW IT IS USED IN THE VIDEO:
+{transcript_context or "(no transcript context available)"}
+
+THEIR QUESTION: {question}
+
+Answer it directly and briefly — a few sentences, the way a good tutor answers in conversation.
+- Answer the question they actually asked. Do not re-explain the phrase from scratch.
+- Concrete over abstract. If a grammatical term is genuinely the clearest way to say it, use it and gloss it in the same breath; otherwise describe what is happening in plain words.
+- If the answer depends on register or region, say so — this learner is working from real speech, not a textbook.
+- If the honest answer is "that is just how it is said", say that rather than inventing a rule.
+
+Return ONLY valid JSON (no markdown, no commentary):
+{{"answer": "..."}}"""
+
+    result = _call_openai_json(
+        prompt,
+        label="LESSON QA",
+        model=model,
+        temperature=0.3,
+        max_output_tokens=500,
+    )
+    answer = (result.parsed or {}).get("answer")
+    if not isinstance(answer, str) or not answer.strip():
+        raise ValueError("lesson question response missing 'answer'")
+    return answer.strip()
+
+
 SCENE_FIELDS = ("setting", "character_goal", "user_goal", "complication", "completion_condition")
 
 

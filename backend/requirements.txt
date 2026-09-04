@@ -3,6 +3,16 @@ uvicorn==0.29.0
 pydantic==2.6.3
 requests==2.32.0
 
+# LingoPause mode: YouTube metadata, chapter markers, and caption tracks.
+# Unpinned on purpose - yt-dlp breaks whenever YouTube changes, and a pin here
+# means a stale copy silently stops ingesting videos.
+yt-dlp
+
+# LingoPause lesson viewer: word-level timings (WordBoundary events) for the
+# replay highlight. The REST TTS endpoint the rest of the app uses returns audio
+# bytes only -- word boundaries are available through the SDK and nowhere else.
+azure-cognitiveservices-speech
+
 # Dev/test only (httpx<0.28: newer httpx breaks starlette 0.36's TestClient)
 pytest
 httpx<0.28

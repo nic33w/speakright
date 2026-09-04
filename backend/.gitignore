@@ -5,6 +5,10 @@
 /audio_files/
 /conversations/
 
+# LingoPause runtime state (rebuildable from the video URL)
+/video_sessions/
+/vocab_lessons/
+
 # Python cache/compiled files
 __pycache__/
 *.py[cod]
