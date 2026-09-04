@@ -149,13 +149,29 @@ export default function LessonViewer({ videoId, apiBase = API_BASE, onProgress }
 
   useEffect(() => { void load(); }, [load]);
 
-  // A new phrase starts clean: nothing playing, nothing revealed, back at block 1.
+  // A new phrase starts clean: nothing playing, nothing revealed, back at slide 1.
   useEffect(() => {
     stopLesson();
     pauseVideo();
     setBlockIndex(0);
     setShown(new Set());
   }, [index, stopLesson, pauseVideo]);
+
+  // Park the clip on the frame where this phrase is said, whenever such a slide is
+  // on screen. Separate from `activate` on purpose: activate also PLAYS, and
+  // arriving at a phrase should show the still without anything speaking. Landing
+  // does not call activate at all, which is why the frame never appeared before.
+  const currentBlock = blocks[blockIndex];
+  useEffect(() => {
+    if (
+      currentBlock &&
+      currentBlock.kind === "example" &&
+      currentBlock.from_video &&
+      typeof currentBlock.timestamp_seconds === "number"
+    ) {
+      cueFrame(currentBlock.timestamp_seconds);
+    }
+  }, [currentBlock, cueFrame]);
 
   /** Step onto a block and play it. The video pauses — never two sources at once. */
   const activate = useCallback((i: number) => {
@@ -170,12 +186,10 @@ export default function LessonViewer({ videoId, apiBase = API_BASE, onProgress }
       }
       return;
     }
-    // On the video's own line, park the clip on the exact frame where it is said.
-    if (block.from_video && typeof block.timestamp_seconds === "number") {
-      cueFrame(block.timestamp_seconds);
-    }
+    // The still is handled by an effect on the current slide; activate only
+    // starts audio, so stepping onto a slide does not re-cue a frame already shown.
     void playBeats(block.beats);
-  }, [blocks, cueFrame, pauseVideo, playAt, playBeats, stopLesson]);
+  }, [blocks, pauseVideo, playAt, playBeats, stopLesson]);
 
   async function markViewed() {
     if (!item) return;

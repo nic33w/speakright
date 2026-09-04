@@ -90,6 +90,10 @@ export function useYouTubePlayer(videoId: string | null, onStateChange?: (playin
   const watchRef = useRef<number | null>(null);
   // Set while cueing a still: the next PLAYING event pauses instead of playing on.
   const freezeRef = useRef(false);
+  // A frame asked for before the player existed. The IFrame API takes a moment to
+  // load and construct, so the first request of a session almost always arrives
+  // early — dropping it silently is why the first phrase showed the default poster.
+  const pendingFrameRef = useRef<number | null>(null);
   const [ready, setReady] = useState(false);
   // The mount element is STATE, not a ref, on purpose. The host renders loading and
   // empty states before the player container exists, so an effect keyed only on
@@ -105,6 +109,10 @@ export function useYouTubePlayer(videoId: string | null, onStateChange?: (playin
   const mountRef = useCallback((el: HTMLDivElement | null) => {
     setContainer(el);
   }, []);
+
+  // onReady is installed when the player is built, before cueFrame is defined, so
+  // it reaches it through a ref rather than closing over a stale value.
+  const cueFrameRef = useRef<((seconds: number) => void) | null>(null);
 
   useEffect(() => {
     if (!videoId || !container) return;
@@ -125,7 +133,16 @@ export function useYouTubePlayer(videoId: string | null, onStateChange?: (playin
         videoId,
         playerVars: { rel: 0, modestbranding: 1, playsinline: 1, origin: window.location.origin },
         events: {
-          onReady: () => { if (!cancelled) setReady(true); },
+          onReady: () => {
+            if (cancelled) return;
+            setReady(true);
+            // Honour a frame requested while the player was still loading.
+            const pending = pendingFrameRef.current;
+            if (pending !== null) {
+              pendingFrameRef.current = null;
+              cueFrameRef.current?.(pending);
+            }
+          },
           onStateChange: (e: { data: number }) => {
             const playing = e.data === window.YT?.PlayerState.PLAYING;
             if (playing && freezeRef.current) {
@@ -206,7 +223,10 @@ export function useYouTubePlayer(videoId: string | null, onStateChange?: (playin
 
   const cueFrame = useCallback((seconds: number) => {
     const player = playerRef.current;
-    if (!player) return;
+    if (!player) {
+      pendingFrameRef.current = seconds;
+      return;
+    }
     if (watchRef.current !== null) {
       window.clearInterval(watchRef.current);
       watchRef.current = null;
@@ -224,7 +244,10 @@ export function useYouTubePlayer(videoId: string | null, onStateChange?: (playin
     }
   }, []);
 
+  cueFrameRef.current = cueFrame;
+
   const pause = useCallback(() => {
+    pendingFrameRef.current = null;
     if (watchRef.current !== null) {
       window.clearInterval(watchRef.current);
       watchRef.current = null;
