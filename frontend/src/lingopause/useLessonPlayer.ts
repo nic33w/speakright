@@ -55,6 +55,9 @@ export function useLessonPlayer(apiBase: string = API_BASE) {
   const [activeBeatId, setActiveBeatId] = useState<string | null>(null);
   const [highlight, setHighlight] = useState<{ beatId: string; wordIndex: number } | null>(null);
   const [playing, setPlaying] = useState(false);
+  // The pause between clips, surfaced so the UI can count it down. A silent gap
+  // with nothing on screen reads as "it stopped"; a visible one reads as "wait".
+  const [gap, setGap] = useState<{ elapsed: number; total: number } | null>(null);
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const rafRef = useRef<number | null>(null);
@@ -76,6 +79,7 @@ export function useLessonPlayer(apiBase: string = API_BASE) {
     setActiveBeatId(null);
     setHighlight(null);
     setPlaying(false);
+    setGap(null);
   }, []);
 
   useEffect(() => stop, [stop]);
@@ -156,6 +160,29 @@ export function useLessonPlayer(apiBase: string = API_BASE) {
     });
   }, []);
 
+  /** Sleep, reporting progress, and abort if the run was superseded. */
+  const waitWithProgress = useCallback((ms: number, run: number): Promise<boolean> => {
+    return new Promise<boolean>((resolve) => {
+      const started = performance.now();
+      const tick = () => {
+        if (run !== runRef.current) {
+          setGap(null);
+          resolve(false);
+          return;
+        }
+        const elapsed = performance.now() - started;
+        if (elapsed >= ms) {
+          setGap(null);
+          resolve(true);
+          return;
+        }
+        setGap({ elapsed, total: ms });
+        requestAnimationFrame(tick);
+      };
+      requestAnimationFrame(tick);
+    });
+  }, []);
+
   /** Play one beat on its own — a hover preview, or a single button. */
   const playBeat = useCallback(async (beat: Beat) => {
     stop();
@@ -186,14 +213,17 @@ export function useLessonPlayer(apiBase: string = API_BASE) {
       if (audio_file) await playClip(audio_file, beat.id, words);
       if (run !== runRef.current) return;
       if (i < list.length - 1) {
-        await new Promise((r) => setTimeout(r, SEGMENT_PAUSE_MS));
-        if (run !== runRef.current) return;
+        if (!(await waitWithProgress(SEGMENT_PAUSE_MS, run))) return;
       }
     }
 
     setActiveBeatId(null);
     setPlaying(false);
-  }, [fetchBeatAudio, playClip, stop]);
+  }, [fetchBeatAudio, playClip, stop, waitWithProgress]);
 
-  return { activeBeatId, highlight, playing, playBeat, playBeats, stop };
+  return {
+    activeBeatId, highlight, playing, gap,
+    playBeat, playBeats, waitWithProgress, stop,
+    currentRun: () => runRef.current,
+  };
 }

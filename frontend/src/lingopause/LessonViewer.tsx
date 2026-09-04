@@ -21,11 +21,11 @@
 //   The previous version showed every line of every beat at once and read a prose
 //   explanation aloud, which was "too fast and too much".
 //
-//   YOU SET THE PACE. Nothing auto-advances past the slide you are on. Two
-//   keyboard axes: ← → move between slides within a phrase, shift + ← → jump
-//   between phrases, and Enter is "just keep going" (next slide, then the next
-//   phrase off the end). Any slide can also be clicked directly, and hovering a
-//   line plays just that line.
+//   YOU SET THE PACE. Nothing auto-advances unless you ask it to. ← → move
+//   between slides, ↑ ↓ step clip by clip within one, shift + ← → jump between
+//   phrases, Enter is "just keep going", and space runs the whole phrase
+//   straight through, advancing slides on its own with a visible countdown
+//   between clips. Any slide can also be clicked, and hovering a line plays it.
 //
 //   NOTES, NOT PROSE. The explanation is 2–4 things to notice, spoken one at a
 //   time with a real pause between them.
@@ -111,6 +111,10 @@ const BTN_PRIMARY: React.CSSProperties = {
   color: "white",
 };
 
+// Pause between slides in a continuous run. Longer than the gap between clips
+// inside a slide — a slide change is a bigger step than the next sentence.
+const SLIDE_GAP_MS = 1600;
+
 function formatTime(seconds: number): string {
   const total = Math.max(0, Math.floor(seconds || 0));
   return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, "0")}`;
@@ -121,6 +125,12 @@ export default function LessonViewer({ videoId, apiBase = API_BASE, onProgress }
   const [index, setIndex] = useState(0);
   const [blockIndex, setBlockIndex] = useState(0);
   const [shown, setShown] = useState<Set<string>>(new Set());
+  // Which clip within the current slide ↑/↓ are pointing at.
+  const [beatIndex, setBeatIndex] = useState(0);
+  const [autoPlaying, setAutoPlaying] = useState(false);
+  // Bumped to abort a continuous run; the per-clip abort lives in the player hook,
+  // but walking from slide to slide is this component's loop.
+  const autoRef = useRef(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -134,7 +144,7 @@ export default function LessonViewer({ videoId, apiBase = API_BASE, onProgress }
 
   const player = useLessonPlayer(apiBase);
   const yt = useYouTubePlayer(videoId);
-  const { stop: stopLesson, playBeats, playBeat } = player;
+  const { stop: stopLesson, playBeats, playBeat, waitWithProgress } = player;
   const { pause: pauseVideo, playAt, cueFrame } = yt;
   const rootRef = useRef<HTMLDivElement | null>(null);
 
@@ -159,6 +169,7 @@ export default function LessonViewer({ videoId, apiBase = API_BASE, onProgress }
     stopLesson();
     pauseVideo();
     setBlockIndex(0);
+    setBeatIndex(0);
     setShown(new Set());
   }, [index, stopLesson, pauseVideo]);
 
@@ -183,6 +194,7 @@ export default function LessonViewer({ videoId, apiBase = API_BASE, onProgress }
     const block = blocks[i];
     if (!block) return;
     setBlockIndex(i);
+    setBeatIndex(0);
     pauseVideo();
     if (block.kind === "video") {
       stopLesson();
@@ -195,6 +207,47 @@ export default function LessonViewer({ videoId, apiBase = API_BASE, onProgress }
     // starts audio, so stepping onto a slide does not re-cue a frame already shown.
     void playBeats(block.beats);
   }, [blocks, pauseVideo, playAt, playBeats, stopLesson]);
+
+  const stopEverything = useCallback(() => {
+    autoRef.current += 1;
+    setAutoPlaying(false);
+    stopLesson();
+    pauseVideo();
+  }, [stopLesson, pauseVideo]);
+
+  /** Play the whole phrase straight through: every clip on every slide, advancing
+   *  slides on its own, with a visible pause between clips. */
+  const playAll = useCallback(async () => {
+    autoRef.current += 1;
+    const run = autoRef.current;
+    setAutoPlaying(true);
+    pauseVideo();
+
+    for (let i = blockIndex; i < blocks.length; i++) {
+      if (run !== autoRef.current) return;
+      const block = blocks[i];
+      setBlockIndex(i);
+      setBeatIndex(0);
+
+      if (block.kind === "video") {
+        // The clip pauses itself at the end of the line; wait roughly that long
+        // rather than leaving the run hanging on an event that may never come.
+        if (typeof block.timestamp_seconds === "number") {
+          playAt(block.timestamp_seconds, block.end_seconds ?? null);
+          const span = (block.end_seconds ?? block.timestamp_seconds + 4) - block.timestamp_seconds;
+          if (!(await waitWithProgress((span + 5) * 1000, player.currentRun()))) return;
+        }
+        continue;
+      }
+
+      await playBeats(block.beats);
+      if (run !== autoRef.current) return;
+      if (i < blocks.length - 1) {
+        if (!(await waitWithProgress(SLIDE_GAP_MS, player.currentRun()))) return;
+      }
+    }
+    if (run === autoRef.current) setAutoPlaying(false);
+  }, [blockIndex, blocks, pauseVideo, playAt, playBeats, waitWithProgress, player]);
 
   async function markViewed() {
     if (!item) return;
@@ -246,14 +299,30 @@ export default function LessonViewer({ videoId, apiBase = API_BASE, onProgress }
         e.preventDefault();
         if (blockIndex < blocks.length - 1) activate(blockIndex + 1);
         else void nextItem();
-      } else if (e.key === "Escape") {
-        stopLesson();
+      } else if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+        // Within a slide, step clip by clip — the finest grain of the lesson.
+        e.preventDefault();
+        const beats = blocks[blockIndex]?.beats || [];
+        if (!beats.length) return;
+        const next = Math.min(
+          beats.length - 1,
+          Math.max(0, beatIndex + (e.key === "ArrowDown" ? 1 : -1)),
+        );
+        setBeatIndex(next);
         pauseVideo();
+        void playBeat(beats[next]);
+      } else if (e.key === " ") {
+        e.preventDefault();
+        if (autoPlaying) stopEverything();
+        else void playAll();
+      } else if (e.key === "Escape") {
+        stopEverything();
       }
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [activate, blockIndex, blocks.length, nextItem, prevItem, stopLesson, pauseVideo]);
+  }, [activate, autoPlaying, beatIndex, blockIndex, blocks, nextItem, playAll, playBeat,
+      prevItem, stopEverything, pauseVideo]);
 
   if (loading) return <div style={PANEL}>Loading lessons…</div>;
   if (error) {
@@ -305,8 +374,23 @@ export default function LessonViewer({ videoId, apiBase = API_BASE, onProgress }
               line only when the phrase is long enough to need the room. */}
           <span style={{ flex: 1, minWidth: 0 }} />
           <span style={{ fontSize: 11, color: "#64748b", whiteSpace: "nowrap", flexShrink: 0 }}>
-            ← → slide · ⇧← → phrase · ⏎ next · esc stop
+            ← → slide · ↑↓ clip · ⇧← → phrase · space play all · esc stop
           </span>
+        </div>
+
+        {/* Timeline across the whole set: one tick per phrase, green once learned. */}
+        <div style={{ display: "flex", gap: 3 }}>
+          {items.map((it, i) => (
+            <button
+              key={it.id}
+              onClick={() => setIndex(i)}
+              title={it.term}
+              style={{
+                flex: 1, height: 5, borderRadius: 3, border: "none", padding: 0, cursor: "pointer",
+                background: i === index ? "#ef4444" : it.viewed ? "rgba(16,185,129,0.7)" : "rgba(255,255,255,0.14)",
+              }}
+            />
+          ))}
         </div>
 
       </div>
@@ -366,6 +450,15 @@ export default function LessonViewer({ videoId, apiBase = API_BASE, onProgress }
                       lesson is not generated must still be steppable with the
                       mouse -- and both slide buttons disable themselves then. */}
                   <div style={{ display: "flex", gap: 8, marginTop: 10, alignItems: "center", flexWrap: "wrap" }}>
+                    <button
+                      onClick={() => (autoPlaying ? stopEverything() : void playAll())}
+                      title="Play the whole phrase (space)"
+                      style={{ ...BTN, padding: "5px 11px", fontSize: 12,
+                               borderColor: autoPlaying ? "rgba(239,68,68,0.6)" : "rgba(255,255,255,0.2)",
+                               background: autoPlaying ? "rgba(239,68,68,0.16)" : "rgba(255,255,255,0.06)" }}>
+                      {autoPlaying ? "■ Stop" : "▶ Play all"}
+                    </button>
+                    <GapMeter gap={player.gap} />
                     <button onClick={() => activate(Math.max(0, blockIndex - 1))}
                             disabled={blockIndex === 0}
                             style={{ ...BTN, padding: "5px 10px", fontSize: 12, opacity: blockIndex === 0 ? 0.4 : 1 }}>←</button>
@@ -686,6 +779,28 @@ function SentenceCard({
         />
       </div>
     </div>
+  );
+}
+
+/** The pause between clips, drawn as a draining ring so a silent gap reads as
+ *  "wait" rather than "it stopped". */
+function GapMeter({ gap }: { gap: { elapsed: number; total: number } | null }) {
+  const size = 18;
+  const r = (size - 3) / 2;
+  const circumference = 2 * Math.PI * r;
+  const left = gap ? Math.max(0, 1 - gap.elapsed / gap.total) : 0;
+  return (
+    <span style={{ width: size, height: size, display: "inline-block", opacity: gap ? 1 : 0, transition: "opacity 0.15s" }}>
+      <svg width={size} height={size} style={{ transform: "rotate(-90deg)" }}>
+        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="rgba(255,255,255,0.15)" strokeWidth={2} />
+        <circle
+          cx={size / 2} cy={size / 2} r={r}
+          fill="none" stroke="#ef4444" strokeWidth={2} strokeLinecap="round"
+          strokeDasharray={circumference}
+          strokeDashoffset={circumference * (1 - left)}
+        />
+      </svg>
+    </span>
   );
 }
 
