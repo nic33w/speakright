@@ -21,9 +21,11 @@
 //   The previous version showed every line of every beat at once and read a prose
 //   explanation aloud, which was "too fast and too much".
 //
-//   YOU SET THE PACE. Nothing auto-advances past the block you are on. ↓/Enter
-//   steps to the next block and plays it, ↑ goes back, and any block can be
-//   clicked directly. Hovering any line plays just that line.
+//   YOU SET THE PACE. Nothing auto-advances past the slide you are on. Two
+//   keyboard axes: ← → move between slides within a phrase, shift + ← → jump
+//   between phrases, and Enter is "just keep going" (next slide, then the next
+//   phrase off the end). Any slide can also be clicked directly, and hovering a
+//   line plays just that line.
 //
 //   NOTES, NOT PROSE. The explanation is 2–4 things to notice, spoken one at a
 //   time with a real pause between them.
@@ -195,19 +197,36 @@ export default function LessonViewer({ videoId, apiBase = API_BASE, onProgress }
     setIndex((i) => Math.min(items.length - 1, i + 1));
   }, [items.length, item]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Keyboard: ↓/Enter next block (playing it), ↑ back, Esc silences everything.
+  // Going backwards does not mark anything learned — you are re-checking, not
+  // finishing.
+  const prevItem = useCallback(() => {
+    setIndex((i) => Math.max(0, i - 1));
+  }, []);
+
+  // Keyboard. Two axes, deliberately: ← → moves within the phrase you are on,
+  // Shift + ← → jumps between phrases. Enter is the "just keep going" key — next
+  // slide, and off the end of the last one, on to the next phrase.
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       const el = e.target as HTMLElement | null;
       if (el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA")) return;
 
-      if (e.key === "ArrowDown" || e.key === "Enter") {
+      if (e.key === "ArrowRight" && e.shiftKey) {
+        e.preventDefault();
+        void nextItem();
+      } else if (e.key === "ArrowLeft" && e.shiftKey) {
+        e.preventDefault();
+        prevItem();
+      } else if (e.key === "ArrowRight") {
+        e.preventDefault();
+        if (blockIndex < blocks.length - 1) activate(blockIndex + 1);
+      } else if (e.key === "ArrowLeft") {
+        e.preventDefault();
+        if (blockIndex > 0) activate(blockIndex - 1);
+      } else if (e.key === "Enter") {
         e.preventDefault();
         if (blockIndex < blocks.length - 1) activate(blockIndex + 1);
         else void nextItem();
-      } else if (e.key === "ArrowUp") {
-        e.preventDefault();
-        if (blockIndex > 0) activate(blockIndex - 1);
       } else if (e.key === "Escape") {
         stopLesson();
         pauseVideo();
@@ -215,7 +234,7 @@ export default function LessonViewer({ videoId, apiBase = API_BASE, onProgress }
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [activate, blockIndex, blocks.length, nextItem, stopLesson, pauseVideo]);
+  }, [activate, blockIndex, blocks.length, nextItem, prevItem, stopLesson, pauseVideo]);
 
   if (loading) return <div style={PANEL}>Loading lessons…</div>;
   if (error) {
@@ -242,7 +261,9 @@ export default function LessonViewer({ videoId, apiBase = API_BASE, onProgress }
           <span style={{ fontSize: 13, color: "#94a3b8" }}>
             {index + 1} of {items.length} · {viewedCount} learned
           </span>
-          <span style={{ fontSize: 12, color: "#64748b" }}>↓ / Enter next · ↑ back · Esc stop</span>
+          <span style={{ fontSize: 12, color: "#64748b" }}>
+            ← → slides · shift ← → phrases · enter next · esc stop
+          </span>
         </div>
         <div style={{ display: "flex", gap: 3 }}>
           {items.map((it, i) => (
@@ -356,9 +377,13 @@ export default function LessonViewer({ videoId, apiBase = API_BASE, onProgress }
         </>
       )}
 
-      <div style={{ display: "flex", gap: 12, marginTop: 14, justifyContent: "flex-end" }}>
+      <div style={{ display: "flex", gap: 10, marginTop: 14, justifyContent: "flex-end" }}>
+        <button onClick={prevItem} disabled={index === 0}
+                style={{ ...BTN, opacity: index === 0 ? 0.4 : 1 }}>
+          ⇧← Previous phrase
+        </button>
         <button onClick={() => void nextItem()} style={BTN_PRIMARY}>
-          {index < items.length - 1 ? "Next phrase →" : "Finish"}
+          {index < items.length - 1 ? "Next phrase ⇧→" : "Finish"}
         </button>
       </div>
 
