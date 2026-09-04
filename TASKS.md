@@ -2404,6 +2404,74 @@ the real thing. Regenerate a video's lessons to upgrade it.
 **Fixed in passing:** plain text went into SSML unescaped, so an `&` in any sentence produced invalid
 XML and a silent fall-through to silence — app-wide, not just LingoPause.
 
+### [x] 8.13 — Controller + split play controls in the lesson viewer 🟡 Sonnet
+
+`Play all` became two: **From top** (⏮, restarts the slide) and **Play** (▶, resumes from the last
+clip you heard — hovering a line moves that cursor, so "where you left off" means what you expect).
+
+Controller, standard-mapping indices, mirroring messenger where they overlap so muscle memory
+carries:
+
+| Input | Index | Action |
+|---|---|---|
+| A | 0 | Play from here |
+| X | 2 | Play from the top of the slide |
+| LB / RB | 4 / 5 | Previous / next **slide** |
+| LT / RT | 6 / 7 | Previous / next **phrase** |
+| D-pad ↑ / ↓ | 12 / 13 | Previous / next **clip** in the slide |
+| D-pad ← | 14 | Repeat the current clip |
+| D-pad → | 15 | Show / hide the Spanish |
+| Stick flick | axes | Cancel — stop everything |
+| L3 / R3 | 10 / 11 | **Unbound here**; see below |
+
+Shoulder layout is "nearer button, smaller move": bumpers step within a phrase, triggers step
+between phrases.
+
+**L3/R3 are deliberately not bound in-page.** The stick click is turned into an **F13** keypress by
+`tools/controller/f13_mapper.py` and consumed by Wispr — the browser cannot synthesize an OS
+keystroke, which is the whole reason that mapper exists (task 4.1). It becomes meaningful in 8.14.
+
+### [ ] 8.14 — Repeat-back drill: say it back, checked leniently 🔴 Opus
+
+Toggle per phrase: after hearing the Spanish, say it back and have it checked.
+
+**Scoring is word COVERAGE, accumulated across attempts — not string similarity.** Wispr emits
+cleaned-up fluent text, so exact matching largely measures Wispr rather than the learner (the same
+trap task 6.1 documents for pronunciation). So: normalize both sides with `normalizeForMatch`
+(accent- and punctuation-insensitive — the app-wide rule), reduce the target to its word list, and
+mark each word covered as it is said. A second attempt adds to the first, so leaving out a word and
+then saying it passes. **Do not strip function words**: `se`, `ya`, `lo` are exactly what the
+constructions turn on.
+
+Open questions to settle first (do not guess):
+- Does a pass auto-advance, or go green and wait? The learner has pushed back on auto-advance
+  repeatedly, so green-and-wait is the likely answer — but it is the opposite of a normal drill.
+- Word order: ignored entirely, or must the covered words appear in order? Ignoring it is more
+  lenient and simpler; requiring order catches "said the right words in the wrong shape".
+- Repeats: does saying a word twice cover two occurrences of it, or one?
+
+**Reuse, do not rebuild:** `useWisprAutoSend` (paste-detection + the ~1.5s send window),
+`GameTextarea` (auto-focus, Enter/Escape), `normalizeForMatch` + `checkFuzzyMatch`
+(`sharedGameUtils.ts`), and the messenger's repeat-after-me drill (tasks 3.4/3.5) as the working
+precedent for the whole interaction.
+
+**Controller:** L3/R3 already produce F13 via the existing mapper; the page listens for the F13
+keydown the way `MessengerChat.tsx` does. Stick flick cancels a pending send, matching messenger.
+No mapper changes needed.
+
+**Files:** `frontend/src/lingopause/LessonViewer.tsx`, a new `RepeatBack.tsx`,
+`frontend/src/sharedGameUtils.ts` (a `coveredWords` helper if it is worth sharing).
+
+**Depends on:** 8.13.
+
+### [ ] 8.15 — Score the repeat-back attempt properly 🟡 Sonnet
+
+Only once 8.14's interaction works. Surface which words are still missing (dim the covered ones in
+the target as they land), keep a per-phrase attempt count, and decide whether a passed phrase counts
+as `viewed` or needs its own `practised` flag in the session.
+
+**Depends on:** 8.14.
+
 ### [ ] 8.12 — Spoken answers for follow-up questions 🟡 Sonnet
 
 v1 of `/api/lingopause/ask` returns text. Speaking the answer needs the same multilingual-voice

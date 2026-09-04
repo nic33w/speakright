@@ -35,6 +35,7 @@
 // lives here rather than in either hook, so neither needs to know the other exists.
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { API_BASE } from "../config";
+import { useGamepad } from "../sharedGameHooks";
 import {
   useLessonPlayer, DEFAULT_PAUSE_MS, MIN_PAUSE_MS, MAX_PAUSE_MS, type Beat,
 } from "./useLessonPlayer";
@@ -240,13 +241,13 @@ export default function LessonViewer({ videoId, apiBase = API_BASE, onProgress }
    *  Walks `allBlocks`, not the slides — the notes are not a slide but are still
    *  part of the phrase, and are played in their original position (after the
    *  video's line) whether or not their tab happens to be showing. */
-  const playAll = useCallback(async () => {
+  const playAll = useCallback(async (fromBeat = 0) => {
     autoRef.current += 1;
     const run = autoRef.current;
     setAutoPlaying(true);
     pauseVideo();
 
-    // Start from the slide you are on, so Play all resumes rather than restarting.
+    // Start from the slide you are on, so Play resumes rather than restarting.
     const from = allBlocks.findIndex((b) => b.id === blocks[blockIndex]?.id);
     const startAt = from < 0 ? 0 : from;
 
@@ -271,7 +272,9 @@ export default function LessonViewer({ videoId, apiBase = API_BASE, onProgress }
         continue;
       }
 
-      await playBeats(block.beats);
+      // Only the slide you start on resumes mid-way; everything after it plays
+      // from its own beginning.
+      await playBeats(i === startAt ? block.beats.slice(fromBeat) : block.beats);
       if (run !== autoRef.current) return;
       if (i < allBlocks.length - 1) {
         // Between blocks the countdown belongs at the bottom, not beside a line.
@@ -285,9 +288,13 @@ export default function LessonViewer({ videoId, apiBase = API_BASE, onProgress }
    *  does not derail it. */
   const previewBeat = useCallback((beat: Beat) => {
     if (autoPlaying) return;
+    // Remember where you were: "Play" resumes from the last thing you heard, not
+    // from the top of the slide.
+    const at = (blocks[blockIndex]?.beats || []).findIndex((b) => b.id === beat.id);
+    if (at >= 0) setBeatIndex(at);
     pauseVideo();
     void playBeat(beat);
-  }, [autoPlaying, pauseVideo, playBeat]);
+  }, [autoPlaying, blockIndex, blocks, pauseVideo, playBeat]);
 
   /** Leaving a line stops its preview — but only its own, so ending a hover never
    *  cuts off something else that started playing since. */
@@ -361,7 +368,7 @@ export default function LessonViewer({ videoId, apiBase = API_BASE, onProgress }
       } else if (e.key === " ") {
         e.preventDefault();
         if (autoPlaying) stopEverything();
-        else void playAll();
+        else void playAll(beatIndex);
       } else if (e.key === "Escape") {
         stopEverything();
       }
@@ -370,6 +377,69 @@ export default function LessonViewer({ videoId, apiBase = API_BASE, onProgress }
     return () => window.removeEventListener("keydown", onKey);
   }, [activate, autoPlaying, beatIndex, blockIndex, blocks, nextItem, playAll, playBeat,
       prevItem, stopEverything, pauseVideo]);
+
+  // --- Controller (standard mapping indices) --------------------------------
+  // Mirrors messenger's layout where the two overlap, so muscle memory carries:
+  // stick click is still recording, a stick flick is still cancel. Playback is on
+  // the face buttons, and the four shoulder inputs are the two navigation axes —
+  // bumpers step within a phrase, triggers step between phrases, which matches
+  // "nearer button, smaller move".
+  const flickArmedRef = useRef(true);
+  useGamepad({
+    onButtonChange: (e) => {
+      if (!e.pressed) return;
+      const beats = blocks[blockIndex]?.beats || [];
+      const stepBeat = (delta: number) => {
+        if (!beats.length) return;
+        const next = Math.min(beats.length - 1, Math.max(0, beatIndex + delta));
+        setBeatIndex(next);
+        previewBeat(beats[next]);
+      };
+      switch (e.index) {
+        case 0: void playAll(beatIndex); break;              // A — play from here
+        case 2: setBeatIndex(0); void playAll(0); break;     // X — play from the top
+        case 4: activate(Math.max(0, blockIndex - 1)); break;             // LB — previous slide
+        case 5: activate(Math.min(blocks.length - 1, blockIndex + 1)); break; // RB — next slide
+        case 6: prevItem(); break;                           // LT — previous phrase
+        case 7: void nextItem(); break;                      // RT — next phrase
+        case 12: stepBeat(-1); break;                        // D-pad up — previous clip
+        case 13: stepBeat(1); break;                         // D-pad down — next clip
+        case 14:                                             // D-pad left — repeat this clip
+          if (beats[beatIndex]) previewBeat(beats[beatIndex]);
+          break;
+        case 15: {                                           // D-pad right — show/hide Spanish
+          const block = blocks[blockIndex];
+          const focus = (block?.pairs || []).findIndex((pr) => pr.is_focus);
+          if (block && focus >= 0) {
+            const key = `${block.id}:${focus}`;
+            setShown((prev) => {
+              const next = new Set(prev);
+              if (next.has(key)) next.delete(key);
+              else next.add(key);
+              return next;
+            });
+          }
+          break;
+        }
+        // L3/R3 (10/11) are deliberately unbound here: the stick click is turned
+        // into an F13 keypress by tools/controller/f13_mapper.py and consumed by
+        // Wispr, not by this page. It becomes meaningful once the repeat-back
+        // drill lands (TASKS.md 8.13).
+        default: break;
+      }
+    },
+    onFrame: (frame) => {
+      // Stick flick — cancel, with the same hysteresis as messenger: fires once on
+      // crossing 0.8 and rearms only below 0.3, or holding the stick out floods.
+      const x = Math.max(Math.abs(frame.axes[0] ?? 0), Math.abs(frame.axes[2] ?? 0));
+      if (x > 0.8 && flickArmedRef.current) {
+        flickArmedRef.current = false;
+        stopEverything();
+      } else if (x < 0.3) {
+        flickArmedRef.current = true;
+      }
+    },
+  });
 
   if (loading) return <div style={PANEL}>Loading lessons…</div>;
   if (error) {
@@ -421,7 +491,7 @@ export default function LessonViewer({ videoId, apiBase = API_BASE, onProgress }
               line only when the phrase is long enough to need the room. */}
           <span style={{ flex: 1, minWidth: 0 }} />
           <span style={{ fontSize: 11, color: "#64748b", whiteSpace: "nowrap", flexShrink: 0 }}>
-            ← → slide · ↑↓ clip · ⇧← → phrase · space play all · esc stop
+            ← → slide · ↑↓ clip · ⇧← → phrase · space play · esc stop
           </span>
         </div>
 
@@ -500,12 +570,18 @@ export default function LessonViewer({ videoId, apiBase = API_BASE, onProgress }
                       mouse -- and both slide buttons disable themselves then. */}
                   <div style={{ display: "flex", gap: 8, marginTop: 10, alignItems: "center", flexWrap: "wrap" }}>
                     <button
-                      onClick={() => (autoPlaying ? stopEverything() : void playAll())}
-                      title="Play the whole phrase (space)"
+                      onClick={() => { setBeatIndex(0); void playAll(0); }}
+                      title="Play from the top of this slide (X on a controller)"
+                      style={{ ...BTN, padding: "5px 11px", fontSize: 12 }}>
+                      ⏮ From top
+                    </button>
+                    <button
+                      onClick={() => (autoPlaying ? stopEverything() : void playAll(beatIndex))}
+                      title="Play from where you left off (space, or A on a controller)"
                       style={{ ...BTN, padding: "5px 11px", fontSize: 12,
                                borderColor: autoPlaying ? "rgba(239,68,68,0.6)" : "rgba(255,255,255,0.2)",
                                background: autoPlaying ? "rgba(239,68,68,0.16)" : "rgba(255,255,255,0.06)" }}>
-                      {autoPlaying ? "■ Stop" : "▶ Play all"}
+                      {autoPlaying ? "■ Stop" : "▶ Play"}
                     </button>
                     {/* Only the between-block pause lands here; a pause that
                         follows a specific clip is drawn beside that clip instead. */}
