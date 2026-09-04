@@ -134,6 +134,7 @@ Shared backend endpoints used by multiple modes: `/api/config` (mock-mode flag f
 | `backend/word_practice_sentences.json`, `_id.json` | Word-drill sentence banks | Content |
 | `frontend/src/*trivia_game.json`, `battle_conversations_*.json`, `cards_deck_150.json` | Trivia/battle/story-cards content banks | Content |
 | `frontend/src/data/sombongo_pivots.ts` | Messenger topic-changer scripts (Spanish-flavored) | Content |
+| `frontend/public/ui/` | UI sound files (`ring.wav`), played by `frontend/src/audio/uiSounds.ts`. Sibling to `audio/earcons.ts`, which SYNTHESIZES abstract blips — recorded sounds go here, generated tones stay there | Content |
 | `backend/prompts/chat_system_prompt.txt` | Messenger persona system prompt | Content |
 | `backend/audio_files/session_*/`, `messenger_*/` | Per-session live-generated audio | Runtime state (grows unbounded, never cleaned up) |
 | `backend/audio_files/cache/` | Content-hash cached audio | Runtime state (grows unbounded, never evicted) |

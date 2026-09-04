@@ -156,6 +156,9 @@ export default function LessonViewer({ videoId, apiBase = API_BASE, onProgress }
   // Say-it-back drill (8.14). Off by default: it turns a listening pass into a
   // speaking one, which is a different session.
   const [drill, setDrill] = useState(false);
+  // The clip that most recently finished. The drill takes focus off the back of
+  // its own sentence rather than on a timer.
+  const [lastPlayed, setLastPlayed] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -198,7 +201,15 @@ export default function LessonViewer({ videoId, apiBase = API_BASE, onProgress }
     setBlockIndex(0);
     setBeatIndex(0);
     setShown(new Set());
+    setLastPlayed(null);
   }, [index, stopLesson, pauseVideo]);
+
+  // activeBeatId going from a clip back to null means that clip just finished.
+  const prevActiveRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (prevActiveRef.current && !player.activeBeatId) setLastPlayed(prevActiveRef.current);
+    prevActiveRef.current = player.activeBeatId;
+  }, [player.activeBeatId]);
 
   // Park the clip on the frame where this phrase is said, whenever such a slide is
   // on screen. Separate from `activate` on purpose: activate also PLAYS, and
@@ -283,13 +294,21 @@ export default function LessonViewer({ videoId, apiBase = API_BASE, onProgress }
       // from its own beginning.
       await playBeats(i === startAt ? block.beats.slice(fromBeat) : block.beats);
       if (run !== autoRef.current) return;
+
+      // With the drill on, a slide that has something to say back ends the run
+      // there: the box takes focus and waits for you. Carrying on would talk over
+      // the answer. Passing it advances; so does stepping on yourself.
+      if (drill && block.kind === "example" && (block.pairs || []).some((pr) => pr.is_focus && pr.target)) {
+        setAutoPlaying(false);
+        return;
+      }
       if (i < allBlocks.length - 1) {
         // Between blocks the countdown belongs at the bottom, not beside a line.
         if (!(await waitWithProgress(pauseMs * SLIDE_GAP_FACTOR, player.currentRun()))) return;
       }
     }
     if (run === autoRef.current) setAutoPlaying(false);
-  }, [allBlocks, blockIndex, blocks, pauseMs, pauseVideo, playAt, playBeats, waitWithProgress, player]);
+  }, [allBlocks, blockIndex, blocks, drill, pauseMs, pauseVideo, playAt, playBeats, waitWithProgress, player]);
 
   /** Hover-to-hear. Ignored while a continuous run is going, so moving the mouse
    *  does not derail it. */
@@ -403,7 +422,11 @@ export default function LessonViewer({ videoId, apiBase = API_BASE, onProgress }
         previewBeat(beats[next]);
       };
       switch (e.index) {
-        case 0: void playAll(beatIndex); break;              // A — play from here
+        // A — play from here, or pause if something is already running.
+        case 0:
+          if (autoPlaying || player.playing) stopEverything();
+          else void playAll(beatIndex);
+          break;
         case 2: setBeatIndex(0); void playAll(0); break;     // X — play from the top
         case 4: activate(Math.max(0, blockIndex - 1)); break;             // LB — previous slide
         case 5: activate(Math.min(blocks.length - 1, blockIndex + 1)); break; // RB — next slide
@@ -568,6 +591,7 @@ export default function LessonViewer({ videoId, apiBase = API_BASE, onProgress }
                       gap={player.gap}
                       drill={drill}
                       langCode={targetLang}
+                      lastPlayed={lastPlayed}
                       onDrillPass={() => {
                         if (blockIndex < blocks.length - 1) activate(blockIndex + 1);
                         else void nextItem();
@@ -810,7 +834,7 @@ function NotesPanel({
 
 function Slide({
   block, shown, activeBeatId, highlight, onReplay, onToggleShown, onPlayBeat, onEndPreview, gap,
-  drill, langCode, onDrillPass, videoReady,
+  drill, langCode, onDrillPass, lastPlayed, videoReady,
 }: {
   block: Block;
   shown: Set<string>;
@@ -824,6 +848,7 @@ function Slide({
   drill: boolean;
   langCode: string;
   onDrillPass: () => void;
+  lastPlayed: string | null;
   videoReady: boolean;
 }) {
   const beatById = useMemo(
@@ -883,6 +908,7 @@ function Slide({
           drill={drill}
           langCode={langCode}
           onDrillPass={onDrillPass}
+          lastPlayed={lastPlayed}
         />
       ))}
     </div>
@@ -896,7 +922,7 @@ function Slide({
  *  focus sentence is set larger; the others are smaller and dimmer until hovered. */
 function SentenceCard({
   pair, shown, onToggleShown, enBeat, tgBeat, activeBeatId, highlight, onPlayBeat, onEndPreview, gap,
-  drill, langCode, onDrillPass,
+  drill, langCode, onDrillPass, lastPlayed,
 }: {
   pair: Pair;
   shown: boolean;
@@ -911,6 +937,7 @@ function SentenceCard({
   drill: boolean;
   langCode: string;
   onDrillPass: () => void;
+  lastPlayed: string | null;
 }) {
   const [hover, setHover] = useState(false);
   // Hovering "Show Spanish" reveals it for as long as you are there; clicking pins
@@ -989,17 +1016,16 @@ function SentenceCard({
           onHoverChange={setPeek}
           label={shown ? "Show English" : "Show Spanish"}
         />
+        {drill && focus && pair.target && (
+          <RepeatBack
+            target={pair.target}
+            langCode={langCode}
+            ready={!!tgBeat && lastPlayed === tgBeat.id}
+            onPass={onDrillPass}
+          />
+        )}
         <GapMeter anchored gap={gap?.afterBeatId === tgBeat?.id ? gap : null} />
       </div>
-
-      {drill && focus && pair.target && (
-        <RepeatBack
-          target={pair.target}
-          langCode={langCode}
-          onPass={onDrillPass}
-          onHear={tgBeat ? () => onPlayBeat(tgBeat) : undefined}
-        />
-      )}
     </div>
   );
 }
