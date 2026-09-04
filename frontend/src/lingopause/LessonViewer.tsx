@@ -125,7 +125,12 @@ export default function LessonViewer({ videoId, apiBase = API_BASE, onProgress }
   const [error, setError] = useState<string | null>(null);
 
   const item = items[index];
-  const blocks = useMemo(() => item?.blocks || [], [item]);
+  const allBlocks = useMemo(() => item?.blocks || [], [item]);
+  // The notes are reference material now, living in the side panel rather than
+  // occupying a step of their own — walking through them was more explanation in
+  // the main flow than wanted.
+  const blocks = useMemo(() => allBlocks.filter((b) => b.kind !== "notes"), [allBlocks]);
+  const notesBlock = useMemo(() => allBlocks.find((b) => b.kind === "notes"), [allBlocks]);
 
   const player = useLessonPlayer(apiBase);
   const yt = useYouTubePlayer(videoId);
@@ -349,7 +354,7 @@ export default function LessonViewer({ videoId, apiBase = API_BASE, onProgress }
             const wantsPlayer = !!current && (current.kind === "video" || current.from_video === true);
             return (
               <div style={{ display: "flex", gap: 14, alignItems: "flex-start", flexWrap: "wrap" }}>
-                <div style={{ flex: "1 1 340px", minWidth: 0 }}>
+                <div style={{ flex: "1 1 280px", minWidth: 0 }}>
                   {current && (
                     <Slide
                       block={current}
@@ -371,19 +376,32 @@ export default function LessonViewer({ videoId, apiBase = API_BASE, onProgress }
                   )}
                 </div>
 
-                {/* Mounted once, never unmounted: the IFrame API replaces the
-                    element it is given, so remounting per slide would rebuild the
-                    player every step and lose the frame it is parked on. */}
-                <div style={{
-                  flex: wantsPlayer ? `0 0 ${current?.kind === "video" ? 520 : 340}px` : "0 0 0px",
-                  maxWidth: "100%",
-                  opacity: wantsPlayer ? 1 : 0,
-                  overflow: "hidden",
-                  transition: "opacity 0.2s",
-                }}>
-                  <div style={{ position: "relative", paddingTop: "56.25%", borderRadius: 10, overflow: "hidden", background: "#000" }}>
-                    <div ref={yt.mountRef} style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }} />
+                {/* Right column: the clip, then the tutor / notes panel. The
+                    player is mounted exactly once and never unmounted — the IFrame
+                    API replaces the element it is given, so remounting per slide
+                    would rebuild it every step and lose the parked frame. */}
+                <div style={{ flex: "0 0 520px", maxWidth: "100%", display: "flex", flexDirection: "column", gap: 12 }}>
+                  <div style={{
+                    height: wantsPlayer ? undefined : 0,
+                    opacity: wantsPlayer ? 1 : 0,
+                    overflow: "hidden",
+                    transition: "opacity 0.2s",
+                  }}>
+                    <div style={{ position: "relative", paddingTop: "56.25%", borderRadius: 10, overflow: "hidden", background: "#000" }}>
+                      <div ref={yt.mountRef} style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }} />
+                    </div>
                   </div>
+
+                  <SidePanel
+                    videoId={videoId}
+                    term={item.term}
+                    apiBase={apiBase}
+                    notes={notesBlock}
+                    activeBeatId={player.activeBeatId}
+                    highlight={player.highlight}
+                    onPlayBeat={(beat) => { pauseVideo(); void playBeat(beat); }}
+                    onPlayNotes={() => { pauseVideo(); void playBeats(notesBlock?.beats || []); }}
+                  />
                 </div>
               </div>
             );
@@ -410,9 +428,117 @@ export default function LessonViewer({ videoId, apiBase = API_BASE, onProgress }
         </button>
       </div>
 
-      <div style={{ marginTop: 14 }}>
-        <AskBox videoId={videoId} term={item.term} apiBase={apiBase} />
+    </div>
+  );
+}
+
+/** The right column below the clip: ask the tutor, or read the notes.
+ *
+ *  Tabbed rather than stacked so neither pushes the other off screen. The tutor is
+ *  the default because the notes are there to be glanced at, not worked through —
+ *  hovering their tab is enough to switch, no click needed. */
+function SidePanel({
+  videoId, term, apiBase, notes, activeBeatId, highlight, onPlayBeat, onPlayNotes,
+}: {
+  videoId: string;
+  term: string;
+  apiBase: string;
+  notes?: Block;
+  activeBeatId: string | null;
+  highlight: { beatId: string; wordIndex: number } | null;
+  onPlayBeat: (beat: Beat) => void;
+  onPlayNotes: () => void;
+}) {
+  const [tab, setTab] = useState<"tutor" | "notes">("tutor");
+  const hasNotes = !!notes && (notes.notes || []).length > 0;
+
+  return (
+    <div style={{ ...PANEL, padding: 0, overflow: "hidden", display: "flex", flexDirection: "column" }}>
+      <div style={{ display: "flex", borderBottom: "1px solid rgba(255,255,255,0.1)" }}>
+        {(["tutor", "notes"] as const).map((key) => {
+          if (key === "notes" && !hasNotes) return null;
+          const active = tab === key;
+          return (
+            <button
+              key={key}
+              onMouseEnter={() => setTab(key)}
+              onClick={() => setTab(key)}
+              style={{
+                flex: 1, padding: "10px 12px", fontSize: 12, fontWeight: active ? 700 : 500,
+                border: "none", cursor: "pointer",
+                borderBottom: `2px solid ${active ? "#ef4444" : "transparent"}`,
+                background: active ? "rgba(239,68,68,0.08)" : "transparent",
+                color: active ? "#e2e8f0" : "#64748b",
+                textTransform: "uppercase", letterSpacing: 0.4,
+                transition: "color 0.15s, background 0.15s",
+              }}
+            >
+              {key === "tutor" ? "Ask the tutor" : "Things to note"}
+              {key === "notes" && notes?.derived && (
+                <span title="Split out of an older prose explanation — regenerate this video's lessons for purpose-written notes"
+                      style={{ marginLeft: 6, color: "#fcd34d", textTransform: "none", letterSpacing: 0 }}>
+                  ·
+                </span>
+              )}
+            </button>
+          );
+        })}
       </div>
+
+      <div style={{ padding: 16 }}>
+        {tab === "tutor" ? (
+          <AskBox videoId={videoId} term={term} apiBase={apiBase} />
+        ) : (
+          <NotesPanel
+            notes={notes?.notes || []}
+            beats={notes?.beats || []}
+            activeBeatId={activeBeatId}
+            highlight={highlight}
+            onPlayBeat={onPlayBeat}
+            onPlayAll={onPlayNotes}
+          />
+        )}
+      </div>
+    </div>
+  );
+}
+
+function NotesPanel({
+  notes, beats, activeBeatId, highlight, onPlayBeat, onPlayAll,
+}: {
+  notes: string[];
+  beats: Beat[];
+  activeBeatId: string | null;
+  highlight: { beatId: string; wordIndex: number } | null;
+  onPlayBeat: (beat: Beat) => void;
+  onPlayAll: () => void;
+}) {
+  return (
+    <div>
+      <ul style={{ margin: 0, paddingLeft: 18, display: "flex", flexDirection: "column", gap: 10 }}>
+        {notes.map((note, i) => {
+          const beat = beats[i];
+          const isActive = beat && beat.id === activeBeatId;
+          return (
+            <li
+              key={i}
+              onMouseEnter={() => beat && onPlayBeat(beat)}
+              onClick={() => beat && onPlayBeat(beat)}
+              style={{
+                fontSize: 14, lineHeight: 1.5,
+                color: isActive ? "#fff" : "#cbd5e1",
+                background: isActive ? "rgba(239,68,68,0.14)" : "transparent",
+                borderRadius: 6, padding: "3px 7px", margin: "0 -7px", cursor: "pointer",
+              }}
+            >
+              {beat && highlight?.beatId === beat.id
+                ? <Highlighted text={note} wordIndex={highlight.wordIndex} />
+                : note}
+            </li>
+          );
+        })}
+      </ul>
+      <button onClick={onPlayAll} style={{ ...BTN, marginTop: 12, fontSize: 12 }}>▶ Play all</button>
     </div>
   );
 }
@@ -463,23 +589,6 @@ function Slide({
     );
   }
 
-  if (block.kind === "notes") {
-    // Folded away until hovered: the notes are support, not the thing being
-    // learned, and having them permanently open put explanation back on screen.
-    return (
-      <div style={stage}>
-        <NotesCard
-          notes={block.notes || []}
-          beats={block.beats}
-          activeBeatId={activeBeatId}
-          highlight={highlight}
-          onPlayBeat={onPlayBeat}
-          derived={!!block.derived}
-        />
-      </div>
-    );
-  }
-
   const pairs = block.pairs || [];
   return (
     <div style={{ ...stage, gap: 10, justifyContent: "flex-start" }}>
@@ -518,7 +627,11 @@ function SentenceCard({
   onPlayBeat: (beat: Beat) => void;
 }) {
   const [hover, setHover] = useState(false);
+  // Hovering "Show Spanish" reveals it for as long as you are there; clicking pins
+  // it so it survives the pointer leaving.
+  const [peek, setPeek] = useState(false);
   const focus = pair.is_focus;
+  const revealed = shown || peek;
   const speaking = (enBeat && enBeat.id === activeBeatId) || (tgBeat && tgBeat.id === activeBeatId);
 
   return (
@@ -529,16 +642,16 @@ function SentenceCard({
         border: `1px solid ${speaking ? "rgba(239,68,68,0.6)" : hover ? "rgba(255,255,255,0.28)" : "rgba(255,255,255,0.12)"}`,
         background: speaking ? "rgba(239,68,68,0.09)" : hover ? "rgba(255,255,255,0.05)" : "transparent",
         borderRadius: 10,
-        padding: focus ? "16px 18px" : "11px 14px",
+        padding: focus ? "16px 18px" : "6px 10px",
         transition: "border-color 0.15s, background 0.15s",
       }}
     >
       <div
         onMouseEnter={() => enBeat && onPlayBeat(enBeat)}
         style={{
-          fontSize: focus ? 24 : 14,
+          fontSize: focus ? 24 : 12,
           fontWeight: focus ? 600 : 400,
-          lineHeight: 1.4,
+          lineHeight: focus ? 1.4 : 1.3,
           color: focus ? "#e2e8f0" : hover ? "#cbd5e1" : "#64748b",
           cursor: "pointer",
           transition: "color 0.15s",
@@ -549,7 +662,7 @@ function SentenceCard({
           : pair.english}
       </div>
 
-      <div style={{ display: "flex", gap: 8, marginTop: focus ? 12 : 8, flexWrap: "wrap" }}>
+      <div style={{ display: "flex", gap: 6, marginTop: focus ? 12 : 5, flexWrap: "wrap" }}>
         <HoverButton
           small={!focus}
           onActivate={() => tgBeat && onPlayBeat(tgBeat)}
@@ -557,18 +670,23 @@ function SentenceCard({
           label="▶ Spanish"
           triggerOnHover
         />
-        {/* Reveal is a toggle, so hover only highlights it — hover-to-toggle would
-            flip the sentence on and off every time the pointer crossed it. */}
-        <HoverButton small={!focus} onActivate={onToggleShown} label={shown ? "Hide" : "Show Spanish"} />
+        {/* Hovering peeks at the Spanish; clicking pins it. A plain hover-toggle
+            would flip the sentence on and off every time the pointer crossed it. */}
+        <HoverButton
+          small={!focus}
+          onActivate={onToggleShown}
+          onHoverChange={setPeek}
+          label={shown ? "Hide" : "Show Spanish"}
+        />
       </div>
 
-      {shown && pair.target && (
+      {revealed && pair.target && (
         <div
           onMouseEnter={() => tgBeat && onPlayBeat(tgBeat)}
           style={{
-            marginTop: 10,
-            fontSize: focus ? 22 : 14,
-            lineHeight: 1.4,
+            marginTop: focus ? 10 : 5,
+            fontSize: focus ? 22 : 12,
+            lineHeight: focus ? 1.4 : 1.3,
             color: focus ? "#7dd3fc" : "#5b8aa6",
             cursor: "pointer",
           }}
@@ -586,19 +704,24 @@ function SentenceCard({
  *  hovering is a first-class way to hear something here, not just a visual state.
  *  Anything that toggles must NOT fire on hover. */
 function HoverButton({
-  label, onActivate, disabled, small, triggerOnHover,
+  label, onActivate, disabled, small, triggerOnHover, onHoverChange,
 }: {
   label: string;
   onActivate: () => void;
   disabled?: boolean;
   small?: boolean;
   triggerOnHover?: boolean;
+  onHoverChange?: (hovering: boolean) => void;
 }) {
   const [hover, setHover] = useState(false);
   return (
     <button
-      onMouseEnter={() => { setHover(true); if (triggerOnHover && !disabled) onActivate(); }}
-      onMouseLeave={() => setHover(false)}
+      onMouseEnter={() => {
+        setHover(true);
+        onHoverChange?.(true);
+        if (triggerOnHover && !disabled) onActivate();
+      }}
+      onMouseLeave={() => { setHover(false); onHoverChange?.(false); }}
       onClick={onActivate}
       disabled={disabled}
       style={{
@@ -613,74 +736,6 @@ function HoverButton({
     >
       {label}
     </button>
-  );
-}
-
-function NotesCard({
-  notes, beats, activeBeatId, highlight, onPlayBeat, derived,
-}: {
-  notes: string[];
-  beats: Beat[];
-  activeBeatId: string | null;
-  highlight: { beatId: string; wordIndex: number } | null;
-  onPlayBeat: (beat: Beat) => void;
-  derived: boolean;
-}) {
-  const [open, setOpen] = useState(false);
-
-  if (!open) {
-    return (
-      <div
-        onMouseEnter={() => setOpen(true)}
-        onClick={() => setOpen(true)}
-        style={{
-          textAlign: "center", padding: "34px 20px", borderRadius: 10, cursor: "pointer",
-          border: "1px dashed rgba(255,255,255,0.25)", color: "#94a3b8", fontSize: 15,
-        }}
-      >
-        Things to note — hover to reveal
-        <div style={{ fontSize: 12, marginTop: 6, color: "#64748b" }}>
-          {notes.length} point{notes.length === 1 ? "" : "s"}
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div onMouseLeave={() => setOpen(false)}>
-      <div style={{ fontSize: 11, color: "#fca5a5", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 12 }}>
-        Things to note
-        {derived && (
-          <span title="Split out of an older prose explanation — regenerate this video's lessons for purpose-written notes"
-                style={{ marginLeft: 8, color: "#fcd34d", textTransform: "none", letterSpacing: 0 }}>
-            derived
-          </span>
-        )}
-      </div>
-      <ul style={{ margin: 0, paddingLeft: 20, display: "flex", flexDirection: "column", gap: 12 }}>
-        {notes.map((note, i) => {
-          const beat = beats[i];
-          const isActive = beat && beat.id === activeBeatId;
-          return (
-            <li
-              key={i}
-              onMouseEnter={() => beat && onPlayBeat(beat)}
-              onClick={() => beat && onPlayBeat(beat)}
-              style={{
-                fontSize: 17, lineHeight: 1.5,
-                color: isActive ? "#fff" : "#cbd5e1",
-                background: isActive ? "rgba(239,68,68,0.14)" : "transparent",
-                borderRadius: 6, padding: "3px 8px", margin: "0 -8px", cursor: "pointer",
-              }}
-            >
-              {beat && highlight?.beatId === beat.id
-                ? <Highlighted text={note} wordIndex={highlight.wordIndex} />
-                : note}
-            </li>
-          );
-        })}
-      </ul>
-    </div>
   );
 }
 
