@@ -1043,7 +1043,7 @@ function SentenceCard({
           small
           onActivate={() => tgBeat && onPlayBeat(tgBeat)}
           disabled={!tgBeat}
-          label="▶"
+          label="▶ Spanish"
           title="Hear it in Spanish"
           triggerOnHover
           active={!!tgBeat && tgBeat.id === activeBeatId}

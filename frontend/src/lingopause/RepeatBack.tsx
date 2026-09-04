@@ -96,7 +96,7 @@ export default function RepeatBack({ target, langCode, ready, onPass }: Props) {
   const started = attempts > 0;
 
   return (
-    <span style={{ display: "inline-flex", alignItems: "center", gap: 5, flex: "1 1 60px", minWidth: 0 }}>
+    <span style={{ display: "inline-flex", alignItems: "center", gap: 5, flex: "1 1 46px", minWidth: 0, maxWidth: 130 }}>
       <input
         ref={inputRef}
         value={value}
@@ -117,10 +117,12 @@ export default function RepeatBack({ target, langCode, ready, onPass }: Props) {
         disabled={done}
         placeholder={done ? "" : "say it back"}
         style={{
-          // Flexes to whatever the row has left rather than claiming a fixed
-          // width, so it never pushes itself onto a second line. The status beside
-          // it keeps a fixed slot so the tick appearing cannot change the layout.
-          flex: "1 1 60px", minWidth: 0, width: "100%",
+          // Deliberately the narrowest thing on the row: it takes whatever is left
+          // after the buttons, so the labels stay readable. Being small costs
+          // nothing — Wispr pastes into it and it submits within a fraction of a
+          // second, so it is rarely read. The status beside it keeps a fixed slot,
+          // so the tick appearing cannot change the layout.
+          flex: "1 1 46px", minWidth: 0, width: "100%",
           padding: "3px 7px", fontSize: 11, borderRadius: 6,
           border: `1px solid ${done ? "rgba(16,185,129,0.6)" : autoSend.pending ? "rgba(239,68,68,0.6)" : "rgba(255,255,255,0.2)"}`,
           background: done ? "rgba(16,185,129,0.12)" : "rgba(0,0,0,0.3)",
