@@ -276,51 +276,39 @@ export default function LessonViewer({ videoId, apiBase = API_BASE, onProgress }
     <div ref={rootRef}>
       {/* Where you are in the set — and which phrase, in the space to the right */}
       <div style={{ ...PANEL, marginBottom: 12, padding: "12px 18px" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 14, marginBottom: 9, flexWrap: "wrap" }}>
-          <span style={{ fontSize: 13, color: "#94a3b8", whiteSpace: "nowrap" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 8, flexWrap: "wrap" }}>
+          <span style={{ fontSize: 12, color: "#94a3b8", whiteSpace: "nowrap", flexShrink: 0 }}>
             {index + 1} of {items.length} · {viewedCount} learned
           </span>
 
-          <div style={{ display: "flex", alignItems: "center", gap: 9, flex: 1, justifyContent: "flex-end", minWidth: 0 }}>
-            <span style={{
-              fontSize: 19, fontWeight: 700, color: "#e2e8f0",
-              overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
-            }}>
-              {item.term}
+          <span style={{
+            fontSize: 17, fontWeight: 700, color: "#e2e8f0",
+            overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0,
+          }}>
+            {item.term}
+          </span>
+          <span style={{
+            padding: "2px 7px", borderRadius: 999, fontSize: 10, fontWeight: 700, flexShrink: 0,
+            background: badge.bg, color: badge.fg, textTransform: "uppercase", letterSpacing: 0.4,
+          }}>
+            {item.kind}
+          </span>
+          {item.viewed && <span style={{ fontSize: 12, color: "#6ee7b7", flexShrink: 0 }}>✓</span>}
+          {item.derived_audio && (
+            <span title="Notes were split out of an older prose explanation — regenerate this video's lessons for purpose-written ones"
+                  style={{ fontSize: 11, color: "#fcd34d", flexShrink: 0 }}>
+              derived
             </span>
-            <span style={{
-              padding: "2px 8px", borderRadius: 999, fontSize: 10, fontWeight: 700, flexShrink: 0,
-              background: badge.bg, color: badge.fg, textTransform: "uppercase", letterSpacing: 0.4,
-            }}>
-              {item.kind}
-            </span>
-            {item.viewed && <span style={{ fontSize: 12, color: "#6ee7b7", flexShrink: 0 }}>✓</span>}
-            {item.derived_audio && (
-              <span title="Notes were split out of an older prose explanation — regenerate this video's lessons for purpose-written ones"
-                    style={{ fontSize: 11, color: "#fcd34d", flexShrink: 0 }}>
-                derived
-              </span>
-            )}
-          </div>
+          )}
+
+          {/* Shortcuts ride the same line, pushed right; they wrap to their own
+              line only when the phrase is long enough to need the room. */}
+          <span style={{ flex: 1, minWidth: 0 }} />
+          <span style={{ fontSize: 11, color: "#64748b", whiteSpace: "nowrap", flexShrink: 0 }}>
+            ← → slide · ⇧← → phrase · ⏎ next · esc stop
+          </span>
         </div>
 
-        <div style={{ display: "flex", gap: 3 }}>
-          {items.map((it, i) => (
-            <button
-              key={it.id}
-              onClick={() => setIndex(i)}
-              title={it.term}
-              style={{
-                flex: 1, height: 5, borderRadius: 3, border: "none", padding: 0, cursor: "pointer",
-                background: i === index ? "#ef4444" : it.viewed ? "rgba(16,185,129,0.7)" : "rgba(255,255,255,0.14)",
-              }}
-            />
-          ))}
-        </div>
-
-        <div style={{ fontSize: 11, color: "#64748b", marginTop: 8 }}>
-          ← → slides · shift ← → phrases · enter next · esc stop
-        </div>
       </div>
 
       {!item.has_lesson ? (
@@ -343,9 +331,6 @@ export default function LessonViewer({ videoId, apiBase = API_BASE, onProgress }
                 }}
               />
             ))}
-            <span style={{ marginLeft: 8, fontSize: 12, color: "#64748b" }}>
-              {blocks[blockIndex]?.label}
-            </span>
           </div>
 
           {/* The current slide, with the clip beside it rather than under it */}
@@ -374,6 +359,29 @@ export default function LessonViewer({ videoId, apiBase = API_BASE, onProgress }
                       videoReady={yt.ready}
                     />
                   )}
+
+                  {/* Navigation sits under the sentences, in their column: slides
+                      left, phrases right, mirroring the keyboard (← → versus
+                      shift ← →). Rendered even with no slides -- a phrase whose
+                      lesson is not generated must still be steppable with the
+                      mouse -- and both slide buttons disable themselves then. */}
+                  <div style={{ display: "flex", gap: 8, marginTop: 10, alignItems: "center", flexWrap: "wrap" }}>
+                    <button onClick={() => activate(Math.max(0, blockIndex - 1))}
+                            disabled={blockIndex === 0}
+                            style={{ ...BTN, padding: "5px 10px", fontSize: 12, opacity: blockIndex === 0 ? 0.4 : 1 }}>←</button>
+                    <button onClick={() => activate(blockIndex + 1)}
+                            disabled={blockIndex >= blocks.length - 1}
+                            style={{ ...BTN, padding: "5px 10px", fontSize: 12, opacity: blockIndex >= blocks.length - 1 ? 0.4 : 1 }}>Next slide →</button>
+
+                    <div style={{ flex: 1 }} />
+
+                    <button onClick={prevItem} disabled={index === 0}
+                            style={{ ...BTN, padding: "5px 10px", fontSize: 12, opacity: index === 0 ? 0.4 : 1 }}>⇧←</button>
+                    <button onClick={() => void nextItem()}
+                            style={{ ...BTN_PRIMARY, padding: "6px 14px", fontSize: 13 }}>
+                      {index < items.length - 1 ? "Next phrase ⇧→" : "Finish"}
+                    </button>
+                  </div>
                 </div>
 
                 {/* Right column: the clip, then the tutor / notes panel. The
@@ -409,29 +417,6 @@ export default function LessonViewer({ videoId, apiBase = API_BASE, onProgress }
 
         </>
       )}
-
-      {/* One row of navigation: slides on the left, phrases on the right — the
-          same split as the keyboard (← → versus shift ← →). Outside the
-          has-lesson branch so a phrase still missing its lesson can be stepped
-          past; with no slides, both slide buttons disable themselves. */}
-      <div style={{ display: "flex", gap: 10, marginTop: 12, alignItems: "center", flexWrap: "wrap" }}>
-        <button onClick={() => activate(Math.max(0, blockIndex - 1))}
-                disabled={blockIndex === 0}
-                style={{ ...BTN, opacity: blockIndex === 0 ? 0.4 : 1 }}>← Back</button>
-        <button onClick={() => activate(blockIndex + 1)}
-                disabled={blockIndex >= blocks.length - 1}
-                style={{ ...BTN, opacity: blockIndex >= blocks.length - 1 ? 0.4 : 1 }}>Next slide →</button>
-
-        <div style={{ flex: 1 }} />
-
-        <button onClick={prevItem} disabled={index === 0}
-                style={{ ...BTN, opacity: index === 0 ? 0.4 : 1 }}>
-          ⇧← Previous phrase
-        </button>
-        <button onClick={() => void nextItem()} style={BTN_PRIMARY}>
-          {index < items.length - 1 ? "Next phrase ⇧→" : "Finish"}
-        </button>
-      </div>
 
     </div>
   );
@@ -469,7 +454,7 @@ function SidePanel({
               onMouseEnter={() => setTab(key)}
               onClick={() => setTab(key)}
               style={{
-                flex: 1, padding: "10px 12px", fontSize: 12, fontWeight: active ? 700 : 500,
+                flex: 1, padding: "8px 12px", fontSize: 11, fontWeight: active ? 700 : 500,
                 border: "none", cursor: "pointer",
                 borderBottom: `2px solid ${active ? "#ef4444" : "transparent"}`,
                 background: active ? "rgba(239,68,68,0.08)" : "transparent",
@@ -490,7 +475,7 @@ function SidePanel({
         })}
       </div>
 
-      <div style={{ padding: 16 }}>
+      <div style={{ padding: 14 }}>
         {tab === "tutor" ? (
           <AskBox videoId={videoId} term={term} apiBase={apiBase} />
         ) : (
@@ -520,7 +505,7 @@ function NotesPanel({
 }) {
   return (
     <div>
-      <ul style={{ margin: 0, paddingLeft: 18, display: "flex", flexDirection: "column", gap: 10 }}>
+      <ul style={{ margin: 0, paddingLeft: 18, display: "flex", flexDirection: "column", gap: 9 }}>
         {notes.map((note, i) => {
           const beat = beats[i];
           const isActive = beat && beat.id === activeBeatId;
@@ -543,7 +528,7 @@ function NotesPanel({
           );
         })}
       </ul>
-      <button onClick={onPlayAll} style={{ ...BTN, marginTop: 12, fontSize: 12 }}>▶ Play all</button>
+      <button onClick={onPlayAll} style={{ ...BTN, marginTop: 10, fontSize: 12 }}>▶ Play all</button>
     </div>
   );
 }
@@ -567,19 +552,22 @@ function Slide({
 
   const stage: React.CSSProperties = {
     ...PANEL,
-    minHeight: 260,
-    padding: "32px 28px",
+    padding: "12px 14px",
     display: "flex",
     flexDirection: "column",
     justifyContent: "center",
+    // The slide label sits in a corner of this box rather than on a line of its
+    // own — it is orientation, not content.
+    position: "relative",
   };
 
   if (block.kind === "video") {
     // The player itself is mounted by the viewer and shown just below this slide —
     // it cannot live in here, because switching slides would unmount and destroy it.
     return (
-      <div style={{ ...stage, minHeight: 0, padding: 20 }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+      <div style={{ ...stage }}>
+        <SlideLabel text={block.label} />
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap", paddingRight: 70 }}>
           <span style={{ fontSize: 13, color: "#94a3b8" }}>
             {typeof block.timestamp_seconds === "number"
               ? `Rewinds to ${formatTime(Math.max(0, block.timestamp_seconds - 3))} and pauses just after the line`
@@ -596,7 +584,8 @@ function Slide({
 
   const pairs = block.pairs || [];
   return (
-    <div style={{ ...stage, gap: 10, justifyContent: "flex-start" }}>
+    <div style={{ ...stage, gap: 6, justifyContent: "flex-start" }}>
+      <SlideLabel text={block.label} />
       {pairs.map((pair, i) => (
         <SentenceCard
           key={i}
@@ -697,6 +686,20 @@ function SentenceCard({
         />
       </div>
     </div>
+  );
+}
+
+/** The slide's name, tucked into the top-right corner of its box so it costs no
+ *  vertical space. */
+function SlideLabel({ text }: { text: string }) {
+  return (
+    <span style={{
+      position: "absolute", top: 6, right: 10,
+      fontSize: 10, color: "#475569", textTransform: "uppercase", letterSpacing: 0.5,
+      pointerEvents: "none",
+    }}>
+      {text}
+    </span>
   );
 }
 
