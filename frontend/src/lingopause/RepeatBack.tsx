@@ -15,11 +15,20 @@
 // machinery every other mode uses, so the timing is consistent across the app.
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useWisprAutoSend } from "../sharedGameHooks";
-import { playUiSound } from "../audio/uiSounds";
-import { addAttempt, emptyCoverage, type Coverage } from "./coverage";
+import { playUiSound, preloadUiSound } from "../audio/uiSounds";
+import { addAttempt, emptyCoverage, words, type Coverage } from "./coverage";
 
-// Long enough to hear the bell and see it go green before moving on.
-const PASS_HOLD_MS = 1500;
+// Long enough to hear the bell land and see the box go green before moving on.
+const PASS_HOLD_MS = 1900;
+
+// The app-wide auto-send window is 3s, which is right when a wrong send costs a
+// turn. Here it costs nothing — coverage only ever accumulates, so an early submit
+// can be followed by another attempt. Waiting 3s to be told you were right is the
+// worst part of the interaction, so this is deliberately short.
+const SEND_WINDOW_MS = 700;
+// And when what was just pasted already finishes the sentence, there is nothing
+// left to wait for at all.
+const SEND_WINDOW_COMPLETE_MS = 120;
 
 type Props = {
   target: string;
@@ -61,7 +70,20 @@ export default function RepeatBack({ target, langCode, ready, onPass }: Props) {
     });
   }, [langCode, onPass]);
 
-  const autoSend = useWisprAutoSend({ value, onSubmit: submit, disabled: coverage.complete });
+  const autoSend = useWisprAutoSend({
+    value,
+    onSubmit: submit,
+    disabled: coverage.complete,
+    windowMs: (val) => {
+      const said = new Set(words(val, langCode));
+      const finishes = coverage.targets.every((t) => coverage.covered.has(t) || said.has(t));
+      return finishes ? SEND_WINDOW_COMPLETE_MS : SEND_WINDOW_MS;
+    },
+  });
+
+  // The bell is a 170KB file; fetching it on first play is why it used to sound
+  // after the screen had already moved on.
+  useEffect(() => { preloadUiSound("ring"); }, []);
 
   // Take focus when the sentence has just been spoken — that is the moment you are
   // meant to answer, and Wispr pastes into whatever has focus, so an unfocused box

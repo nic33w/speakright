@@ -259,17 +259,13 @@ export default function LessonViewer({ videoId, apiBase = API_BASE, onProgress }
    *  Walks `allBlocks`, not the slides — the notes are not a slide but are still
    *  part of the phrase, and are played in their original position (after the
    *  video's line) whether or not their tab happens to be showing. */
-  const playAll = useCallback(async (fromBeat = 0) => {
+  const runFrom = useCallback(async (startAt: number, fromBeat = 0) => {
     autoRef.current += 1;
     const run = autoRef.current;
     setAutoPlaying(true);
     pauseVideo();
 
-    // Start from the slide you are on, so Play resumes rather than restarting.
-    const from = allBlocks.findIndex((b) => b.id === blocks[blockIndex]?.id);
-    const startAt = from < 0 ? 0 : from;
-
-    for (let i = startAt; i < allBlocks.length; i++) {
+    for (let i = Math.max(0, startAt); i < allBlocks.length; i++) {
       if (run !== autoRef.current) return;
       const block = allBlocks[i];
 
@@ -308,7 +304,13 @@ export default function LessonViewer({ videoId, apiBase = API_BASE, onProgress }
       }
     }
     if (run === autoRef.current) setAutoPlaying(false);
-  }, [allBlocks, blockIndex, blocks, drill, pauseMs, pauseVideo, playAt, playBeats, waitWithProgress, player]);
+  }, [allBlocks, blocks, drill, pauseMs, pauseVideo, playAt, playBeats, waitWithProgress, player]);
+
+  /** Play from the slide you are on — what the Play button and space do. */
+  const playAll = useCallback((fromBeat = 0) => {
+    const at = allBlocks.findIndex((b) => b.id === blocks[blockIndex]?.id);
+    return runFrom(at < 0 ? 0 : at, fromBeat);
+  }, [allBlocks, blockIndex, blocks, runFrom]);
 
   /** Hover-to-hear. Ignored while a continuous run is going, so moving the mouse
    *  does not derail it. */
@@ -354,6 +356,19 @@ export default function LessonViewer({ videoId, apiBase = API_BASE, onProgress }
   const prevItem = useCallback(() => {
     setIndex((i) => Math.max(0, i - 1));
   }, []);
+
+  /** A passed drill continues the lesson from whatever comes NEXT in the phrase —
+   *  which after the video's line is the notes, not the following example. Sending
+   *  it to the next slide skipped the explanation entirely. */
+  const resumeAfterDrill = useCallback(() => {
+    const at = allBlocks.findIndex((b) => b.id === blocks[blockIndex]?.id);
+    if (at < 0 || at + 1 >= allBlocks.length) {
+      if (blockIndex < blocks.length - 1) activate(blockIndex + 1);
+      else void nextItem();
+      return;
+    }
+    void runFrom(at + 1);
+  }, [activate, allBlocks, blockIndex, blocks, nextItem, runFrom]);
 
   // Keyboard. Two axes, deliberately: ← → moves within the phrase you are on,
   // Shift + ← → jumps between phrases. Enter is the "just keep going" key — next
@@ -592,10 +607,7 @@ export default function LessonViewer({ videoId, apiBase = API_BASE, onProgress }
                       drill={drill}
                       langCode={targetLang}
                       lastPlayed={lastPlayed}
-                      onDrillPass={() => {
-                        if (blockIndex < blocks.length - 1) activate(blockIndex + 1);
-                        else void nextItem();
-                      }}
+                      onDrillPass={resumeAfterDrill}
                       videoReady={yt.ready}
                     />
                   )}
@@ -729,6 +741,12 @@ function SidePanel({
   // so the countdown between them belongs on the tab itself.
   const noteIds = new Set((notes?.beats || []).map((b) => b.id));
   const notesGap = gap && gap.afterBeatId && noteIds.has(gap.afterBeatId) ? gap : null;
+
+  // Show the notes when they start speaking. Hearing an explanation while the
+  // panel still shows the tutor box means reading nothing and hearing something.
+  useEffect(() => {
+    if (notesPlaying) setTab("notes");
+  }, [notesPlaying]);
 
   return (
     <div style={{ ...PANEL, padding: 0, overflow: "hidden", display: "flex", flexDirection: "column" }}>
