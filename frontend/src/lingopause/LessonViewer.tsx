@@ -153,9 +153,9 @@ export default function LessonViewer({ videoId, apiBase = API_BASE, onProgress }
   // How long to wait between clips. Remembered per browser — it is a comfort
   // setting, and re-choosing it every session would be its own annoyance.
   const [pauseMs, setPauseMs] = useState(loadPause);
-  // Say-it-back drill (8.14). Off by default: it turns a listening pass into a
-  // speaking one, which is a different session.
-  const [drill, setDrill] = useState(false);
+  // Say-it-back drill (8.14), on by default — saying it back is the point of
+  // pre-learning a phrase, not an extra mode you have to remember to switch on.
+  const [drill, setDrill] = useState(true);
   // The clip that most recently finished. The drill takes focus off the back of
   // its own sentence rather than on a timer.
   const [lastPlayed, setLastPlayed] = useState<string | null>(null);
@@ -993,6 +993,9 @@ function SentenceCard({
         background: speaking ? "rgba(239,68,68,0.09)" : hover ? "rgba(255,255,255,0.05)" : "transparent",
         borderRadius: 10,
         padding: focus ? "11px 13px" : "6px 10px",
+        // The drill's word pips sit just under the controls row, out of flow, so
+        // the card has to reserve their height itself.
+        paddingBottom: focus && drill ? 22 : undefined,
         transition: "border-color 0.15s, background 0.15s",
       }}
     >

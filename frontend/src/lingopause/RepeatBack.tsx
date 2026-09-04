@@ -93,7 +93,6 @@ export default function RepeatBack({ target, langCode, ready, onPass }: Props) {
   }, [ready, coverage.complete, attempts]);
 
   const done = coverage.complete;
-  const started = attempts > 0;
 
   return (
     <span style={{ display: "inline-flex", alignItems: "center", gap: 5, flex: "1 1 46px", minWidth: 0, maxWidth: 130 }}>
@@ -133,10 +132,31 @@ export default function RepeatBack({ target, langCode, ready, onPass }: Props) {
       {/* Fixed width, always present: the row must not get wider when the tick
           appears, or the input wraps under the buttons at the moment of success. */}
       <span style={{
-        width: 34, flexShrink: 0, fontSize: 10, whiteSpace: "nowrap",
+        width: 14, flexShrink: 0, fontSize: 10, whiteSpace: "nowrap",
         color: done ? "#6ee7b7" : "#94a3b8",
       }}>
-        {done ? "✓" : started ? `${coverage.missing.length} to go` : ""}
+        {done ? "✓" : ""}
+      </span>
+
+      {/* One pip per word, lighting up as you say it — the same read-at-a-glance
+          idea as the phrase timeline. Absolutely positioned under the controls row
+          so a long sentence cannot widen or wrap that row; the card reserves the
+          space with padding. */}
+      <span style={{
+        position: "absolute", top: "100%", left: 0, right: 0, marginTop: 5,
+        display: "flex", gap: 2, pointerEvents: "none",
+      }}>
+        {coverage.targets.map((word, i) => (
+          <span
+            key={`${word}-${i}`}
+            title={word}
+            style={{
+              flex: 1, height: 4, borderRadius: 2,
+              background: coverage.covered.has(word) ? "rgba(16,185,129,0.85)" : "rgba(255,255,255,0.14)",
+              transition: "background 0.25s",
+            }}
+          />
+        ))}
       </span>
     </span>
   );
