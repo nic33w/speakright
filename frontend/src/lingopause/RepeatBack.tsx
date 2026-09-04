@@ -118,21 +118,23 @@ export default function RepeatBack({ target, langCode, ready, onPass }: Props) {
         placeholder={done ? "" : "say it back"}
         style={{
           // Sized to sit on the same row as the Spanish buttons rather than
-          // wrapping under them.
-          width: 118, padding: "3px 8px", fontSize: 11, borderRadius: 6,
+          // wrapping under them — including once the status appears, which is why
+          // the status keeps a fixed width below rather than growing the row.
+          width: 100, padding: "3px 8px", fontSize: 11, borderRadius: 6,
           border: `1px solid ${done ? "rgba(16,185,129,0.6)" : autoSend.pending ? "rgba(239,68,68,0.6)" : "rgba(255,255,255,0.2)"}`,
           background: done ? "rgba(16,185,129,0.12)" : "rgba(0,0,0,0.3)",
           color: "#e2e8f0", fontFamily: "inherit",
           transition: "border-color 0.2s, background 0.2s",
         }}
       />
-      {done ? (
-        <span style={{ fontSize: 10, color: "#6ee7b7", whiteSpace: "nowrap" }}>✓</span>
-      ) : started ? (
-        <span style={{ fontSize: 10, color: "#94a3b8", whiteSpace: "nowrap" }}>
-          {coverage.missing.length} to go
-        </span>
-      ) : null}
+      {/* Fixed width, always present: the row must not get wider when the tick
+          appears, or the input wraps under the buttons at the moment of success. */}
+      <span style={{
+        width: 38, flexShrink: 0, fontSize: 10, whiteSpace: "nowrap",
+        color: done ? "#6ee7b7" : "#94a3b8",
+      }}>
+        {done ? "✓" : started ? `${coverage.missing.length} to go` : ""}
+      </span>
     </span>
   );
 }

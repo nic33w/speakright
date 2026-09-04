@@ -312,6 +312,26 @@ export default function LessonViewer({ videoId, apiBase = API_BASE, onProgress }
     return runFrom(at < 0 ? 0 : at, fromBeat);
   }, [allBlocks, blockIndex, blocks, runFrom]);
 
+  /** Move to the previous/next clip in this slide and play it.
+   *
+   *  If a continuous run is going, this does NOT just preview — it restarts the run
+   *  from the clip you landed on, so stepping mid-playback keeps the lesson
+   *  flowing instead of quietly turning it off. Pressing down during the countdown
+   *  simply gets you to the next sentence sooner. */
+  const stepClip = useCallback((delta: number) => {
+    const beats = blocks[blockIndex]?.beats || [];
+    if (!beats.length) return;
+    const next = Math.min(beats.length - 1, Math.max(0, beatIndex + delta));
+    setBeatIndex(next);
+    pauseVideo();
+    if (autoPlaying) {
+      const at = allBlocks.findIndex((b) => b.id === blocks[blockIndex]?.id);
+      void runFrom(at < 0 ? 0 : at, next);
+    } else {
+      void playBeat(beats[next]);
+    }
+  }, [allBlocks, autoPlaying, beatIndex, blockIndex, blocks, pauseVideo, playBeat, runFrom]);
+
   /** Hover-to-hear. Ignored while a continuous run is going, so moving the mouse
    *  does not derail it. */
   const previewBeat = useCallback((beat: Beat) => {
@@ -397,15 +417,7 @@ export default function LessonViewer({ videoId, apiBase = API_BASE, onProgress }
       } else if (e.key === "ArrowDown" || e.key === "ArrowUp") {
         // Within a slide, step clip by clip — the finest grain of the lesson.
         e.preventDefault();
-        const beats = blocks[blockIndex]?.beats || [];
-        if (!beats.length) return;
-        const next = Math.min(
-          beats.length - 1,
-          Math.max(0, beatIndex + (e.key === "ArrowDown" ? 1 : -1)),
-        );
-        setBeatIndex(next);
-        pauseVideo();
-        void playBeat(beats[next]);
+        stepClip(e.key === "ArrowDown" ? 1 : -1);
       } else if (e.key === " ") {
         e.preventDefault();
         if (autoPlaying) stopEverything();
@@ -416,8 +428,8 @@ export default function LessonViewer({ videoId, apiBase = API_BASE, onProgress }
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [activate, autoPlaying, beatIndex, blockIndex, blocks, nextItem, playAll, playBeat,
-      prevItem, stopEverything, pauseVideo]);
+  }, [activate, autoPlaying, beatIndex, blockIndex, blocks.length, nextItem, playAll,
+      prevItem, stepClip, stopEverything]);
 
   // --- Controller (standard mapping indices) --------------------------------
   // Mirrors messenger's layout where the two overlap, so muscle memory carries:
@@ -430,12 +442,6 @@ export default function LessonViewer({ videoId, apiBase = API_BASE, onProgress }
     onButtonChange: (e) => {
       if (!e.pressed) return;
       const beats = blocks[blockIndex]?.beats || [];
-      const stepBeat = (delta: number) => {
-        if (!beats.length) return;
-        const next = Math.min(beats.length - 1, Math.max(0, beatIndex + delta));
-        setBeatIndex(next);
-        previewBeat(beats[next]);
-      };
       switch (e.index) {
         // A — play from here, or pause if something is already running.
         case 0:
@@ -447,10 +453,10 @@ export default function LessonViewer({ videoId, apiBase = API_BASE, onProgress }
         case 5: activate(Math.min(blocks.length - 1, blockIndex + 1)); break; // RB — next slide
         case 6: prevItem(); break;                           // LT — previous phrase
         case 7: void nextItem(); break;                      // RT — next phrase
-        case 12: stepBeat(-1); break;                        // D-pad up — previous clip
-        case 13: stepBeat(1); break;                         // D-pad down — next clip
+        case 12: stepClip(-1); break;                        // D-pad up — previous clip
+        case 13: stepClip(1); break;                         // D-pad down — next clip
         case 14:                                             // D-pad left — repeat this clip
-          if (beats[beatIndex]) previewBeat(beats[beatIndex]);
+          if (beats[beatIndex]) { pauseVideo(); void playBeat(beats[beatIndex]); }
           break;
         case 15: {                                           // D-pad right — show/hide Spanish
           const block = blocks[blockIndex];
