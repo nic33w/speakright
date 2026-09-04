@@ -57,7 +57,9 @@ export function useLessonPlayer(apiBase: string = API_BASE) {
   const [playing, setPlaying] = useState(false);
   // The pause between clips, surfaced so the UI can count it down. A silent gap
   // with nothing on screen reads as "it stopped"; a visible one reads as "wait".
-  const [gap, setGap] = useState<{ elapsed: number; total: number } | null>(null);
+  // `afterBeatId` says which clip the pause follows, so the countdown can be drawn
+  // where playback actually is rather than always in one corner.
+  const [gap, setGap] = useState<{ elapsed: number; total: number; afterBeatId: string | null } | null>(null);
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const rafRef = useRef<number | null>(null);
@@ -167,7 +169,7 @@ export function useLessonPlayer(apiBase: string = API_BASE) {
   }, []);
 
   /** Sleep, reporting progress, and abort if the run was superseded. */
-  const waitWithProgress = useCallback((ms: number, run: number): Promise<boolean> => {
+  const waitWithProgress = useCallback((ms: number, run: number, afterBeatId: string | null = null): Promise<boolean> => {
     return new Promise<boolean>((resolve) => {
       const started = performance.now();
       const tick = () => {
@@ -182,7 +184,7 @@ export function useLessonPlayer(apiBase: string = API_BASE) {
           resolve(true);
           return;
         }
-        setGap({ elapsed, total: ms });
+        setGap({ elapsed, total: ms, afterBeatId });
         requestAnimationFrame(tick);
       };
       requestAnimationFrame(tick);
@@ -219,7 +221,7 @@ export function useLessonPlayer(apiBase: string = API_BASE) {
       if (audio_file) await playClip(audio_file, beat.id, words);
       if (run !== runRef.current) return;
       if (i < list.length - 1) {
-        if (!(await waitWithProgress(SEGMENT_PAUSE_MS, run))) return;
+        if (!(await waitWithProgress(SEGMENT_PAUSE_MS, run, beat.id))) return;
       }
     }
 

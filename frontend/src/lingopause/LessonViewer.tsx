@@ -72,6 +72,8 @@ export type LessonItem = {
   blocks: Block[];
 };
 
+type Gap = { elapsed: number; total: number; afterBeatId: string | null };
+
 type Props = {
   videoId: string;
   apiBase?: string;
@@ -216,18 +218,30 @@ export default function LessonViewer({ videoId, apiBase = API_BASE, onProgress }
   }, [stopLesson, pauseVideo]);
 
   /** Play the whole phrase straight through: every clip on every slide, advancing
-   *  slides on its own, with a visible pause between clips. */
+   *  slides on its own, with a visible pause between clips.
+   *
+   *  Walks `allBlocks`, not the slides — the notes are not a slide but are still
+   *  part of the phrase, and are played in their original position (after the
+   *  video's line) whether or not their tab happens to be showing. */
   const playAll = useCallback(async () => {
     autoRef.current += 1;
     const run = autoRef.current;
     setAutoPlaying(true);
     pauseVideo();
 
-    for (let i = blockIndex; i < blocks.length; i++) {
+    // Start from the slide you are on, so Play all resumes rather than restarting.
+    const from = allBlocks.findIndex((b) => b.id === blocks[blockIndex]?.id);
+    const startAt = from < 0 ? 0 : from;
+
+    for (let i = startAt; i < allBlocks.length; i++) {
       if (run !== autoRef.current) return;
-      const block = blocks[i];
-      setBlockIndex(i);
-      setBeatIndex(0);
+      const block = allBlocks[i];
+
+      if (block.kind !== "notes") {
+        const slideAt = blocks.findIndex((b) => b.id === block.id);
+        if (slideAt >= 0) setBlockIndex(slideAt);
+        setBeatIndex(0);
+      }
 
       if (block.kind === "video") {
         // The clip pauses itself at the end of the line; wait roughly that long
@@ -242,12 +256,13 @@ export default function LessonViewer({ videoId, apiBase = API_BASE, onProgress }
 
       await playBeats(block.beats);
       if (run !== autoRef.current) return;
-      if (i < blocks.length - 1) {
+      if (i < allBlocks.length - 1) {
+        // Between blocks the countdown belongs at the bottom, not beside a line.
         if (!(await waitWithProgress(SLIDE_GAP_MS, player.currentRun()))) return;
       }
     }
     if (run === autoRef.current) setAutoPlaying(false);
-  }, [blockIndex, blocks, pauseVideo, playAt, playBeats, waitWithProgress, player]);
+  }, [allBlocks, blockIndex, blocks, pauseVideo, playAt, playBeats, waitWithProgress, player]);
 
   /** Hover-to-hear. Ignored while a continuous run is going, so moving the mouse
    *  does not derail it. */
@@ -456,6 +471,7 @@ export default function LessonViewer({ videoId, apiBase = API_BASE, onProgress }
                       }
                       onPlayBeat={previewBeat}
                       onEndPreview={endPreview}
+                      gap={player.gap}
                       videoReady={yt.ready}
                     />
                   )}
@@ -474,7 +490,9 @@ export default function LessonViewer({ videoId, apiBase = API_BASE, onProgress }
                                background: autoPlaying ? "rgba(239,68,68,0.16)" : "rgba(255,255,255,0.06)" }}>
                       {autoPlaying ? "■ Stop" : "▶ Play all"}
                     </button>
-                    <GapMeter gap={player.gap} />
+                    {/* Only the between-block pause lands here; a pause that
+                        follows a specific clip is drawn beside that clip instead. */}
+                    <GapMeter gap={player.gap?.afterBeatId ? null : player.gap} />
                     <button onClick={() => activate(Math.max(0, blockIndex - 1))}
                             disabled={blockIndex === 0}
                             style={{ ...BTN, padding: "5px 10px", fontSize: 12, opacity: blockIndex === 0 ? 0.4 : 1 }}>←</button>
@@ -518,6 +536,8 @@ export default function LessonViewer({ videoId, apiBase = API_BASE, onProgress }
                     highlight={player.highlight}
                     onPlayBeat={previewBeat}
                     onEndPreview={endPreview}
+                    gap={player.gap}
+                    notesPlaying={!!notesBlock?.beats.some((b) => b.id === player.activeBeatId)}
                     onPlayNotes={() => { pauseVideo(); void playBeats(notesBlock?.beats || []); }}
                   />
                 </div>
@@ -538,7 +558,7 @@ export default function LessonViewer({ videoId, apiBase = API_BASE, onProgress }
  *  the default because the notes are there to be glanced at, not worked through —
  *  hovering their tab is enough to switch, no click needed. */
 function SidePanel({
-  videoId, term, apiBase, notes, activeBeatId, highlight, onPlayBeat, onEndPreview, onPlayNotes,
+  videoId, term, apiBase, notes, activeBeatId, highlight, onPlayBeat, onEndPreview, gap, notesPlaying, onPlayNotes,
 }: {
   videoId: string;
   term: string;
@@ -548,10 +568,16 @@ function SidePanel({
   highlight: { beatId: string; wordIndex: number } | null;
   onPlayBeat: (beat: Beat) => void;
   onEndPreview: (beat: Beat) => void;
+  gap: Gap | null;
+  notesPlaying: boolean;
   onPlayNotes: () => void;
 }) {
   const [tab, setTab] = useState<"tutor" | "notes">("tutor");
   const hasNotes = !!notes && (notes.notes || []).length > 0;
+  // The notes play as part of a continuous run whether or not their tab is open,
+  // so the countdown between them belongs on the tab itself.
+  const noteIds = new Set((notes?.beats || []).map((b) => b.id));
+  const notesGap = gap && gap.afterBeatId && noteIds.has(gap.afterBeatId) ? gap : null;
 
   return (
     <div style={{ ...PANEL, padding: 0, overflow: "hidden", display: "flex", flexDirection: "column" }}>
@@ -575,6 +601,14 @@ function SidePanel({
               }}
             >
               {key === "tutor" ? "Ask the tutor" : "Things to note"}
+              {key === "notes" && (notesPlaying || notesGap) && (
+                <span style={{ position: "relative", display: "inline-block", width: 0 }}>
+                  <GapMeter anchored gap={notesGap} />
+                  {notesPlaying && !notesGap && (
+                    <span style={{ position: "absolute", left: 8, top: -7, color: "#ef4444", fontSize: 12 }}>♪</span>
+                  )}
+                </span>
+              )}
               {key === "notes" && notes?.derived && (
                 <span title="Split out of an older prose explanation — regenerate this video's lessons for purpose-written notes"
                       style={{ marginLeft: 6, color: "#fcd34d", textTransform: "none", letterSpacing: 0 }}>
@@ -648,7 +682,7 @@ function NotesPanel({
 }
 
 function Slide({
-  block, shown, activeBeatId, highlight, onReplay, onToggleShown, onPlayBeat, onEndPreview, videoReady,
+  block, shown, activeBeatId, highlight, onReplay, onToggleShown, onPlayBeat, onEndPreview, gap, videoReady,
 }: {
   block: Block;
   shown: Set<string>;
@@ -658,6 +692,7 @@ function Slide({
   onToggleShown: (key: string) => void;
   onPlayBeat: (beat: Beat) => void;
   onEndPreview: (beat: Beat) => void;
+  gap: Gap | null;
   videoReady: boolean;
 }) {
   const beatById = useMemo(
@@ -713,6 +748,7 @@ function Slide({
           highlight={highlight}
           onPlayBeat={onPlayBeat}
           onEndPreview={onEndPreview}
+          gap={gap}
         />
       ))}
     </div>
@@ -725,7 +761,7 @@ function Slide({
  *  worth hearing in Spanish too, they are simply not what the slide is about. The
  *  focus sentence is set larger; the others are smaller and dimmer until hovered. */
 function SentenceCard({
-  pair, shown, onToggleShown, enBeat, tgBeat, activeBeatId, highlight, onPlayBeat, onEndPreview,
+  pair, shown, onToggleShown, enBeat, tgBeat, activeBeatId, highlight, onPlayBeat, onEndPreview, gap,
 }: {
   pair: Pair;
   shown: boolean;
@@ -736,6 +772,7 @@ function SentenceCard({
   highlight: { beatId: string; wordIndex: number } | null;
   onPlayBeat: (beat: Beat) => void;
   onEndPreview: (beat: Beat) => void;
+  gap: Gap | null;
 }) {
   const [hover, setHover] = useState(false);
   // Hovering "Show Spanish" reveals it for as long as you are there; clicking pins
@@ -771,8 +808,10 @@ function SentenceCard({
         }}
         style={{
           // Hugs the sentence rather than stretching across the card, so the blank
-          // space to its right is not a hover target.
+          // space to its right is not a hover target. Relative so the countdown can
+          // sit beside it without being in the flow.
           display: "inline-block",
+          position: "relative",
           width: "fit-content",
           maxWidth: "100%",
           fontSize: focus ? 21 : 12,
@@ -792,9 +831,11 @@ function SentenceCard({
             ? <Highlighted text={text} wordIndex={highlight.wordIndex} />
             : text;
         })()}
+        <GapMeter anchored gap={gap?.afterBeatId === (revealed ? tgBeat?.id : enBeat?.id) ? gap : null} />
       </div>
 
-      <div style={{ display: "flex", gap: 6, marginTop: focus ? 9 : 5, flexWrap: "wrap" }}>
+      <div style={{ display: "flex", gap: 6, marginTop: focus ? 9 : 5, flexWrap: "wrap",
+                    position: "relative", width: "fit-content" }}>
         <HoverButton
           small={!focus}
           onActivate={() => tgBeat && onPlayBeat(tgBeat)}
@@ -810,6 +851,7 @@ function SentenceCard({
           onHoverChange={setPeek}
           label={shown ? "Show English" : "Show Spanish"}
         />
+        <GapMeter anchored gap={gap?.afterBeatId === tgBeat?.id ? gap : null} />
       </div>
     </div>
   );
@@ -817,13 +859,20 @@ function SentenceCard({
 
 /** The pause between clips, drawn as a draining ring so a silent gap reads as
  *  "wait" rather than "it stopped". */
-function GapMeter({ gap }: { gap: { elapsed: number; total: number } | null }) {
+function GapMeter({ gap, anchored }: { gap: Gap | null; anchored?: boolean }) {
   const size = 18;
   const r = (size - 3) / 2;
   const circumference = 2 * Math.PI * r;
   const left = gap ? Math.max(0, 1 - gap.elapsed / gap.total) : 0;
+  if (anchored && !gap) return null;
   return (
-    <span style={{ width: size, height: size, display: "inline-block", opacity: gap ? 1 : 0, transition: "opacity 0.15s" }}>
+    <span style={anchored ? {
+      // Out of flow entirely: the countdown appears beside whatever just played
+      // without that element changing size or anything around it moving.
+      position: "absolute", left: "100%", top: "50%",
+      transform: "translateY(-50%)", marginLeft: 8,
+      width: size, height: size, pointerEvents: "none",
+    } : { width: size, height: size, display: "inline-block", opacity: gap ? 1 : 0, transition: "opacity 0.15s" }}>
       <svg width={size} height={size} style={{ transform: "rotate(-90deg)" }}>
         <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="rgba(255,255,255,0.15)" strokeWidth={2} />
         <circle
