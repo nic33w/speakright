@@ -204,6 +204,15 @@ export default function LessonViewer({ videoId, apiBase = API_BASE, onProgress }
     setLastPlayed(null);
   }, [index, stopLesson, pauseVideo]);
 
+  // The cursor follows playback. Without this it only tracks what the LEARNER
+  // last did, so stepping mid-run computes from a stale position.
+  useEffect(() => {
+    const id = player.activeBeatId;
+    if (!id) return;
+    const at = (blocks[blockIndex]?.beats || []).findIndex((b) => b.id === id);
+    if (at >= 0) setBeatIndex(at);
+  }, [player.activeBeatId, blockIndex, blocks]);
+
   // activeBeatId going from a clip back to null means that clip just finished.
   const prevActiveRef = useRef<string | null>(null);
   useEffect(() => {
@@ -272,7 +281,11 @@ export default function LessonViewer({ videoId, apiBase = API_BASE, onProgress }
       if (block.kind !== "notes") {
         const slideAt = blocks.findIndex((b) => b.id === block.id);
         if (slideAt >= 0) setBlockIndex(slideAt);
-        setBeatIndex(0);
+        // The block you jumped INTO keeps the clip you jumped to; only the ones
+        // after it start from their own beginning. Resetting unconditionally left
+        // the cursor at 0 while beat 4 was sounding, so the next step went to 1
+        // and playback bounced back to the start of the slide.
+        setBeatIndex(i === startAt ? fromBeat : 0);
       }
 
       if (block.kind === "video") {
@@ -1031,6 +1044,7 @@ function SentenceCard({
           disabled={!tgBeat}
           label="▶ Spanish"
           triggerOnHover
+          active={!!tgBeat && tgBeat.id === activeBeatId}
         />
         {/* Hovering peeks at the Spanish; clicking pins it. A plain hover-toggle
             would flip the sentence on and off every time the pointer crossed it. */}
@@ -1125,7 +1139,7 @@ function SlideLabel({ text }: { text: string }) {
  *  hovering is a first-class way to hear something here, not just a visual state.
  *  Anything that toggles must NOT fire on hover. */
 function HoverButton({
-  label, onActivate, disabled, small, triggerOnHover, onHoverChange,
+  label, onActivate, disabled, small, triggerOnHover, onHoverChange, active,
 }: {
   label: string;
   onActivate: () => void;
@@ -1133,6 +1147,8 @@ function HoverButton({
   small?: boolean;
   triggerOnHover?: boolean;
   onHoverChange?: (hovering: boolean) => void;
+  /** This button's clip is sounding right now. */
+  active?: boolean;
 }) {
   const [hover, setHover] = useState(false);
   return (
@@ -1150,9 +1166,12 @@ function HoverButton({
         padding: small ? "3px 9px" : "6px 12px",
         fontSize: small ? 11 : 13,
         opacity: disabled ? 0.4 : 1,
-        borderColor: hover && !disabled ? "rgba(239,68,68,0.6)" : "rgba(255,255,255,0.2)",
-        background: hover && !disabled ? "rgba(239,68,68,0.14)" : "rgba(255,255,255,0.06)",
-        transition: "border-color 0.15s, background 0.15s",
+        // Playing outranks hover: while a clip is sounding its button stays lit,
+        // so you can see where the audio is coming from without watching the text.
+        borderColor: active ? "#ef4444" : hover && !disabled ? "rgba(239,68,68,0.6)" : "rgba(255,255,255,0.2)",
+        background: active ? "rgba(239,68,68,0.28)" : hover && !disabled ? "rgba(239,68,68,0.14)" : "rgba(255,255,255,0.06)",
+        color: active ? "#fff" : "#e2e8f0",
+        transition: "border-color 0.15s, background 0.15s, color 0.15s",
       }}
     >
       {label}
