@@ -85,9 +85,15 @@ export function useLessonPlayer(apiBase: string = API_BASE) {
   useEffect(() => stop, [stop]);
 
   const fetchBeatAudio = useCallback(async (beat: Beat, withTimings: boolean): Promise<AudioPayload> => {
+    // Keyed by CONTENT, never by beat id. Beat ids are only unique within a
+    // phrase — every phrase has an "ex1en0" — so an id-keyed cache served the
+    // first phrase's clip for every later phrase's opening sentence.
     // A stitched beat always comes back with timings, so both variants are the
-    // same clip — one cache entry, not two.
-    const key = `${beat.id}:${beat.runs?.length ? "mixed" : withTimings}`;
+    // same clip: one cache entry, not two.
+    const body = beat.runs?.length
+      ? beat.runs.map((r) => `${r.voice}|${r.locale}|${r.text}`).join("~")
+      : beat.text;
+    const key = `${beat.voice}:${beat.locale}:${beat.runs?.length ? "mixed" : withTimings}:${body}`;
     const cached = cacheRef.current.get(key);
     if (cached) return cached;
     try {

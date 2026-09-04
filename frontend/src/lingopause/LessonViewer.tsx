@@ -249,6 +249,21 @@ export default function LessonViewer({ videoId, apiBase = API_BASE, onProgress }
     if (run === autoRef.current) setAutoPlaying(false);
   }, [blockIndex, blocks, pauseVideo, playAt, playBeats, waitWithProgress, player]);
 
+  /** Hover-to-hear. Ignored while a continuous run is going, so moving the mouse
+   *  does not derail it. */
+  const previewBeat = useCallback((beat: Beat) => {
+    if (autoPlaying) return;
+    pauseVideo();
+    void playBeat(beat);
+  }, [autoPlaying, pauseVideo, playBeat]);
+
+  /** Leaving a line stops its preview — but only its own, so ending a hover never
+   *  cuts off something else that started playing since. */
+  const endPreview = useCallback((beat: Beat) => {
+    if (autoPlaying) return;
+    if (player.activeBeatId === beat.id) stopLesson();
+  }, [autoPlaying, player.activeBeatId, stopLesson]);
+
   async function markViewed() {
     if (!item) return;
     try {
@@ -439,7 +454,8 @@ export default function LessonViewer({ videoId, apiBase = API_BASE, onProgress }
                           return next;
                         })
                       }
-                      onPlayBeat={(beat) => { pauseVideo(); void playBeat(beat); }}
+                      onPlayBeat={previewBeat}
+                      onEndPreview={endPreview}
                       videoReady={yt.ready}
                     />
                   )}
@@ -500,7 +516,8 @@ export default function LessonViewer({ videoId, apiBase = API_BASE, onProgress }
                     notes={notesBlock}
                     activeBeatId={player.activeBeatId}
                     highlight={player.highlight}
-                    onPlayBeat={(beat) => { pauseVideo(); void playBeat(beat); }}
+                    onPlayBeat={previewBeat}
+                    onEndPreview={endPreview}
                     onPlayNotes={() => { pauseVideo(); void playBeats(notesBlock?.beats || []); }}
                   />
                 </div>
@@ -521,7 +538,7 @@ export default function LessonViewer({ videoId, apiBase = API_BASE, onProgress }
  *  the default because the notes are there to be glanced at, not worked through —
  *  hovering their tab is enough to switch, no click needed. */
 function SidePanel({
-  videoId, term, apiBase, notes, activeBeatId, highlight, onPlayBeat, onPlayNotes,
+  videoId, term, apiBase, notes, activeBeatId, highlight, onPlayBeat, onEndPreview, onPlayNotes,
 }: {
   videoId: string;
   term: string;
@@ -530,6 +547,7 @@ function SidePanel({
   activeBeatId: string | null;
   highlight: { beatId: string; wordIndex: number } | null;
   onPlayBeat: (beat: Beat) => void;
+  onEndPreview: (beat: Beat) => void;
   onPlayNotes: () => void;
 }) {
   const [tab, setTab] = useState<"tutor" | "notes">("tutor");
@@ -578,6 +596,7 @@ function SidePanel({
             activeBeatId={activeBeatId}
             highlight={highlight}
             onPlayBeat={onPlayBeat}
+            onEndPreview={onEndPreview}
             onPlayAll={onPlayNotes}
           />
         )}
@@ -587,13 +606,14 @@ function SidePanel({
 }
 
 function NotesPanel({
-  notes, beats, activeBeatId, highlight, onPlayBeat, onPlayAll,
+  notes, beats, activeBeatId, highlight, onPlayBeat, onEndPreview, onPlayAll,
 }: {
   notes: string[];
   beats: Beat[];
   activeBeatId: string | null;
   highlight: { beatId: string; wordIndex: number } | null;
   onPlayBeat: (beat: Beat) => void;
+  onEndPreview: (beat: Beat) => void;
   onPlayAll: () => void;
 }) {
   return (
@@ -606,6 +626,7 @@ function NotesPanel({
             <li
               key={i}
               onMouseEnter={() => beat && onPlayBeat(beat)}
+              onMouseLeave={() => beat && onEndPreview(beat)}
               onClick={() => beat && onPlayBeat(beat)}
               style={{
                 fontSize: 14, lineHeight: 1.5,
@@ -627,7 +648,7 @@ function NotesPanel({
 }
 
 function Slide({
-  block, shown, activeBeatId, highlight, onReplay, onToggleShown, onPlayBeat, videoReady,
+  block, shown, activeBeatId, highlight, onReplay, onToggleShown, onPlayBeat, onEndPreview, videoReady,
 }: {
   block: Block;
   shown: Set<string>;
@@ -636,6 +657,7 @@ function Slide({
   onReplay: () => void;
   onToggleShown: (key: string) => void;
   onPlayBeat: (beat: Beat) => void;
+  onEndPreview: (beat: Beat) => void;
   videoReady: boolean;
 }) {
   const beatById = useMemo(
@@ -690,6 +712,7 @@ function Slide({
           activeBeatId={activeBeatId}
           highlight={highlight}
           onPlayBeat={onPlayBeat}
+          onEndPreview={onEndPreview}
         />
       ))}
     </div>
@@ -702,7 +725,7 @@ function Slide({
  *  worth hearing in Spanish too, they are simply not what the slide is about. The
  *  focus sentence is set larger; the others are smaller and dimmer until hovered. */
 function SentenceCard({
-  pair, shown, onToggleShown, enBeat, tgBeat, activeBeatId, highlight, onPlayBeat,
+  pair, shown, onToggleShown, enBeat, tgBeat, activeBeatId, highlight, onPlayBeat, onEndPreview,
 }: {
   pair: Pair;
   shown: boolean;
@@ -712,6 +735,7 @@ function SentenceCard({
   activeBeatId: string | null;
   highlight: { beatId: string; wordIndex: number } | null;
   onPlayBeat: (beat: Beat) => void;
+  onEndPreview: (beat: Beat) => void;
 }) {
   const [hover, setHover] = useState(false);
   // Hovering "Show Spanish" reveals it for as long as you are there; clicking pins
@@ -741,7 +765,16 @@ function SentenceCard({
           const beat = revealed ? tgBeat : enBeat;
           if (beat) onPlayBeat(beat);
         }}
+        onMouseLeave={() => {
+          const beat = revealed ? tgBeat : enBeat;
+          if (beat) onEndPreview(beat);
+        }}
         style={{
+          // Hugs the sentence rather than stretching across the card, so the blank
+          // space to its right is not a hover target.
+          display: "inline-block",
+          width: "fit-content",
+          maxWidth: "100%",
           fontSize: focus ? 21 : 12,
           fontWeight: focus ? 600 : 400,
           lineHeight: focus ? 1.35 : 1.3,

@@ -579,24 +579,46 @@ export default function LingoPauseMode({ fluent, learning, onBack, apiBase = API
               <div style={PANEL}>
                 <h3 style={{ fontSize: 15, fontWeight: 700, margin: "0 0 12px", color: "#94a3b8" }}>Recent videos</h3>
                 {recent.map((s) => (
-                  <button
+                  <div
                     key={s.video_id}
-                    onClick={() => void openSession(s.video_id)}
                     style={{
-                      display: "flex", gap: 12, alignItems: "center", width: "100%", textAlign: "left",
+                      display: "flex", gap: 12, alignItems: "center",
                       padding: 8, marginBottom: 6,
                       background: s.video_id === session?.video_id ? "rgba(255,255,255,0.1)" : "transparent",
-                      border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, color: "#e2e8f0", cursor: "pointer",
+                      border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8,
                     }}
                   >
-                    {s.thumbnail && <img src={s.thumbnail} alt="" style={{ width: 72, borderRadius: 4 }} />}
-                    <span>
-                      <span style={{ fontSize: 14 }}>{s.title || s.video_id}</span>
-                      <span style={{ display: "block", fontSize: 12, color: "#64748b", marginTop: 2 }}>
-                        {s.stage} · {s.candidate_count || 0} items
+                    {/* The row opens straight into the lesson — that is what a
+                        finished video is for. Setup stays reachable via Edit. */}
+                    <button
+                      onClick={() => void openSession(s.video_id, (s.confirmed_count || 0) > 0 ? "learn" : "vocab")}
+                      style={{
+                        display: "flex", gap: 12, alignItems: "center", flex: 1, minWidth: 0,
+                        background: "transparent", border: "none", color: "#e2e8f0",
+                        cursor: "pointer", textAlign: "left", padding: 0,
+                      }}
+                    >
+                      {s.thumbnail && <img src={s.thumbnail} alt="" style={{ width: 72, borderRadius: 4, flexShrink: 0 }} />}
+                      <span style={{ minWidth: 0 }}>
+                        <span style={{ fontSize: 14, display: "block", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                          {s.title || s.video_id}
+                        </span>
+                        <span style={{ display: "block", fontSize: 12, color: "#64748b", marginTop: 2 }}>
+                          {(s.confirmed_count || 0) > 0
+                            ? `${s.confirmed_count} to learn`
+                            : `${s.stage} · ${s.candidate_count || 0} items`}
+                        </span>
                       </span>
-                    </span>
-                  </button>
+                    </button>
+
+                    <button
+                      onClick={() => void openSession(s.video_id, "video")}
+                      title="Edit this video's vocabulary and lessons"
+                      style={{ ...BTN_SECONDARY, padding: "6px 12px", fontSize: 12, flexShrink: 0 }}
+                    >
+                      Edit
+                    </button>
+                  </div>
                 ))}
               </div>
             )}
