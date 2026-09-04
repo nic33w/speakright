@@ -35,7 +35,9 @@
 // lives here rather than in either hook, so neither needs to know the other exists.
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { API_BASE } from "../config";
-import { useLessonPlayer, type Beat } from "./useLessonPlayer";
+import {
+  useLessonPlayer, DEFAULT_PAUSE_MS, MIN_PAUSE_MS, MAX_PAUSE_MS, type Beat,
+} from "./useLessonPlayer";
 import { useYouTubePlayer } from "./useYouTubePlayer";
 import { apiFetch } from "./apiFetch";
 
@@ -113,9 +115,21 @@ const BTN_PRIMARY: React.CSSProperties = {
   color: "white",
 };
 
-// Pause between slides in a continuous run. Longer than the gap between clips
-// inside a slide — a slide change is a bigger step than the next sentence.
-const SLIDE_GAP_MS = 1600;
+// A slide change is a bigger step than the next sentence, so its pause scales up
+// with the learner's chosen one rather than being a separate setting to tune.
+const SLIDE_GAP_FACTOR = 1.45;
+
+const PAUSE_KEY = "lingopause.pauseMs";
+
+function loadPause(): number {
+  try {
+    const raw = Number(window.localStorage.getItem(PAUSE_KEY));
+    if (Number.isFinite(raw) && raw >= MIN_PAUSE_MS && raw <= MAX_PAUSE_MS) return raw;
+  } catch {
+    // Private windows and blocked site data both throw here; the default is fine.
+  }
+  return DEFAULT_PAUSE_MS;
+}
 
 function formatTime(seconds: number): string {
   const total = Math.max(0, Math.floor(seconds || 0));
@@ -133,6 +147,9 @@ export default function LessonViewer({ videoId, apiBase = API_BASE, onProgress }
   // Bumped to abort a continuous run; the per-clip abort lives in the player hook,
   // but walking from slide to slide is this component's loop.
   const autoRef = useRef(0);
+  // How long to wait between clips. Remembered per browser — it is a comfort
+  // setting, and re-choosing it every session would be its own annoyance.
+  const [pauseMs, setPauseMs] = useState(loadPause);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -144,7 +161,7 @@ export default function LessonViewer({ videoId, apiBase = API_BASE, onProgress }
   const blocks = useMemo(() => allBlocks.filter((b) => b.kind !== "notes"), [allBlocks]);
   const notesBlock = useMemo(() => allBlocks.find((b) => b.kind === "notes"), [allBlocks]);
 
-  const player = useLessonPlayer(apiBase);
+  const player = useLessonPlayer(apiBase, pauseMs);
   const yt = useYouTubePlayer(videoId);
   const { stop: stopLesson, playBeats, playBeat, waitWithProgress } = player;
   const { pause: pauseVideo, playAt, cueFrame } = yt;
@@ -258,11 +275,11 @@ export default function LessonViewer({ videoId, apiBase = API_BASE, onProgress }
       if (run !== autoRef.current) return;
       if (i < allBlocks.length - 1) {
         // Between blocks the countdown belongs at the bottom, not beside a line.
-        if (!(await waitWithProgress(SLIDE_GAP_MS, player.currentRun()))) return;
+        if (!(await waitWithProgress(pauseMs * SLIDE_GAP_FACTOR, player.currentRun()))) return;
       }
     }
     if (run === autoRef.current) setAutoPlaying(false);
-  }, [allBlocks, blockIndex, blocks, pauseVideo, playAt, playBeats, waitWithProgress, player]);
+  }, [allBlocks, blockIndex, blocks, pauseMs, pauseVideo, playAt, playBeats, waitWithProgress, player]);
 
   /** Hover-to-hear. Ignored while a continuous run is going, so moving the mouse
    *  does not derail it. */
@@ -499,6 +516,18 @@ export default function LessonViewer({ videoId, apiBase = API_BASE, onProgress }
                     <button onClick={() => activate(blockIndex + 1)}
                             disabled={blockIndex >= blocks.length - 1}
                             style={{ ...BTN, padding: "5px 10px", fontSize: 12, opacity: blockIndex >= blocks.length - 1 ? 0.4 : 1 }}>Next slide →</button>
+
+                    <PauseSlider
+                      value={pauseMs}
+                      onChange={(ms) => {
+                        setPauseMs(ms);
+                        try {
+                          window.localStorage.setItem(PAUSE_KEY, String(ms));
+                        } catch {
+                          // Not persisting is survivable; the session still honours it.
+                        }
+                      }}
+                    />
 
                     <div style={{ flex: 1 }} />
 
@@ -854,6 +883,30 @@ function SentenceCard({
         <GapMeter anchored gap={gap?.afterBeatId === tgBeat?.id ? gap : null} />
       </div>
     </div>
+  );
+}
+
+/** How long to wait between clips. */
+function PauseSlider({ value, onChange }: { value: number; onChange: (ms: number) => void }) {
+  return (
+    <label
+      title="Pause between clips"
+      style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: "#64748b" }}
+    >
+      <span>pause</span>
+      <input
+        type="range"
+        min={MIN_PAUSE_MS}
+        max={MAX_PAUSE_MS}
+        step={100}
+        value={value}
+        onChange={(e) => onChange(Number(e.target.value))}
+        style={{ width: 90, accentColor: "#ef4444", cursor: "pointer" }}
+      />
+      <span style={{ width: 30, textAlign: "right", fontVariantNumeric: "tabular-nums" }}>
+        {(value / 1000).toFixed(1)}s
+      </span>
+    </label>
   );
 }
 

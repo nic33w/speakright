@@ -43,15 +43,18 @@ export type Beat = {
   timestamp_seconds?: number;
 };
 
-// Gap between beats inside a block. These are separate thoughts rather than clauses
-// of one sentence, so the pause is longer than the 250ms clause break used inside a
-// sentence elsewhere in the app. Raised from 700ms after "feels too fast": a note
-// needs to land before the next one starts.
-const SEGMENT_PAUSE_MS = 1100;
+// Default gap between clips. These are separate thoughts rather than clauses of one
+// sentence, so the pause is longer than the 250ms clause break used inside a
+// sentence elsewhere in the app. Raised from 700ms after "feels too fast", and now
+// adjustable per learner — how long you need between sentences is not something a
+// constant can know.
+export const DEFAULT_PAUSE_MS = 1100;
+export const MIN_PAUSE_MS = 300;
+export const MAX_PAUSE_MS = 4000;
 
 type AudioPayload = { audio_file: string | null; words: WordTiming[] };
 
-export function useLessonPlayer(apiBase: string = API_BASE) {
+export function useLessonPlayer(apiBase: string = API_BASE, pauseMs: number = DEFAULT_PAUSE_MS) {
   const [activeBeatId, setActiveBeatId] = useState<string | null>(null);
   const [highlight, setHighlight] = useState<{ beatId: string; wordIndex: number } | null>(null);
   const [playing, setPlaying] = useState(false);
@@ -221,13 +224,13 @@ export function useLessonPlayer(apiBase: string = API_BASE) {
       if (audio_file) await playClip(audio_file, beat.id, words);
       if (run !== runRef.current) return;
       if (i < list.length - 1) {
-        if (!(await waitWithProgress(SEGMENT_PAUSE_MS, run, beat.id))) return;
+        if (!(await waitWithProgress(pauseMs, run, beat.id))) return;
       }
     }
 
     setActiveBeatId(null);
     setPlaying(false);
-  }, [fetchBeatAudio, playClip, stop, waitWithProgress]);
+  }, [fetchBeatAudio, pauseMs, playClip, stop, waitWithProgress]);
 
   return {
     activeBeatId, highlight, playing, gap,
