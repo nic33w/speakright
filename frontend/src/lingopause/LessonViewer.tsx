@@ -1037,12 +1037,14 @@ function SentenceCard({
       </div>
 
       <div style={{ display: "flex", gap: 6, marginTop: focus ? 8 : 5, alignItems: "center",
-                    flexWrap: "wrap", position: "relative", width: "fit-content" }}>
+                    flexWrap: "nowrap", position: "relative",
+                    width: focus ? "100%" : "fit-content" }}>
         <HoverButton
           small
           onActivate={() => tgBeat && onPlayBeat(tgBeat)}
           disabled={!tgBeat}
-          label="▶ Spanish"
+          label="▶"
+          title="Hear it in Spanish"
           triggerOnHover
           active={!!tgBeat && tgBeat.id === activeBeatId}
         />
@@ -1139,9 +1141,10 @@ function SlideLabel({ text }: { text: string }) {
  *  hovering is a first-class way to hear something here, not just a visual state.
  *  Anything that toggles must NOT fire on hover. */
 function HoverButton({
-  label, onActivate, disabled, small, triggerOnHover, onHoverChange, active,
+  label, title, onActivate, disabled, small, triggerOnHover, onHoverChange, active,
 }: {
   label: string;
+  title?: string;
   onActivate: () => void;
   disabled?: boolean;
   small?: boolean;
@@ -1161,8 +1164,11 @@ function HoverButton({
       onMouseLeave={() => { setHover(false); onHoverChange?.(false); }}
       onClick={onActivate}
       disabled={disabled}
+      title={title}
       style={{
         ...BTN,
+        flexShrink: 0,
+        whiteSpace: "nowrap",
         padding: small ? "3px 9px" : "6px 12px",
         fontSize: small ? 11 : 13,
         opacity: disabled ? 0.4 : 1,
