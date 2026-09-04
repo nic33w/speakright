@@ -2431,7 +2431,7 @@ between phrases.
 `tools/controller/f13_mapper.py` and consumed by Wispr — the browser cannot synthesize an OS
 keystroke, which is the whole reason that mapper exists (task 4.1). It becomes meaningful in 8.14.
 
-### [ ] 8.14 — Repeat-back drill: say it back, checked leniently 🔴 Opus
+### [x] 8.14 — Repeat-back drill: say it back, checked leniently 🔴 Opus
 
 Toggle per phrase: after hearing the Spanish, say it back and have it checked.
 
@@ -2443,12 +2443,12 @@ mark each word covered as it is said. A second attempt adds to the first, so lea
 then saying it passes. **Do not strip function words**: `se`, `ya`, `lo` are exactly what the
 constructions turn on.
 
-Open questions to settle first (do not guess):
-- Does a pass auto-advance, or go green and wait? The learner has pushed back on auto-advance
-  repeatedly, so green-and-wait is the likely answer — but it is the opposite of a normal drill.
-- Word order: ignored entirely, or must the covered words appear in order? Ignoring it is more
-  lenient and simpler; requiring order catches "said the right words in the wrong shape".
-- Repeats: does saying a word twice cover two occurrences of it, or one?
+**Settled:**
+- A pass goes green and then auto-advances after 1500ms — long enough to see it landed.
+- Word order is ignored entirely; coverage accumulates across attempts.
+- One occurrence covers all: the target is a SET of distinct words.
+- Function words are NOT stripped — `se`, `ya`, `lo` are what the constructions turn on.
+- Only the FOCUS sentence of a slide is drilled; the run-up and run-off are context.
 
 **Reuse, do not rebuild:** `useWisprAutoSend` (paste-detection + the ~1.5s send window),
 `GameTextarea` (auto-focus, Enter/Escape), `normalizeForMatch` + `checkFuzzyMatch`

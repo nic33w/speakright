@@ -41,6 +41,7 @@ import {
 } from "./useLessonPlayer";
 import { useYouTubePlayer } from "./useYouTubePlayer";
 import { apiFetch } from "./apiFetch";
+import RepeatBack from "./RepeatBack";
 
 type Pair = {
   english: string;
@@ -139,6 +140,7 @@ function formatTime(seconds: number): string {
 
 export default function LessonViewer({ videoId, apiBase = API_BASE, onProgress }: Props) {
   const [items, setItems] = useState<LessonItem[]>([]);
+  const [targetLang, setTargetLang] = useState("es");
   const [index, setIndex] = useState(0);
   const [blockIndex, setBlockIndex] = useState(0);
   const [shown, setShown] = useState<Set<string>>(new Set());
@@ -151,6 +153,9 @@ export default function LessonViewer({ videoId, apiBase = API_BASE, onProgress }
   // How long to wait between clips. Remembered per browser — it is a comfort
   // setting, and re-choosing it every session would be its own annoyance.
   const [pauseMs, setPauseMs] = useState(loadPause);
+  // Say-it-back drill (8.14). Off by default: it turns a listening pass into a
+  // speaking one, which is a different session.
+  const [drill, setDrill] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -174,7 +179,9 @@ export default function LessonViewer({ videoId, apiBase = API_BASE, onProgress }
     try {
       const res = await apiFetch(`${apiBase}/api/lingopause/beats/${videoId}`);
       if (!res.ok) throw new Error((await res.json()).detail || "Could not load lessons");
-      setItems((await res.json()).items || []);
+      const body = await res.json();
+      setItems(body.items || []);
+      setTargetLang(body.target_language?.code || "es");
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -559,6 +566,12 @@ export default function LessonViewer({ videoId, apiBase = API_BASE, onProgress }
                       onPlayBeat={previewBeat}
                       onEndPreview={endPreview}
                       gap={player.gap}
+                      drill={drill}
+                      langCode={targetLang}
+                      onDrillPass={() => {
+                        if (blockIndex < blocks.length - 1) activate(blockIndex + 1);
+                        else void nextItem();
+                      }}
                       videoReady={yt.ready}
                     />
                   )}
@@ -592,6 +605,15 @@ export default function LessonViewer({ videoId, apiBase = API_BASE, onProgress }
                     <button onClick={() => activate(blockIndex + 1)}
                             disabled={blockIndex >= blocks.length - 1}
                             style={{ ...BTN, padding: "5px 10px", fontSize: 12, opacity: blockIndex >= blocks.length - 1 ? 0.4 : 1 }}>Next slide →</button>
+
+                    <label
+                      title="Say each sentence back and have it checked"
+                      style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 11, color: drill ? "#6ee7b7" : "#64748b", cursor: "pointer" }}
+                    >
+                      <input type="checkbox" checked={drill} onChange={(e) => setDrill(e.target.checked)}
+                             style={{ accentColor: "#10b981", cursor: "pointer" }} />
+                      say it back
+                    </label>
 
                     <PauseSlider
                       value={pauseMs}
@@ -787,7 +809,8 @@ function NotesPanel({
 }
 
 function Slide({
-  block, shown, activeBeatId, highlight, onReplay, onToggleShown, onPlayBeat, onEndPreview, gap, videoReady,
+  block, shown, activeBeatId, highlight, onReplay, onToggleShown, onPlayBeat, onEndPreview, gap,
+  drill, langCode, onDrillPass, videoReady,
 }: {
   block: Block;
   shown: Set<string>;
@@ -798,6 +821,9 @@ function Slide({
   onPlayBeat: (beat: Beat) => void;
   onEndPreview: (beat: Beat) => void;
   gap: Gap | null;
+  drill: boolean;
+  langCode: string;
+  onDrillPass: () => void;
   videoReady: boolean;
 }) {
   const beatById = useMemo(
@@ -854,6 +880,9 @@ function Slide({
           onPlayBeat={onPlayBeat}
           onEndPreview={onEndPreview}
           gap={gap}
+          drill={drill}
+          langCode={langCode}
+          onDrillPass={onDrillPass}
         />
       ))}
     </div>
@@ -867,6 +896,7 @@ function Slide({
  *  focus sentence is set larger; the others are smaller and dimmer until hovered. */
 function SentenceCard({
   pair, shown, onToggleShown, enBeat, tgBeat, activeBeatId, highlight, onPlayBeat, onEndPreview, gap,
+  drill, langCode, onDrillPass,
 }: {
   pair: Pair;
   shown: boolean;
@@ -878,6 +908,9 @@ function SentenceCard({
   onPlayBeat: (beat: Beat) => void;
   onEndPreview: (beat: Beat) => void;
   gap: Gap | null;
+  drill: boolean;
+  langCode: string;
+  onDrillPass: () => void;
 }) {
   const [hover, setHover] = useState(false);
   // Hovering "Show Spanish" reveals it for as long as you are there; clicking pins
@@ -958,6 +991,15 @@ function SentenceCard({
         />
         <GapMeter anchored gap={gap?.afterBeatId === tgBeat?.id ? gap : null} />
       </div>
+
+      {drill && focus && pair.target && (
+        <RepeatBack
+          target={pair.target}
+          langCode={langCode}
+          onPass={onDrillPass}
+          onHear={tgBeat ? () => onPlayBeat(tgBeat) : undefined}
+        />
+      )}
     </div>
   );
 }
