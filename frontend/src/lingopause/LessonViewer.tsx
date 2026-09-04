@@ -269,16 +269,36 @@ export default function LessonViewer({ videoId, apiBase = API_BASE, onProgress }
 
   return (
     <div ref={rootRef}>
-      {/* Where you are in the set */}
-      <div style={{ ...PANEL, marginBottom: 14, padding: "12px 20px" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 9 }}>
-          <span style={{ fontSize: 13, color: "#94a3b8" }}>
+      {/* Where you are in the set — and which phrase, in the space to the right */}
+      <div style={{ ...PANEL, marginBottom: 12, padding: "12px 18px" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 14, marginBottom: 9, flexWrap: "wrap" }}>
+          <span style={{ fontSize: 13, color: "#94a3b8", whiteSpace: "nowrap" }}>
             {index + 1} of {items.length} · {viewedCount} learned
           </span>
-          <span style={{ fontSize: 12, color: "#64748b" }}>
-            ← → slides · shift ← → phrases · enter next · esc stop
-          </span>
+
+          <div style={{ display: "flex", alignItems: "center", gap: 9, flex: 1, justifyContent: "flex-end", minWidth: 0 }}>
+            <span style={{
+              fontSize: 19, fontWeight: 700, color: "#e2e8f0",
+              overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+            }}>
+              {item.term}
+            </span>
+            <span style={{
+              padding: "2px 8px", borderRadius: 999, fontSize: 10, fontWeight: 700, flexShrink: 0,
+              background: badge.bg, color: badge.fg, textTransform: "uppercase", letterSpacing: 0.4,
+            }}>
+              {item.kind}
+            </span>
+            {item.viewed && <span style={{ fontSize: 12, color: "#6ee7b7", flexShrink: 0 }}>✓</span>}
+            {item.derived_audio && (
+              <span title="Notes were split out of an older prose explanation — regenerate this video's lessons for purpose-written ones"
+                    style={{ fontSize: 11, color: "#fcd34d", flexShrink: 0 }}>
+                derived
+              </span>
+            )}
+          </div>
         </div>
+
         <div style={{ display: "flex", gap: 3 }}>
           {items.map((it, i) => (
             <button
@@ -292,25 +312,9 @@ export default function LessonViewer({ videoId, apiBase = API_BASE, onProgress }
             />
           ))}
         </div>
-      </div>
 
-      {/* The phrase */}
-      <div style={{ ...PANEL, marginBottom: 14 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-          <h2 style={{ fontSize: 23, fontWeight: 700, margin: 0 }}>{item.term}</h2>
-          <span style={{
-            padding: "3px 9px", borderRadius: 999, fontSize: 11, fontWeight: 700,
-            background: badge.bg, color: badge.fg, textTransform: "uppercase", letterSpacing: 0.4,
-          }}>
-            {item.kind}
-          </span>
-          {item.viewed && <span style={{ fontSize: 12, color: "#6ee7b7" }}>✓ learned</span>}
-          {item.derived_audio && (
-            <span title="Notes were split out of an older prose explanation — regenerate this video's lessons for purpose-written ones"
-                  style={{ fontSize: 11, color: "#fcd34d" }}>
-              derived notes
-            </span>
-          )}
+        <div style={{ fontSize: 11, color: "#64748b", marginTop: 8 }}>
+          ← → slides · shift ← → phrases · enter next · esc stop
         </div>
       </div>
 
@@ -339,42 +343,47 @@ export default function LessonViewer({ videoId, apiBase = API_BASE, onProgress }
             </span>
           </div>
 
-          {/* The current slide */}
-          {blocks[blockIndex] && (
-            <Slide
-              block={blocks[blockIndex]}
-              shown={shown.has(blocks[blockIndex].id)}
-              activeBeatId={player.activeBeatId}
-              highlight={player.highlight}
-              onReplay={() => activate(blockIndex)}
-              onToggleShown={() =>
-                setShown((prev) => {
-                  const next = new Set(prev);
-                  const id = blocks[blockIndex].id;
-                  if (next.has(id)) next.delete(id);
-                  else next.add(id);
-                  return next;
-                })
-              }
-              onPlayBeat={(beat) => { pauseVideo(); void playBeat(beat); }}
-              videoReady={yt.ready}
-            />
-          )}
-
+          {/* The current slide, with the clip beside it rather than under it */}
           {(() => {
             const current = blocks[blockIndex];
-            const wantsPlayer =
-              current && (current.kind === "video" || current.from_video === true);
+            const wantsPlayer = !!current && (current.kind === "video" || current.from_video === true);
             return (
-              <div style={{
-                marginTop: wantsPlayer ? 12 : 0,
-                height: wantsPlayer ? undefined : 0,
-                overflow: "hidden",
-                opacity: wantsPlayer ? 1 : 0,
-                transition: "opacity 0.2s",
-              }}>
-                <div style={{ position: "relative", paddingTop: "56.25%", borderRadius: 8, overflow: "hidden", background: "#000" }}>
-                  <div ref={yt.mountRef} style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }} />
+              <div style={{ display: "flex", gap: 14, alignItems: "flex-start", flexWrap: "wrap" }}>
+                <div style={{ flex: "1 1 340px", minWidth: 0 }}>
+                  {current && (
+                    <Slide
+                      block={current}
+                      shown={shown}
+                      activeBeatId={player.activeBeatId}
+                      highlight={player.highlight}
+                      onReplay={() => activate(blockIndex)}
+                      onToggleShown={(key) =>
+                        setShown((prev) => {
+                          const next = new Set(prev);
+                          if (next.has(key)) next.delete(key);
+                          else next.add(key);
+                          return next;
+                        })
+                      }
+                      onPlayBeat={(beat) => { pauseVideo(); void playBeat(beat); }}
+                      videoReady={yt.ready}
+                    />
+                  )}
+                </div>
+
+                {/* Mounted once, never unmounted: the IFrame API replaces the
+                    element it is given, so remounting per slide would rebuild the
+                    player every step and lose the frame it is parked on. */}
+                <div style={{
+                  flex: wantsPlayer ? `0 0 ${current?.kind === "video" ? 520 : 340}px` : "0 0 0px",
+                  maxWidth: "100%",
+                  opacity: wantsPlayer ? 1 : 0,
+                  overflow: "hidden",
+                  transition: "opacity 0.2s",
+                }}>
+                  <div style={{ position: "relative", paddingTop: "56.25%", borderRadius: 10, overflow: "hidden", background: "#000" }}>
+                    <div ref={yt.mountRef} style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }} />
+                  </div>
                 </div>
               </div>
             );
@@ -412,11 +421,11 @@ function Slide({
   block, shown, activeBeatId, highlight, onReplay, onToggleShown, onPlayBeat, videoReady,
 }: {
   block: Block;
-  shown: boolean;
+  shown: Set<string>;
   activeBeatId: string | null;
   highlight: { beatId: string; wordIndex: number } | null;
   onReplay: () => void;
-  onToggleShown: () => void;
+  onToggleShown: (key: string) => void;
   onPlayBeat: (beat: Beat) => void;
   videoReady: boolean;
 }) {
@@ -473,68 +482,137 @@ function Slide({
 
   const pairs = block.pairs || [];
   return (
-    <div style={stage}>
-      {pairs.map((pair, i) => {
-        const enBeat = pair.en_beat ? beatById[pair.en_beat] : undefined;
-        const tgBeat = pair.tg_beat ? beatById[pair.tg_beat] : undefined;
-        const focus = pair.is_focus;
-        return (
-          <div key={i} style={{ marginBottom: i === pairs.length - 1 ? 0 : focus ? 20 : 10 }}>
-            <div
-              onMouseEnter={() => enBeat && onPlayBeat(enBeat)}
-              style={{
-                // The taught sentence is the point of the slide; the rest is the
-                // run-up and run-off, present for context but visibly secondary.
-                fontSize: focus ? 26 : 15,
-                fontWeight: focus ? 600 : 400,
-                lineHeight: 1.4,
-                color: focus
-                  ? (enBeat && enBeat.id === activeBeatId ? "#fff" : "#e2e8f0")
-                  : "#64748b",
-                cursor: "pointer",
-              }}
-            >
-              {enBeat && highlight?.beatId === enBeat.id
-                ? <Highlighted text={pair.english} wordIndex={highlight.wordIndex} />
-                : pair.english}
-            </div>
-
-            {focus && (
-              <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", marginTop: 14 }}>
-                <button
-                  onMouseEnter={() => tgBeat && onPlayBeat(tgBeat)}
-                  onClick={() => tgBeat && onPlayBeat(tgBeat)}
-                  style={BTN}
-                  disabled={!tgBeat}
-                >
-                  ▶ Hear it in Spanish
-                </button>
-                <button onMouseEnter={onToggleShown} onClick={onToggleShown} style={BTN}>
-                  {shown ? "Hide Spanish" : "Show Spanish"}
-                </button>
-              </div>
-            )}
-
-            {shown && pair.target && (
-              <div
-                onMouseEnter={() => tgBeat && onPlayBeat(tgBeat)}
-                style={{
-                  marginTop: focus ? 14 : 4,
-                  fontSize: focus ? 24 : 14,
-                  lineHeight: 1.4,
-                  color: focus ? "#7dd3fc" : "#475569",
-                  cursor: "pointer",
-                }}
-              >
-                {tgBeat && highlight?.beatId === tgBeat.id
-                  ? <Highlighted text={pair.target} wordIndex={highlight.wordIndex} />
-                  : pair.target}
-              </div>
-            )}
-          </div>
-        );
-      })}
+    <div style={{ ...stage, gap: 10, justifyContent: "flex-start" }}>
+      {pairs.map((pair, i) => (
+        <SentenceCard
+          key={i}
+          pair={pair}
+          shown={shown.has(`${block.id}:${i}`)}
+          onToggleShown={() => onToggleShown(`${block.id}:${i}`)}
+          enBeat={pair.en_beat ? beatById[pair.en_beat] : undefined}
+          tgBeat={pair.tg_beat ? beatById[pair.tg_beat] : undefined}
+          activeBeatId={activeBeatId}
+          highlight={highlight}
+          onPlayBeat={onPlayBeat}
+        />
+      ))}
     </div>
+  );
+}
+
+/** One sentence: English, then its own audio and reveal controls.
+ *
+ *  Every sentence gets these, not just the taught one — the run-up and run-off are
+ *  worth hearing in Spanish too, they are simply not what the slide is about. The
+ *  focus sentence is set larger; the others are smaller and dimmer until hovered. */
+function SentenceCard({
+  pair, shown, onToggleShown, enBeat, tgBeat, activeBeatId, highlight, onPlayBeat,
+}: {
+  pair: Pair;
+  shown: boolean;
+  onToggleShown: () => void;
+  enBeat?: Beat;
+  tgBeat?: Beat;
+  activeBeatId: string | null;
+  highlight: { beatId: string; wordIndex: number } | null;
+  onPlayBeat: (beat: Beat) => void;
+}) {
+  const [hover, setHover] = useState(false);
+  const focus = pair.is_focus;
+  const speaking = (enBeat && enBeat.id === activeBeatId) || (tgBeat && tgBeat.id === activeBeatId);
+
+  return (
+    <div
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+      style={{
+        border: `1px solid ${speaking ? "rgba(239,68,68,0.6)" : hover ? "rgba(255,255,255,0.28)" : "rgba(255,255,255,0.12)"}`,
+        background: speaking ? "rgba(239,68,68,0.09)" : hover ? "rgba(255,255,255,0.05)" : "transparent",
+        borderRadius: 10,
+        padding: focus ? "16px 18px" : "11px 14px",
+        transition: "border-color 0.15s, background 0.15s",
+      }}
+    >
+      <div
+        onMouseEnter={() => enBeat && onPlayBeat(enBeat)}
+        style={{
+          fontSize: focus ? 24 : 14,
+          fontWeight: focus ? 600 : 400,
+          lineHeight: 1.4,
+          color: focus ? "#e2e8f0" : hover ? "#cbd5e1" : "#64748b",
+          cursor: "pointer",
+          transition: "color 0.15s",
+        }}
+      >
+        {enBeat && highlight?.beatId === enBeat.id
+          ? <Highlighted text={pair.english} wordIndex={highlight.wordIndex} />
+          : pair.english}
+      </div>
+
+      <div style={{ display: "flex", gap: 8, marginTop: focus ? 12 : 8, flexWrap: "wrap" }}>
+        <HoverButton
+          small={!focus}
+          onActivate={() => tgBeat && onPlayBeat(tgBeat)}
+          disabled={!tgBeat}
+          label="▶ Spanish"
+          triggerOnHover
+        />
+        {/* Reveal is a toggle, so hover only highlights it — hover-to-toggle would
+            flip the sentence on and off every time the pointer crossed it. */}
+        <HoverButton small={!focus} onActivate={onToggleShown} label={shown ? "Hide" : "Show Spanish"} />
+      </div>
+
+      {shown && pair.target && (
+        <div
+          onMouseEnter={() => tgBeat && onPlayBeat(tgBeat)}
+          style={{
+            marginTop: 10,
+            fontSize: focus ? 22 : 14,
+            lineHeight: 1.4,
+            color: focus ? "#7dd3fc" : "#5b8aa6",
+            cursor: "pointer",
+          }}
+        >
+          {tgBeat && highlight?.beatId === tgBeat.id
+            ? <Highlighted text={pair.target} wordIndex={highlight.wordIndex} />
+            : pair.target}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** A button that highlights on hover, and for playback also fires on hover —
+ *  hovering is a first-class way to hear something here, not just a visual state.
+ *  Anything that toggles must NOT fire on hover. */
+function HoverButton({
+  label, onActivate, disabled, small, triggerOnHover,
+}: {
+  label: string;
+  onActivate: () => void;
+  disabled?: boolean;
+  small?: boolean;
+  triggerOnHover?: boolean;
+}) {
+  const [hover, setHover] = useState(false);
+  return (
+    <button
+      onMouseEnter={() => { setHover(true); if (triggerOnHover && !disabled) onActivate(); }}
+      onMouseLeave={() => setHover(false)}
+      onClick={onActivate}
+      disabled={disabled}
+      style={{
+        ...BTN,
+        padding: small ? "3px 9px" : "6px 12px",
+        fontSize: small ? 11 : 13,
+        opacity: disabled ? 0.4 : 1,
+        borderColor: hover && !disabled ? "rgba(239,68,68,0.6)" : "rgba(255,255,255,0.2)",
+        background: hover && !disabled ? "rgba(239,68,68,0.14)" : "rgba(255,255,255,0.06)",
+        transition: "border-color 0.15s, background 0.15s",
+      }}
+    >
+      {label}
+    </button>
   );
 }
 

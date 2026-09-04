@@ -410,7 +410,12 @@ export default function LingoPauseMode({ fluent, learning, onBack, apiBase = API
     }}>
       <div style={{ maxWidth: 900, margin: "0 auto" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 20 }}>
-          <button onClick={onBack} style={{ ...BTN_SECONDARY, padding: "8px 16px" }}>← Back</button>
+          <button
+            onClick={() => (tab === "learn" ? setTab("lessons") : onBack())}
+            style={{ ...BTN_SECONDARY, padding: "8px 16px" }}
+          >
+            ← Back
+          </button>
           <div style={{ flex: 1 }}>
             <h1 style={{ fontSize: 26, fontWeight: 700, margin: 0 }}>LingoPause</h1>
             <p style={{ margin: "4px 0 0", fontSize: 13, color: "#94a3b8" }}>
@@ -424,7 +429,9 @@ export default function LingoPauseMode({ fluent, learning, onBack, apiBase = API
           )}
         </div>
 
-        {/* Stepper */}
+        {/* Stepper — hidden once learning starts; Back steps out of it instead,
+            so the whole width belongs to the lesson. */}
+        {tab !== "learn" && (
         <div style={{ display: "flex", gap: 8, marginBottom: 20 }}>
           {TABS.map((t) => {
             const active = tab === t.key;
@@ -452,6 +459,7 @@ export default function LingoPauseMode({ fluent, learning, onBack, apiBase = API
             );
           })}
         </div>
+        )}
 
         {error && (
           <div style={{
