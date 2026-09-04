@@ -41,6 +41,8 @@ type YTPlayer = {
   playVideo: () => void;
   pauseVideo: () => void;
   getCurrentTime: () => number;
+  mute: () => void;
+  unMute: () => void;
   destroy: () => void;
 };
 
@@ -72,6 +74,11 @@ export type YouTubeControl = {
    *  the phrase is not already half over when playback starts. When `until` is
    *  given, playback pauses itself shortly after that point. */
   playAt: (seconds: number, until?: number | null, lead?: number) => void;
+  /** Park the player on the exact frame at `seconds`, silently. This is how a
+   *  still of "where they say this" is produced: YouTube exposes no arbitrary-time
+   *  thumbnail, and its storyboard sheets sample only ~1 frame per 9s (measured),
+   *  so neighbouring phrases resolve to the same picture. */
+  cueFrame: (seconds: number) => void;
   pause: () => void;
   mountRef: (el: HTMLDivElement | null) => void;
 };
@@ -81,6 +88,8 @@ export function useYouTubePlayer(videoId: string | null, onStateChange?: (playin
   // Interval that watches playback position so the clip can pause itself at the
   // end of the line.
   const watchRef = useRef<number | null>(null);
+  // Set while cueing a still: the next PLAYING event pauses instead of playing on.
+  const freezeRef = useRef(false);
   const [ready, setReady] = useState(false);
   // The mount element is STATE, not a ref, on purpose. The host renders loading and
   // empty states before the player container exists, so an effect keyed only on
@@ -118,7 +127,19 @@ export function useYouTubePlayer(videoId: string | null, onStateChange?: (playin
         events: {
           onReady: () => { if (!cancelled) setReady(true); },
           onStateChange: (e: { data: number }) => {
-            stateChangeRef.current?.(e.data === window.YT?.PlayerState.PLAYING);
+            const playing = e.data === window.YT?.PlayerState.PLAYING;
+            if (playing && freezeRef.current) {
+              freezeRef.current = false;
+              const player = playerRef.current;
+              try {
+                player?.pauseVideo();
+                player?.unMute();
+              } catch {
+                // Nothing to recover — the frame simply stays as it is.
+              }
+              return;
+            }
+            stateChangeRef.current?.(playing);
           },
         },
       });
@@ -144,6 +165,13 @@ export function useYouTubePlayer(videoId: string | null, onStateChange?: (playin
   const playAt = useCallback((seconds: number, until: number | null = null, lead = LEAD_SECS) => {
     const player = playerRef.current;
     if (!player) return;
+    // A real play cancels any pending freeze, or the clip would stop instantly.
+    freezeRef.current = false;
+    try {
+      player.unMute();
+    } catch {
+      // Not ready yet; it is unmuted by default anyway.
+    }
     if (watchRef.current !== null) {
       window.clearInterval(watchRef.current);
       watchRef.current = null;
@@ -176,6 +204,26 @@ export function useYouTubePlayer(videoId: string | null, onStateChange?: (playin
     }
   }, []);
 
+  const cueFrame = useCallback((seconds: number) => {
+    const player = playerRef.current;
+    if (!player) return;
+    if (watchRef.current !== null) {
+      window.clearInterval(watchRef.current);
+      watchRef.current = null;
+    }
+    // Seeking alone does not repaint a never-started player, so it has to actually
+    // play for an instant. Muted, and paused again as soon as it reports PLAYING,
+    // which reads as a still rather than as playback.
+    freezeRef.current = true;
+    try {
+      player.mute();
+      player.seekTo(Math.max(0, seconds), true);
+      player.playVideo();
+    } catch {
+      freezeRef.current = false;
+    }
+  }, []);
+
   const pause = useCallback(() => {
     if (watchRef.current !== null) {
       window.clearInterval(watchRef.current);
@@ -188,5 +236,5 @@ export function useYouTubePlayer(videoId: string | null, onStateChange?: (playin
     }
   }, []);
 
-  return { ready, playAt, pause, mountRef };
+  return { ready, playAt, cueFrame, pause, mountRef };
 }

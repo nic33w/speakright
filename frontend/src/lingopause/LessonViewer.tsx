@@ -128,7 +128,7 @@ export default function LessonViewer({ videoId, apiBase = API_BASE, onProgress }
   const player = useLessonPlayer(apiBase);
   const yt = useYouTubePlayer(videoId);
   const { stop: stopLesson, playBeats, playBeat } = player;
-  const { pause: pauseVideo, playAt } = yt;
+  const { pause: pauseVideo, playAt, cueFrame } = yt;
   const rootRef = useRef<HTMLDivElement | null>(null);
 
   const load = useCallback(async () => {
@@ -168,8 +168,12 @@ export default function LessonViewer({ videoId, apiBase = API_BASE, onProgress }
       }
       return;
     }
+    // On the video's own line, park the clip on the exact frame where it is said.
+    if (block.from_video && typeof block.timestamp_seconds === "number") {
+      cueFrame(block.timestamp_seconds);
+    }
     void playBeats(block.beats);
-  }, [blocks, pauseVideo, playAt, playBeats, stopLesson]);
+  }, [blocks, cueFrame, pauseVideo, playAt, playBeats, stopLesson]);
 
   async function markViewed() {
     if (!item) return;
@@ -318,10 +322,28 @@ export default function LessonViewer({ videoId, apiBase = API_BASE, onProgress }
                 })
               }
               onPlayBeat={(beat) => { pauseVideo(); void playBeat(beat); }}
-              mountVideo={yt.mountRef}
               videoReady={yt.ready}
             />
           )}
+
+          {(() => {
+            const current = blocks[blockIndex];
+            const wantsPlayer =
+              current && (current.kind === "video" || current.from_video === true);
+            return (
+              <div style={{
+                marginTop: wantsPlayer ? 12 : 0,
+                height: wantsPlayer ? undefined : 0,
+                overflow: "hidden",
+                opacity: wantsPlayer ? 1 : 0,
+                transition: "opacity 0.2s",
+              }}>
+                <div style={{ position: "relative", paddingTop: "56.25%", borderRadius: 8, overflow: "hidden", background: "#000" }}>
+                  <div ref={yt.mountRef} style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }} />
+                </div>
+              </div>
+            );
+          })()}
 
           <div style={{ display: "flex", gap: 10, marginTop: 12 }}>
             <button onClick={() => activate(Math.max(0, blockIndex - 1))}
@@ -348,7 +370,7 @@ export default function LessonViewer({ videoId, apiBase = API_BASE, onProgress }
 }
 
 function Slide({
-  block, shown, activeBeatId, highlight, onReplay, onToggleShown, onPlayBeat, mountVideo, videoReady,
+  block, shown, activeBeatId, highlight, onReplay, onToggleShown, onPlayBeat, videoReady,
 }: {
   block: Block;
   shown: boolean;
@@ -357,7 +379,6 @@ function Slide({
   onReplay: () => void;
   onToggleShown: () => void;
   onPlayBeat: (beat: Beat) => void;
-  mountVideo: (el: HTMLDivElement | null) => void;
   videoReady: boolean;
 }) {
   const beatById = useMemo(
@@ -375,21 +396,20 @@ function Slide({
   };
 
   if (block.kind === "video") {
+    // The player itself is mounted by the viewer and shown just below this slide —
+    // it cannot live in here, because switching slides would unmount and destroy it.
     return (
-      <div style={{ ...stage, padding: 20 }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12, gap: 12, flexWrap: "wrap" }}>
+      <div style={{ ...stage, minHeight: 0, padding: 20 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
           <span style={{ fontSize: 13, color: "#94a3b8" }}>
             {typeof block.timestamp_seconds === "number"
               ? `Rewinds to ${formatTime(Math.max(0, block.timestamp_seconds - 3))} and pauses just after the line`
               : "No timestamp for this phrase"}
           </span>
-          <div style={{ display: "flex", gap: 8 }}>
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
             {!videoReady && <span style={{ fontSize: 12, color: "#64748b" }}>player loading…</span>}
             <button onClick={onReplay} style={BTN}>▶ Play the line</button>
           </div>
-        </div>
-        <div style={{ position: "relative", paddingTop: "56.25%", borderRadius: 8, overflow: "hidden", background: "#000" }}>
-          <div ref={mountVideo} style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }} />
         </div>
       </div>
     );
